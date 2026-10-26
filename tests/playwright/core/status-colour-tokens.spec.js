@@ -524,9 +524,18 @@ const DASHBOARD_STATUS_TEXT = {
   "inventory gain/loss": "#inventoryTable td[data-column='gainLoss']",
 };
 
-/** Lists every Dashboard status text below AA or carrying an inline colour. */
+/**
+ * Lists every Dashboard status text below AA or carrying an inline colour, and every
+ * Gain/Loss label whose colour differs from its value.
+ */
 async function dashboardStatusFailures(page) {
-  const failures = [];
+  const failures = await page.evaluate(() =>
+    Array.from(document.querySelectorAll("#tabViewDashboard .total-item-bottom-line"))
+      .map((row) => [row.querySelector(".total-label"), row.querySelector(".total-value > span")])
+      .filter(([label, value]) => label && value)
+      .filter(([label, value]) => getComputedStyle(label).color !== getComputedStyle(value).color)
+      .map(([label]) => `"${label.textContent}" label colour differs from its value`)
+  );
   for (const [what, selector] of Object.entries(DASHBOARD_STATUS_TEXT)) {
     const records = await measureText(page, selector);
     if (!records.length) failures.push(`${what}: nothing rendered`);

@@ -581,8 +581,7 @@
     const retailDisplay = hasRetailSignal ? formatCurrency(retailTotal) : "—";
     const gainLossDisplay =
       gainLoss !== null && hasRetailSignal ? formatCurrency(Math.abs(gainLoss)) : "—";
-    const gainLossColor =
-      gainLoss > 0 ? "var(--success)" : gainLoss < 0 ? "var(--danger)" : "var(--text-primary)";
+    const gainLossToneClass = gainLoss > 0 ? "gl-gain" : gainLoss < 0 ? "gl-loss" : "";
     const gainLossPrefix = gainLoss > 0 ? "+" : gainLoss < 0 ? "-" : "";
     const retailCellClass =
       gbDenomPrice || isManualRetail ? "retail-confirmed" : "retail-estimated";
@@ -591,7 +590,12 @@
       : gbDenomPrice
         ? "Goldback denomination price"
         : "Estimated — defaults to melt value";
-    const gainLossCellClass = !isManualRetail && gainLoss !== null ? "gainloss-estimated" : "";
+    const gainLossCellClass = [
+      !isManualRetail && gainLoss !== null ? "gainloss-estimated" : "",
+      gainLossToneClass,
+    ]
+      .filter(Boolean)
+      .join(" ");
     const gainLossCellTitle = isManualRetail
       ? "Gain/Loss (confirmed retail)"
       : "Gain/Loss (estimated — based on melt value)";
@@ -602,7 +606,6 @@
     return {
       meltDisplay,
       retailDisplay,
-      gainLossColor,
       retailCellClass,
       retailCellTitle,
       gainLossCellClass,
@@ -865,7 +868,6 @@
     const {
       meltDisplay,
       retailDisplay,
-      gainLossColor,
       retailCellClass,
       retailCellTitle,
       gainLossCellClass,
@@ -960,7 +962,7 @@
           ${retailDisplay} <svg class="ebay-search-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6" fill="none" stroke="currentColor" stroke-width="2.5"/><line x1="15" y1="15" x2="21" y2="21" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
         </a>
       </td>
-      <td class="shrink ${gainLossCellClass}" data-column="gainLoss" data-label="Gain/Loss" title="${gainLossCellTitle}" style="color: ${gainLossColor}; font-weight: ${gainLossCellWeight};">${gainLossCellContent}</td>
+      <td class="shrink ${gainLossCellClass}" data-column="gainLoss" data-label="Gain/Loss" title="${gainLossCellTitle}" style="font-weight: ${gainLossCellWeight};">${gainLossCellContent}</td>
       <td class="shrink" data-column="purchaseLocation" data-label="Source">
         ${formatPurchaseLocation(item.purchaseLocation)}
       </td>
@@ -1292,7 +1294,8 @@
       els.lossProfit.parentElement && els.lossProfit.parentElement.querySelector(".total-label");
     if (glLabel) {
       glLabel.textContent = gl > 0 ? "Gain:" : gl < 0 ? "Loss:" : "Gain/Loss:";
-      glLabel.style.color = gl > 0 ? "var(--success)" : gl < 0 ? "var(--danger)" : "";
+      glLabel.classList.toggle("gl-gain", gl > 0);
+      glLabel.classList.toggle("gl-loss", gl < 0);
       glLabel.style.fontWeight = gl !== 0 ? "600" : "";
     }
   }

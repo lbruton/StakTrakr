@@ -697,12 +697,10 @@
         <!-- =============================================================================
          SPOT PRICES SECTION
          
-         Displays current spot prices for all four supported metals and provides
-         manual input controls for setting custom spot prices. Each metal has:
-         - Display card showing current spot price
-         - Input field for setting new spot price
-         - Save and Reset buttons for price management
-         
+         One card per metal: label, trend period, refresh, the spot price, the
+         period and 24h change, a sparkline row below the text, the ratio chip
+         and the sync timestamp. Shift+click the price to set it by hand.
+
          Spot prices are used for premium calculations and profit/loss analysis
          ============================================================================= -->
         <section class="spot-prices" id="spotPricesSection">
@@ -710,7 +708,6 @@
             <!-- Silver spot price card -->
             <div class="spot-input silver">
               <div class="spot-card" data-metal="silver">
-                <canvas class="spot-sparkline" id="sparklineSilver" aria-hidden="true"></canvas>
                 <div class="spot-card-header">
                   <div class="spot-card-label">Silver Spot Price</div>
                   <button
@@ -771,13 +768,15 @@
                   —
                 </div>
                 <div class="spot-card-change" id="spotChangeSilver"></div>
+                <div class="spot-sparkline-band">
+                  <canvas class="spot-sparkline" id="sparklineSilver" aria-hidden="true"></canvas>
+                </div>
                 <div class="spot-card-timestamp" id="spotTimestampSilver">No data</div>
               </div>
             </div>
             <!-- Gold spot price card -->
             <div class="spot-input gold">
               <div class="spot-card" data-metal="gold">
-                <canvas class="spot-sparkline" id="sparklineGold" aria-hidden="true"></canvas>
                 <div class="spot-card-header">
                   <div class="spot-card-label">Gold Spot Price</div>
                   <button
@@ -829,13 +828,15 @@
                   —
                 </div>
                 <div class="spot-card-change" id="spotChangeGold"></div>
+                <div class="spot-sparkline-band">
+                  <canvas class="spot-sparkline" id="sparklineGold" aria-hidden="true"></canvas>
+                </div>
                 <div class="spot-card-timestamp" id="spotTimestampGold">No data</div>
               </div>
             </div>
             <!-- Platinum spot price card -->
             <div class="spot-input platinum">
               <div class="spot-card" data-metal="platinum">
-                <canvas class="spot-sparkline" id="sparklinePlatinum" aria-hidden="true"></canvas>
                 <div class="spot-card-header">
                   <div class="spot-card-label">Platinum Spot Price</div>
                   <button
@@ -896,13 +897,15 @@
                   —
                 </div>
                 <div class="spot-card-change" id="spotChangePlatinum"></div>
+                <div class="spot-sparkline-band">
+                  <canvas class="spot-sparkline" id="sparklinePlatinum" aria-hidden="true"></canvas>
+                </div>
                 <div class="spot-card-timestamp" id="spotTimestampPlatinum">No data</div>
               </div>
             </div>
             <!-- Palladium spot price card -->
             <div class="spot-input palladium">
               <div class="spot-card" data-metal="palladium">
-                <canvas class="spot-sparkline" id="sparklinePalladium" aria-hidden="true"></canvas>
                 <div class="spot-card-header">
                   <div class="spot-card-label">Palladium Spot Price</div>
                   <button
@@ -963,6 +966,13 @@
                   —
                 </div>
                 <div class="spot-card-change" id="spotChangePalladium"></div>
+                <div class="spot-sparkline-band">
+                  <canvas
+                    class="spot-sparkline"
+                    id="sparklinePalladium"
+                    aria-hidden="true"
+                  ></canvas>
+                </div>
                 <div class="spot-card-timestamp" id="spotTimestampPalladium">No data</div>
               </div>
             </div>
@@ -971,7 +981,6 @@
                  decision); applyMetalOrder() shows it when enabled -->
             <div class="spot-input copper" style="display: none">
               <div class="spot-card" data-metal="copper">
-                <canvas class="spot-sparkline" id="sparklineCopper" aria-hidden="true"></canvas>
                 <div class="spot-card-header">
                   <div class="spot-card-label">Copper Spot Price</div>
                   <button
@@ -1036,6 +1045,9 @@
                      card's rows stay height-aligned with the other four
                      (STRK-341 review) -->
                 <div class="spot-card-change" id="spotChangeCopper"></div>
+                <div class="spot-sparkline-band">
+                  <canvas class="spot-sparkline" id="sparklineCopper" aria-hidden="true"></canvas>
+                </div>
                 <div class="spot-card-timestamp" id="spotTimestampCopper">No data</div>
               </div>
             </div>
