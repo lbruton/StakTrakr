@@ -670,13 +670,15 @@ const _renderTickerTrack = (container, items, signature, previousTrack, previous
   block2.className = "ticker-block";
   block2.dataset.tickerBlock = "duplicate";
   // The copy exists only for the seamless scroll loop: keep it out of the tab order and
-  // the accessibility tree so each dealer price is announced once.
+  // the accessibility tree so each dealer price is announced once. It stays clickable
+  // (no `inert`), because the loop scrolls it through the visible strip.
   block2.setAttribute("aria-hidden", "true");
-  block2.inert = true;
 
   for (const item of items) {
     block1.appendChild(_buildTickerItemEl(item));
-    block2.appendChild(_buildTickerItemEl(item));
+    const copy = _buildTickerItemEl(item);
+    copy.tabIndex = -1;
+    block2.appendChild(copy);
   }
 
   if (items.length >= 4) {

@@ -1458,6 +1458,11 @@ const startSpotInlineEdit = (valueEl, metalKey, returnFocusEl) => {
     if (closed) return;
     // nosemgrep: javascript.browser.security.insecure-innerhtml.insecure-innerhtml, javascript.browser.security.insecure-document-method.insecure-document-method
     valueEl.innerHTML = originalHTML;
+    // A background refresh may have saved a new price while the edit was open; the
+    // writers skipped this card then, so repaint it from the current model.
+    if (spotPrices[metalKey] !== currentPrice) {
+      updateSpotCardColor(metalKey, spotPrices[metalKey]);
+    }
     close();
   };
 
