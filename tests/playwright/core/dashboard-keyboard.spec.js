@@ -120,6 +120,34 @@ test.describe("Dashboard keyboard and screen reader access", () => {
     expect(await page.evaluate(() => window.__opened.length)).toBe(1);
   });
 
+  test("a focused dealer is scrolled into view, and the strip resets when focus leaves", async ({
+    page,
+  }) => {
+    await renderLoopingTicker(page);
+    const first = page
+      .locator("#bestPriceTickerEl [data-ticker-block='primary'] button.ticker-item")
+      .first();
+    // Jump the loop near its end, so the first dealer sits off the left edge.
+    await page.evaluate(() => {
+      const track = document.querySelector("#bestPriceTickerEl .ticker-track");
+      const duration = parseFloat(getComputedStyle(track).animationDuration);
+      track.style.animationDelay = `-${duration * 0.9}s`;
+    });
+    const inView = () =>
+      first.evaluate((button) => {
+        const strip = document.getElementById("bestPriceTickerEl").getBoundingClientRect();
+        const box = button.getBoundingClientRect();
+        return box.left >= strip.left - 1 && box.right <= strip.right + 1;
+      });
+    await expect.poll(inView).toBe(false);
+    await first.focus();
+    await expect.poll(inView).toBe(true);
+    await page.locator(".total-title[data-metal='Silver'] > button").focus();
+    await expect
+      .poll(() => page.locator("#bestPriceTickerEl").evaluate((strip) => strip.scrollLeft))
+      .toBe(0);
+  });
+
   test("cancelling an edit shows the price a background refresh saved meanwhile", async ({
     page,
   }) => {

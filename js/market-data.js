@@ -705,9 +705,30 @@ const _renderTickerTrack = (container, items, signature, previousTrack, previous
   }
 };
 
+/**
+ * Keeps a keyboard-focused dealer visible. Focus stops the animation (CSS), which moves
+ * the track back to its start, so the dealer is scrolled into view after that restyle;
+ * the strip's scroll resets when focus leaves. Wires the container once.
+ * @param {HTMLElement} container - The #bestPriceTickerEl element
+ * @returns {void}
+ */
+const _wireTickerFocus = (container) => {
+  if (!(container instanceof HTMLElement) || container.dataset.focusWired) return;
+  container.dataset.focusWired = "1";
+  container.addEventListener("focusin", (e) => {
+    const dealer = e.target.closest(".ticker-item");
+    if (!dealer) return;
+    requestAnimationFrame(() => dealer.scrollIntoView({ block: "nearest", inline: "nearest" }));
+  });
+  container.addEventListener("focusout", (e) => {
+    if (!container.contains(e.relatedTarget)) container.scrollLeft = 0;
+  });
+};
+
 const renderBestPriceTicker = () => {
   const container = safeGetElement("bestPriceTickerEl");
   if (!container) return;
+  _wireTickerFocus(container);
 
   const coins = _getRetailCoins();
   const coinMetaMap = _getCoinMeta();
