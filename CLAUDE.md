@@ -136,7 +136,7 @@ and the pre-Plane archive path: `.context/issue-tracking.md`.
 
 **Skill copies:** every `.claude/skills/<name>/SKILL.md` has a tracked twin under `.agents/skills/<name>/SKILL.md`. When fixing a skill doc, `git grep` the sibling and apply the identical fix to both — Copilot flags stale twins.
 
-**Vendored Impeccable:** `.claude/skills/impeccable/` and `.agents/skills/impeccable/` are per-harness builds that differ on purpose. Never edit them; change them only with `npx impeccable update` in a chore PR.
+**Vendored Impeccable:** `.claude/skills/impeccable/` and `.agents/skills/impeccable/` are per-harness builds that differ on purpose, so the twin rule above does not apply to them. Change them with `npx impeccable update` in a chore PR, not by hand.
 
 ## Gotcha Index
 

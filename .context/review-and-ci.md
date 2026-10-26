@@ -247,6 +247,9 @@ Codacy runs agentlint policies on instruction files (CLAUDE.md, AGENTS.md, skill
 - When they conflict, project instructions win; note the tension.
 - Do not reflexively dismiss every finding as a false positive.
 - If a policy catches a genuine gap, fix it.
+- Accepted deduction: `consistency/referenced-files-exist` reports `PRODUCT.md` and `DESIGN.md` as missing
+  from `CLAUDE.md` and `AGENTS.md`. The rule checks only the files agentlinter scans (`CLAUDE.md`,
+  `AGENTS.md`, `SECURITY.md`); both files exist at the repo root, where Impeccable reads them.
 - Add the `coderabbit-review` label when you want a full CodeRabbit review. It is the one reviewer that skips unlabelled PRs. Codacy AI and Copilot run automatically, so budget for their threads on every PR including docs-only chores. Codex reviews once when the PR is opened or marked ready; after a substantial fix, comment `@codex review` if you want a second pass. (See "Review routing" above.)
 
 ## Known Reviewer False Positives
