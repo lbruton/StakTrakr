@@ -6,7 +6,7 @@ allowed-tools: >-
   Bash, Read, Write, Edit, Glob, Grep, Workflow, ToolSearch,
   mcp__context7__resolve-library-id,
   mcp__brave-search__brave_web_search
-library-version: b9ae376f5f2b
+library-version: ce6718eb297b
 ---
 
 # /spec-discovery ISSUE
@@ -32,13 +32,13 @@ Read **`.claude/skills/spec/references/conventions.md`** and the project's **`.c
 3. **Research sweep — four read-only angles.**
    Dispatch them as a read-only Workflow fan-out. This is pure read work across independent angles, so it's the canonical Workflow use. Run the three angles as parallel agents, each returning structured findings:
    - **Structural** — Grep/Glob for affected modules, callers, dependencies. Grep each candidate identifier repo-wide and read the hits; that is the exhaustive path to a call list.
-   - **Prior decisions** — mem0 (and sessionflow if useful) for past choices on this area. Record exact query strings.
+   - **Prior decisions** — SessionFlow memory (`mcp__sessionflow__search_memories` with the project; transcripts too if useful) for past choices on this area. Record exact query strings.
    - **External** — context7 / Brave for libraries, RFCs, platform docs — only if the work involves them.
 
    Synthesize the returned findings yourself; do not let an agent write `discovery.md`. For a narrow spec where one or two angles obviously suffice, skip the Workflow and run those searches inline — match the fan-out to the surface area.
 4. **Draft `discovery.md`** per the template:
    - Existing code/files relevant to the work (with `path:line`).
-   - Prior decisions (mem0/sessionflow) — cite the query strings used.
+   - Prior decisions (SessionFlow memory and transcripts) — cite the query strings used.
    - External references (libraries, RFCs, docs) with links.
    - **Open questions** that block `approach.md`.
 5. **Save `discovery.md`.** Touch no other file.

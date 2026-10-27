@@ -7,7 +7,7 @@ allowed-tools: >-
   mcp__plane__workitem,
   mcp__plane__state,
   mcp__plane__project
-library-version: b9ae376f5f2b
+library-version: ce6718eb297b
 ---
 
 # Spec — Phased Spec Workflow (driver)
@@ -47,7 +47,7 @@ This skill is the **lifecycle driver**. The four authoring phases and the review
 | `run <ISSUE-ID>` | **HARD GATE**, then execute tasks.md **inline**, one task at a time. |
 | `workflow <ISSUE-ID>` | **HARD GATE**, then **in-harness subagent** conductor — `[P]` tasks run in true parallel via the Task tool. |
 | `dispatch <ISSUE-ID>` | **HARD GATE**, then print self-contained prompt blocks to **hand off to an external terminal** (Codex / OpenCode / Antigravity / second Claude session). |
-| `archive <ISSUE-ID>` | Move folder to `archive/`, log mem0, mark issue Done. |
+| `archive <ISSUE-ID>` | Move folder to `archive/`, save a milestone memory, mark issue Done. |
 
 > **Verb history (the `dispatch` flip):** the old subcommands were `apply`/`dispatch`/`orchestrate`. Mapping: `apply→run`, `dispatch→workflow`, `orchestrate→dispatch`. **The word `dispatch` changed meaning** — it now means external-terminal handoff, not in-harness subagents.
 
@@ -152,7 +152,7 @@ The main agent is a **conductor**: it reads `tasks.md`, generates a self-contain
 ### `archive`
 
 1. After PR merges (or abandonment), move the folder to `{specs-root}/archive/YYYY-MM-DD-{ID}-{slug}/`.
-2. Save a mem0 project memory: "Spec {ID} {slug} shipped {date} — outcome: {summary}".
+2. Save a milestone memory with `mcp__sessionflow__add_memory`: text "Spec {ID} {slug} shipped {date} — outcome: {summary}", `project` from `project.json` (`memory.project`, else lowercase `tag`), `type: "milestone"`, `topic_key: "spec:{ID}"`, `agent_id` the harness, `extra: {"source": "spec-archive"}`.
 3. If the issue is still open, mark it Done via `mcp__plane__workitem` (`action: "update"`).
 
 ---

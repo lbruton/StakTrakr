@@ -1,7 +1,7 @@
 ---
 name: code-core
 description: Workflow rules shared by every code repo - DocVault, glossary, Plane, Infisical, debugging, memory, code search, editing, tests, spec gates, push rules, red flags, GitHub hygiene
-library-version: b9ae376f5f2b
+library-version: ce6718eb297b
 ---
 
 # Code-core rules
@@ -35,7 +35,8 @@ development practices, procedures and runbooks, specs and approvals, research an
 - **Public repos:** before writing to `<repo>/DocVault/`, check nothing sensitive is going in. Sensitive
   material goes to the private companion instead.
 - If a page looks stale, flag it; do not silently act on suspected bad data.
-- On conflicts between DocVault and mem0, the newest information wins. Ask when it is unclear.
+- On conflicts between DocVault and SessionFlow memory, the newest information wins. Ask when it is
+  unclear.
 
 ## Domain glossary
 
@@ -96,10 +97,10 @@ needs no secrets. Never hard-code an Infisical project ID anywhere else; read it
 - Shell: always quote paths; many contain spaces (iCloud, Cowork, vault paths).
 - When comparing file counts against an index, use `git ls-files | wc -l`, not a raw filesystem count. Raw
   counts include `.venv` and `node_modules`.
-- A transient MCP, Plane or mem0 failure (empty payload, temporary error, unexpected empty result for a
-  known object): wait about 60 seconds and retry once. If it still fails, continue with local-safe steps.
-  An HTTP 429 or "quota exceeded" from mem0 is not transient: do not retry, continue without mem0 reads and
-  tell the user.
+- A transient MCP, Plane or SessionFlow failure (empty payload, temporary error, unexpected empty result
+  for a known object): wait about 60 seconds and retry once. If it still fails, continue with local-safe
+  steps. A `memory_unavailable` error means the memory store has not started: say so and continue without
+  memory reads; `/health` names the reason.
 
 ## Memory: coexisting layers
 
@@ -108,49 +109,41 @@ failure mode. Each has a distinct job:
 
 | Layer | Scope | Role |
 |---|---|---|
-| **mem0** (hosted MCP connector; the tool prefix is account-specific) | cross-session and cross-harness | **The bigger picture**: one `/wrap` session summary per session (what, when, files, issues, decisions), plus explicit decisions and handoffs |
+| **SessionFlow memory** (`mcp__sessionflow__` memory tools, Postgres-backed) | cross-session and cross-harness | **The bigger picture**: one `/wrap` session summary per session (what, when, files, issues, decisions), plus explicit decisions and handoffs |
 | **local Codex memory** (`~/.codex/memories/`) | Codex only | **Day-to-day operating memory**: preferences, corrections, gotchas |
 | **`.context/`** (in-repo) | per-project, all harnesses | **Long-term foundations** needed for implementation work: architecture, conventions, standards |
-| **sessionflow** (`mcp__sessionflow__*`) | all harnesses, all projects | Transcript search over verbatim past turns; the session-start recall tier |
+| **SessionFlow transcripts** (`mcp__sessionflow__search_all_sessions` and friends) | all harnesses, all projects | Transcript search over verbatim past turns; the session-start recall tier |
 | **Plane** (`mcp__plane__*`) | per-project issues | Issue and planning state, not a memory store |
 
-mem0 + sessionflow + git history together give the full picture of past work. Lessons ("when X, do Y") go
-to local memory, not mem0. Durable foundations go to `.context/`.
+SessionFlow memory, transcript search and git history together give the full picture of past work.
+Lessons ("when X, do Y") go to local memory, not SessionFlow memory. Durable foundations go to `.context/`.
 
-**Recall at session start (two sources):**
+**Recall at session start:** the SessionFlow session-start hook already prints the three newest session
+summaries and recent turns for the project, with session provenance. Go further only when the task needs it:
 
-1. **sessionflow**: verbatim past turns, semantic search:
+```javascript
+mcp__sessionflow__list_memories({ project: "<project>", type: "session-summary", limit: 10 })
+mcp__sessionflow__search_memories({ query: "<issue ID> <feature> handoff", project: "<project>", n: 10 })
+mcp__sessionflow__search_all_sessions({ query: "<issue ID> <feature>", n: 5 })
+```
 
-   ```javascript
-   mcp__sessionflow__search_all_sessions({ query: "last session work decisions <project>", n: 5 })
-   ```
-
-2. **mem0**: session summaries, decisions, handoffs. The tool prefix is not fixed.
-   Resolve the hosted mem0 `search_memories` tool from the current tool catalog.
-
-   ```javascript
-   search_memories({ query: "last session work decisions for <project>", limit: 10,
-     filters: { AND: [{ user_id: "lbruton" }, { metadata: { project: "<project>" } }] },
-     enable_graph: false })
-   ```
-
-**mem0 standard (DEVS-92)**: three keys on every record.
+**Memory standard**: every record carries these keys.
 
 | Key | Value | Source |
 |---|---|---|
-| `user_id` | `lbruton`, always | `project.json` → `mem0.userId` |
-| `agent_id` | the harness writing: `codex` here (other harnesses write `claude-code`, `claude-cowork`, `codex`, `gemini`, `opencode` or `antigravity`) | the harness itself; never `project.json`, never a project name |
-| `metadata.project` | lowercase project slug (`staktrakr`, `devops`) | `project.json` → `mem0.project`, else the lowercase `tag` |
+| `user_id` | `lbruton` (the default; omit it) | `project.json` → `memory.userId` |
+| `agent_id` | the harness writing: `codex` here (one of `claude-code`, `codex`, `gemini`, `opencode`, `antigravity`) | the harness itself; never `project.json`, never a project name |
+| `project` | lowercase project slug (`staktrakr`, `devops`) | `project.json` → `memory.project`, else the lowercase `tag` |
+| `type` | `session-summary`, `decision`, `handoff`, `fact`, `workflow`, `discovery`, `contact`, `blocker`, `preference`, `open-item`, `milestone` or `guardrail` | the kind of note |
 
-- **Writes:** set all three plus `metadata.type` ∈ `session-summary` / `decision` / `handoff`. Routine
-  writes come from `/wrap` only (one paragraph `session-summary`). Use a direct `add_memory` call
-  (`type: decision` or `handoff`) only for an explicit decision or handoff that must be shared before the
-  session ends. Never write a mem0 entry per task: commits, PRs and Plane comments record each task.
-- **Reads:** filter `user_id` + `metadata.project` server-side (the match is case-sensitive). Never filter
-  on `agent_id`: every harness must see the others' handoffs. Run TWO searches: one project-scoped, one
-  user-only cross-project workflow query.
-- **Quota:** the plan allows 1,000 retrieval calls per month, shared by every harness. Never page through
-  the store in bulk; estimate call counts before any audit.
+- **Writes:** routine writes come from `/wrap` only (one `session-summary` per session). Call
+  `mcp__sessionflow__add_memory` directly (`type: decision` or `handoff`) only for an explicit decision or
+  handoff that must be shared before the session ends. Never write a memory per task: commits, PRs and Plane
+  comments record each task.
+- **Reads:** every memory call passes `project`; pass `"*"` for a cross-project query. Never filter on
+  `agent_id`: every harness must see the others' handoffs. Pass `format: "json"` when you parse the result.
+- **Replace, do not duplicate:** a later `mcp__sessionflow__add_memory` with the same `topic_key` replaces that record. To
+  retire older notes, pass their IDs in `supersedes`.
 
 ## Code search order (cheapest first)
 
@@ -167,8 +160,7 @@ re-add or call them.
 
 | Server | Use for |
 |---|---|
-| `mem0` (hosted connector) | Cross-session memory, sole backend |
-| `sessionflow` | Session history search: semantic retrieval over past conversation turns |
+| `sessionflow` | Session history search over past turns, and the cross-session memory store: `mcp__sessionflow__add_memory`, `mcp__sessionflow__search_memories`, `mcp__sessionflow__list_memories`, `mcp__sessionflow__get_memory`, `mcp__sessionflow__update_memory`, `mcp__sessionflow__delete_memory`, `mcp__sessionflow__get_memory_context` |
 | `context7` | Library documentation lookup |
 | `chrome-devtools` | Browser-page inspection and debugging |
 | `infisical` | Secret inventory; fallback only, use the `infisical-agent` CLI first |
