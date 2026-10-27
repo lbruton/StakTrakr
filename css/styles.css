@@ -16743,6 +16743,70 @@ input[type="number"] {
   overflow-x: auto;
 }
 
+.market-ticker-frame {
+  position: relative;
+}
+
+/* Hover or focus anywhere in the frame holds the loop where it is. */
+.market-ticker-frame:hover .ticker-track,
+.market-ticker-frame:focus-within .ticker-track {
+  animation-play-state: paused;
+}
+
+/* Paused by the user or by reduced motion (_syncTickerPause): one block that scrolls,
+   with room at the end so the last dealer clears the pause button. */
+.market-ticker.is-paused .ticker-track {
+  animation: none;
+  width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  padding-right: 44px;
+}
+.market-ticker.is-paused [data-ticker-block="duplicate"] {
+  display: none;
+}
+
+.ticker-pause-btn {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transform: translateY(-50%);
+  transition: var(--transition);
+}
+/* A 44px hit area around the 32px circle. */
+.ticker-pause-btn::before {
+  content: "";
+  position: absolute;
+  inset: -6px;
+}
+.ticker-pause-btn[hidden] {
+  display: none;
+}
+.ticker-pause-btn:hover {
+  color: var(--primary);
+  border-color: var(--primary);
+}
+.ticker-pause-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+.ticker-pause-btn[aria-pressed="true"] .ticker-pause-icon,
+.ticker-pause-btn:not([aria-pressed="true"]) .ticker-play-icon {
+  display: none;
+}
+
 .ticker-block {
   display: flex;
   flex-shrink: 0;

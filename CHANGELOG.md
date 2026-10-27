@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.85] - 2026-10-27
+
+### Changed — STRK-488: Best-price ticker pause and reduced motion
+
+- **Pause**: The best-price ticker holds still under the pointer or keyboard focus, and a pause button beside it stops the loop. The choice persists on the device (STRK-488).
+- **Paused layout**: A paused ticker shows each dealer once in a row that scrolls sideways, so every price is reachable by scroll and by Tab (STRK-488).
+- **Reduced motion**: With the system reduced-motion setting, the ticker starts in the paused layout without a pause button, and the spot sparklines draw without animation (STRK-488).
+
+---
+
 ## [3.36.84] - 2026-10-25
 
 ### Changed — STRK-492: Metal Ratios chart axis labels
