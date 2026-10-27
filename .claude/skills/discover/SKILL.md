@@ -16,8 +16,11 @@ allowed-tools: >-
   mcp__infisical__get-secret,
   mcp__plane__workitem,
   mcp__plane__state,
-  mcp__plane__label
-library-version: b9ae376f5f2b
+  mcp__plane__label,
+  mcp__sessionflow__search_memories,
+  mcp__sessionflow__add_memory,
+  mcp__sessionflow__search_all_sessions
+library-version: ce6718eb297b
 ---
 
 # Discover — Phase 1 Structured Brainstorm
@@ -74,9 +77,9 @@ Glob `{specs-root}/{ISSUE-ID}-*/` (ignore `archive/`), where `{specs-root}` is `
 
 ## Research fan-out (Steps 1–3) — run as a read-only Workflow
 
-Steps 1–3 are pure read work across independent angles — the canonical use for the `Workflow` orchestration tool. When the research surface is broad (multiple subsystems, prior art *and* external docs *and* mem0 history), dispatch the sweep as a **`Workflow` fan-out**: one parallel agent per angle —
+Steps 1–3 are pure read work across independent angles — the canonical use for the `Workflow` orchestration tool. When the research surface is broad (multiple subsystems, prior art *and* external docs *and* memory history), dispatch the sweep as a **`Workflow` fan-out**: one parallel agent per angle —
 
-1. **Prior context** — mem0 + sessionflow + the project and shared vaults (Grep).
+1. **Prior context** — SessionFlow memory and transcripts + the project and shared vaults (Grep).
 2. **Codebase impact** — Grep/Glob structural, plus the `Explore` subagent for broad sweeps.
 3. **External** — context7 + Brave (only if libraries/APIs/platform features are involved).
 
@@ -86,17 +89,15 @@ Each agent returns structured findings; **you** synthesize them into the Discove
 
 Run these in parallel. **Record every query string used** — they go into the issue's Discovery block at Step 6 as Context Pointers so future sessions can re-hydrate deterministically.
 
-### mem0 search
-> mem0's live tool prefix is connection-specific (`mcp__<connector-id>__*`), not the fixed
-> `mcp__mem0__`. `search_memories` and `add_memory` below name capabilities; resolve the live
-> tool from your catalog before calling it.
-> Claude Code: `ToolSearch({query: "select:search_memories,add_memory"})` if not already loaded.
+### SessionFlow memory search
 ```
-search_memories
+mcp__sessionflow__search_memories
   query: "{issue title} {key terms from description}"
-  limit: 10
-  filters: {AND: [{user_id: "lbruton"}, {metadata: {project: "<mem0.project from project.json, else lowercase tag>"}}]}
+  project: "<memory.project from project.json, else lowercase tag>"
+  n: 10
+  format: "json"
 ```
+Pass `project: "*"` as a second query when the topic spans projects.
 
 ### Vault search
 Search both the project vault and the shared vault. Grep for the key terms and their synonyms, then
@@ -117,7 +118,7 @@ mcp__sessionflow__search_all_sessions
 
 Present any relevant past decisions, related work, or prior discussions.
 
-**Track for Step 6:** the exact query strings and patterns used (mem0, sessionflow, vault Grep) and any Research Brief / KB / Foundation page hits — these become the Context Pointers list.
+**Track for Step 6:** the exact query strings and patterns used (memory, transcripts, vault Grep) and any Research Brief / KB / Foundation page hits — these become the Context Pointers list.
 
 ---
 
@@ -258,8 +259,8 @@ Keep it concise — summary + pointers, not transcripts. A quick-fix-only consum
 - [Non-blocking question] — carry forward to spec
 
 ### Context Pointers
-- **mem0:** `search: "<exact query used in Step 1>"` — [what it surfaces]
-- **mem0:** `search: "<another query>"` — [what it surfaces]
+- **Memory:** `mcp__sessionflow__search_memories` query `"<exact query used in Step 1>"` — [what it surfaces]
+- **Memory:** `mcp__sessionflow__search_memories` query `"<another query>"` — [what it surfaces]
 - **Research Brief:** [[Research/{topic}]] (if one exists or was created)
 - **KB:** [[KnowledgeBase/{page}]] — [why relevant]
 - **Foundation:** [[Foundation/{doc}]] — [why relevant]
@@ -301,20 +302,19 @@ Show the user the brief you just wrote, so they see what landed in the issue wit
 
 ## Step 7: Hand Off
 
-### Save discovery summary to mem0 (semantic retrieval)
+### Save discovery summary to SessionFlow memory (semantic retrieval)
 
-The issue is now authoritative — mem0 is the semantic-retrieval mirror. Keep the memory **short** since the full detail lives in the issue.
+The issue is now authoritative — the memory is its searchable mirror. Keep it **short** since the full detail lives in the issue. The topic key makes a re-run of `/discover` replace the earlier decision instead of adding a second one.
 
 ```
-add_memory(
+mcp__sessionflow__add_memory(
   text: "Discovery complete for {ISSUE-ID} — {one-sentence recommended approach}. Full brief in Plane issue. Scope: {size}.",
-  user_id: "lbruton",
   agent_id: "claude-code",
-  metadata: {
-    "type": "decision",
+  project: "<memory.project from project.json, else lowercase tag>",
+  type: "decision",
+  topic_key: "discover:{ISSUE-ID}",
+  extra: {
     "source": "discover",
-    "project": "<mem0.project from project.json, else lowercase tag>",
-    "issue": "{ISSUE-ID}",
     "issue_url": "https://plane.lbruton.cc/lbruton/browse/{ISSUE-ID}/",
     "issue_uuid": "{plane issue uuid}",
     "category": "architecture"

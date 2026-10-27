@@ -30,7 +30,7 @@ _Tasks in this cohort touch independent files and can be dispatched to different
 - [ ] **A.1 [P]** — _short imperative title_
   - **File(s):** `path/to/file.ts`
   - **Acceptance:** _how we know this task is done — usually one or two lines tying back to a specific AC_
-  - **Leverage:** _existing helpers, prior art, mem0 memory id if applicable_
+  - **Leverage:** _existing helpers, prior art, memory ID if applicable_
   - **Maps to:** AC-1
 
 - [ ] **A.2 [P]** — _title_
@@ -136,7 +136,7 @@ _TDD green phase. Write the minimum code that makes all Cohort B tests pass. Tas
   - Note: scanners often re-post findings on each new commit. After running `/pr-resolve`, check whether new threads appeared from auto-scanners and address those before merge.
 
 - [ ] **CLOSE-9. Archive spec** (after PR merges)
-  - **MUST invoke `/spec archive {{ISSUE-ID}}`** as a skill — moves folder to `archive/YYYY-MM-DD-{{ISSUE-ID}}-{{SLUG}}/` and saves mem0 summary.
+  - **MUST invoke `/spec archive {{ISSUE-ID}}`** as a skill — moves folder to `archive/YYYY-MM-DD-{{ISSUE-ID}}-{{SLUG}}/` and saves a milestone memory.
 
 ---
 

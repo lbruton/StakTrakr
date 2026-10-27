@@ -73,7 +73,7 @@ issue (DEVS-7)
 /spec apply       ────► HARD GATE — verifies files + approval, then worktree + impl
    │
    ▼
-/spec archive     ────► moves to archive/, mem0 summary, closes issue
+/spec archive     ────► moves to archive/, milestone memory, closes issue
 ```
 
 > **Per-phase review is the design.** A previous version of the workflow ran a single
@@ -98,7 +98,7 @@ Plane readable identifier (e.g. `STRK-69`, `DEVS-12`). Phase is one of `requirem
 | `tasks <ID>` | — | Phase 4 — draft tasks.md |
 | `reconcile <ID> <phase>` | **required** | Classify reviewer findings, edit file on approval, archive marks |
 | `apply <ID>` | — | Hard gate → worktree + implementation |
-| `archive <ID>` | — | Move to archive/, mem0 summary, close issue |
+| `archive <ID>` | — | Move to archive/, milestone memory, close issue |
 
 The canonical order through a spec is:
 
@@ -161,7 +161,7 @@ whole point — specs don't carry risk registers or NFR matrices.
 ```
 
 Fills `discovery.md`: existing relevant code (paths cited), prior decisions from
-mem0/sessionflow, external references, open questions blocking approach.
+SessionFlow memory and transcripts, external references, open questions blocking approach.
 
 **Pre-check:** refuses to run if `requirements.md` still has unresolved
 `> AGENT:` marks or `## AGENT Review` sections outside `## Review Archive`. Run
@@ -299,7 +299,7 @@ Then:
 ```
 
 Moves the spec folder to `specs/archive/YYYY-MM-DD-{ID}-{slug}/`, saves a
-mem0 summary memory, marks the Plane issue Done.
+milestone memory in SessionFlow, marks the Plane issue Done.
 
 ---
 
@@ -336,7 +336,7 @@ You hand off via OpenCode:
 > /spec discovery DEVS-12
 ```
 
-Kimi reads requirements.md, scans the API repo for existing middleware patterns, searches mem0 for prior rate-limit decisions, and writes discovery.md. Notes that there's already a `RateLimitToken` class in `lib/middleware/quota.ts` worth building on.
+Kimi reads requirements.md, scans the API repo for existing middleware patterns, searches SessionFlow memory for prior rate-limit decisions, and writes discovery.md. Notes that there's already a `RateLimitToken` class in `lib/middleware/quota.ts` worth building on.
 
 Or you stay in Claude Code and run the phase yourself. The skill works the same.
 
@@ -484,7 +484,7 @@ After PR merges:
 > /spec archive DEVS-12
 ```
 
-Folder moves to `specs/archive/2026-05-07-DEVS-12-rate-limiter/`. mem0 gets a summary memory. Done.
+Folder moves to `specs/archive/2026-05-07-DEVS-12-rate-limiter/`. SessionFlow memory gets a milestone record. Done.
 
 ## Multi-model orchestration patterns
 

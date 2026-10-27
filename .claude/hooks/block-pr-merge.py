@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# library-version: b9ae376f5f2b
+# library-version: ce6718eb297b
 """PreToolUse hook: force human approval for any PR merge.
 
 Merging a PR is a human-gated activity. Green CI is NOT authorization.

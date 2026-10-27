@@ -1,13 +1,13 @@
 ---
 name: start
 description: >
-  Lightweight session reorientation — queries sessionflow + mem0 for recent session
+  Lightweight session reorientation — queries SessionFlow transcripts and memory for recent session
   context, checks git state and active work (worktrees, stashes, open PRs, recent remote
   branches, version-lock claims), and surfaces the 5 most recent open issues. Use it
   for continuing same-day work or resuming after a short break.
   No indexing, no code search, no agent dispatch.
   Triggers: "start", "quick start", "resume", "orient me", "where were we".
-library-version: b9ae376f5f2b
+library-version: ce6718eb297b
 ---
 
 # Start
@@ -16,7 +16,7 @@ Lightweight session reorientation. Use this when you're continuing recent work a
 need to know where you left off — not when you need a full environment boot.
 
 **Under 15 seconds.** No code indexing, no agent dispatch. One Bash sweep for active work,
-one Plane list, and two fast memory calls (sessionflow + mem0).
+one Plane list, and two fast SessionFlow calls (transcripts + memory).
 
 > **Harness-neutral.** One master in `Devops/skill-library/skills/start/`, deployed to
 > `.claude/skills/` (Claude Code) and `.agents/skills/` (Codex). Edit the master. MCP tool
@@ -56,7 +56,7 @@ suspect stale context after a force-push / external merge.
 
 The injected git block cannot see other worktrees, stashes, or work another harness or
 machine pushed. Codex, another Claude account, or a cloud session may have work in flight
-that never reached mem0 (no `/wrap` yet) and that the Step 3 keywords would not match.
+that never reached SessionFlow memory (no `/wrap` yet) and that the Step 3 keywords would not match.
 Run this single Bash call:
 
 ```bash
@@ -132,7 +132,7 @@ If Plane returns nothing or errors, note it briefly and move on.
 
 ### Step 3 — Build targeted keywords from Steps 1, 1b and 2
 
-Before querying sessionflow or mem0, extract 3-5 keywords from what you already learned:
+Before querying transcripts or memory, extract 3-5 keywords from what you already learned:
 
 - **Issue IDs** from active work (Step 1b) first, then open issues
 - **Key terms** from issue titles (e.g. `tag taxonomy`, `dual-write`, `frontmatter`)
@@ -252,41 +252,34 @@ starting with `agent-a` — subagent dispatches and context compaction blobs. Pr
 UUID-format session IDs, but keep non-Claude provider IDs when SessionFlow returns them with
 a valid `provider` label.
 
-**Pass 3 — mem0** (run in parallel with Pass 0+1):
+**Pass 3 — SessionFlow memory** (run in parallel with Pass 0+1):
 
-Take `USER` and `PROJECT` from the `project.json` read in Step 0 (DEVS-92 standard):
-`USER = mem0.userId` (default `"lbruton"`), `PROJECT = mem0.project` (default: `tag`,
-lowercased).
-
-> mem0's live tool prefix is connection-specific (`mcp__<connector-id>__*`), not a fixed
-> `mcp__mem0__`. Resolve `search_memories` from the tool catalog (Claude Code:
-> `ToolSearch({query: "select:search_memories"})`) and use the identifier it returns.
+Take `PROJECT` from the `project.json` read in Step 0: `memory.project` (default: `tag`,
+lowercased). The session-start hook already printed the three newest session summaries; this
+pass finds the summaries, decisions and handoffs that match the Step 3 keywords:
 
 ```
-search_memories(
+mcp__sessionflow__search_memories(
   query="<targeted keyword string from Step 3>",
-  top_k=10,
-  filters={"AND": [{"user_id": USER}, {"metadata": {"project": PROJECT}}]}
+  project=PROJECT,
+  n=10,
+  format="json"
 )
 ```
 
 > **Never filter on `agent_id`.** It names the harness that wrote the record
 > (`claude-code`, `codex`, …), and `/start` must see every harness's handoffs.
 
-> **Param shape (verified 2026-09-29, hosted connector DEVS-94):** the result count is
-> `top_k`, not `limit`, and there is no `enable_graph` param. Always pass `filters` with
-> at least a `user_id` clause. If the live schema differs, follow the live schema, not
-> this doc.
+When a hit needs its session, call `mcp__sessionflow__get_memory_context(memory_id, project=PROJECT)`
+instead of searching transcripts again.
 
-> **Quota:** mem0 allows 1,000 retrieval calls per month across every harness. On a
-> 429 / "quota exceeded", don't retry — print `⚠ mem0 read quota exhausted — context
-> from sessionflow only` and continue.
+Merge with the transcript findings — memory adds `/wrap` session summaries, decisions and handoffs.
 
-Merge with sessionflow findings — mem0 adds `/wrap` session summaries, decisions and handoffs.
-
-**Degradation:** If sessionflow unreachable, use mem0 only + warn:
-`⚠ sessionflow unavailable — context from mem0 only`.
-If both unavailable, note it and continue.
+**Degradation:** SessionFlow serves both transcripts and memory, so check which part failed. A
+`memory_unavailable` error means the memory store has not started: warn
+`⚠ SessionFlow memory unavailable — context from transcripts only` and continue. If the whole
+server is unreachable, use the summaries the session-start hook printed (they may be from its
+cache; it says so) and note it.
 
 
 ## Output Format
@@ -324,12 +317,12 @@ nothing active.
 
 ---
 
-**Handoff:** <Any handoff/next-session items surfaced from sessionflow or mem0 — omit if none>
+**Handoff:** <Any handoff/next-session items surfaced from transcripts or memory — omit if none>
 
 ---
 
 ### Last Session
-<3-5 sentence recap synthesized from sessionflow turns + mem0 memories — what was worked on, decisions made, next steps>
+<3-5 sentence recap synthesized from SessionFlow turns and memories — what was worked on, decisions made, next steps>
 
 ---
 ```

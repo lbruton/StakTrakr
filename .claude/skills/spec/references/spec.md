@@ -30,7 +30,7 @@ The phased spec workflow (the top tier since the SpecFlow MCP was retired, DEVS-
 | `/spec-review <ID> <phase>` | Per-phase peer review (standalone skill). Run after each phase. |
 | `/spec reconcile <ID> <phase>` | Classify reviewer findings, ask about ambiguous items inline, edit the phase file on your approval, archive marks. Run before the next phase. |
 | `/spec apply <ID>` | **HARD GATE** → worktree + implementation |
-| `/spec archive <ID>` | Move to archive, close issue, save mem0 |
+| `/spec archive <ID>` | Move to archive, close issue, save a milestone memory |
 
 ## Tier comparison
 

@@ -2,11 +2,11 @@
 name: wrap
 description: >
   End-of-session orchestrator — verifies session work, saves ONE detailed session summary to
-  mem0 (the big-picture record), writes day-to-day lessons to local memory and durable facts to
-  .context/, syncs docs, and reports Session Health. Run at end of any session, optionally after
+  SessionFlow memory (the big-picture record), writes day-to-day lessons to local memory and durable
+  facts to .context/, syncs docs, and reports Session Health. Run at end of any session, optionally after
   /pr-cleanup. Triggers: "wrap", "wrap up", "close session", "end of session",
   "done for the night", "finish up", "closing time".
-library-version: b9ae376f5f2b
+library-version: ce6718eb297b
 ---
 
 # Wrap Session
@@ -22,8 +22,7 @@ Without PR:                    /wrap
 Quick re-orient only:          /start  (no wrap needed)
 ```
 
-`/retro` was retired in DEVS-75 (2026-09-27): its mem0 `retro-learning` entries were never
-read back by any session. Lessons now go to each harness's local memory, which it loads.
+There is no `/retro`: lessons go to each harness's local memory, which that harness loads.
 
 ## Arguments
 
@@ -38,14 +37,15 @@ Each memory layer has one job (DEVS-75, confirmed by the user 2026-09-27):
 
 | Layer | Holds | Written by /wrap as |
 |---|---|---|
-| **mem0** | The bigger picture: what was worked on, when, where, and what was decided | ONE detailed session summary (Step 3) |
+| **SessionFlow memory** | The bigger picture: what was worked on, when, where, and what was decided | ONE detailed session summary (Step 3) |
 | **Local agent memory** (Claude Code: auto-memory; Codex: `~/.codex/memories/`) | Active day-to-day operating memory: preferences, corrections, gotchas | Local memory entries (Step 4) |
 | **`.context/`** | Long-term foundational context for implementation work | Doc sync via chore PR (Step 5) |
-| **SessionFlow + git** | Verbatim turns and exact history | Nothing — indexed automatically |
+| **SessionFlow transcripts + git** | Verbatim turns and exact history | Nothing — indexed automatically |
 
-mem0 + SessionFlow + git history together give the full picture. mem0 does not need to repeat
-turn-level detail — it needs searchable anchors (issue IDs, file paths, PR numbers, decisions)
-that let a later session find the right SessionFlow turns and commits.
+The summary, the transcripts and git history together give the full picture. The summary does not
+repeat turn-level detail — it needs searchable anchors (issue IDs, file paths, PR numbers, decisions)
+that let a later session find the right turns and commits. Its source-session provenance links it to
+this session's turns (`mcp__sessionflow__get_memory_context`).
 
 **Three rules that follow from this:**
 
@@ -73,11 +73,11 @@ pwd
 git rev-parse --show-toplevel 2>/dev/null
 ```
 
-If `.claude/project.json` is missing, STOP — the mem0 summary would be tagged to the wrong
+If `.claude/project.json` is missing, STOP — the session summary would be tagged to the wrong
 project. Warn and fix before continuing:
 
 ```
-⚠ project.json missing — mem0 project tag will be wrong
+⚠ project.json missing — the memory project will be wrong
   cwd: <pwd>
   git toplevel: <git-toplevel>
   Likely cause: dropped during merge/reset/worktree switch.
@@ -86,8 +86,13 @@ project. Warn and fix before continuing:
 Offer to create `project.json` from a sibling template and proceed once resolved. Also
 warn if `pwd` is a subdir of a different git toplevel — same class of bug.
 
-mem0 scope comes from `project.json` (DEVS-92 standard): `USER = mem0.userId` (default
-`"lbruton"`), `PROJECT = mem0.project` (default: `tag`, lowercased).
+The memory project comes from `project.json`: `PROJECT = memory.project` (default: `tag`,
+lowercased). The user defaults to `lbruton`; pass `memory.userId` only when it differs.
+
+**Provenance** comes from the session-start hook context (the "SessionFlow memory" block at the
+top of the session): `session_id`, `provider` and `agent_id`. Keep them as `SESSION_ID`,
+`PROVIDER` and `AGENT`. When that block says the harness is unknown, or it is missing, there is
+no provenance: leave those fields out.
 
 ### Step 1 — Observe (parallel)
 
@@ -107,11 +112,11 @@ Hold the results in working memory for later steps. Do not display them yet.
 
 ### Step 2 — (retired: implementation log catch-up, DEVS-71)
 
-### Step 3 — Session summary to mem0 (always)
+### Step 3 — Session summary to SessionFlow memory (always)
 
-Write **ONE** mem0 add call that gives a detailed prose account of the session. This is
-the only routine mem0 write. Write it yourself from the conversation — never dispatch a
-subagent to summarize.
+Write **ONE** `mcp__sessionflow__add_memory` call that gives a detailed prose account of the
+session. This is the only routine memory write. Write it yourself from the conversation — never
+dispatch a subagent to summarize.
 
 **Content — include every anchor that applies** (they are what makes the record findable):
 
@@ -125,33 +130,48 @@ subagent to summarize.
   non-obvious state or gotchas
 
 **Style:** as much concrete detail as the session warrants — plain prose, concrete nouns,
-no headings or bullets (mem0 stores text, not markdown). mem0's dashboard instructions tell it
-to keep a session summary as one memory; the goal is a broad, searchable "have we worked on X before?"
-record shared across harnesses and developers, which then points into SessionFlow, git and
-the code for depth. No lessons phrased as rules — those go to local memory in Step 4.
+no headings or bullets. The record is stored verbatim; the goal is a broad, searchable "have we
+worked on X before?" record shared across harnesses, which then points into the transcripts, git
+and the code for depth. No lessons phrased as rules — those go to local memory in Step 4. Never put
+a secret value in the text: the server rejects a write that matches its secret scanner.
 
-> **mem0 tool prefix (DEVS-94):** mem0 is the official hosted MCP connector now — its live tool
-> prefix is `mcp__<connector-id>__*`, not a fixed `mcp__mem0__`. `add_memory` names the
-> capability; resolve the live tool from your catalog before calling it.
+**Idempotency check first.** When `SESSION_ID` is known, look for this session's summary:
 
 ```
-add_memory(
+mcp__sessionflow__list_memories(project: PROJECT, type: "session-summary",
+                                source_session_id: SESSION_ID, limit: 1, format: "json")
+```
+
+A hit means this session was wrapped before. Write anyway: the same `topic_key` makes the new
+summary replace the old one in place, so the record always holds the latest account. With no
+`SESSION_ID`, list today's summaries for the project (`created_from` and `created_to` set to
+today) and skip the write if one already covers this session.
+
+```
+mcp__sessionflow__add_memory(
   text: "[<Project> session <YYYY-MM-DD> <HH:MM>–<HH:MM> CT | <branch> | codex] <paragraph>",
-  user_id: USER,
   agent_id: "codex",
-  metadata: {
-    "type": "session-summary",
+  project: PROJECT,
+  type: "session-summary",
+  topic_key: "session:" + SESSION_ID,          # omit when SESSION_ID is unknown
+  source_session_id: SESSION_ID,               # omit when unknown
+  source_provider: PROVIDER,                   # omit when unknown
+  source_project_root: "<git toplevel>",
+  extra: {
     "source": "wrap",
-    "project": PROJECT,
     "date": "<YYYY-MM-DD>",
+    "branch": "<branch>",
     "issues": ["<ID>", ...],
     "handoff": <true if --handoff else false>
-  }
+  },
+  format: "json"
 )
 ```
 
-`agent_id` is the harness (`codex` here), never the project. The project lives in
-`metadata.project` only (DEVS-92 standard). If the write fails, report it 🟡 — SessionFlow still holds the session.
+`agent_id` is the harness (`codex` here), never the project. The result lists similar
+memories; when one is an older summary this one replaces, mention it in the recap. If the write
+fails (`memory_unavailable`, a secret-scanner rejection), report it 🟡 with the error code —
+the transcripts still hold the session.
 
 ### Step 4 — Operating memory (local agent memory)
 
@@ -166,7 +186,7 @@ memory system; report the skip instead.
 Save only prescriptive, reusable guidance. Descriptive session facts belong in the Step 3
 summary, not in local memory. Skip this step when there is nothing new.
 
-Local memory is **not** promoted to mem0 any more (DEVS-75 retired the old promotion step).
+Local memory is never copied into SessionFlow memory.
 
 ### Step 5 — Documentation sync (MANDATORY when behavior changed — fix, don't warn)
 
@@ -241,7 +261,7 @@ warnings, not actions.
 Compute the traffic-light color:
 - **🟢 Green** — all four checks pass
 - **🟡 Yellow** — one or more soft warnings (uncommitted files, stale worktrees, PR open
-  with passing checks, mem0 summary write failed, etc.) but nothing broken
+  with passing checks, session summary write failed, etc.) but nothing broken
 - **🔴 Red** — something is genuinely wrong (PR with failing checks, etc.)
 
 ### Step 7 — Print the recap to the user
@@ -251,10 +271,10 @@ The recap is the *last* thing the user sees.
 ```
 ## Session Wrapped 🟢 / 🟡 / 🔴
 
-**mem0 summary:** saved (<issue IDs>) — or "⚠ write failed"
+**Session summary:** saved as <memory ID> (<issue IDs>; "replaced" when a re-wrap) — or "⚠ write failed: <code>"
 **Local memory:** <N entries added/updated> (or "nothing new")
 **Docs:** <"chore PR #N (auto-merge)" | "shared vault updated (Devops <sha>)" | "no impact">
-**Handoff:** <"included in the mem0 summary" if --handoff, else "n/a">
+**Handoff:** <"included in the session summary" if --handoff, else "n/a">
 
 <Session Health block — see format below>
 
@@ -300,7 +320,7 @@ Warning examples:
 - `⚠ PR #47 open with passing checks — not merged this session`
 - `⚠ Worktree .worktrees/swf-92 has uncommitted changes — left intact`
 - `⚠ Stale worktree .worktrees/swf-88 (branch merged) — run /pr-cleanup next session`
-- `⚠ mem0 session summary write failed — SessionFlow still holds the session`
+- `⚠ Session summary write failed (memory_unavailable) — the transcripts still hold the session`
 
 ### 🔴 Red — something is genuinely broken
 
@@ -325,17 +345,16 @@ Even when red, the wrap still completes. Red is a *report*, not a halt.
 ## Rules (the short version)
 
 - **One flow, no gates.** No "STOP HERE", no phase banners, no mid-flow approval prompts.
-- **Exactly one routine mem0 write per wrap:** the Step 3 session summary, tagged
-  `metadata.project` and `type: session-summary`. No `retro-learning` entries, no local-memory
-  promotion, no per-fact mem0 writes.
-- **Lessons → local memory. Foundations → `.context/`. Big picture → mem0.**
+- **Exactly one routine memory write per wrap:** the Step 3 session summary, with `project` and
+  `type: session-summary`. No local-memory copies, no per-fact memory writes.
+- **Lessons → local memory. Foundations → `.context/`. Big picture → SessionFlow memory.**
 - **Run actions autonomously where the action is obvious.** Fast-forward pull when clean,
   docs sync. Anything that touches dirty user work becomes a warning, not an action.
 - **Session Health is the only place warnings appear.**
 - **The recap is the last thing the user sees.** No follow-up questions after it.
 - **No subagents for summarization.** You write the summary from your own context.
-- **Idempotent.** Running `/wrap` twice should not write two summaries — search mem0 for a
-  `session-summary` for this project and date first, and skip if one covers this session.
+- **Idempotent.** Running `/wrap` twice never leaves two summaries for one session: the
+  `session:<session_id>` topic key replaces the earlier record (Step 3).
 - **Never auto-delete uncommitted work, ever.** Worktrees, branches, files, stashes — all
   off-limits to autonomous deletion.
 

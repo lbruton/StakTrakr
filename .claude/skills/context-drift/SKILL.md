@@ -12,7 +12,7 @@ description: >-
   "context-drift", "audit .context", "check context docs", "foundation drift", "verify foundation",
   "what should be in .context".
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Skill, Agent
-library-version: b9ae376f5f2b
+library-version: ce6718eb297b
 ---
 
 # Context Drift
