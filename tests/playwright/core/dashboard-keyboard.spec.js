@@ -301,17 +301,20 @@ test.describe("best-price ticker motion", () => {
     await expect.poll(() => isTickerMoving(page)).toBe(true);
   });
 
-  test("a paused ticker stays paused after a reload", async ({ page }) => {
+  test("a pause lasts for the page view; a reload scrolls again", async ({ page }) => {
     await gotoDashboard(page);
     await renderLoopingTicker(page);
     await page.getByRole("button", { name: "Pause dealer prices" }).click();
+    // A value an earlier build stored is swept at boot.
+    await page.evaluate(() => localStorage.setItem("bestPriceTickerPaused", "true"));
     await page.reload();
     await expect(page.locator("#bestPriceTickerEl .ticker-track")).toHaveCount(1);
     await renderLoopingTicker(page);
     const pause = page.getByRole("button", { name: "Pause dealer prices" });
-    await expect(pause).toHaveAttribute("aria-pressed", "true");
+    await expect(pause).toHaveAttribute("aria-pressed", "false");
     await page.mouse.move(0, 0);
-    expect(await isTickerMoving(page)).toBe(false);
+    await expect.poll(() => isTickerMoving(page)).toBe(true);
+    expect(await page.evaluate(() => localStorage.getItem("bestPriceTickerPaused"))).toBeNull();
   });
 
   test("with reduced motion every dealer is reachable once by scroll and keyboard", async ({

@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.89] - 2026-10-28
+
+### Changed — STRK-496: Ticker pause lasts for the page view
+
+- **Pause button**: The best-price ticker scrolls on every page load. A pause lasts until play or a reload and is no longer stored, so it does not carry over to the next visit or another tab (STRK-496).
+
+---
+
 ## [3.36.88] - 2026-10-27
 
 ### Changed — STRK-495: Ticker pause holds in place

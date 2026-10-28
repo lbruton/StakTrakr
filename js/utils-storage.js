@@ -163,6 +163,7 @@ const RETIRED_STORAGE_KEYS = [
   "bulkEditSelection", // removed: bulk-edit selection is no longer persisted
   "headerCardViewBtnVisible", // STAK-118: header button retired (STRK-281)
   "headerSyncBtnVisible", // header button retired (STRK-281)
+  "bestPriceTickerPaused", // the ticker pause lasts for the page view and is not stored
 ];
 
 /**
