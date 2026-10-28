@@ -726,8 +726,9 @@ const _wireTickerFocus = (container) => {
 };
 
 /**
- * Applies the paused layout when the user paused the strip or the system asks for reduced
- * motion. The pause button shows only beside a looping strip, and never under reduced motion.
+ * Holds the loop at its offset when the user paused the strip, and applies the static
+ * layout under reduced motion. The pause button shows only beside a looping strip, and
+ * never under reduced motion.
  * @param {HTMLElement} container - The #bestPriceTickerEl element
  * @returns {void}
  */
@@ -735,7 +736,8 @@ const _syncTickerPause = (container) => {
   if (!(container instanceof HTMLElement)) return;
   const reduced = prefersReducedMotion();
   const userPaused = localStorage.getItem(TICKER_PAUSED_KEY) === "true";
-  container.classList.toggle("is-paused", reduced || userPaused);
+  container.classList.toggle("is-paused", reduced);
+  container.classList.toggle("is-held", userPaused && !reduced);
   const button = safeGetElement("bestPriceTickerPause");
   if (!(button instanceof HTMLElement)) return;
   const looping = !container.hidden && !!container.querySelector('[data-ticker-block="duplicate"]');

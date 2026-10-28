@@ -267,18 +267,24 @@ test.describe("best-price ticker motion", () => {
     await page.locator(".total-title[data-metal='Silver'] > button").focus();
     await expect.poll(() => isTickerMoving(page)).toBe(true);
 
+    // Pause holds the loop where it is, and play continues from that offset.
+    await expect.poll(async () => Math.abs(await trackOffset(page))).toBeGreaterThan(60);
+    const beforePause = await trackOffset(page);
     await pause.focus();
     await page.keyboard.press("Enter");
     await expect(pause).toHaveAttribute("aria-pressed", "true");
     await page.locator(".total-title[data-metal='Silver'] > button").focus();
-    expect(await isTickerMoving(page)).toBe(false);
-    await expect(page.locator("#bestPriceTickerEl [data-ticker-block='duplicate']")).toBeHidden();
-    const track = page.locator("#bestPriceTickerEl .ticker-track");
-    expect(await track.evaluate((t) => t.scrollWidth > t.clientWidth)).toBe(true);
+    // A paused animation stops on the next frame, so wait for the track to settle.
+    await expect.poll(() => isTickerMoving(page)).toBe(false);
+    const held = await trackOffset(page);
+    expect(Math.abs(held - beforePause), "pause keeps the offset").toBeLessThan(20);
+    await expect(page.locator("#bestPriceTickerEl [data-ticker-block='duplicate']")).toBeVisible();
 
     await pause.focus();
     await page.keyboard.press("Enter");
     await expect(pause).toHaveAttribute("aria-pressed", "false");
+    const resumed = await trackOffset(page);
+    expect(Math.abs(resumed - held), "play continues from the held offset").toBeLessThan(20);
     await page.locator(".total-title[data-metal='Silver'] > button").focus();
     await expect.poll(() => isTickerMoving(page)).toBe(true);
 

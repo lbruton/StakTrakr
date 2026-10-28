@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.88] - 2026-10-27
+
+### Changed — STRK-495: Ticker pause holds in place
+
+- **Pause button**: Pressing pause stops the best-price ticker where it is, and play continues from that point. Reduced motion still shows one scrollable row of dealers (STRK-495).
+
+---
+
 ## [3.36.87] - 2026-10-27
 
 ### Changed — STRK-494: Ticker play button resumes the loop
