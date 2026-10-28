@@ -132,6 +132,9 @@ const hideWhatsNewPopup = () => {
 // setupWhatsNewPopupEvents kept as no-op — modal removed (STAK-547)
 const setupWhatsNewPopupEvents = () => {};
 
+/**
+ * @returns {string} HTML list items for recent releases, newest first, without a surrounding list.
+ */
 const getEmbeddedWhatsNew = () => {
   return `
     <li><strong>v3.36.85 &ndash; A ticker you can stop</strong>: The best-price ticker holds still while you point at it or tab through it, and a pause button beside it stops it for good on this device. Paused, it shows each dealer once in a row you can scroll. With reduced motion turned on in your system, the ticker starts paused and the spot sparklines appear without animating (STRK-488).</li>

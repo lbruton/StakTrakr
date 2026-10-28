@@ -1565,7 +1565,7 @@ window.getHealthStatusClass = getHealthStatusClass;
 /**
  * Reports the operating system's reduced-motion setting, for motion that CSS media
  * queries cannot reach (Chart.js animations, script-driven loops).
- * @returns {boolean} True when the user asks for reduced motion.
+ * @returns {boolean} True when the user asks for reduced motion; false when matchMedia is unavailable.
  */
 function prefersReducedMotion() {
   return typeof window.matchMedia === "function"

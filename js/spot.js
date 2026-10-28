@@ -1116,7 +1116,11 @@ const getSparklineData = (metalName, days, intraday = false) => {
 /**
  * Renders or updates a sparkline chart for a single metal card.
  * For ranges >180 days, fetches historical year files asynchronously.
+ * Disables animation under reduced motion. Skips chart creation when fewer than two points are available.
+ * Year-file loading failures contribute no historical points.
  * @param {string} metalKey - Metal key ('silver', 'gold', etc.)
+ * @returns {Promise<void>} Resolves after updating the card; unknown metals or missing canvases leave it unchanged.
+ * @throws {Error} Rejects on data-processing or chart-rendering errors.
  */
 const updateSparkline = async (metalKey) => {
   const metalConfig = Object.values(METALS).find((m) => m.key === metalKey);

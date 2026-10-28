@@ -727,9 +727,11 @@ const _wireTickerFocus = (container) => {
 
 /**
  * Applies the paused layout when the user paused the strip or the system asks for reduced
- * motion. The pause button shows only beside a looping strip, and never under reduced motion.
+ * motion. The button shows only for a visible strip with a loop copy and reduced motion off.
+ * Its pressed state reflects only the stored pause choice. Ignores non-HTML containers.
  * @param {HTMLElement} container - The #bestPriceTickerEl element
  * @returns {void}
+ * @throws {Error} Propagates errors reading the stored pause choice.
  */
 const _syncTickerPause = (container) => {
   if (!(container instanceof HTMLElement)) return;
@@ -745,6 +747,8 @@ const _syncTickerPause = (container) => {
 
 /**
  * Wires the pause button and the reduced-motion listener once.
+ * Button clicks toggle the device-local pause choice; motion preference changes refresh the layout.
+ * Ignores non-HTML containers and containers already wired for pause.
  * @param {HTMLElement} container - The #bestPriceTickerEl element
  * @returns {void}
  */
@@ -769,6 +773,12 @@ const _wireTickerPause = (container) => {
   }
 };
 
+/**
+ * Renders the cheapest eligible in-stock dealer per coin and applies the pause or reduced-motion layout.
+ * Hides the strip when no dealer qualifies; does nothing when the ticker element is missing.
+ * Wires keyboard focus and pause controls once.
+ * @throws {Error} Propagates rendering errors and errors reading the stored pause choice.
+ */
 const renderBestPriceTicker = () => {
   const container = safeGetElement("bestPriceTickerEl");
   if (!(container instanceof HTMLElement)) return;
