@@ -16747,9 +16747,10 @@ input[type="number"] {
   position: relative;
 }
 
-/* Hover or focus anywhere in the frame holds the loop where it is. */
-.market-ticker-frame:hover .ticker-track,
-.market-ticker-frame:focus-within .ticker-track {
+/* Hover or focus on the strip holds the loop where it is. The pause button sits outside
+   the strip, so a focused or hovered button does not hold a loop the user just resumed. */
+.market-ticker:hover .ticker-track,
+.market-ticker:focus-within .ticker-track {
   animation-play-state: paused;
 }
 

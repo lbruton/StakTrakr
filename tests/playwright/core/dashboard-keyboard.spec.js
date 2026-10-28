@@ -281,6 +281,18 @@ test.describe("best-price ticker motion", () => {
     await expect(pause).toHaveAttribute("aria-pressed", "false");
     await page.locator(".total-title[data-metal='Silver'] > button").focus();
     await expect.poll(() => isTickerMoving(page)).toBe(true);
+
+    // Play resumes while the pointer rests on the button and the button keeps focus.
+    await pause.click();
+    await expect(pause).toHaveAttribute("aria-pressed", "true");
+    await pause.click();
+    await expect(pause).toHaveAttribute("aria-pressed", "false");
+    await expect.poll(() => isTickerMoving(page)).toBe(true);
+    await pause.focus();
+    await page.keyboard.press("Enter");
+    await page.keyboard.press("Enter");
+    await expect(pause).toBeFocused();
+    await expect.poll(() => isTickerMoving(page)).toBe(true);
   });
 
   test("a paused ticker stays paused after a reload", async ({ page }) => {
