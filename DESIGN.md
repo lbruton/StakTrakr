@@ -265,6 +265,11 @@ The main breakpoints are 768px (tablet and phone landscape), 640px and 480px (ph
 desktop). The code holds other one-off values; new work uses 480px, 768px, 1024px and 1350px. Below
 768px, cards stack in one column and controls keep a 44px touch target.
 
+A control whose visible box is smaller than 44px gets a centred `::after` hit area of at least 44px,
+and neighbouring controls sit far enough apart that the hit areas do not overlap. Values never end in an
+ellipsis: a price, total or label wraps or moves to its own line. Below 768px, Dashboard text is at least
+12px, set with `max()` so a larger user font size still applies.
+
 ### Named Rules
 
 **The Density Rule.** Show the data. A surface does not trade visible information for whitespace or hide
