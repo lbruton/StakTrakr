@@ -4255,8 +4255,11 @@ const setupSpotPriceListeners = () => {
   // Mirrors shift+click behavior: hold 600ms on spot price to open manual input
   let _spotLongPressTimer = null;
   let _spotLongPressFired = false;
+  // Touch events stay on the element the touch started on, so the spot section sees the
+  // whole gesture. touchstart is passive: it never cancels, and page scrolling must not wait.
+  const spotTouchRoot = document.getElementById("spotPricesSection") || document;
 
-  document.addEventListener(
+  spotTouchRoot.addEventListener(
     "touchstart",
     (e) => {
       const valueEl = e.target.closest(".spot-card-value");
@@ -4277,7 +4280,7 @@ const setupSpotPriceListeners = () => {
         }
       }, 600);
     },
-    { passive: false }
+    { passive: true }
   );
 
   // Suppress context menu during long-press (preventDefault inside setTimeout is stale)
@@ -4287,7 +4290,7 @@ const setupSpotPriceListeners = () => {
     }
   });
 
-  document.addEventListener(
+  spotTouchRoot.addEventListener(
     "touchend",
     (e) => {
       if (_spotLongPressTimer) {
@@ -4303,7 +4306,7 @@ const setupSpotPriceListeners = () => {
     { passive: false }
   );
 
-  document.addEventListener(
+  spotTouchRoot.addEventListener(
     "touchmove",
     () => {
       if (_spotLongPressTimer) {
@@ -4315,7 +4318,7 @@ const setupSpotPriceListeners = () => {
   );
 
   // Cancel long-press when browser cancels the gesture (e.g., incoming call, scroll takeover)
-  document.addEventListener(
+  spotTouchRoot.addEventListener(
     "touchcancel",
     () => {
       if (_spotLongPressTimer) {

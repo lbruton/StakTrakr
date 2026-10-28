@@ -134,11 +134,11 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.36.86 &ndash; The Dashboard on your phone</strong>: On a phone, each spot card fits on one row with the full price beside its sparkline, and no price, label or total is cut off with an ellipsis, even at large text sizes. Every button, chip and ticker dealer is big enough to tap, and the smallest Dashboard text is 12px (STRK-489).</li>
     <li><strong>v3.36.85 &ndash; A ticker you can stop</strong>: The best-price ticker holds still while you point at it or tab through it, and a pause button beside it stops it for good on this device. Paused, it shows each dealer once in a row you can scroll. With reduced motion turned on in your system, the ticker starts paused and the spot sparklines appear without animating (STRK-488).</li>
     <li><strong>v3.36.84 &ndash; Clean Metal Ratios chart labels</strong>: The vertical axis of the Metal Ratios chart shows rounded values such as 2.55:1 for every pair and range. Long decimal tails such as 2.5500000000000003:1 are gone, and the tooltips are unchanged (STRK-492).</li>
     <li><strong>v3.36.83 &ndash; Dashboard by keyboard and screen reader</strong>: Each spot card has an edit button for setting the price by hand, and totals card titles and ticker dealers are buttons you can reach with Tab. The Dashboard has headings for each section, the ticker stops and shows a focused dealer and reads each price once, and ratio chips and refresh buttons say what they show (STRK-487).</li>
-    <li><strong>v3.36.82 &ndash; Dashboard numbers you can read</strong>: Gain, loss, spot change, dealer premiums and the Goldback chip meet AA contrast in light, dark, slate and sepia. Spot prices show in the plain text colour with an arrow, and the coloured change line below them shows the trend. Each card's sparkline sits in its own row, so no number is drawn over the chart (STRK-486).</li>
-    <li><strong>v3.36.81 &ndash; Responsive control feedback</strong>: Buttons and shared controls smoothly respond to hover, focus and state changes again. The transitions leave layout unchanged, and reduced motion keeps feedback immediate (STRK-484).</li>      `;
+    <li><strong>v3.36.82 &ndash; Dashboard numbers you can read</strong>: Gain, loss, spot change, dealer premiums and the Goldback chip meet AA contrast in light, dark, slate and sepia. Spot prices show in the plain text colour with an arrow, and the coloured change line below them shows the trend. Each card's sparkline sits in its own row, so no number is drawn over the chart (STRK-486).</li>      `;
 };
 
 // Expose globally for access from other modules

@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.86] - 2026-10-27
+
+### Changed — STRK-489: Dashboard at phone width
+
+- **Spot cards**: At 768px and below, each metal has one card row with the price and change beside the sparkline. Prices, labels and timestamps wrap instead of ending in an ellipsis, and the label shows the metal name alone (STRK-489).
+- **Touch targets**: Every Dashboard control has a 44px hit area at phone width: the trend period, edit and refresh buttons, ratio chips, ticker dealers, totals titles, carousel arrows and dots (STRK-489).
+- **Text size**: Dashboard labels and values are at least 12px at phone width, and totals values wrap to their own line at large text sizes instead of truncating (STRK-489).
+- **Scrolling**: The spot long-press listener is passive and listens on the spot section only, so a touch elsewhere scrolls without waiting for it (STRK-489).
+
+---
+
 ## [3.36.85] - 2026-10-27
 
 ### Changed — STRK-488: Best-price ticker pause and reduced motion

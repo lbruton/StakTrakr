@@ -1,4 +1,6 @@
 import { test, expect } from "../helpers/mocks/extended-test.js";
+import { injectSeedInventory } from "../helpers/seed.js";
+import { installStakTrakrNetworkMocks } from "../helpers/mocks/routes.js";
 
 const BASE_ITEM = {
   uuid: "core-mobile-layout-item",
@@ -305,5 +307,159 @@ test.describe("detail modal — mobile", () => {
     // paid / melt cells hidden, not merely narrow
     await expect(page.locator("#detailsModal .dm-ledger td.dm-col-paid").first()).toBeHidden();
     await expect(page.locator("#detailsModal .dm-ledger td.dm-col-melt").first()).toBeHidden();
+  });
+});
+
+/**
+ * Boots the Dashboard at a phone width with the seed inventory, a theme, and prices whose
+ * full text is wider than a two-column card.
+ */
+async function gotoPhoneDashboard(page, { width = 390, theme = "light" } = {}) {
+  await page.setViewportSize({ width, height: 844 });
+  await installStakTrakrNetworkMocks(page, {
+    spotLatest: { xau: { price: 4123.45 }, xpd: { price: 1045.67 } },
+  });
+  await injectSeedInventory(page);
+  await page.addInitScript((t) => localStorage.setItem("appTheme", t), theme);
+  await page.goto("/index.html");
+  await expect(page.locator("#bestPriceTickerEl .ticker-track")).toHaveCount(1);
+  await expect(page.locator("#spotPriceDisplayGold")).toContainText("4,123.45");
+}
+
+/** Lists the spot cards, labels and values whose text is cut off inside their own box. */
+function readClippedText(page) {
+  return page.evaluate(() => {
+    const selector = [
+      ".spot-card",
+      ".spot-card-label",
+      ".spot-card-value",
+      ".spot-card-change",
+      ".spot-ratio-chip",
+      ".spot-card-timestamp",
+      ".total-title",
+      ".total-label",
+      ".total-value",
+    ].join(", ");
+    return [...document.querySelectorAll(`#tabViewDashboard :is(${selector})`)]
+      .filter((el) => el.getClientRects().length > 0)
+      .filter((el) => el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1)
+      .filter((el) => getComputedStyle(el).overflow !== "visible")
+      .map((el) => `${el.id || el.className}: ${el.textContent.trim().slice(0, 40)}`);
+  });
+}
+
+test.describe("Dashboard at phone width", () => {
+  test("spot prices, labels and totals values show in full at 390 and 320 in every theme", async ({
+    page,
+  }) => {
+    const cases = [390, 320].flatMap((width) =>
+      ["light", "dark", "slate", "sepia"].map((theme) => ({ width, theme }))
+    );
+    test.setTimeout(test.info().timeout * cases.length);
+    for (const { width, theme } of cases) {
+      await test.step(`${width}px ${theme}`, async () => {
+        await page.goto("about:blank");
+        await gotoPhoneDashboard(page, { width, theme });
+        const gold = page.locator("#spotPriceDisplayGold");
+        const expected = await page.evaluate(() => formatSpotCardValue("gold", 4123.45));
+        await expect(gold).toContainText(expected);
+        await expect(page.locator(".spot-card[data-metal='gold'] .spot-card-label")).toHaveText(
+          /^gold$/i,
+          { useInnerText: true }
+        );
+        await expect.poll(() => readClippedText(page)).toEqual([]);
+        expect(
+          await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
+        ).toBeLessThanOrEqual(0);
+      });
+    }
+  });
+
+  test("at 200% text size no Dashboard value truncates and the page does not scroll sideways", async ({
+    page,
+  }) => {
+    await gotoPhoneDashboard(page);
+    await page.evaluate(() => (document.documentElement.style.fontSize = "200%"));
+    await expect.poll(() => readClippedText(page)).toEqual([]);
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
+    ).toBeLessThanOrEqual(0);
+  });
+
+  test("every Dashboard control has a 44px hit area at 390px", async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await gotoPhoneDashboard(page);
+    const result = await page.evaluate(() => {
+      const root = document.getElementById("tabViewDashboard");
+      const controls = [
+        ...root.querySelectorAll("button, a[href], select, [role='button'], [tabindex='0']"),
+      ].filter(
+        (el) =>
+          el.checkVisibility({ visibilityProperty: true }) &&
+          el.closest("[aria-hidden='true']") === null
+      );
+      const misses = [];
+      let tested = 0;
+      for (const el of controls) {
+        el.scrollIntoView({ block: "center", inline: "center" });
+        const r = el.getBoundingClientRect();
+        const cx = r.left + r.width / 2;
+        const cy = r.top + r.height / 2;
+        if (cx < 0 || cx > window.innerWidth || cy < 0 || cy > window.innerHeight) continue;
+        tested++;
+        const points = [-21, 0, 21].flatMap((dx) => [-21, 0, 21].map((dy) => [cx + dx, cy + dy]));
+        const missed = points.filter(([x, y]) => {
+          const hit = document.elementFromPoint(x, y);
+          return !hit || (hit !== el && !el.contains(hit));
+        });
+        if (missed.length) {
+          misses.push(`${el.id || el.className} ${Math.round(r.width)}x${Math.round(r.height)}`);
+        }
+      }
+      return { tested, misses };
+    });
+    expect(result.tested).toBeGreaterThanOrEqual(15);
+    expect(result.misses).toEqual([]);
+  });
+
+  test("Dashboard text is at least 12px at 390px", async ({ page }) => {
+    await gotoPhoneDashboard(page);
+    const small = await page.evaluate(() => {
+      const root = document.getElementById("tabViewDashboard");
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+      const found = new Set();
+      while (walker.nextNode()) {
+        const el = walker.currentNode.parentElement;
+        if (!walker.currentNode.textContent.trim() || el.getClientRects().length === 0) continue;
+        if (el.closest("[aria-hidden='true']") || el.closest(".sr-only")) continue;
+        const size = parseFloat(getComputedStyle(el).fontSize);
+        if (size < 12) found.add(`${el.className}: ${size}px`);
+      }
+      return [...found];
+    });
+    expect(small).toEqual([]);
+  });
+
+  test("the spot long-press listener never blocks page scrolling", async ({ page }) => {
+    await page.addInitScript(() => {
+      window.__touchListeners = [];
+      const add = EventTarget.prototype.addEventListener;
+      EventTarget.prototype.addEventListener = function (type, fn, options) {
+        // Chromium makes an unflagged touchstart on window, document or body passive.
+        // Only the app's scripts count; Playwright adds its own listeners.
+        const fromApp = /\/js\/[^/]+\.js/.test(new Error().stack);
+        if (type === "touchstart" && fromApp && options?.passive === false) {
+          window.__touchListeners.push(this === window ? "window" : this.id || this.nodeName);
+        }
+        return add.call(this, type, fn, options);
+      };
+    });
+    await gotoPhoneDashboard(page);
+    const blocking = await page.evaluate(() =>
+      window.__touchListeners.filter((target) =>
+        ["window", "#document", "BODY", "HTML"].includes(target)
+      )
+    );
+    expect(blocking).toEqual([]);
   });
 });

@@ -21369,3 +21369,212 @@ input[type="number"] {
     --frame-box-h: 200px;
   }
 }
+
+/* =============================================================================
+   DASHBOARD AT PHONE WIDTH
+   Values wrap instead of ending in an ellipsis, Dashboard text stays at 12px or
+   more, and every control has a 44px hit area. Kept last so it outranks the
+   base spot, ticker, ratio chip and totals rules of equal specificity.
+   ============================================================================= */
+@media (max-width: 768px) {
+  .spot-cards-grid,
+  .spot-cards-grid[data-cards="5"] {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--spacing-sm);
+  }
+  .spot-cards-grid[data-cards="5"] .spot-input:first-child {
+    grid-column: auto;
+  }
+  /* The card carries the frame; a padded wrapper around it costs the price its width. */
+  .spot-input {
+    padding: 0;
+    border: 0;
+    background: none;
+  }
+
+  /* One row per metal: the price and change on the left, the sparkline on the right.
+     The left column never shrinks below its longest word, so the sparkline gives way. */
+  .spot-card {
+    display: grid;
+    grid-template-columns: minmax(min-content, 1fr) minmax(0, 40%);
+    grid-template-areas:
+      "head head"
+      "value spark"
+      "change spark"
+      "chip spark"
+      "ts ts";
+    /* No column gap: the value's own padding separates it, and a gap would stay when
+       the sparkline column collapses at large text sizes. */
+    column-gap: 0;
+    align-items: center;
+    text-align: left;
+  }
+  /* The extra right padding keeps the last hit area clear of the rounded corner. */
+  .spot-card-header {
+    grid-area: head;
+    flex-wrap: wrap;
+    min-height: calc(44px + 0.25rem);
+    padding: 0.25rem calc(var(--spacing) + 6px) 0 var(--spacing);
+    margin-bottom: 0;
+  }
+  .spot-card-value {
+    grid-area: value;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    overflow-wrap: break-word;
+    line-height: 1.2;
+  }
+  .spot-card-change {
+    grid-area: change;
+    text-align: left;
+    padding: 2px var(--spacing);
+  }
+  /* Chart.js sizes the canvas to this band, so the band holds a fixed height. */
+  .spot-sparkline-band {
+    grid-area: spark;
+    height: 4rem;
+    margin: 0 var(--spacing) 0 0;
+  }
+  .spot-ratio-chip,
+  .spot-ratio-chip-spacer {
+    grid-area: chip;
+    justify-self: start;
+    margin: 0.25rem var(--spacing) 0;
+  }
+  .spot-ratio-chip {
+    max-width: none;
+    overflow: visible;
+    white-space: normal;
+  }
+  .spot-card-timestamp {
+    grid-area: ts;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  /* The section heading names the prices, so each card shows the metal alone. */
+  .spot-card-label-suffix {
+    display: none;
+  }
+  .spot-card-label {
+    white-space: normal;
+    overflow: visible;
+  }
+
+  /* Neighbouring hit areas must not overlap, so the controls sit 44px apart. */
+  .spot-card-period {
+    margin-right: 20px;
+  }
+  .spot-card-controls {
+    gap: 20px;
+    margin-left: 0;
+  }
+
+  /* A 44px hit area centred on each control whose visible box is smaller. */
+  #tabViewDashboard
+    :is(
+      .spot-card-period,
+      .spot-edit-btn,
+      .spot-sync-icon,
+      .spot-ratio-chip,
+      .totals-dot,
+      .ticker-item
+    ) {
+    position: relative;
+  }
+  #tabViewDashboard
+    :is(
+      .spot-card-period,
+      .spot-edit-btn,
+      .spot-sync-icon,
+      .spot-ratio-chip,
+      .totals-nav-btn,
+      .totals-dot,
+      .ticker-item
+    )::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: max(100%, 44px);
+    height: max(100%, 44px);
+    transform: translate(-50%, -50%);
+  }
+
+  /* The scrolling strip clips at its padding edge, so the padding holds the hit areas. */
+  .market-ticker {
+    padding: 0;
+    max-height: none;
+  }
+  .ticker-track {
+    padding-block: 10px;
+  }
+  .ticker-item {
+    font-size: max(12px, var(--font-size-xs));
+  }
+
+  .totals-prev {
+    left: -6px;
+  }
+  .totals-next {
+    right: -6px;
+  }
+  .totals-dots {
+    gap: 36px;
+    padding-top: 1rem;
+  }
+  /* A wider pill marks the active dot; a scale would grow its hit area over the next dot. */
+  .totals-dot.active {
+    width: 18px;
+    border-radius: var(--radius-pill);
+    transform: none;
+  }
+  /* 48px, so the rounded focus corners stay outside the 44px hit square. */
+  .total-title-btn {
+    min-width: 48px;
+    min-height: 48px;
+  }
+
+  .total-item {
+    flex-wrap: wrap;
+    column-gap: var(--spacing-sm);
+  }
+  .total-label {
+    white-space: normal;
+    flex-shrink: 1;
+  }
+  .total-value {
+    margin-left: auto;
+    overflow: visible;
+    text-overflow: clip;
+    text-align: right;
+    overflow-wrap: break-word;
+  }
+
+  /* 12px floor for Dashboard text; max() keeps a larger user font size in effect. */
+  .spot-card-label,
+  .spot-card-period,
+  .spot-card-timestamp,
+  .spot-ratio-chip,
+  .spot-ratio-chip-spacer,
+  .spot-ratio-chip .est,
+  .ticker-item .vendor,
+  .ticker-item .premium,
+  .total-label,
+  .total-item-bottom-line .total-label,
+  .gain-loss-pct {
+    font-size: max(12px, var(--font-size-xs));
+  }
+  .spot-card-change,
+  .ticker-item .coin,
+  .ticker-item .price,
+  .total-value,
+  .total-title {
+    font-size: max(13px, var(--font-size-base));
+  }
+  .total-item-bottom-line .total-value {
+    font-size: max(14px, var(--font-size-md));
+  }
+}
