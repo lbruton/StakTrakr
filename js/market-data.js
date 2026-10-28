@@ -725,6 +725,9 @@ const _wireTickerFocus = (container) => {
   });
 };
 
+/** True while the user has paused the strip. Lasts for the page view, so every load scrolls. */
+let _tickerUserPaused = false;
+
 /**
  * Holds the loop at its offset when the user paused the strip, and applies the static
  * layout under reduced motion. The pause button shows only beside a looping strip, and
@@ -735,7 +738,7 @@ const _wireTickerFocus = (container) => {
 const _syncTickerPause = (container) => {
   if (!(container instanceof HTMLElement)) return;
   const reduced = prefersReducedMotion();
-  const userPaused = localStorage.getItem(TICKER_PAUSED_KEY) === "true";
+  const userPaused = _tickerUserPaused;
   container.classList.toggle("is-paused", reduced);
   container.classList.toggle("is-held", userPaused && !reduced);
   const button = safeGetElement("bestPriceTickerPause");
@@ -756,11 +759,7 @@ const _wireTickerPause = (container) => {
   const button = safeGetElement("bestPriceTickerPause");
   if (button instanceof HTMLElement) {
     button.addEventListener("click", () => {
-      if (localStorage.getItem(TICKER_PAUSED_KEY) === "true") {
-        localStorage.removeItem(TICKER_PAUSED_KEY);
-      } else {
-        localStorage.setItem(TICKER_PAUSED_KEY, "true");
-      }
+      _tickerUserPaused = !_tickerUserPaused;
       _syncTickerPause(container);
     });
   }
