@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.87] - 2026-10-27
+
+### Changed — STRK-494: Ticker play button resumes the loop
+
+- **Play button**: Pressing play restarts the best-price ticker at once, while the pointer and focus stay on the button. Hover and focus on the strip itself still hold the loop (STRK-494).
+
+---
+
 ## [3.36.86] - 2026-10-27
 
 ### Changed — STRK-489: Dashboard at phone width
