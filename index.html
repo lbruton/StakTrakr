@@ -1171,14 +1171,49 @@
           </div>
         </section>
         <!-- ── Best Price Ticker (STAK-504) ── -->
-        <div
-          id="bestPriceTickerEl"
-          class="market-ticker"
-          role="region"
-          aria-labelledby="bestPriceTickerHeading"
-          hidden
-        >
-          <h2 class="sr-only" id="bestPriceTickerHeading">Best dealer prices</h2>
+        <div class="market-ticker-frame" id="bestPriceTickerFrame">
+          <div
+            id="bestPriceTickerEl"
+            class="market-ticker"
+            role="region"
+            aria-labelledby="bestPriceTickerHeading"
+            hidden
+          >
+            <h2 class="sr-only" id="bestPriceTickerHeading">Best dealer prices</h2>
+          </div>
+          <button
+            type="button"
+            class="ticker-pause-btn"
+            id="bestPriceTickerPause"
+            aria-pressed="false"
+            title="Pause dealer prices"
+            hidden
+          >
+            <span class="sr-only">Pause dealer prices</span>
+            <svg
+              class="ticker-pause-icon"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              aria-hidden="true"
+            >
+              <rect x="6" y="5" width="4" height="14" rx="1" />
+              <rect x="14" y="5" width="4" height="14" rx="1" />
+            </svg>
+            <svg
+              class="ticker-play-icon"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              aria-hidden="true"
+            >
+              <path
+                d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"
+              />
+            </svg>
+          </button>
         </div>
         <!-- =============================================================================
          TOTALS SECTION

@@ -2992,7 +2992,8 @@ const applyLayoutOrder = () => {
     totals: elements.totalsSectionEl,
     search: elements.searchSectionEl,
     table: elements.tableSectionEl,
-    bestPriceTicker: safeGetElement("bestPriceTickerEl"),
+    // The frame, not the strip: the pause button sits beside the strip and moves with it.
+    bestPriceTicker: safeGetElement("bestPriceTickerFrame"),
     vendorPrices: safeGetElement("vendorPricesSectionEl"),
     collections: safeGetElement("collectionsSectionEl"),
   };

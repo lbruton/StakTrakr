@@ -397,7 +397,7 @@ const CERT_LOOKUP_URLS = {
  * Updated: 2026-05-12 - STRK-66: Add ¼ Goldback denomination (Idaho, g0.25)
  */
 
-const APP_VERSION = "3.36.84";
+const APP_VERSION = "3.36.85";
 
 /**
  * Numista metadata cache TTL: 30 days in milliseconds.
@@ -947,6 +947,12 @@ const METAL_ORDER_KEY = "metalOrderConfig"; // nosemgrep: codacy.javascript.secu
 /** @constant {string} SPOT_TREND_KEY - LocalStorage key for persisted spot trend period */
 const SPOT_TREND_KEY = "spotTrendPeriod"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
+/**
+ * @constant {string} TICKER_PAUSED_KEY - LocalStorage key for the paused best-price ticker.
+ * Device-local, like the reduced-motion setting it complements, so it stays out of SYNC_SCOPE_KEYS.
+ */
+const TICKER_PAUSED_KEY = "bestPriceTickerPaused"; // nosemgrep: codacy.javascript.security.hard-coded-password
+
 // HEADER_TREND_BTN_KEY retired (STRK-283) — the Trend header button was removed
 // in favour of the per-card .spot-card-period chip, so it no longer has a
 // visibility preference. SPOT_TREND_KEY (the chosen period) is unaffected.
@@ -1208,6 +1214,7 @@ const ALLOWED_STORAGE_KEYS = [
   EXCHANGE_RATES_KEY,
   "headerThemeBtnVisible", // boolean string: "true"/"false" (STACK-54)
   SPOT_TREND_KEY, // string: trend period ("1"|"7"|"30"|"90"|"365"|"1095")
+  TICKER_PAUSED_KEY, // boolean string: "true" while the user has paused the best-price ticker
   // HEADER_MARKET_BTN_KEY retired (STRK-290) — no button, no preference
   HEADER_BTN_SHOW_TEXT_KEY, // boolean string: "true"/"false" — show text labels under header icons
   RETAIL_MANIFEST_TS_KEY, // string ISO timestamp — market manifest generated_at cache
@@ -2290,6 +2297,7 @@ if (typeof window !== "undefined") {
   window.IMAGE_ZIP_MANIFEST_VERSION = IMAGE_ZIP_MANIFEST_VERSION;
   // Header button visibility keys (STAK-314)
   window.HEADER_BTN_SHOW_TEXT_KEY = HEADER_BTN_SHOW_TEXT_KEY;
+  window.TICKER_PAUSED_KEY = TICKER_PAUSED_KEY;
   window.RETAIL_MANIFEST_TS_KEY = RETAIL_MANIFEST_TS_KEY;
   window.RETAIL_MANIFEST_SLUGS_KEY = RETAIL_MANIFEST_SLUGS_KEY;
   window.RETAIL_MANIFEST_COIN_META_KEY = RETAIL_MANIFEST_COIN_META_KEY;

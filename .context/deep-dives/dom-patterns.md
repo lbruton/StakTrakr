@@ -212,11 +212,13 @@ If the same known asset-global failure persists after the first reload, `init.js
 
 ## Market Data DOM Elements
 
-The market data module (`js/market-data.js`) introduces six new DOM elements, all looked up via `safeGetElement()`:
+The market data module (`js/market-data.js`) uses eight DOM elements, all looked up via `safeGetElement()`:
 
 | Element ID              | Type        | Purpose                                                                                                                                                                                                                         |
 | ----------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `bestPriceTickerFrame`  | `<div>`     | Layout section for the ticker: holds the ribbon and the pause button, so both move together                                                                                                                                     |
 | `bestPriceTickerEl`     | `<div>`     | Best Price Ticker ribbon: horizontal scrolling lowest-per-coin prices                                                                                                                                                           |
+| `bestPriceTickerPause`  | `<button>`  | Pause/play toggle (`aria-pressed`); the choice persists under `TICKER_PAUSED_KEY` and the button hides under reduced motion                                                                                                     |
 | `vendorPricesSectionEl` | `<section>` | Vendor Prices comparison table container                                                                                                                                                                                        |
 | `vendorPricesContainer` | `<div>`     | Inner container for the tabbed vendor price tables                                                                                                                                                                              |
 | `marketDetailModal`     | `<div>`     | Full-screen overlay for per-coin detail charts                                                                                                                                                                                  |
@@ -224,7 +226,7 @@ The market data module (`js/market-data.js`) introduces six new DOM elements, al
 | `marketDetailCloseBtn`  | `<button>`  | Close button for the market detail modal                                                                                                                                                                                        |
 | `marketSettingsBtn`     | `<button>`  | Gear icon in the Market block (vendor prices section): opens the Market Settings panel. Added alongside the header Market button behavior change (header button now triggers `syncRetailPrices()` instead of opening Settings). |
 
-These elements are defined in `index.html` and are part of the `layoutSectionConfig` system (`bestPriceTicker` section). The ticker is inserted in the main page flow; the modal is a top-level overlay with `hidden` attribute toggled by JS.
+These elements are defined in `index.html` and are part of the `layoutSectionConfig` system. The `bestPriceTicker` section moves `bestPriceTickerFrame`, not the ribbon. The ticker is inserted in the main page flow; the modal is a top-level overlay with `hidden` attribute toggled by JS.
 
 ### Market Filter Matrix Settings Panel
 

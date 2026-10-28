@@ -229,6 +229,142 @@ test.describe("Dashboard keyboard and screen reader access", () => {
   });
 });
 
+/** Reads the ticker track's horizontal offset; 0 when no transform applies. */
+const trackOffset = (page) =>
+  page.locator("#bestPriceTickerEl .ticker-track").evaluate((track) => {
+    const transform = getComputedStyle(track).transform;
+    return transform === "none" ? 0 : new DOMMatrixReadOnly(transform).m41;
+  });
+
+/** True when the ticker track moves within a short window. */
+async function isTickerMoving(page) {
+  const before = await trackOffset(page);
+  await page.waitForTimeout(300);
+  return (await trackOffset(page)) !== before;
+}
+
+test.describe("best-price ticker motion", () => {
+  test("hover, focus inside and the pause button stop the ticker; play resumes it", async ({
+    page,
+  }) => {
+    await gotoDashboard(page);
+    await renderLoopingTicker(page);
+    const pause = page.getByRole("button", { name: "Pause dealer prices" });
+    await expect(pause).toBeVisible();
+    await expect(pause).toHaveAttribute("aria-pressed", "false");
+    await expect.poll(() => isTickerMoving(page)).toBe(true);
+
+    await page.locator("#bestPriceTickerEl").hover();
+    expect(await isTickerMoving(page)).toBe(false);
+    await page.mouse.move(0, 0);
+    await expect.poll(() => isTickerMoving(page)).toBe(true);
+
+    await page
+      .locator("#bestPriceTickerEl [data-ticker-block='primary'] button.ticker-item")
+      .first()
+      .focus();
+    expect(await isTickerMoving(page)).toBe(false);
+    await page.locator(".total-title[data-metal='Silver'] > button").focus();
+    await expect.poll(() => isTickerMoving(page)).toBe(true);
+
+    await pause.focus();
+    await page.keyboard.press("Enter");
+    await expect(pause).toHaveAttribute("aria-pressed", "true");
+    await page.locator(".total-title[data-metal='Silver'] > button").focus();
+    expect(await isTickerMoving(page)).toBe(false);
+    await expect(page.locator("#bestPriceTickerEl [data-ticker-block='duplicate']")).toBeHidden();
+    const track = page.locator("#bestPriceTickerEl .ticker-track");
+    expect(await track.evaluate((t) => t.scrollWidth > t.clientWidth)).toBe(true);
+
+    await pause.focus();
+    await page.keyboard.press("Enter");
+    await expect(pause).toHaveAttribute("aria-pressed", "false");
+    await page.locator(".total-title[data-metal='Silver'] > button").focus();
+    await expect.poll(() => isTickerMoving(page)).toBe(true);
+  });
+
+  test("a paused ticker stays paused after a reload", async ({ page }) => {
+    await gotoDashboard(page);
+    await renderLoopingTicker(page);
+    await page.getByRole("button", { name: "Pause dealer prices" }).click();
+    await page.reload();
+    await expect(page.locator("#bestPriceTickerEl .ticker-track")).toHaveCount(1);
+    await renderLoopingTicker(page);
+    const pause = page.getByRole("button", { name: "Pause dealer prices" });
+    await expect(pause).toHaveAttribute("aria-pressed", "true");
+    await page.mouse.move(0, 0);
+    expect(await isTickerMoving(page)).toBe(false);
+  });
+
+  test("with reduced motion every dealer is reachable once by scroll and keyboard", async ({
+    page,
+  }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await gotoDashboard(page);
+    await renderLoopingTicker(page);
+    await expect(page.locator("#bestPriceTickerEl [data-ticker-block='duplicate']")).toBeHidden();
+    await expect(page.getByRole("button", { name: "Pause dealer prices" })).toBeHidden();
+
+    const track = page.locator("#bestPriceTickerEl .ticker-track");
+    expect(await track.evaluate((t) => getComputedStyle(t).overflowX)).toBe("auto");
+    const dealers = page.locator(
+      "#bestPriceTickerEl [data-ticker-block='primary'] button.ticker-item"
+    );
+    const count = await dealers.count();
+    expect(count).toBeGreaterThan(4);
+
+    const last = dealers.last();
+    await track.evaluate((t) => {
+      t.scrollLeft = t.scrollWidth;
+    });
+    expect(
+      await last.evaluate((button) => {
+        const strip = document.getElementById("bestPriceTickerEl").getBoundingClientRect();
+        const box = button.getBoundingClientRect();
+        return box.left >= strip.left && box.right <= strip.right;
+      }),
+      "the last dealer scrolls into the strip"
+    ).toBe(true);
+
+    await track.evaluate((t) => {
+      t.scrollLeft = 0;
+    });
+    // A key press sets keyboard modality, so each focus below counts as :focus-visible.
+    await page.keyboard.press("Shift");
+    await dealers.first().focus();
+    const focusedDealer = () =>
+      page.evaluate(() => {
+        const el = document.activeElement;
+        const strip = document.getElementById("bestPriceTickerEl").getBoundingClientRect();
+        const box = el.getBoundingClientRect();
+        return {
+          primary: !!el.closest("[data-ticker-block='primary']"),
+          inStrip: box.left >= strip.left - 1 && box.right <= strip.right + 1,
+        };
+      });
+    for (let i = 0; i < count; i++) {
+      await expect.poll(focusedDealer, `dealer ${i + 1} of ${count}`).toEqual({
+        primary: true,
+        inStrip: true,
+      });
+      if (i < count - 1) await page.keyboard.press("Tab");
+    }
+  });
+
+  test("spot sparklines draw without animation under reduced motion", async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await gotoDashboard(page);
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const chart = Chart.getChart(document.getElementById("sparklineSilver"));
+          return chart ? chart.options.animation : null;
+        })
+      )
+      .toBe(false);
+  });
+});
+
 test.describe("totals carousel dots", () => {
   test("the active dot follows the scroll position after the metal order changes", async ({
     page,

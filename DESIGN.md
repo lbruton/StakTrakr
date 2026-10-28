@@ -300,6 +300,9 @@ transform. Use the timing token after an explicit property name; use the complet
 Layout properties are excluded. Reduced motion forces transition duration and delay to zero, preserving
 immediate state and theme feedback.
 
+Continuous motion stops on request. The best-price ticker holds still under hover or focus and has a pause
+button. Under reduced motion it shows one scrollable row, and the spot sparklines draw without animation.
+
 ## Shapes
 
 Corners are tight and consistent: 4px for small elements, 8px for buttons, inputs and chips, 12px for

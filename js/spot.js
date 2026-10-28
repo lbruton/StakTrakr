@@ -1218,7 +1218,7 @@ const updateSparkline = async (metalKey) => {
           max: hi + pad,
         },
       },
-      animation: { duration: 400 },
+      animation: prefersReducedMotion() ? false : { duration: 400 },
       interaction: { enabled: false },
     },
   };

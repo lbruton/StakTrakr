@@ -725,11 +725,65 @@ const _wireTickerFocus = (container) => {
   });
 };
 
+/**
+ * Applies the paused layout when the user paused the strip or the system asks for reduced
+ * motion. The pause button shows only beside a looping strip, and never under reduced motion.
+ * @param {HTMLElement} container - The #bestPriceTickerEl element
+ * @returns {void}
+ */
+const _syncTickerPause = (container) => {
+  if (!(container instanceof HTMLElement)) return;
+  const reduced = prefersReducedMotion();
+  const userPaused = localStorage.getItem(TICKER_PAUSED_KEY) === "true";
+  container.classList.toggle("is-paused", reduced || userPaused);
+  const button = safeGetElement("bestPriceTickerPause");
+  if (!(button instanceof HTMLElement)) return;
+  const looping = !container.hidden && !!container.querySelector('[data-ticker-block="duplicate"]');
+  button.hidden = reduced || !looping;
+  button.setAttribute("aria-pressed", String(userPaused));
+};
+
+/**
+ * Wires the pause button and the reduced-motion listener once.
+ * @param {HTMLElement} container - The #bestPriceTickerEl element
+ * @returns {void}
+ */
+const _wireTickerPause = (container) => {
+  if (!(container instanceof HTMLElement) || container.dataset.pauseWired) return;
+  container.dataset.pauseWired = "1";
+  const button = safeGetElement("bestPriceTickerPause");
+  if (button instanceof HTMLElement) {
+    button.addEventListener("click", () => {
+      if (localStorage.getItem(TICKER_PAUSED_KEY) === "true") {
+        localStorage.removeItem(TICKER_PAUSED_KEY);
+      } else {
+        localStorage.setItem(TICKER_PAUSED_KEY, "true");
+      }
+      _syncTickerPause(container);
+    });
+  }
+  if (typeof window.matchMedia === "function") {
+    window
+      .matchMedia("(prefers-reduced-motion: reduce)")
+      .addEventListener("change", () => _syncTickerPause(container));
+  }
+};
+
 const renderBestPriceTicker = () => {
   const container = safeGetElement("bestPriceTickerEl");
-  if (!container) return;
+  if (!(container instanceof HTMLElement)) return;
   _wireTickerFocus(container);
+  _wireTickerPause(container);
+  _buildBestPriceTicker(container);
+  _syncTickerPause(container);
+};
 
+/**
+ * Builds the strip from the cheapest in-stock dealer per coin, or hides it when none qualify.
+ * @param {HTMLElement} container - The #bestPriceTickerEl element
+ * @returns {void}
+ */
+const _buildBestPriceTicker = (container) => {
   const coins = _getRetailCoins();
   const coinMetaMap = _getCoinMeta();
   const vendorMeta = _getVendorMeta();

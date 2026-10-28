@@ -432,7 +432,8 @@ test.describe("core/tab visibility", () => {
     const order = await page.evaluate(() =>
       [...document.querySelectorAll("#tabViewDashboard > [id]")].map((el) => el.id)
     );
-    expect(order.indexOf("totalsSectionEl")).toBeLessThan(order.indexOf("bestPriceTickerEl"));
+    expect(order.indexOf("bestPriceTickerFrame")).toBeGreaterThan(-1);
+    expect(order.indexOf("totalsSectionEl")).toBeLessThan(order.indexOf("bestPriceTickerFrame"));
   });
 });
 
