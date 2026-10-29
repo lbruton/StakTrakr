@@ -1,7 +1,7 @@
 ---
 name: pr-resolve
 description: PR resolve — work through open PR review threads and Codacy issues to get a PR approved and merged.
-library-version: ce6718eb297b
+library-version: 4e36a5fd51a7
 ---
 
 # PR Resolve
@@ -260,7 +260,9 @@ Never dispatch a `pr-thread-resolver` subagent for a cluster that is 100% bot-du
 
 ### Step 1: Wait for automated re-review
 
-After pushing fixes, Copilot and Codacy re-run. Wait for them before checking thread state.
+After pushing fixes, Codacy static analysis and CI re-run. Copilot re-reviews only when a repo
+ruleset requests it or when you re-request it (`gh pr edit <number> --add-reviewer "@copilot"`).
+Re-request Copilot only when the user asks. Wait for the checks before checking thread state.
 
 Use `gh pr checks --watch` (preferred) or a `Bash` `run_in_background` + Monitor loop — **never a `sleep` chain**. The global Action Gates forbid `sleep N` polling in skill bash.
 
@@ -295,7 +297,7 @@ gh api graphql -f query='
 
 ### Step 3: Auto-resolve duplicate threads
 
-When automated reviewers (Codacy, Copilot) re-run after a push, they often regenerate threads on the same file+line that were already resolved. Resolve these inline — **never via subagent dispatch**, as that triggers an extra push and another Codacy re-scan, perpetuating the loop.
+When automated reviewers (Codacy, or a re-requested Copilot) re-run after a push, they often regenerate threads on the same file+line that were already resolved. Resolve these inline — **never via subagent dispatch**, as that triggers an extra push and another Codacy re-scan, perpetuating the loop.
 
 **Immediately classify every unresolved thread before taking any action:**
 

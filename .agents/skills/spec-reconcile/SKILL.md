@@ -2,7 +2,7 @@
 name: spec-reconcile
 description: "Spec process step — classify /spec-review marks for one phase, apply them with human approval, archive the originals. ISSUE PHASE first."
 user-invocable: true
-library-version: ce6718eb297b
+library-version: 4e36a5fd51a7
 ---
 
 # /spec-reconcile ISSUE PHASE
