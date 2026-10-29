@@ -1,5 +1,5 @@
 ---
-library-version: ce6718eb297b
+library-version: 4e36a5fd51a7
 ---
 # Prose-core rules
 
