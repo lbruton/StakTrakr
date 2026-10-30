@@ -1284,10 +1284,10 @@
   }
 
   /**
-   * Write the gain/loss cell (value + colored label) into a totals card.
-   * Shared by per-metal and "All" cards.
+   * Write the gain/loss cell (signed, coloured value with its percent on cost).
+   * Shared by per-metal and "All" rows.
    * @param {object} els - Element bag with a `lossProfit` node.
-   * @param {object} totals - Totals accumulator for that card.
+   * @param {object} totals - Totals accumulator for that row.
    * @returns {void}
    */
   function _writeGainLossCell(els, totals) {
@@ -1296,14 +1296,6 @@
     const gainLossPct = totals.totalPurchased > 0 ? (gl / totals.totalPurchased) * 100 : 0;
     // nosemgrep: javascript.browser.security.insecure-innerhtml.insecure-innerhtml, javascript.browser.security.insecure-document-method.insecure-document-method
     els.lossProfit.innerHTML = formatLossProfit(gl, gainLossPct);
-    const glLabel =
-      els.lossProfit.parentElement && els.lossProfit.parentElement.querySelector(".total-label");
-    if (glLabel) {
-      glLabel.textContent = gl > 0 ? "Gain:" : gl < 0 ? "Loss:" : "Gain/Loss:";
-      glLabel.classList.toggle("gl-gain", gl > 0);
-      glLabel.classList.toggle("gl-loss", gl < 0);
-      glLabel.style.fontWeight = gl !== 0 ? "600" : "";
-    }
   }
 
   /**
@@ -1365,7 +1357,9 @@
   }
 
   /**
-   * Write one per-metal summary card (basics, gain/loss, avg cost, realized).
+   * Write one per-metal totals row (basics, gain/loss, avg cost, realized). A metal with
+   * no active Items and no realized gain or loss is marked not held, and the ledger hides
+   * its row; a gifted, lost or returned Item alone does not keep it.
    * @param {object} metalConfig - METALS entry (has key + name).
    * @param {object} metalTotals - Per-metal totals accumulator.
    * @returns {void}
@@ -1376,8 +1370,11 @@
     _writeTotalsCardBasics(els, totals);
     _writeGainLossCell(els, totals);
     _writeAvgCost(els, totals);
-    // Realized G/L -- always visible on every card (STAK-72)
     _writeRealizedCell(safeGetElement(`realizedGainLoss${metalConfig.name}`), totals);
+    const row = document.querySelector(
+      `#totalsLedger .totals-row[data-metal-key="${metalConfig.key}"]`
+    );
+    if (row) row.dataset.held = String(totals.totalItems > 0 || totals.realizedGainLoss !== 0);
   }
 
   /**
@@ -1391,7 +1388,6 @@
       _writeGainLossCell(elements.totals.all, allTotals);
       _writeAvgCost(elements.totals.all, allTotals);
     }
-    // Realized G/L -- always visible on "All" card (STAK-72)
     _writeRealizedCell(safeGetElement("realizedGainLossAll"), allTotals);
   }
 

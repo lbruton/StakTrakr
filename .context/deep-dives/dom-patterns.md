@@ -230,7 +230,7 @@ These elements are defined in `index.html` and are part of the `layoutSectionCon
 
 ## Stack Headline DOM Elements
 
-`js/stack-headline.js` fills `#stackHeadlineSection` (the `stackHeadline` layout section, between the ticker and the totals by default). `updateSummary()` calls `renderStackHeadline(metalTotals)` with the same per-metal accumulators the totals cards use. `updateAllSparklines()` calls `refreshStackHeadline()`, so a spot history or comparison-mode change redraws today's change.
+`js/stack-headline.js` fills `#stackHeadlineSection` (the `stackHeadline` layout section, between the ticker and the totals by default). `updateSummary()` calls `renderStackHeadline(metalTotals)` with the same per-metal accumulators the totals ledger uses. `updateAllSparklines()` calls `refreshStackHeadline()`, so a spot history or comparison-mode change redraws today's change.
 
 | Element ID                                   | Purpose                                                                        |
 | -------------------------------------------- | ------------------------------------------------------------------------------ |
@@ -242,6 +242,19 @@ These elements are defined in `index.html` and are part of the `layoutSectionCon
 | `stackHeadlineEmpty`, `stackHeadlineAddItem` | "No Items yet." and the Add Item button, which opens the add form on Inventory |
 
 `_loadSectionConfig` gives a saved config each default section it lacks. The new section goes before the next default the user already has.
+
+## Totals Ledger DOM Elements
+
+`#totalsSectionEl` (the `totals` layout section) holds one table, `#totalsLedger`. Each metal row in `#totalsLedgerBody` is a `.totals-row` with `data-metal-key`; the All Metals row is the only row in `tfoot`. Each value cell keeps the id `elements.totals` reads in `js/init.js` (`totalItems<Metal>`, `currentValue<Metal>`, `lossProfit<Metal>` and the rest), so `updateSummary()` writes cells by id.
+
+| Hook                                   | Writer                         | Effect                                                                  |
+| -------------------------------------- | ------------------------------ | ----------------------------------------------------------------------- |
+| `data-enabled` on `.totals-row`        | `applyMetalOrder()`            | `false` hides the row; the writer also reorders the `tbody` rows        |
+| `data-held` on `.totals-row`           | `updateSummary()`              | `false` (no active Items and no realized gain or loss) hides the row    |
+| `.hide-realized` on `#totalsSectionEl` | `applyRealizedVisibility()`    | Hides every `.totals-col-realized` cell and the Realized footnote       |
+| `th.total-title[data-metal]`           | `setupHeaderButtonListeners()` | A click on the row header or its button opens `showDetailsModal(metal)` |
+
+Below 768px the table, `tbody` and `tfoot` render as blocks and each row is a two-line flex block. CSS `order` and a `::after` line break place the cells. Melt and Gain carry their names as CSS alt text, since the header row is hidden.
 
 ### Market Filter Matrix Settings Panel
 

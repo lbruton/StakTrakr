@@ -521,8 +521,11 @@ const DASHBOARD_STATUS_TEXT = {
   "stack headline status": "#stackHeadlineSection dd > span",
   "stack headline context": "#stackHeadlineSection .stack-figure-sub",
   "stack headline note": "#stackHeadlineSection .stack-headline-note",
-  "gain/loss label": "#tabViewDashboard .total-item-bottom-line .total-label",
-  "gain/loss value": "#tabViewDashboard .total-item-bottom-line .total-value > span",
+  "totals header": "#totalsLedger thead th",
+  "totals metal": "#totalsLedger .total-title-btn",
+  "totals figure": "#totalsLedger .total-value",
+  "totals note": "#totalsSectionEl .totals-ledger-note",
+  "gain/loss value": "#totalsLedger .totals-col-gain > span",
   "gain/loss percent": "#tabViewDashboard .gain-loss-pct",
   "spot change": "#tabViewDashboard .spot-card-change span",
   "ticker price": ".ticker-block[data-ticker-block='primary'] .ticker-item .price",
@@ -531,18 +534,9 @@ const DASHBOARD_STATUS_TEXT = {
   "inventory gain/loss": "#inventoryTable td[data-column='gainLoss']",
 };
 
-/**
- * Lists every Dashboard status text below AA or carrying an inline colour, and every
- * Gain/Loss label whose colour differs from its value.
- */
+/** Lists every Dashboard status text below AA or carrying an inline colour. */
 async function dashboardStatusFailures(page) {
-  const failures = await page.evaluate(() =>
-    Array.from(document.querySelectorAll("#tabViewDashboard .total-item-bottom-line"))
-      .map((row) => [row.querySelector(".total-label"), row.querySelector(".total-value > span")])
-      .filter(([label, value]) => label && value)
-      .filter(([label, value]) => getComputedStyle(label).color !== getComputedStyle(value).color)
-      .map(([label]) => `"${label.textContent}" label colour differs from its value`)
-  );
+  const failures = [];
   for (const [what, selector] of Object.entries(DASHBOARD_STATUS_TEXT)) {
     // An empty node (a ticker item with no premium) has no text to read.
     const records = (await measureText(page, selector)).filter((r) => r.text !== "");
@@ -576,10 +570,8 @@ test.describe("Dashboard status text from theme tokens", () => {
   test("gain, loss, change, ticker and chip text meet AA with no inline colour in all four themes", async ({
     page,
   }) => {
-    await expect(page.locator(DASHBOARD_STATUS_TEXT["gain/loss label"])).toContainText([
-      "Gain:",
-      "Loss:",
-    ]);
+    await expect(page.locator("#totalsLedger .totals-col-gain > .gl-gain").first()).toBeVisible();
+    await expect(page.locator("#totalsLedger .totals-col-gain > .gl-loss").first()).toBeVisible();
     for (const theme of THEMES) {
       await page.evaluate((name) => window.setTheme(name), theme);
       await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
