@@ -481,7 +481,13 @@ test.describe("Dashboard stack headline", () => {
       await readMoney(page, "#currentValueAll")
     );
     expect(await readMoney(page, "#stackGainValue")).toBe(await readMoney(page, "#lossProfitAll"));
-    await expect(page.locator("#stackGainValue")).toContainText("on cost");
+    await expect(page.locator("#stackGainLabel")).toHaveText("Gain on cost");
+    await expect(page.locator("#stackGainSub")).toHaveText(
+      `${await page.locator("#lossProfitAll .gain-loss-pct").textContent()} on ${await page.locator("#totalPurchasedAll").textContent()} paid`
+    );
+    await expect(page.locator("#stackMeltSub")).toHaveText(
+      `${await page.locator("#totalWeightAll").textContent()} oz across ${await page.locator("#totalItemsAll").textContent()} Items`
+    );
 
     // Each Item's pure ounces (melt / current spot) priced at the two prices the 24h
     // comparison uses, summed over the active Items.
@@ -525,11 +531,12 @@ test.describe("Dashboard stack headline", () => {
     expect(afterPull.money).not.toBe(expected.money);
     expect(await readMoney(page, "#stackTodayValue")).toBe(afterPull.money);
 
-    // Demo Items without a retail price count at melt, and the label says so.
-    await expect(page.locator("#stackRetailLabel")).toHaveText("Retail (partial)");
-    const note = await page.locator("#stackRetailLabel").getAttribute("aria-describedby");
+    // Demo Items without a retail price count at melt; a visible note under the figures says so.
+    await expect(page.locator("#stackRetailLabel")).toHaveText("Retail value");
+    const note = await page.locator("#stackRetailValue").getAttribute("aria-describedby");
+    await expect(page.locator(`#${note}`)).toBeVisible();
     await expect(page.locator(`#${note}`)).toHaveText(
-      /^\d+ of \d+ Items have no retail price and count at melt value\.$/
+      /^\d+ of \d+ Items have no retail price, so Retail counts them at melt value\.$/
     );
 
     // Emptying the stack clears the note along with the figures.
@@ -538,6 +545,7 @@ test.describe("Dashboard stack headline", () => {
       updateSummary();
     });
     await expect(page.locator("#stackHeadlineSection")).toContainText("No Items yet.");
+    await expect(page.locator(`#${note}`)).toBeHidden();
     await expect(page.locator(`#${note}`)).toHaveText("");
   });
 

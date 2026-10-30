@@ -1487,9 +1487,9 @@ const saveFilterChipCategoryConfig = (config) => {
  * @constant {Array<{id: string, label: string, enabled: boolean}>}
  */
 const LAYOUT_SECTION_DEFAULTS = [
-  { id: "stackHeadline", label: "Stack headline", enabled: true },
   { id: "spotPrices", label: "Spot price cards", enabled: true },
   { id: "bestPriceTicker", label: "Best Price Ticker", enabled: true },
+  { id: "stackHeadline", label: "Stack headline", enabled: true },
   { id: "totals", label: "Summary totals", enabled: true },
   { id: "search", label: "Search & filter bar", enabled: true },
   { id: "table", label: "Inventory table", enabled: true },

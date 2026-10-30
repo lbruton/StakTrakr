@@ -358,11 +358,16 @@ in one line with neutral prices and status-coloured premiums. Both use the data 
 
 ### Stack Headline
 
-The first Dashboard section answers "what is my stack worth now". A flat strip on the secondary background
-holds an Instrument Serif title and four figures in the data face: retail value (the lead, at 1.5rem),
-melt value, today's change and gain on cost. Only the change and gain carry the `*-text` status colours,
-each with a sign and a trailing word ("today", "on cost"). Below 768px each figure after the lead takes
-one row, with the label left and the value right.
+"Your stack" sits between the ticker and the totals, so the market reads first and the stack figures sit
+with the ledger they summarise. It is a flat strip on the secondary background with no accent border: an
+Instrument Serif title and three figures in the data face. Retail value leads at 2.5rem with today's change
+under it; gain on cost and melt value sit beside it, each with a line of context (amount paid, ounces and
+Items). Only the change and gain carry the `*-text` status colours. When Items count at melt, a visible note
+under the figures says how many. Below 768px the lead takes the full width and the other two share a row.
+
+The spot price section draws no panel of its own: each spot card carries the frame.
+
+The approved end state of the Dashboard is `playground/STRK-485-dashboard-end-state.html`.
 
 ## Do's and Don'ts
 

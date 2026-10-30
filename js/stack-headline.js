@@ -1,5 +1,5 @@
-// Dashboard stack headline: retail value, melt value, today's change and gain on cost,
-// drawn by updateSummary from the same per-metal totals as the totals cards.
+// Dashboard stack headline above the totals: retail value with today's change, gain on
+// cost and melt value, drawn by updateSummary from the same per-metal totals.
 
 /**
  * Computes the stack headline figures from updateSummary's per-metal accumulators.
@@ -8,9 +8,9 @@
  * @param {Object<string, object>} metalTotals - Accumulators keyed by metal key.
  * @param {(metalKey: string) => {valid: boolean, oldPrice: number, newPrice: number,
  *   spot: number}|null} changeFor - 24h comparison prices and the current spot.
- * @returns {{retail: number, melt: number, gain: number, gainPct: number, today: number,
- *   todayPct: number, hasToday: boolean, activeRows: number, meltFallbackRows: number,
- *   empty: boolean}}
+ * @returns {{retail: number, melt: number, gain: number, gainPct: number, purchased: number,
+ *   weight: number, items: number, today: number, todayPct: number, hasToday: boolean,
+ *   activeRows: number, meltFallbackRows: number, empty: boolean}}
  */
 const computeStackHeadline = (metalTotals, changeFor) => {
   const figures = {
@@ -18,6 +18,9 @@ const computeStackHeadline = (metalTotals, changeFor) => {
     melt: 0,
     gain: 0,
     gainPct: 0,
+    purchased: 0,
+    weight: 0,
+    items: 0,
     today: 0,
     todayPct: 0,
     hasToday: false,
@@ -25,15 +28,16 @@ const computeStackHeadline = (metalTotals, changeFor) => {
     meltFallbackRows: 0,
     empty: true,
   };
-  let purchased = 0;
   let valueBefore = 0;
   for (const [metalKey, totals] of Object.entries(metalTotals)) {
     figures.retail += totals.totalRetailValue;
     figures.melt += totals.totalMeltValue;
     figures.gain += totals.totalGainLoss;
+    figures.purchased += totals.totalPurchased;
+    figures.weight += totals.totalWeight || 0;
+    figures.items += totals.totalItems || 0;
     figures.activeRows += totals.activeRows;
     figures.meltFallbackRows += totals.meltFallbackRows;
-    purchased += totals.totalPurchased;
     if (totals.activeRows > 0 || totals.disposedItems > 0) figures.empty = false;
     if (!(totals.totalMeltValue > 0)) continue;
     const change = changeFor(metalKey);
@@ -43,7 +47,7 @@ const computeStackHeadline = (metalTotals, changeFor) => {
     valueBefore += pureOz * change.oldPrice;
     figures.hasToday = true;
   }
-  figures.gainPct = purchased > 0 ? (figures.gain / purchased) * 100 : 0;
+  figures.gainPct = figures.purchased > 0 ? (figures.gain / figures.purchased) * 100 : 0;
   figures.todayPct = valueBefore > 0 ? (figures.today / valueBefore) * 100 : 0;
   return figures;
 };
@@ -52,21 +56,21 @@ const computeStackHeadline = (metalTotals, changeFor) => {
 let _lastMetalTotals = null;
 
 /**
- * Writes a signed amount, its percentage and a trailing word into a headline value.
- * @param {HTMLElement} el - Value element.
- * @param {number} amount - Signed amount in the base currency.
- * @param {number} pct - Signed percentage.
- * @param {number} digits - Percentage decimals.
- * @param {string} word - Trailing word, such as "today".
+ * Builds a span coloured by the sign of a value, with the gain and loss text tokens.
+ * @param {number} value - Signed value that picks the colour.
+ * @param {string} text - Text to show.
+ * @returns {HTMLSpanElement}
  */
-const _writeSignedFigure = (el, amount, pct, digits, word) => {
-  const sign = amount > 0 ? "+" : "";
-  const status = document.createElement("span");
-  if (amount > 0) status.className = "gl-gain";
-  if (amount < 0) status.className = "gl-loss";
-  status.textContent = `${sign}${formatCurrency(amount)} (${pct > 0 ? "+" : ""}${pct.toFixed(digits)}%)`;
-  el.replaceChildren(status, ` ${word}`);
+const _statusSpan = (value, text) => {
+  const span = document.createElement("span");
+  if (value > 0) span.className = "gl-gain";
+  if (value < 0) span.className = "gl-loss";
+  span.textContent = text;
+  return span;
 };
+
+/** Formats a percentage with a leading "+" when positive. */
+const _signedPct = (pct, digits) => `${pct > 0 ? "+" : ""}${pct.toFixed(digits)}%`;
 
 /**
  * Renders the stack headline from updateSummary's per-metal totals.
@@ -83,43 +87,42 @@ const renderStackHeadline = (metalTotals) => {
   };
   const figures = computeStackHeadline(metalTotals, changeFor);
 
+  const note = document.getElementById("stackRetailNote");
+  const retailEl = document.getElementById("stackRetailValue");
+  const partial = !figures.empty && figures.meltFallbackRows > 0;
+  note.textContent = partial
+    ? `${figures.meltFallbackRows} of ${figures.activeRows} Items have no retail price, so Retail counts them at melt value.`
+    : "";
+  note.hidden = !partial;
+  if (partial) retailEl.setAttribute("aria-describedby", note.id);
+  else retailEl.removeAttribute("aria-describedby");
+
   document.getElementById("stackHeadlineFigures").hidden = figures.empty;
   document.getElementById("stackHeadlineEmpty").hidden = !figures.empty;
-  document.getElementById("stackRetailNote").textContent = "";
   if (figures.empty) return;
 
-  document.getElementById("stackRetailValue").textContent = formatCurrency(figures.retail);
-  document.getElementById("stackMeltValue").textContent = formatCurrency(figures.melt);
-  document.getElementById("stackGainLabel").textContent = figures.gain < 0 ? "Loss" : "Gain";
-  _writeSignedFigure(
-    document.getElementById("stackGainValue"),
-    figures.gain,
-    figures.gainPct,
-    1,
-    "on cost"
-  );
-
+  retailEl.textContent = formatCurrency(figures.retail);
   const todayEl = document.getElementById("stackTodayValue");
   if (figures.hasToday) {
-    _writeSignedFigure(todayEl, figures.today, figures.todayPct, 2, "today");
+    const amount = `${figures.today > 0 ? "+" : ""}${formatCurrency(figures.today)}`;
+    const text = `${amount} (${_signedPct(figures.todayPct, 2)})`;
+    todayEl.replaceChildren(_statusSpan(figures.today, text), " today");
   } else {
     todayEl.textContent = "No 24h change yet";
   }
 
-  const label = document.getElementById("stackRetailLabel");
-  const note = document.getElementById("stackRetailNote");
-  const partial = figures.meltFallbackRows > 0;
-  label.textContent = partial ? "Retail (partial)" : "Retail value";
-  note.textContent = partial
-    ? `${figures.meltFallbackRows} of ${figures.activeRows} Items have no retail price and count at melt value.`
-    : "";
-  if (partial) {
-    label.title = note.textContent;
-    label.setAttribute("aria-describedby", note.id);
-  } else {
-    label.removeAttribute("title");
-    label.removeAttribute("aria-describedby");
-  }
+  const gainAmount = `${figures.gain > 0 ? "+" : ""}${formatCurrency(figures.gain)}`;
+  document.getElementById("stackGainValue").replaceChildren(_statusSpan(figures.gain, gainAmount));
+  document
+    .getElementById("stackGainSub")
+    .replaceChildren(
+      _statusSpan(figures.gain, _signedPct(figures.gainPct, 1)),
+      ` on ${formatCurrency(figures.purchased)} paid`
+    );
+
+  document.getElementById("stackMeltValue").textContent = formatCurrency(figures.melt);
+  document.getElementById("stackMeltSub").textContent =
+    `${figures.weight.toFixed(2)} oz across ${figures.items} Items`;
 };
 window.renderStackHeadline = renderStackHeadline;
 

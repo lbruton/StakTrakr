@@ -230,14 +230,16 @@ These elements are defined in `index.html` and are part of the `layoutSectionCon
 
 ## Stack Headline DOM Elements
 
-`js/stack-headline.js` fills `#stackHeadlineSection` (the `stackHeadline` layout section, first on the Dashboard). `updateSummary()` calls `renderStackHeadline(metalTotals)` with the same per-metal accumulators the totals cards use.
+`js/stack-headline.js` fills `#stackHeadlineSection` (the `stackHeadline` layout section, between the ticker and the totals by default). `updateSummary()` calls `renderStackHeadline(metalTotals)` with the same per-metal accumulators the totals cards use. `updateAllSparklines()` calls `refreshStackHeadline()`, so a spot history or comparison-mode change redraws today's change.
 
-| Element ID                                                                | Purpose                                                                        |
-| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| `stackHeadlineFigures`                                                    | Figure list; hidden when the inventory holds no Items                          |
-| `stackRetailValue`, `stackMeltValue`, `stackTodayValue`, `stackGainValue` | The four figures                                                               |
-| `stackRetailLabel`, `stackRetailNote`                                     | "Retail (partial)" label and its screen-reader note naming the melt fallbacks  |
-| `stackHeadlineEmpty`, `stackHeadlineAddItem`                              | "No Items yet." and the Add Item button, which opens the add form on Inventory |
+| Element ID                                   | Purpose                                                                        |
+| -------------------------------------------- | ------------------------------------------------------------------------------ |
+| `stackHeadlineFigures`                       | Figure list; hidden when the inventory holds no Items                          |
+| `stackRetailValue`, `stackTodayValue`        | Retail value and today's change under it                                       |
+| `stackGainValue`, `stackGainSub`             | Gain on cost and its percentage of the amount paid                             |
+| `stackMeltValue`, `stackMeltSub`             | Melt value and the ounces and Items it covers                                  |
+| `stackRetailNote`                            | Visible note naming the Items that count at melt; describes `stackRetailValue` |
+| `stackHeadlineEmpty`, `stackHeadlineAddItem` | "No Items yet." and the Add Item button, which opens the add form on Inventory |
 
 `_loadSectionConfig` gives a saved config each default section it lacks. The new section goes before the next default the user already has.
 

@@ -2109,10 +2109,12 @@ input[type="submit"] {
   margin: 0 0 var(--spacing-sm);
 }
 
-/* The explicit display beats the UA's [hidden] rule, so restate it. */
+/* Retail value leads the row; gain on cost and melt sit beside it, bottom-aligned.
+   The explicit display beats the UA's [hidden] rule, so restate it. */
 .stack-headline-figures {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr);
+  align-items: end;
   gap: var(--spacing) var(--spacing-xl);
   margin: 0;
 }
@@ -2130,35 +2132,59 @@ input[type="submit"] {
   color: var(--text-secondary);
 }
 
-.stack-figure-value {
+.stack-figure dd {
   margin: 0;
+}
+
+.stack-figure-value {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
-  font-size: var(--font-size-lg);
+  font-size: 1.375rem;
   color: var(--text-primary);
   overflow-wrap: break-word;
 }
 
 .stack-figure-lead .stack-figure-value {
-  font-size: var(--font-size-2xl);
+  font-size: 2.5rem;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
 }
 
-/* Phones: one row per figure after the lead, label left and value right. */
+.stack-figure-sub {
+  margin-top: 0.15rem;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  overflow-wrap: break-word;
+}
+
+.stack-figure-today {
+  margin-top: 0.35rem;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-md);
+}
+
+.stack-headline-note {
+  margin: var(--spacing) 0 0;
+  padding-top: var(--spacing-sm);
+  border-top: 1px solid var(--border);
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+/* Phones: the lead takes the full width; gain on cost and melt share the row below. */
 @media (max-width: 767px) {
   .stack-headline-figures {
-    grid-template-columns: 1fr;
-    gap: var(--spacing-sm);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: var(--spacing) var(--spacing);
   }
-  .stack-figure:not(.stack-figure-lead) {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    justify-content: space-between;
-    column-gap: var(--spacing);
+  .stack-figure-lead {
+    grid-column: 1 / -1;
   }
-  .stack-figure:not(.stack-figure-lead) .stack-figure-value {
-    margin-left: auto;
-    text-align: right;
+  .stack-figure-lead .stack-figure-value {
+    font-size: 2rem;
+  }
+  .stack-figure-value {
+    font-size: 1.125rem;
   }
 }
 
@@ -2179,6 +2205,15 @@ input[type="submit"] {
 /* =============================================================================
    SPOT PRICE CARDS — Sparkline Redesign
    ============================================================================= */
+
+/* Each spot card draws its own frame, so the section around them draws none. */
+#spotPricesSection,
+#spotPricesSection:hover {
+  background: none;
+  border: 0;
+  padding: 0;
+  box-shadow: none;
+}
 
 .spot-input {
   background: var(--bg-secondary);
@@ -21653,7 +21688,9 @@ input[type="number"] {
   .total-label,
   .total-item-bottom-line .total-label,
   .gain-loss-pct,
-  .stack-figure-label {
+  .stack-figure-label,
+  .stack-figure-sub,
+  .stack-headline-note {
     font-size: max(12px, var(--font-size-xs));
   }
   .spot-card-change,

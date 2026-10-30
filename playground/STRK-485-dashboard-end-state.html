@@ -1,0 +1,771 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Dashboard End State</title>
+    <!-- Mockup for the STRK-485 epic: the Dashboard after STRK-490 (stack headline) and
+         STRK-491 (totals ledger). The app stylesheet supplies the tokens and four themes;
+         every class here is prefixed mk- so nothing collides with the app. -->
+    <link rel="stylesheet" href="../css/styles.css" />
+    <style>
+      body {
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        font-family: var(--font-body);
+        margin: 0;
+      }
+      .mk-controls {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem 1.5rem;
+        align-items: center;
+        padding: 0.6rem 1rem;
+        background: var(--bg-tertiary);
+        border-bottom: 1px solid var(--border);
+        font-size: var(--font-size-sm);
+      }
+      .mk-controls fieldset {
+        border: 0;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        gap: 0.25rem;
+        align-items: center;
+      }
+      .mk-controls legend {
+        float: left;
+        margin-right: 0.4rem;
+        color: var(--text-secondary);
+        font-weight: 500;
+      }
+      .mk-controls button {
+        font: inherit;
+        padding: 0.3rem 0.7rem;
+        border-radius: var(--radius-pill, 999px);
+        border: 1px solid var(--border);
+        background: var(--bg-secondary);
+        color: var(--text-primary);
+        cursor: pointer;
+      }
+      .mk-controls button[aria-pressed="true"] {
+        background: var(--primary);
+        border-color: var(--primary);
+        color: var(--text-inverse, #fff);
+      }
+      .mk-stage {
+        margin: 1.5rem auto 3rem;
+        max-width: 1280px;
+        padding: 0 1.5rem;
+      }
+      .mk-stage.mk-phone {
+        max-width: 390px;
+        padding: 0 0.75rem;
+        outline: 1px dashed var(--border);
+        outline-offset: 0.75rem;
+      }
+      /* The app's global section rule draws a card around every section. :where keeps
+         this reset at element specificity, so each mk- block sets its own frame. */
+      :where(.mk-stage) section {
+        background: none;
+        padding: 0;
+        border: 0;
+        box-shadow: none;
+        overflow: visible;
+      }
+      .mk-notes {
+        max-width: 1280px;
+        margin: 0 auto 3rem;
+        padding: 0 1.5rem;
+        color: var(--text-secondary);
+        font-size: var(--font-size-base);
+        line-height: 1.6;
+      }
+      .mk-notes h2 {
+        font-family: var(--font-heading);
+        font-weight: 400;
+        color: var(--text-primary);
+      }
+      .mk-notes li {
+        margin-bottom: 0.35rem;
+      }
+
+      /* ---------- Shared app chrome (simplified) ---------- */
+      .mk-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.9rem 1.25rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        background: var(--bg-secondary);
+        margin-bottom: 1.25rem;
+      }
+      .mk-brand {
+        font-weight: 700;
+        font-size: 1.35rem;
+      }
+      .mk-brand span {
+        color: var(--gold);
+      }
+      .mk-tabs {
+        display: flex;
+        gap: 1.5rem;
+        font-weight: 500;
+        font-size: var(--font-size-md);
+      }
+      .mk-tabs span:first-child {
+        border-bottom: 2px solid var(--primary);
+        padding-bottom: 0.2rem;
+      }
+      .mk-phone .mk-tabs {
+        display: none;
+      }
+      .mk-num {
+        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
+      }
+      .mk-gain {
+        color: var(--success-text);
+      }
+      .mk-loss {
+        color: var(--danger-text);
+      }
+      .mk-muted {
+        color: var(--text-secondary);
+      }
+      .mk-block {
+        margin-bottom: 1.25rem;
+      }
+      .mk-section-label {
+        font-family: var(--font-heading);
+        font-size: var(--font-size-xl);
+        font-weight: 400;
+        margin: 0 0 0.6rem;
+      }
+
+      /* ---------- Headline: as shipped in v3.36.90 ---------- */
+      .mk-hl-shipped {
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: 0.75rem 1.25rem 1.25rem;
+      }
+      .mk-hl-shipped dl {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+        gap: 0.75rem 1.5rem;
+        margin: 0;
+      }
+      .mk-hl-shipped dt {
+        font-size: var(--font-size-sm);
+        color: var(--text-secondary);
+        font-weight: 500;
+      }
+      .mk-hl-shipped dd {
+        margin: 0;
+        font-family: var(--font-mono);
+        font-size: var(--font-size-lg);
+      }
+      .mk-hl-shipped .lead dd {
+        font-size: var(--font-size-2xl);
+      }
+      .mk-phone .mk-hl-shipped dl {
+        grid-template-columns: 1fr;
+      }
+
+      /* ---------- Headline: proposed ---------- */
+      .mk-hl {
+        display: grid;
+        grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr);
+        gap: 0 2rem;
+        align-items: end;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: 1rem 1.5rem 1.25rem;
+      }
+      .mk-hl[hidden] {
+        display: none;
+      }
+      .mk-hl-title {
+        grid-column: 1 / -1;
+        font-family: var(--font-heading);
+        font-size: var(--font-size-xl);
+        margin: 0 0 0.25rem;
+        font-weight: 400;
+      }
+      .mk-hl-lead-value {
+        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
+        font-size: 2.5rem;
+        line-height: 1.1;
+        letter-spacing: -0.02em;
+      }
+      .mk-hl-label {
+        font-size: var(--font-size-sm);
+        font-weight: 500;
+        color: var(--text-secondary);
+        margin-bottom: 0.15rem;
+      }
+      .mk-hl-today {
+        margin-top: 0.35rem;
+        font-family: var(--font-mono);
+        font-size: var(--font-size-md);
+      }
+      .mk-hl-fig {
+        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
+        font-size: 1.375rem;
+      }
+      .mk-hl-sub {
+        font-size: var(--font-size-sm);
+        color: var(--text-secondary);
+        margin-top: 0.15rem;
+      }
+      .mk-hl-note {
+        grid-column: 1 / -1;
+        margin-top: 0.9rem;
+        padding-top: 0.6rem;
+        border-top: 1px solid var(--border);
+        font-size: var(--font-size-sm);
+        color: var(--text-secondary);
+      }
+      .mk-phone .mk-hl {
+        grid-template-columns: 1fr 1fr;
+        gap: 0.9rem 1rem;
+        padding: 0.9rem 1rem 1rem;
+      }
+      .mk-phone .mk-hl-lead {
+        grid-column: 1 / -1;
+      }
+      .mk-phone .mk-hl-lead-value {
+        font-size: 2rem;
+      }
+      .mk-phone .mk-hl-fig {
+        font-size: 1.125rem;
+      }
+
+      /* ---------- Spot cards (no outer panel) ---------- */
+      .mk-spot-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 1rem;
+      }
+      .mk-spot {
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: 0.8rem 1rem 0.7rem;
+        text-align: center;
+      }
+      .mk-spot-head {
+        display: flex;
+        justify-content: space-between;
+        font-size: var(--font-size-sm);
+        letter-spacing: 0.04em;
+        color: var(--text-secondary);
+      }
+      .mk-spot-price {
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin: 0.35rem 0 0.15rem;
+      }
+      .mk-spot-change {
+        font-size: var(--font-size-sm);
+      }
+      .mk-spot svg {
+        display: block;
+        width: 100%;
+        height: 56px;
+        margin: 0.4rem 0 0.3rem;
+      }
+      .mk-spot-meta {
+        font-size: var(--font-size-xs);
+        color: var(--text-secondary);
+      }
+      .mk-phone .mk-spot-grid {
+        grid-template-columns: 1fr;
+        gap: 0.6rem;
+      }
+      .mk-phone .mk-spot {
+        display: grid;
+        grid-template-columns: 1fr 9rem;
+        text-align: left;
+        align-items: center;
+        column-gap: 0.75rem;
+      }
+      .mk-phone .mk-spot-head {
+        grid-column: 1 / -1;
+      }
+      .mk-phone .mk-spot svg {
+        grid-column: 2;
+        grid-row: 2 / span 2;
+        height: 44px;
+      }
+      .mk-phone .mk-spot-meta {
+        grid-column: 1 / -1;
+      }
+
+      /* ---------- Ticker ---------- */
+      .mk-ticker {
+        display: flex;
+        gap: 0.6rem;
+        align-items: center;
+        overflow: hidden;
+        padding: 0.5rem 0.75rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        background: var(--bg-secondary);
+        white-space: nowrap;
+        font-size: var(--font-size-sm);
+      }
+      .mk-ticker span.item {
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 0.25rem 0.7rem;
+      }
+
+      /* ---------- Totals ledger (STRK-491) ---------- */
+      .mk-ledger-wrap {
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: 0.9rem 1.25rem 0.5rem;
+      }
+      .mk-ledger {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: var(--font-size-base);
+      }
+      .mk-ledger th {
+        text-align: right;
+        font-weight: 500;
+        font-size: var(--font-size-sm);
+        color: var(--text-secondary);
+        padding: 0.4rem 0.6rem;
+        border-bottom: 1px solid var(--border);
+        white-space: nowrap;
+      }
+      .mk-ledger th:first-child,
+      .mk-ledger td:first-child {
+        text-align: left;
+      }
+      .mk-ledger td {
+        text-align: right;
+        padding: 0.55rem 0.6rem;
+        border-bottom: 1px solid var(--border);
+        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+      }
+      .mk-ledger td:first-child {
+        font-family: var(--font-body);
+        font-weight: 600;
+      }
+      .mk-ledger .mk-dot {
+        display: inline-block;
+        width: 0.6rem;
+        height: 0.6rem;
+        border-radius: 50%;
+        margin-right: 0.45rem;
+        vertical-align: 0.05em;
+      }
+      .mk-ledger .mk-col-gain {
+        font-weight: 700;
+      }
+      .mk-ledger .mk-pct {
+        font-size: var(--font-size-xs);
+        font-weight: 400;
+        margin-left: 0.35rem;
+      }
+      .mk-ledger tfoot td {
+        border-top: 2px solid var(--text-secondary);
+        border-bottom: 0;
+        font-weight: 700;
+        padding-top: 0.7rem;
+      }
+      .mk-ledger tbody tr:hover td {
+        background: var(--bg-tertiary);
+      }
+      .mk-ledger-foot {
+        display: flex;
+        justify-content: space-between;
+        font-size: var(--font-size-sm);
+        color: var(--text-secondary);
+        padding: 0.6rem 0.6rem 0.3rem;
+      }
+
+      /* Phone ledger: one block per metal, two lines each */
+      .mk-ledger-phone {
+        display: none;
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+      .mk-phone .mk-ledger {
+        display: none;
+      }
+      .mk-phone .mk-ledger-phone {
+        display: block;
+      }
+      .mk-phone .mk-ledger-wrap {
+        padding: 0.4rem 0.9rem;
+      }
+      .mk-ledger-phone li {
+        padding: 0.7rem 0;
+        border-bottom: 1px solid var(--border);
+      }
+      .mk-ledger-phone li:last-child {
+        border-bottom: 0;
+        border-top: 2px solid var(--text-secondary);
+      }
+      .mk-lp-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 0.5rem;
+      }
+      .mk-lp-name {
+        font-weight: 600;
+      }
+      .mk-lp-main {
+        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
+        font-weight: 700;
+      }
+      .mk-lp-sub {
+        font-family: var(--font-mono);
+        font-size: max(12px, var(--font-size-xs));
+        color: var(--text-secondary);
+        margin-top: 0.2rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="mk-controls" role="toolbar" aria-label="Mockup controls">
+      <fieldset>
+        <legend>Theme</legend>
+        <button type="button" data-theme-btn="light">Light</button>
+        <button type="button" data-theme-btn="dark" aria-pressed="true">Dark</button>
+        <button type="button" data-theme-btn="slate">Slate</button>
+        <button type="button" data-theme-btn="sepia">Sepia</button>
+      </fieldset>
+      <fieldset>
+        <legend>Width</legend>
+        <button type="button" data-width-btn="desktop" aria-pressed="true">Desktop 1280</button>
+        <button type="button" data-width-btn="phone">Phone 390</button>
+      </fieldset>
+      <fieldset>
+        <legend>Headline</legend>
+        <button type="button" data-hl-btn="proposed" aria-pressed="true">Approved</button>
+        <button type="button" data-hl-btn="shipped">First draft</button>
+      </fieldset>
+    </div>
+
+    <main class="mk-stage" id="stage">
+      <header class="mk-header">
+        <div class="mk-brand">Stak <span>Trakr</span></div>
+        <nav class="mk-tabs">
+          <span>Dashboard</span><span>Inventory</span><span>Market</span><span>Collections</span>
+        </nav>
+      </header>
+
+      <!-- 1. Spot cards, without the outer panel -->
+      <section class="mk-block mk-spot-grid" aria-label="Spot prices" id="spotGrid"></section>
+
+      <!-- 2. Best-price ticker (unchanged) -->
+      <section class="mk-block mk-ticker" aria-label="Best prices">
+        <span class="item"
+          >American Gold Eagle 1/10 oz
+          <span style="color: var(--vendor-mintbuilder)">MintBuilder</span>
+          <b class="mk-num">$437.57</b> <span class="mk-loss">+9.2%</span></span
+        >
+        <span class="item"
+          >American Platinum Eagle 1 oz <span style="color: var(--vendor-herobullion)">Hero</span>
+          <b class="mk-num">$1,636.65</b> <span class="mk-loss">+10.4%</span></span
+        >
+        <span class="item"
+          >American Silver Eagle 1 oz
+          <span style="color: var(--vendor-mintbuilder)">MintBuilder</span>
+          <b class="mk-num">$56.51</b> <span class="mk-loss">+8.8%</span></span
+        >
+      </section>
+
+      <!-- 3. Stack headline: approved 2026-10-29, directly above the totals -->
+      <section class="mk-block mk-hl" id="hlProposed" aria-labelledby="hlTitle">
+        <h2 class="mk-hl-title" id="hlTitle">Your stack</h2>
+        <div class="mk-hl-lead">
+          <div class="mk-hl-label">Retail value</div>
+          <div class="mk-hl-lead-value">$14,658.01</div>
+          <div class="mk-hl-today">
+            <span class="mk-loss">−$26.68 (−0.18%)</span> <span class="mk-muted">today</span>
+          </div>
+        </div>
+        <div>
+          <div class="mk-hl-label">Gain on cost</div>
+          <div class="mk-hl-fig mk-gain">+$1,733.51</div>
+          <div class="mk-hl-sub"><span class="mk-gain">+13.4%</span> on $12,924.50 paid</div>
+        </div>
+        <div>
+          <div class="mk-hl-label">Melt value</div>
+          <div class="mk-hl-fig">$14,658.01</div>
+          <div class="mk-hl-sub">8.00 oz across 8 Items</div>
+        </div>
+        <p class="mk-hl-note">
+          8 of 8 Items have no retail price, so Retail counts them at melt value.
+        </p>
+      </section>
+
+      <!-- 3b. Stack headline: the first draft, kept for comparison -->
+      <section class="mk-block mk-hl-shipped" id="hlShipped" hidden>
+        <h2 class="mk-section-label">Your stack</h2>
+        <dl>
+          <div class="lead">
+            <dt>Retail (partial)</dt>
+            <dd>$14,658.01</dd>
+          </div>
+          <div>
+            <dt>Melt value</dt>
+            <dd>$14,658.01</dd>
+          </div>
+          <div>
+            <dt>Today</dt>
+            <dd><span class="mk-loss">-$26.68 (-0.18%)</span> today</dd>
+          </div>
+          <div>
+            <dt>Gain</dt>
+            <dd><span class="mk-gain">+$1,733.51 (+13.4%)</span> on cost</dd>
+          </div>
+        </dl>
+      </section>
+
+      <!-- 4. Totals ledger (STRK-491) -->
+      <section class="mk-block mk-ledger-wrap" aria-labelledby="ledgerTitle">
+        <h2 class="mk-section-label" id="ledgerTitle">Totals</h2>
+        <table class="mk-ledger">
+          <thead>
+            <tr>
+              <th scope="col">Metal</th>
+              <th scope="col">Items</th>
+              <th scope="col">Weight (oz)</th>
+              <th scope="col">Avg cost/oz</th>
+              <th scope="col">Paid</th>
+              <th scope="col">Melt</th>
+              <th scope="col">Retail</th>
+              <th scope="col">Gain</th>
+              <th scope="col">Realized</th>
+            </tr>
+          </thead>
+          <tbody id="ledgerBody"></tbody>
+          <tfoot id="ledgerFoot"></tfoot>
+        </table>
+        <ul class="mk-ledger-phone" id="ledgerPhone"></ul>
+        <div class="mk-ledger-foot">
+          <span>Select a metal for its breakdown chart.</span>
+          <span>Realized gain covers sold Items.</span>
+        </div>
+      </section>
+    </main>
+
+    <section class="mk-notes" aria-labelledby="notesTitle">
+      <h2 id="notesTitle">What changes from today's Dashboard</h2>
+      <ol>
+        <li>
+          Order: spot cards, then the ticker, then Your stack directly above the totals, so the
+          market reads first and the stack figures sit with the ledger they summarise.
+        </li>
+        <li>
+          Headline: Retail value leads, with today's change directly under it. Gain on cost and Melt
+          sit beside it with their context (amount paid, ounces). The word "partial" moves out of
+          the label into a visible note under the figures, so the lead label stays "Retail value".
+        </li>
+        <li>
+          Headline: when no Item has a retail price (the demo data), Retail and Melt are the same
+          number. The note says why. An alternative is to hide Retail in that case and lead with
+          Melt.
+        </li>
+        <li>
+          Spot cards lose the outer panel that wrapped all four (one border level, not two). The
+          panel comes from the global <code>section</code> rule in css/styles.css, which also wraps
+          the totals in a third border. The cards themselves are unchanged from v3.36.86 to
+          v3.36.89.
+        </li>
+        <li>
+          Totals (STRK-491): the six nested cards become one ledger. One row per metal with
+          holdings, All Metals as the bold footer, figures in Geist Mono with tabular numerals, Gain
+          as the bold column. Metals with no holdings drop out instead of showing zero rows.
+        </li>
+        <li>
+          Phone: the ledger becomes one two-line block per metal (Melt and Gain on the first line;
+          Items, ounces and paid on the second). No carousel and no dots.
+        </li>
+        <li>
+          Metal order, copper on or off and the Realized setting keep working: rows follow Metal
+          Order, and the Realized column hides with the setting.
+        </li>
+      </ol>
+    </section>
+
+    <script>
+      // Demo figures copied from the v3.36.90 preview build with the seed inventory.
+      const METALS = [
+        {
+          key: "silver",
+          name: "Silver",
+          items: 3,
+          oz: 3,
+          avg: 39.83,
+          paid: 119.5,
+          melt: 155.72,
+          retail: 155.72,
+          gain: 36.22,
+          pct: 30.3,
+          spot: 51.96,
+          ch: "-9.78% (-0.06% 24h)",
+        },
+        {
+          key: "gold",
+          name: "Gold",
+          items: 3,
+          oz: 3,
+          avg: 3410,
+          paid: 10230,
+          melt: 12019.17,
+          retail: 12019.17,
+          gain: 1789.17,
+          pct: 17.5,
+          spot: 4006.79,
+          ch: "-0.90% (-0.20% 24h)",
+        },
+        {
+          key: "platinum",
+          name: "Platinum",
+          items: 1,
+          oz: 1,
+          avg: 1400,
+          paid: 1400,
+          melt: 1481.47,
+          retail: 1481.47,
+          gain: 81.47,
+          pct: 5.8,
+          spot: 1482.21,
+          ch: "-10.11% (-0.12% 24h)",
+        },
+        {
+          key: "palladium",
+          name: "Palladium",
+          items: 1,
+          oz: 1,
+          avg: 1175,
+          paid: 1175,
+          melt: 1001.65,
+          retail: 1001.65,
+          gain: -173.35,
+          pct: -14.8,
+          spot: 1002.15,
+          ch: "-21.60% (-0.07% 24h)",
+        },
+      ];
+      const ALL = {
+        items: 8,
+        oz: 8,
+        avg: 1615.56,
+        paid: 12924.5,
+        melt: 14658.01,
+        retail: 14658.01,
+        gain: 1733.51,
+        pct: 13.4,
+      };
+      const usd = (v) =>
+        (v < 0 ? "−" : "") +
+        "$" +
+        Math.abs(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      const signed = (v) => (v > 0 ? "+" : "") + usd(v);
+      const cls = (v) => (v > 0 ? "mk-gain" : v < 0 ? "mk-loss" : "");
+      const spark = (seed) => {
+        let y = 30,
+          pts = [];
+        for (let i = 0; i <= 60; i++) {
+          y +=
+            Math.sin(i * 0.37 + seed) * 2.2 +
+            Math.cos(i * 0.11 + seed * 2) * 1.4 +
+            (i > 30 ? 0.25 : -0.15);
+          pts.push(`${(i * 100) / 60},${Math.max(4, Math.min(52, y))}`);
+        }
+        return pts.join(" ");
+      };
+
+      document.getElementById("spotGrid").innerHTML = METALS.map(
+        (m, i) => `
+        <div class="mk-spot">
+          <div class="mk-spot-head"><span>${m.name.toUpperCase()}</span><span>90d</span></div>
+          <div class="mk-spot-price">▼ ${usd(m.spot)}</div>
+          <div class="mk-spot-change mk-loss">${m.ch}</div>
+          <svg viewBox="0 0 100 56" preserveAspectRatio="none" aria-hidden="true">
+            <polyline points="${spark(i + 1)}" fill="none" stroke="var(--${m.key})" stroke-width="1.4" vector-effect="non-scaling-stroke" />
+          </svg>
+          <div class="mk-spot-meta">Last API sync Oct 29, 2026, 7:15 PM</div>
+        </div>`
+      ).join("");
+
+      const row = (m, name, dot) => `
+        <td>${dot ? `<span class="mk-dot" style="background: var(--${dot})"></span>` : ""}${name}</td>
+        <td>${m.items}</td>
+        <td>${m.oz.toFixed(2)}</td>
+        <td>${usd(m.avg)}</td>
+        <td>${usd(m.paid)}</td>
+        <td>${usd(m.melt)}</td>
+        <td>${usd(m.retail)}</td>
+        <td class="mk-col-gain ${cls(m.gain)}">${signed(m.gain)}<span class="mk-pct">${m.pct > 0 ? "+" : ""}${m.pct.toFixed(1)}%</span></td>
+        <td>$0.00</td>`;
+      document.getElementById("ledgerBody").innerHTML = METALS.map(
+        (m) => `<tr>${row(m, m.name, m.key)}</tr>`
+      ).join("");
+      document.getElementById("ledgerFoot").innerHTML = `<tr>${row(ALL, "All Metals")}</tr>`;
+
+      const phoneItem = (m, name, dot) => `
+        <li>
+          <div class="mk-lp-row">
+            <span class="mk-lp-name">${dot ? `<span class="mk-dot" style="display:inline-block;width:.6rem;height:.6rem;border-radius:50%;margin-right:.45rem;background: var(--${dot})"></span>` : ""}${name}</span>
+            <span class="mk-lp-main">${usd(m.melt)} <span class="${cls(m.gain)}">${signed(m.gain)}</span></span>
+          </div>
+          <div class="mk-lp-sub">${m.items} Items · ${m.oz.toFixed(2)} oz · paid ${usd(m.paid)} · ${m.pct > 0 ? "+" : ""}${m.pct.toFixed(1)}%</div>
+        </li>`;
+      document.getElementById("ledgerPhone").innerHTML =
+        METALS.map((m) => phoneItem(m, m.name, m.key)).join("") + phoneItem(ALL, "All Metals");
+
+      const press = (attr, value) =>
+        document
+          .querySelectorAll(`[${attr}]`)
+          .forEach((b) => b.setAttribute("aria-pressed", String(b.getAttribute(attr) === value)));
+      document.querySelectorAll("[data-theme-btn]").forEach((b) =>
+        b.addEventListener("click", () => {
+          const t = b.dataset.themeBtn;
+          if (t === "light") document.documentElement.removeAttribute("data-theme");
+          else document.documentElement.setAttribute("data-theme", t);
+          press("data-theme-btn", t);
+        })
+      );
+      document.querySelectorAll("[data-width-btn]").forEach((b) =>
+        b.addEventListener("click", () => {
+          document
+            .getElementById("stage")
+            .classList.toggle("mk-phone", b.dataset.widthBtn === "phone");
+          press("data-width-btn", b.dataset.widthBtn);
+        })
+      );
+      document.querySelectorAll("[data-hl-btn]").forEach((b) =>
+        b.addEventListener("click", () => {
+          const shipped = b.dataset.hlBtn === "shipped";
+          document.getElementById("hlShipped").hidden = !shipped;
+          document.getElementById("hlProposed").hidden = shipped;
+          press("data-hl-btn", b.dataset.hlBtn);
+        })
+      );
+    </script>
+  </body>
+</html>

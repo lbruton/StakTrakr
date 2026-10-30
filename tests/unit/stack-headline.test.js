@@ -150,9 +150,12 @@ describe("layout section merge", () => {
       "\nreturn { loadSectionConfig: _loadSectionConfig, defaults: LAYOUT_SECTION_DEFAULTS };",
   });
 
-  test("the stack headline is the first Dashboard section by default", () => {
-    assert.equal(defaults[0].id, "stackHeadline");
-    assert.equal(defaults[0].enabled, true);
+  test("the stack headline sits between the ticker and the totals by default", () => {
+    assert.deepEqual(
+      defaults.slice(0, 4).map((d) => d.id),
+      ["spotPrices", "bestPriceTicker", "stackHeadline", "totals"]
+    );
+    assert.equal(defaults[2].enabled, true);
   });
 
   test("a saved config gains a new default section at its default position", () => {
@@ -176,6 +179,6 @@ describe("layout section merge", () => {
     ];
     storage.set("layoutSectionConfig", JSON.stringify(saved));
     const ids = loadSectionConfig("layoutSectionConfig", defaults).map((s) => s.id);
-    assert.deepEqual(ids.slice(0, 4), ["totals", "stackHeadline", "spotPrices", "bestPriceTicker"]);
+    assert.deepEqual(ids.slice(0, 4), ["stackHeadline", "totals", "spotPrices", "bestPriceTicker"]);
   });
 });
