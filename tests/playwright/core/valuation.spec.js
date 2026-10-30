@@ -531,6 +531,14 @@ test.describe("Dashboard stack headline", () => {
     await expect(page.locator(`#${note}`)).toHaveText(
       /^\d+ of \d+ Items have no retail price and count at melt value\.$/
     );
+
+    // Emptying the stack clears the note along with the figures.
+    await page.evaluate(() => {
+      inventory.length = 0;
+      updateSummary();
+    });
+    await expect(page.locator("#stackHeadlineSection")).toContainText("No Items yet.");
+    await expect(page.locator(`#${note}`)).toHaveText("");
   });
 
   test("an empty inventory offers Add Item, which opens the add form on Inventory", async ({

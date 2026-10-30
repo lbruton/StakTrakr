@@ -85,6 +85,7 @@ const renderStackHeadline = (metalTotals) => {
 
   document.getElementById("stackHeadlineFigures").hidden = figures.empty;
   document.getElementById("stackHeadlineEmpty").hidden = !figures.empty;
+  document.getElementById("stackRetailNote").textContent = "";
   if (figures.empty) return;
 
   document.getElementById("stackRetailValue").textContent = formatCurrency(figures.retail);
