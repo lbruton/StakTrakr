@@ -499,10 +499,19 @@ test.describe("Dashboard totals ledger", () => {
 
 /**
  * Reads the background of each Dashboard frame, which of the header, ticker and footer cast a
- * shadow, and the colour each ticker fade starts from.
+ * shadow, the colour each ticker fade starts from, and whether a ratio chip is lighter than its card.
  */
 function readDashboardFrames(page) {
   return page.evaluate(() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = 1;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    const lightness = (css) => {
+      ctx.fillStyle = css;
+      ctx.fillRect(0, 0, 1, 1);
+      const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
     const frames = {
       header: document.querySelector(".app-header"),
       spot: document.querySelector('.spot-card[data-metal="silver"]'),
@@ -523,6 +532,9 @@ function readDashboardFrames(page) {
         (k) => getComputedStyle(frames[k]).boxShadow !== "none"
       ),
       fades: [fadeStart("::before"), fadeStart("::after")],
+      chipLighter:
+        lightness(getComputedStyle(document.querySelector(".spot-ratio-chip")).backgroundColor) >
+        lightness(getComputedStyle(frames.spot).backgroundColor) + 1,
     };
   });
 }
@@ -531,26 +543,26 @@ test.describe("Dashboard frames", () => {
   test("header, spot cards, ticker, stack, totals and footer share one surface in every theme", async ({
     page,
   }) => {
-    const themes = ["light", "dark", "slate", "sepia"];
-    test.setTimeout(test.info().timeout * themes.length);
     await page.setViewportSize({ width: 1440, height: 900 });
     await injectSeedInventory(page);
-    for (const theme of themes) {
+    await page.goto("/index.html");
+    await expect(page.locator("#bestPriceTickerEl .ticker-track")).toHaveCount(1);
+    await expect(page.locator(".spot-ratio-chip").first()).toBeVisible();
+    for (const theme of ["light", "dark", "slate", "sepia"]) {
       await test.step(theme, async () => {
-        await page.goto("about:blank");
-        await page.addInitScript((t) => localStorage.setItem("appTheme", t), theme);
-        await page.goto("/index.html");
-        await expect(page.locator("#bestPriceTickerEl .ticker-track")).toHaveCount(1);
+        await page.evaluate((name) => window.setTheme(name), theme);
+        await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
         await expect
           .poll(async () => {
-            const { backgrounds, shadowed, fades } = await readDashboardFrames(page);
+            const { backgrounds, shadowed, fades, chipLighter } = await readDashboardFrames(page);
             return {
               colours: [...new Set(Object.values(backgrounds))].length,
               shadowed,
               fadesMatch: fades.every((f) => f === backgrounds.ticker),
+              chipLighter,
             };
           })
-          .toEqual({ colours: 1, shadowed: [], fadesMatch: true });
+          .toEqual({ colours: 1, shadowed: [], fadesMatch: true, chipLighter: true });
       });
     }
   });

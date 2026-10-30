@@ -368,8 +368,9 @@ under the figures says how many. Below 768px the lead takes the full width and t
 The spot price section draws no panel of its own: each spot card carries the frame.
 
 The header, spot cards, ticker, stack headline, totals ledger and footer share the secondary background, so
-the Dashboard reads as one set of frames one step off the page. The ratio chips on the spot cards take the
-opaque card token, so they stand out from the card.
+the Dashboard reads as one set of frames one step off the page. The ratio chips on the spot cards take an
+opaque fill one step lighter than the card: the card token in light and sepia, the tertiary token in dark
+and slate.
 
 ### Totals Ledger
 

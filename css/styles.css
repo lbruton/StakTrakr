@@ -17776,6 +17776,13 @@ input[type="number"] {
   z-index: 2;
 }
 
+/* The chip sits one step lighter than the spot card; in the dark themes the card token
+   equals the card surface, so the step is the tertiary token. */
+[data-theme="dark"] .spot-ratio-chip,
+[data-theme="slate"] .spot-ratio-chip {
+  background: var(--bg-tertiary);
+}
+
 .spot-ratio-chip:focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 1px;
