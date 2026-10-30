@@ -549,6 +549,25 @@ test.describe("Dashboard stack headline", () => {
     await expect(page.locator(`#${note}`)).toHaveText("");
   });
 
+  test("a damaged inventory under recovery shows no Add Item prompt", async ({ page }) => {
+    // Saving an Item from the prompt would clear the recovery hold and overwrite the
+    // damaged inventory, so the headline stays blank like the table's empty state.
+    await page.addInitScript(() => {
+      localStorage.setItem("metalInventory", "{not valid json");
+      document.addEventListener(
+        "DOMContentLoaded",
+        () => localStorage.setItem("ackVersion", APP_VERSION),
+        { once: true }
+      );
+    });
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() => window.appListenersReady === true);
+    await expect(page.locator("#inventoryRecoveryBanner")).toBeVisible();
+    await expect(page.locator("#stackHeadlineEmpty")).toBeHidden();
+    await expect(page.locator("#stackHeadlineAddItem")).toBeHidden();
+    await expect(page.locator("#stackHeadlineFigures")).toBeHidden();
+  });
+
   test("an empty inventory offers Add Item, which opens the add form on Inventory", async ({
     page,
   }) => {

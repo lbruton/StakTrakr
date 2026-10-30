@@ -97,8 +97,11 @@ const renderStackHeadline = (metalTotals) => {
   if (partial) retailEl.setAttribute("aria-describedby", note.id);
   else retailEl.removeAttribute("aria-describedby");
 
+  // Under an inventory recovery hold the in-memory inventory is empty but the stored one
+  // is not, and saving an Item from the Add Item prompt would overwrite it: show neither.
+  const recovering = typeof isInventoryRecoveryActive === "function" && isInventoryRecoveryActive();
   document.getElementById("stackHeadlineFigures").hidden = figures.empty;
-  document.getElementById("stackHeadlineEmpty").hidden = !figures.empty;
+  document.getElementById("stackHeadlineEmpty").hidden = !figures.empty || recovering;
   if (figures.empty) return;
 
   retailEl.textContent = formatCurrency(figures.retail);
