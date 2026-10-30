@@ -444,3 +444,142 @@ test.describe("core/valuation", () => {
     );
   });
 });
+
+/** Reads the first money amount in an element's text, signed by a leading "-". */
+async function readMoney(page, selector) {
+  const text = (await page.locator(selector).textContent()) || "";
+  const match = text.match(/(-?)\$([\d,]+\.\d{2})/);
+  expect(match, `${selector} holds a money amount: "${text}"`).not.toBeNull();
+  return `${match[1]}${match[2]}`;
+}
+
+test.describe("Dashboard stack headline", () => {
+  test("matches the All Metals card to the cent and prices today's change from the 24h spot moves", async ({
+    page,
+  }) => {
+    const seed = (await import("../../fixtures/seed-inventory.js")).default;
+    await seedValuationData(page, {
+      inventory: seed.metalInventory,
+      spotHistory: [
+        ...makeSpotHistory(5, 70, "Silver"),
+        daysAgo(0, 72, "Silver"),
+        ...makeSpotHistory(5, 4000, "Gold"),
+        daysAgo(0, 4100, "Gold"),
+      ],
+    });
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() => window.appListenersReady === true);
+    const headline = page.locator("#stackHeadlineSection");
+    await expect(headline).toBeVisible();
+    await expect(headline.locator("h2")).toHaveText("Your stack");
+
+    await expect.poll(() => readMoney(page, "#stackRetailValue")).not.toBe("0.00");
+    expect(await readMoney(page, "#stackRetailValue")).toBe(
+      await readMoney(page, "#retailValueAll")
+    );
+    expect(await readMoney(page, "#stackMeltValue")).toBe(
+      await readMoney(page, "#currentValueAll")
+    );
+    expect(await readMoney(page, "#stackGainValue")).toBe(await readMoney(page, "#lossProfitAll"));
+    await expect(page.locator("#stackGainLabel")).toHaveText("Gain on cost");
+    await expect(page.locator("#stackGainSub")).toHaveText(
+      `${await page.locator("#lossProfitAll .gain-loss-pct").textContent()} on ${await page.locator("#totalPurchasedAll").textContent()} paid`
+    );
+    await expect(page.locator("#stackMeltSub")).toHaveText(
+      `${await page.locator("#totalWeightAll").textContent()} oz across ${await page.locator("#totalItemsAll").textContent()} Items`
+    );
+
+    // Each Item's pure ounces (melt / current spot) priced at the two prices the 24h
+    // comparison uses, summed over the active Items.
+    const handTodayChange = () =>
+      page.evaluate(() => {
+        const moved = {};
+        let change = 0;
+        for (const item of inventory.filter((i) => !isDisposed(i))) {
+          const key = item.metal.toLowerCase();
+          const day = (moved[key] ??= get24hChange(item.metal));
+          if (!day.valid || !(spotPrices[key] > 0)) continue;
+          const pureOz = computeItemValuation(item, spotPrices[key]).meltValue / spotPrices[key];
+          change += pureOz * (day.newPrice - day.oldPrice);
+        }
+        const seeded = ["silver", "gold"].every((key) => moved[key]?.valid && moved[key].pct !== 0);
+        const sign = change > 0 ? "" : "-";
+        const amount = formatCurrency(Math.abs(change)).replace(/^[^\d]*/, "");
+        return { seeded, money: `${sign}${amount}` };
+      });
+    const expected = await handTodayChange();
+    expect(expected.seeded, "silver and gold have a 24h change").toBe(true);
+    expect(await readMoney(page, "#stackTodayValue")).toBe(expected.money);
+    await expect(page.locator("#stackTodayValue")).toContainText("today");
+
+    // A history pull redraws the sparklines through updateAllSparklines, and Today follows.
+    // The new close goes on the newest history day, whichever source supplied it.
+    await page.evaluate(async () => {
+      const newest = spotHistory
+        .filter((e) => e.metal === "Gold")
+        .reduce((a, b) => (new Date(a.timestamp) > new Date(b.timestamp) ? a : b));
+      spotHistory.push({
+        timestamp: `${newest.timestamp.slice(0, 10)}T23:00:00.000Z`,
+        metal: "Gold",
+        spot: 4300,
+        source: "seed",
+        provider: "Playwright",
+      });
+      await updateAllSparklines();
+    });
+    const afterPull = await handTodayChange();
+    expect(afterPull.money).not.toBe(expected.money);
+    expect(await readMoney(page, "#stackTodayValue")).toBe(afterPull.money);
+
+    // Demo Items without a retail price count at melt; a visible note under the figures says so.
+    await expect(page.locator("#stackRetailLabel")).toHaveText("Retail value");
+    const note = await page.locator("#stackRetailValue").getAttribute("aria-describedby");
+    await expect(page.locator(`#${note}`)).toBeVisible();
+    await expect(page.locator(`#${note}`)).toHaveText(
+      /^\d+ of \d+ Items have no retail price, so Retail counts them at melt value\.$/
+    );
+
+    // Emptying the stack clears the note along with the figures.
+    await page.evaluate(() => {
+      inventory.length = 0;
+      updateSummary();
+    });
+    await expect(page.locator("#stackHeadlineSection")).toContainText("No Items yet.");
+    await expect(page.locator(`#${note}`)).toBeHidden();
+    await expect(page.locator(`#${note}`)).toHaveText("");
+  });
+
+  test("a damaged inventory under recovery shows no Add Item prompt", async ({ page }) => {
+    // Saving an Item from the prompt would clear the recovery hold and overwrite the
+    // damaged inventory, so the headline stays blank like the table's empty state.
+    await page.addInitScript(() => {
+      localStorage.setItem("metalInventory", "{not valid json");
+      document.addEventListener(
+        "DOMContentLoaded",
+        () => localStorage.setItem("ackVersion", APP_VERSION),
+        { once: true }
+      );
+    });
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() => window.appListenersReady === true);
+    await expect(page.locator("#inventoryRecoveryBanner")).toBeVisible();
+    await expect(page.locator("#stackHeadlineEmpty")).toBeHidden();
+    await expect(page.locator("#stackHeadlineAddItem")).toBeHidden();
+    await expect(page.locator("#stackHeadlineFigures")).toBeHidden();
+  });
+
+  test("an empty inventory offers Add Item, which opens the add form on Inventory", async ({
+    page,
+  }) => {
+    await seedValuationData(page, { inventory: [] });
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() => window.appListenersReady === true);
+    const headline = page.locator("#stackHeadlineSection");
+    await expect(headline).toContainText("No Items yet.");
+    await expect(page.locator("#stackRetailValue")).toBeHidden();
+
+    await headline.getByRole("button", { name: "Add Item" }).click();
+    await expect(page.locator("#tabBtnInventory")).toHaveAttribute("aria-selected", "true");
+    await expect(page.locator("#itemModal")).toBeVisible();
+  });
+});

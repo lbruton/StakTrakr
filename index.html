@@ -1225,6 +1225,40 @@
             </svg>
           </button>
         </div>
+        <!-- Stack headline: retail, today's change, gain on cost and melt, filled by
+             renderStackHeadline (js/stack-headline.js) from the totals updateSummary builds. -->
+        <section
+          class="stack-headline"
+          id="stackHeadlineSection"
+          aria-labelledby="stackHeadlineTitle"
+        >
+          <h2 class="stack-headline-title" id="stackHeadlineTitle">Your stack</h2>
+          <dl class="stack-headline-figures" id="stackHeadlineFigures">
+            <div class="stack-figure stack-figure-lead">
+              <dt class="stack-figure-label" id="stackRetailLabel">Retail value</dt>
+              <dd class="stack-figure-value" id="stackRetailValue">$0.00</dd>
+              <dd class="stack-figure-sub stack-figure-today" id="stackTodayValue">
+                No 24h change yet
+              </dd>
+            </div>
+            <div class="stack-figure">
+              <dt class="stack-figure-label" id="stackGainLabel">Gain on cost</dt>
+              <dd class="stack-figure-value" id="stackGainValue">$0.00</dd>
+              <dd class="stack-figure-sub" id="stackGainSub"></dd>
+            </div>
+            <div class="stack-figure">
+              <dt class="stack-figure-label">Melt value</dt>
+              <dd class="stack-figure-value" id="stackMeltValue">$0.00</dd>
+              <dd class="stack-figure-sub" id="stackMeltSub"></dd>
+            </div>
+          </dl>
+          <p class="stack-headline-note" id="stackRetailNote" hidden></p>
+          <div class="stack-headline-empty" id="stackHeadlineEmpty" hidden>
+            <p>No Items yet.</p>
+            <button type="button" class="btn success" id="stackHeadlineAddItem">Add Item</button>
+          </div>
+        </section>
+
         <!-- =============================================================================
          TOTALS SECTION
 
@@ -9405,6 +9439,7 @@
     <script defer src="./js/inventory-import.js"></script>
     <script defer src="./js/csv-export.js"></script>
     <script defer src="./js/inventory-table.js"></script>
+    <script defer src="./js/stack-headline.js"></script>
     <script defer src="./js/inventory.js"></script>
     <script defer src="./js/card-view.js"></script>
     <script defer src="./js/vault-crypto.js"></script>

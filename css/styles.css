@@ -2091,8 +2091,129 @@ input[type="submit"] {
 }
 
 /* =============================================================================
+   STACK HEADLINE — the stack's value, today's change and gain on cost
+   ============================================================================= */
+
+.stack-headline {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing) var(--spacing-lg) var(--spacing-lg);
+}
+
+.stack-headline-title {
+  font-family: var(--font-heading);
+  font-size: var(--font-size-xl);
+  font-weight: 400;
+  color: var(--text-primary);
+  margin: 0 0 var(--spacing-sm);
+}
+
+/* Retail value leads the row; gain on cost and melt sit beside it, bottom-aligned.
+   The explicit display beats the UA's [hidden] rule, so restate it. */
+.stack-headline-figures {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr);
+  align-items: end;
+  gap: var(--spacing) var(--spacing-xl);
+  margin: 0;
+}
+.stack-headline-figures[hidden] {
+  display: none;
+}
+
+.stack-figure {
+  min-width: 0;
+}
+
+.stack-figure-label {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.stack-figure dd {
+  margin: 0;
+}
+
+.stack-figure-value {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 1.375rem;
+  color: var(--text-primary);
+  overflow-wrap: break-word;
+}
+
+.stack-figure-lead .stack-figure-value {
+  font-size: 2.5rem;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.stack-figure-sub {
+  margin-top: 0.15rem;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  overflow-wrap: break-word;
+}
+
+.stack-figure-today {
+  margin-top: 0.35rem;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-md);
+}
+
+.stack-headline-note {
+  margin: var(--spacing) 0 0;
+  padding-top: var(--spacing-sm);
+  border-top: 1px solid var(--border);
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+/* Phones: the lead takes the full width; gain on cost and melt share the row below. */
+@media (max-width: 767px) {
+  .stack-headline-figures {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: var(--spacing) var(--spacing);
+  }
+  .stack-figure-lead {
+    grid-column: 1 / -1;
+  }
+  .stack-figure-lead .stack-figure-value {
+    font-size: 2rem;
+  }
+  .stack-figure-value {
+    font-size: 1.125rem;
+  }
+}
+
+.stack-headline-empty {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing);
+}
+.stack-headline-empty[hidden] {
+  display: none;
+}
+.stack-headline-empty p {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+/* =============================================================================
    SPOT PRICE CARDS — Sparkline Redesign
    ============================================================================= */
+
+/* Each spot card draws its own frame, so the section around them draws none. */
+#spotPricesSection,
+#spotPricesSection:hover {
+  background: none;
+  border: 0;
+  padding: 0;
+  box-shadow: none;
+}
 
 .spot-input {
   background: var(--bg-secondary);
@@ -21566,7 +21687,10 @@ input[type="number"] {
   .ticker-item .premium,
   .total-label,
   .total-item-bottom-line .total-label,
-  .gain-loss-pct {
+  .gain-loss-pct,
+  .stack-figure-label,
+  .stack-figure-sub,
+  .stack-headline-note {
     font-size: max(12px, var(--font-size-xs));
   }
   .spot-card-change,

@@ -356,6 +356,19 @@ below the change line, so no text sits on the chart. The price is in the primary
 glyph; only the change line carries gain and loss, in the `*-text` tokens. The ticker repeats the figures
 in one line with neutral prices and status-coloured premiums. Both use the data face and the metal colours.
 
+### Stack Headline
+
+"Your stack" sits between the ticker and the totals, so the market reads first and the stack figures sit
+with the ledger they summarise. It is a flat strip on the secondary background with no accent border: an
+Instrument Serif title and three figures in the data face. Retail value leads at 2.5rem with today's change
+under it; gain on cost and melt value sit beside it, each with a line of context (amount paid, ounces and
+Items). Only the change and gain carry the `*-text` status colours. When Items count at melt, a visible note
+under the figures says how many. Below 768px the lead takes the full width and the other two share a row.
+
+The spot price section draws no panel of its own: each spot card carries the frame.
+
+The approved end state of the Dashboard is `playground/STRK-485-dashboard-end-state.html`.
+
 ## Do's and Don'ts
 
 ### Do:

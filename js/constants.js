@@ -397,7 +397,7 @@ const CERT_LOOKUP_URLS = {
  * Updated: 2026-05-12 - STRK-66: Add ¼ Goldback denomination (Idaho, g0.25)
  */
 
-const APP_VERSION = "3.36.89";
+const APP_VERSION = "3.36.90";
 
 /**
  * Numista metadata cache TTL: 30 days in milliseconds.
@@ -1481,14 +1481,15 @@ const saveFilterChipCategoryConfig = (config) => {
  * `collections` answers to #collectionsSectionEl, which js/collections-ui.js
  * renders into (STRK-368). It is the Collections tab's only section, so the
  * STRK-326 tab visibility control persists here rather than in a second
- * localStorage key with its own dual registration. Existing users pick it up
- * for free: _loadSectionConfig appends defaults the saved config does not know
- * about.
+ * localStorage key with its own dual registration. Existing users pick up a new
+ * section for free: _loadSectionConfig inserts defaults the saved config does
+ * not know about at their default position.
  * @constant {Array<{id: string, label: string, enabled: boolean}>}
  */
 const LAYOUT_SECTION_DEFAULTS = [
   { id: "spotPrices", label: "Spot price cards", enabled: true },
   { id: "bestPriceTicker", label: "Best Price Ticker", enabled: true },
+  { id: "stackHeadline", label: "Stack headline", enabled: true },
   { id: "totals", label: "Summary totals", enabled: true },
   { id: "search", label: "Search & filter bar", enabled: true },
   { id: "table", label: "Inventory table", enabled: true },
@@ -1517,7 +1518,8 @@ const migrateLayoutVisibility = (obj) => {
 
 /**
  * Generic loader for section config arrays from localStorage.
- * Merges saved user config with defaults so new sections are auto-appended.
+ * Merges saved user config with defaults. A default the saved config lacks goes in
+ * before the next default the user already has, so a new section lands where it belongs.
  * @param {string} key - localStorage key
  * @param {Array<{id: string, label: string, enabled: boolean}>} defaults
  * @param {string} [legacyKey] - Optional legacy key to migrate from
@@ -1531,9 +1533,12 @@ const _loadSectionConfig = (key, defaults, legacyKey, migrateFn) => {
       const saved = JSON.parse(raw);
       const savedMap = new Map(saved.map((c) => [c.id, c]));
       const merged = saved.filter((c) => defaults.some((d) => d.id === c.id));
-      for (const def of defaults) {
-        if (!savedMap.has(def.id)) merged.push({ ...def });
-      }
+      defaults.forEach((def, index) => {
+        if (savedMap.has(def.id)) return;
+        const next = defaults.slice(index + 1).find((d) => savedMap.has(d.id));
+        const at = next ? merged.findIndex((c) => c.id === next.id) : -1;
+        merged.splice(at === -1 ? merged.length : at, 0, { ...def });
+      });
       return merged;
     }
     if (legacyKey && migrateFn) {

@@ -23,7 +23,7 @@ const DEV_MODE = false; // Set to true during development — bypasses all cachi
 // base the relative "./" cache keys resolve against.
 const SW_SCOPE_PATH = new URL("./", self.location.href).pathname;
 
-const CACHE_NAME = "staktrakr-v3.36.89-b1793171792";
+const CACHE_NAME = "staktrakr-v3.36.90-b1793322220";
 
 // Offline fallback for navigation requests when all cache/network strategies fail
 const OFFLINE_HTML =
@@ -109,6 +109,7 @@ const CORE_ASSETS = [
   "./js/inventory-import.js",
   "./js/csv-export.js",
   "./js/inventory-table.js",
+  "./js/stack-headline.js",
   "./js/inventory.js",
   "./js/vault-crypto.js",
   "./js/vault.js",

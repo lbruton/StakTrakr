@@ -136,6 +136,16 @@ test.describe("core/tab shell", () => {
 
     // Dashboard is already active on boot.
     await expect(page.locator("#spotPricesSection")).toBeVisible();
+    // The spot cards carry their own frames, so their section draws no panel around them.
+    const spotFrame = await page
+      .locator("#spotPricesSection")
+      .evaluate((el) => getComputedStyle(el))
+      .then((cs) => ({
+        border: cs.borderTopWidth,
+        background: cs.backgroundColor,
+        shadow: cs.boxShadow,
+      }));
+    expect(spotFrame).toEqual({ border: "0px", background: "rgba(0, 0, 0, 0)", shadow: "none" });
     await expect(page.locator("#totalsSectionEl")).toBeVisible();
     // ...and the sections owned by other tabs are not.
     await expect(page.locator("#tableSectionEl")).toBeHidden();
@@ -402,7 +412,32 @@ test.describe("core/tab visibility", () => {
         (tr) => tr.dataset.sectionId
       )
     );
-    expect(sectionIds).toEqual(["spotPrices", "bestPriceTicker", "totals"]);
+    expect(sectionIds).toEqual(["spotPrices", "bestPriceTicker", "stackHeadline", "totals"]);
+  });
+
+  test("hiding the stack headline in Settings removes it and survives a reload", async ({
+    page,
+  }) => {
+    // A plain boot: gotoWithLayout's init script would re-seed the config on reload.
+    await gotoApp(page);
+    await expect(page.locator("#stackHeadlineSection")).toBeVisible();
+    const order = await page.evaluate(() =>
+      [...document.querySelectorAll("#tabViewDashboard > [id]")].map((el) => el.id)
+    );
+    expect(order.indexOf("bestPriceTickerFrame")).toBeLessThan(
+      order.indexOf("stackHeadlineSection")
+    );
+    expect(order.indexOf("stackHeadlineSection")).toBeLessThan(order.indexOf("totalsSectionEl"));
+    await page.evaluate(() => window.showSettingsModal("site"));
+    await page
+      .locator("#layoutSectionConfigContainer tr[data-section-id='stackHeadline'] input")
+      .uncheck();
+    await expect(page.locator("#stackHeadlineSection")).toBeHidden();
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() => window.appListenersReady === true);
+    await expect(page.locator("#spotPricesSection")).toBeVisible();
+    await expect(page.locator("#stackHeadlineSection")).toBeHidden();
   });
 
   test("reordering a Dashboard section leaves other tabs' sections in place", async ({ page }) => {
@@ -420,8 +455,9 @@ test.describe("core/tab visibility", () => {
     const ids = await page.evaluate(() => window.getLayoutSectionConfig().map((s) => s.id));
     expect(ids).toEqual([
       "spotPrices",
-      "totals",
       "bestPriceTicker",
+      "totals",
+      "stackHeadline",
       "search",
       "table",
       "vendorPrices",
@@ -432,8 +468,8 @@ test.describe("core/tab visibility", () => {
     const order = await page.evaluate(() =>
       [...document.querySelectorAll("#tabViewDashboard > [id]")].map((el) => el.id)
     );
-    expect(order.indexOf("bestPriceTickerFrame")).toBeGreaterThan(-1);
-    expect(order.indexOf("totalsSectionEl")).toBeLessThan(order.indexOf("bestPriceTickerFrame"));
+    expect(order.indexOf("stackHeadlineSection")).toBeGreaterThan(-1);
+    expect(order.indexOf("totalsSectionEl")).toBeLessThan(order.indexOf("stackHeadlineSection"));
   });
 });
 
