@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.92] - 2026-10-30
+
+### Changed — STRK-503: Dashboard frame surfaces
+
+- **One surface**: The header, spot cards, best-price ticker and footer use the same background as Your stack and Totals in every theme. The spot cards stand off the page background in light and sepia (STRK-503).
+- **Shadows**: The header and footer lose their drop shadow, to match the flat ticker and Totals frames (STRK-503).
+- **Ticker fades**: The ticker's edge fades start from the new background (STRK-503).
+- **Ratio chips**: The ratio and goldback chips on the spot cards have an opaque, lighter fill, so they stand out from the card and the gold chip label keeps AA contrast in sepia (STRK-503).
+
+---
+
 ## [3.36.91] - 2026-10-29
 
 ### Changed — STRK-491: Dashboard totals ledger

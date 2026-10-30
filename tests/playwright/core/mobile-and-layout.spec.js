@@ -497,6 +497,65 @@ test.describe("Dashboard totals ledger", () => {
   });
 });
 
+/**
+ * Reads the background of each Dashboard frame, which of the header, ticker and footer cast a
+ * shadow, and the colour each ticker fade starts from.
+ */
+function readDashboardFrames(page) {
+  return page.evaluate(() => {
+    const frames = {
+      header: document.querySelector(".app-header"),
+      spot: document.querySelector('.spot-card[data-metal="silver"]'),
+      ticker: document.getElementById("bestPriceTickerEl"),
+      stack: document.querySelector(".stack-headline"),
+      totals: document.getElementById("totalsSectionEl"),
+      footer: document.querySelector(".app-footer"),
+    };
+    const ticker = frames.ticker;
+    // A gradient serialises its first stop first, so the fade start is the first colour.
+    const fadeStart = (pseudo) =>
+      getComputedStyle(ticker, pseudo).backgroundImage.match(/(?:oklch|rgba?)\([^)]*\)/)?.[0];
+    return {
+      backgrounds: Object.fromEntries(
+        Object.entries(frames).map(([k, el]) => [k, getComputedStyle(el).backgroundColor])
+      ),
+      shadowed: ["header", "ticker", "footer"].filter(
+        (k) => getComputedStyle(frames[k]).boxShadow !== "none"
+      ),
+      fades: [fadeStart("::before"), fadeStart("::after")],
+    };
+  });
+}
+
+test.describe("Dashboard frames", () => {
+  test("header, spot cards, ticker, stack, totals and footer share one surface in every theme", async ({
+    page,
+  }) => {
+    const themes = ["light", "dark", "slate", "sepia"];
+    test.setTimeout(test.info().timeout * themes.length);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await injectSeedInventory(page);
+    for (const theme of themes) {
+      await test.step(theme, async () => {
+        await page.goto("about:blank");
+        await page.addInitScript((t) => localStorage.setItem("appTheme", t), theme);
+        await page.goto("/index.html");
+        await expect(page.locator("#bestPriceTickerEl .ticker-track")).toHaveCount(1);
+        await expect
+          .poll(async () => {
+            const { backgrounds, shadowed, fades } = await readDashboardFrames(page);
+            return {
+              colours: [...new Set(Object.values(backgrounds))].length,
+              shadowed,
+              fadesMatch: fades.every((f) => f === backgrounds.ticker),
+            };
+          })
+          .toEqual({ colours: 1, shadowed: [], fadesMatch: true });
+      });
+    }
+  });
+});
+
 /** Lists the spot cards, labels and values whose text is cut off inside their own box. */
 function readClippedText(page) {
   return page.evaluate(() => {

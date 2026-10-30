@@ -736,10 +736,9 @@ label {
   margin-bottom: var(--spacing-xl);
   width: 100%;
   padding: var(--spacing);
-  background: var(--bg-card);
+  background: var(--bg-secondary);
   border-radius: var(--radius-lg);
   border: 1px solid var(--border);
-  box-shadow: var(--shadow-sm);
   /* min-height removed — let content determine header height (STAK-514) */
 }
 
@@ -889,10 +888,9 @@ section {
   font-size: var(--font-size-lg);
   color: var(--text-secondary);
   padding: var(--spacing);
-  background: var(--bg-card);
+  background: var(--bg-secondary);
   border-radius: var(--radius-lg);
   border: 1px solid var(--border);
-  box-shadow: var(--shadow-sm);
 }
 
 .app-footer a {
@@ -2256,7 +2254,7 @@ input[type="submit"] {
 
 .spot-card {
   position: relative;
-  background: var(--bg-primary);
+  background: var(--bg-secondary);
   border-radius: var(--radius-lg);
   padding: 0;
   text-align: center;
@@ -16685,7 +16683,7 @@ input[type="number"] {
 .market-ticker {
   width: 100%;
   overflow: hidden;
-  background: var(--bg-card);
+  background: var(--bg-secondary);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 12px 0;
@@ -16705,12 +16703,12 @@ input[type="number"] {
 }
 .market-ticker::before {
   left: 0;
-  background: linear-gradient(to right, var(--bg-card), transparent);
+  background: linear-gradient(to right, var(--bg-secondary), transparent);
   border-radius: var(--radius-lg) 0 0 var(--radius-lg);
 }
 .market-ticker::after {
   right: 0;
-  background: linear-gradient(to left, var(--bg-card), transparent);
+  background: linear-gradient(to left, var(--bg-secondary), transparent);
   border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
 }
 
@@ -17763,7 +17761,7 @@ input[type="number"] {
   padding: 2px 8px 2px 6px;
   border-radius: var(--radius-pill);
   border: 1px solid var(--border);
-  background: color-mix(in oklch, var(--bg-secondary) 80%, transparent);
+  background: var(--bg-card);
   font-size: var(--font-size-xs);
   font-weight: 600;
   font-family: var(--font-mono);
