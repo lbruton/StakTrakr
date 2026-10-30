@@ -356,6 +356,14 @@ below the change line, so no text sits on the chart. The price is in the primary
 glyph; only the change line carries gain and loss, in the `*-text` tokens. The ticker repeats the figures
 in one line with neutral prices and status-coloured premiums. Both use the data face and the metal colours.
 
+### Stack Headline
+
+The first Dashboard section answers "what is my stack worth now". A flat strip on the secondary background
+holds an Instrument Serif title and four figures in the data face: retail value (the lead, at 1.5rem),
+melt value, today's change and gain on cost. Only the change and gain carry the `*-text` status colours,
+each with a sign and a trailing word ("today", "on cost"). Below 768px each figure after the lead takes
+one row, with the label left and the value right.
+
 ## Do's and Don'ts
 
 ### Do:

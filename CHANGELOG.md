@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.90] - 2026-10-29
+
+### Added — STRK-490: Dashboard stack headline
+
+- **Stack headline**: A "Your stack" strip at the top of the Dashboard shows retail value, melt value, today's change and gain on cost. Retail, melt and gain match the All Metals totals card. Today's change is each metal's melt value moved by its 24h spot change, the same change the spot cards show (STRK-490).
+- **Partial retail**: When some Items have no retail price, the label reads "Retail (partial)" and names how many Items count at melt value (STRK-490).
+- **Empty stack**: With no Items, the strip reads "No Items yet." and an Add Item button opens the add form on Inventory (STRK-490).
+- **Layout**: The strip is a Dashboard section in Settings, so it can be hidden or moved. A saved layout gains a new Dashboard section at its default place instead of at the end (STRK-490).
+
+---
+
 ## [3.36.89] - 2026-10-28
 
 ### Changed — STRK-496: Ticker pause lasts for the page view

@@ -1193,6 +1193,8 @@
         totalPurchased: 0,
         totalRetailValue: 0,
         totalGainLoss: 0,
+        activeRows: 0,
+        meltFallbackRows: 0,
         disposedItems: 0,
         realizedGainLoss: 0,
         totalDisposedCost: 0,
@@ -1257,6 +1259,10 @@
 
       const retailTotal = valuation ? valuation.retailTotal : meltValue;
       totals.totalRetailValue += retailTotal;
+      totals.activeRows += 1;
+      if (!(valuation && (valuation.marketValue > 0 || valuation.gbDenomPrice))) {
+        totals.meltFallbackRows += 1;
+      }
 
       totals.totalGainLoss += retailTotal - purchaseTotal;
     }
@@ -1399,6 +1405,7 @@
     Object.values(METALS).forEach((metalConfig) => _writeMetalCard(metalConfig, metalTotals));
     const allTotals = _aggregateAllTotals(metalTotals);
     _writeAllCard(allTotals);
+    if (typeof renderStackHeadline === "function") renderStackHeadline(metalTotals);
 
     const showRealized = loadDataSync(SHOW_REALIZED_KEY, "true") !== "false";
     applyRealizedVisibility(showRealized);

@@ -444,3 +444,85 @@ test.describe("core/valuation", () => {
     );
   });
 });
+
+/** Reads the first money amount in an element's text, signed by a leading "-". */
+async function readMoney(page, selector) {
+  const text = (await page.locator(selector).textContent()) || "";
+  const match = text.match(/(-?)\$([\d,]+\.\d{2})/);
+  expect(match, `${selector} holds a money amount: "${text}"`).not.toBeNull();
+  return `${match[1]}${match[2]}`;
+}
+
+test.describe("Dashboard stack headline", () => {
+  test("matches the All Metals card to the cent and prices today's change from the 24h spot moves", async ({
+    page,
+  }) => {
+    const seed = (await import("../../fixtures/seed-inventory.js")).default;
+    await seedValuationData(page, {
+      inventory: seed.metalInventory,
+      spotHistory: [
+        ...makeSpotHistory(5, 70, "Silver"),
+        daysAgo(0, 72, "Silver"),
+        ...makeSpotHistory(5, 4000, "Gold"),
+        daysAgo(0, 4100, "Gold"),
+      ],
+    });
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() => window.appListenersReady === true);
+    const headline = page.locator("#stackHeadlineSection");
+    await expect(headline).toBeVisible();
+    await expect(headline.locator("h2")).toHaveText("Your stack");
+
+    await expect.poll(() => readMoney(page, "#stackRetailValue")).not.toBe("0.00");
+    expect(await readMoney(page, "#stackRetailValue")).toBe(
+      await readMoney(page, "#retailValueAll")
+    );
+    expect(await readMoney(page, "#stackMeltValue")).toBe(
+      await readMoney(page, "#currentValueAll")
+    );
+    expect(await readMoney(page, "#stackGainValue")).toBe(await readMoney(page, "#lossProfitAll"));
+    await expect(page.locator("#stackGainValue")).toContainText("on cost");
+
+    // Each metal's melt value moved by its 24h spot change: melt now minus melt at
+    // yesterday's price, summed over the active Items.
+    const expected = await page.evaluate(() => {
+      const moved = {};
+      let change = 0;
+      for (const item of inventory.filter((i) => !isDisposed(i))) {
+        const key = item.metal.toLowerCase();
+        const pct = (moved[key] ??= get24hChange(item.metal));
+        if (!pct.valid) continue;
+        const melt = computeItemValuation(item, spotPrices[key]).meltValue;
+        change += melt - melt / (1 + pct.pct / 100);
+      }
+      const seeded = ["silver", "gold"].every((key) => moved[key]?.valid && moved[key].pct !== 0);
+      const sign = change > 0 ? "" : "-";
+      return { seeded, money: `${sign}${formatCurrency(Math.abs(change)).replace(/^[^\d]*/, "")}` };
+    });
+    expect(expected.seeded, "the seeded history gives silver and gold a 24h change").toBe(true);
+    expect(await readMoney(page, "#stackTodayValue")).toBe(expected.money);
+    await expect(page.locator("#stackTodayValue")).toContainText("today");
+
+    // Demo Items without a retail price count at melt, and the label says so.
+    await expect(page.locator("#stackRetailLabel")).toHaveText("Retail (partial)");
+    const note = await page.locator("#stackRetailLabel").getAttribute("aria-describedby");
+    await expect(page.locator(`#${note}`)).toHaveText(
+      /^\d+ of \d+ Items have no retail price and count at melt value\.$/
+    );
+  });
+
+  test("an empty inventory offers Add Item, which opens the add form on Inventory", async ({
+    page,
+  }) => {
+    await seedValuationData(page, { inventory: [] });
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() => window.appListenersReady === true);
+    const headline = page.locator("#stackHeadlineSection");
+    await expect(headline).toContainText("No Items yet.");
+    await expect(page.locator("#stackRetailValue")).toBeHidden();
+
+    await headline.getByRole("button", { name: "Add Item" }).click();
+    await expect(page.locator("#tabBtnInventory")).toHaveAttribute("aria-selected", "true");
+    await expect(page.locator("#itemModal")).toBeVisible();
+  });
+});

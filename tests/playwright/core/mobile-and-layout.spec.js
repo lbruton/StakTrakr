@@ -330,6 +330,8 @@ async function gotoPhoneDashboard(page, { width = 390, theme = "light" } = {}) {
 function readClippedText(page) {
   return page.evaluate(() => {
     const selector = [
+      ".stack-figure-label",
+      ".stack-figure-value",
       ".spot-card",
       ".spot-card-label",
       ".spot-card-value",
@@ -363,6 +365,7 @@ test.describe("Dashboard at phone width", () => {
         const gold = page.locator("#spotPriceDisplayGold");
         const expected = await page.evaluate(() => formatSpotCardValue("gold", 4123.45));
         await expect(gold).toContainText(expected);
+        await expect(page.locator("#stackRetailValue")).toBeVisible();
         await expect(page.locator(".spot-card[data-metal='gold'] .spot-card-label")).toHaveText(
           /^gold$/i,
           { useInnerText: true }

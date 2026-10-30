@@ -512,8 +512,13 @@ async function gotoDashboardWithGainAndLoss(page) {
   await expect(page.locator(".spot-ratio-chip.metal-gold .lab")).toHaveText("GB");
 }
 
-// Each selector names Dashboard text whose colour carries a status or a metal mark.
+// Each selector names Dashboard text whose colour carries a status or a metal mark, plus
+// the stack headline, whose figures sit on their own surface.
 const DASHBOARD_STATUS_TEXT = {
+  "stack headline title": "#stackHeadlineSection h2",
+  "stack headline label": "#stackHeadlineSection .stack-figure-label",
+  "stack headline value": "#stackHeadlineSection .stack-figure-value",
+  "stack headline status": "#stackHeadlineSection .stack-figure-value > span",
   "gain/loss label": "#tabViewDashboard .total-item-bottom-line .total-label",
   "gain/loss value": "#tabViewDashboard .total-item-bottom-line .total-value > span",
   "gain/loss percent": "#tabViewDashboard .gain-loss-pct",

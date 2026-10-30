@@ -2091,6 +2091,92 @@ input[type="submit"] {
 }
 
 /* =============================================================================
+   STACK HEADLINE — the stack's value, today's change and gain on cost
+   ============================================================================= */
+
+.stack-headline {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing) var(--spacing-lg) var(--spacing-lg);
+}
+
+.stack-headline-title {
+  font-family: var(--font-heading);
+  font-size: var(--font-size-xl);
+  font-weight: 400;
+  color: var(--text-primary);
+  margin: 0 0 var(--spacing-sm);
+}
+
+/* The explicit display beats the UA's [hidden] rule, so restate it. */
+.stack-headline-figures {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: var(--spacing) var(--spacing-xl);
+  margin: 0;
+}
+.stack-headline-figures[hidden] {
+  display: none;
+}
+
+.stack-figure {
+  min-width: 0;
+}
+
+.stack-figure-label {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.stack-figure-value {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--font-size-lg);
+  color: var(--text-primary);
+  overflow-wrap: break-word;
+}
+
+.stack-figure-lead .stack-figure-value {
+  font-size: var(--font-size-2xl);
+}
+
+/* Phones: one row per figure after the lead, label left and value right. */
+@media (max-width: 767px) {
+  .stack-headline-figures {
+    grid-template-columns: 1fr;
+    gap: var(--spacing-sm);
+  }
+  .stack-figure:not(.stack-figure-lead) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    column-gap: var(--spacing);
+  }
+  .stack-figure:not(.stack-figure-lead) .stack-figure-value {
+    margin-left: auto;
+    text-align: right;
+  }
+}
+
+.stack-headline-empty {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing);
+}
+.stack-headline-empty[hidden] {
+  display: none;
+}
+.stack-headline-empty p {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+/* =============================================================================
    SPOT PRICE CARDS — Sparkline Redesign
    ============================================================================= */
 
@@ -21566,7 +21652,8 @@ input[type="number"] {
   .ticker-item .premium,
   .total-label,
   .total-item-bottom-line .total-label,
-  .gain-loss-pct {
+  .gain-loss-pct,
+  .stack-figure-label {
     font-size: max(12px, var(--font-size-xs));
   }
   .spot-card-change,

@@ -402,7 +402,25 @@ test.describe("core/tab visibility", () => {
         (tr) => tr.dataset.sectionId
       )
     );
-    expect(sectionIds).toEqual(["spotPrices", "bestPriceTicker", "totals"]);
+    expect(sectionIds).toEqual(["stackHeadline", "spotPrices", "bestPriceTicker", "totals"]);
+  });
+
+  test("hiding the stack headline in Settings removes it and survives a reload", async ({
+    page,
+  }) => {
+    // A plain boot: gotoWithLayout's init script would re-seed the config on reload.
+    await gotoApp(page);
+    await expect(page.locator("#stackHeadlineSection")).toBeVisible();
+    await page.evaluate(() => window.showSettingsModal("site"));
+    await page
+      .locator("#layoutSectionConfigContainer tr[data-section-id='stackHeadline'] input")
+      .uncheck();
+    await expect(page.locator("#stackHeadlineSection")).toBeHidden();
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() => window.appListenersReady === true);
+    await expect(page.locator("#spotPricesSection")).toBeVisible();
+    await expect(page.locator("#stackHeadlineSection")).toBeHidden();
   });
 
   test("reordering a Dashboard section leaves other tabs' sections in place", async ({ page }) => {
@@ -419,6 +437,7 @@ test.describe("core/tab visibility", () => {
 
     const ids = await page.evaluate(() => window.getLayoutSectionConfig().map((s) => s.id));
     expect(ids).toEqual([
+      "stackHeadline",
       "spotPrices",
       "totals",
       "bestPriceTicker",

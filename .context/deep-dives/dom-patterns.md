@@ -228,6 +228,19 @@ The market data module (`js/market-data.js`) uses eight DOM elements, all looked
 
 These elements are defined in `index.html` and are part of the `layoutSectionConfig` system. The `bestPriceTicker` section moves `bestPriceTickerFrame`, not the ribbon. The ticker is inserted in the main page flow; the modal is a top-level overlay with `hidden` attribute toggled by JS.
 
+## Stack Headline DOM Elements
+
+`js/stack-headline.js` fills `#stackHeadlineSection` (the `stackHeadline` layout section, first on the Dashboard). `updateSummary()` calls `renderStackHeadline(metalTotals)` with the same per-metal accumulators the totals cards use.
+
+| Element ID                                                                | Purpose                                                                        |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `stackHeadlineFigures`                                                    | Figure list; hidden when the inventory holds no Items                          |
+| `stackRetailValue`, `stackMeltValue`, `stackTodayValue`, `stackGainValue` | The four figures                                                               |
+| `stackRetailLabel`, `stackRetailNote`                                     | "Retail (partial)" label and its screen-reader note naming the melt fallbacks  |
+| `stackHeadlineEmpty`, `stackHeadlineAddItem`                              | "No Items yet." and the Add Item button, which opens the add form on Inventory |
+
+`_loadSectionConfig` gives a saved config each default section it lacks. The new section goes before the next default the user already has.
+
 ### Market Filter Matrix Settings Panel
 
 The `settingsPanel_market` panel in `index.html` was gutted and replaced with a **Market Filter Matrix**: a checkbox grid where rows are product slugs and columns are vendors. The panel is rendered dynamically by `renderMarketFilterMatrix()` in `js/settings.js` and wired by `bindMarketFilterListeners()` in `js/settings-listeners.js`. Metal filter tabs (Gold / Silver / Platinum / Palladium / Goldback) control which rows are visible in the matrix. The Sync Now button and last-sync timestamp are retained. CSS styles are scoped under `.market-filter-matrix` in `css/styles.css`.

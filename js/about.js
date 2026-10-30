@@ -134,11 +134,11 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.36.90 &ndash; Your stack at a glance</strong>: The Dashboard opens with a "Your stack" strip that shows retail value, melt value, today's change and your gain on cost, above the spot prices. Today's change follows each metal's 24h spot move, and Retail reads "partial" when some Items have no retail price. You can hide or move the strip in Settings, Layout (STRK-490).</li>
     <li><strong>v3.36.89 &ndash; The ticker scrolls on every visit</strong>: The best-price ticker starts moving each time you open StakTrakr, unless reduced motion is turned on in your system. The pause button stops it until you press play or reload the page, so a pause no longer carries over to your next visit or to another tab (STRK-496).</li>
     <li><strong>v3.36.88 &ndash; Pause holds the ticker in place</strong>: Pressing pause stops the best-price ticker exactly where it is, and pressing play continues from that point. Before, pause jumped back to the first dealer and play started over. With reduced motion turned on, the ticker still shows each dealer once in a row you can scroll (STRK-495).</li>
     <li><strong>v3.36.87 &ndash; Play restarts the ticker</strong>: Pressing play beside the best-price ticker starts it moving again right away. Before, it stayed still until you moved the pointer away and clicked somewhere else. Pointing at or tabbing through the dealers still holds it in place (STRK-494).</li>
-    <li><strong>v3.36.86 &ndash; The Dashboard on your phone</strong>: On a phone, each spot card fits on one row with the full price beside its sparkline, and no price, label or total is cut off with an ellipsis, even at large text sizes. Every button, chip and ticker dealer is big enough to tap, and the smallest Dashboard text is 12px (STRK-489).</li>
-    <li><strong>v3.36.85 &ndash; A ticker you can stop</strong>: The best-price ticker holds still while you point at it or tab through it, and a pause button beside it stops it for good on this device. Paused, it shows each dealer once in a row you can scroll. With reduced motion turned on in your system, the ticker starts paused and the spot sparklines appear without animating (STRK-488).</li>      `;
+    <li><strong>v3.36.86 &ndash; The Dashboard on your phone</strong>: On a phone, each spot card fits on one row with the full price beside its sparkline, and no price, label or total is cut off with an ellipsis, even at large text sizes. Every button, chip and ticker dealer is big enough to tap, and the smallest Dashboard text is 12px (STRK-489).</li>      `;
 };
 
 // Expose globally for access from other modules
