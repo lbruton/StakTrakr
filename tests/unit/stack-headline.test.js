@@ -55,10 +55,13 @@ describe("computeStackHeadline", () => {
     assert.equal(figures.empty, false);
   });
 
-  test("today's change is the melt each metal gained over its 24h spot move", () => {
-    // Silver melt 330 after +10%: yesterday 300, change +30.
-    // Gold melt 3800 after -5%: yesterday 4000, change -200.
-    const changes = { silver: { pct: 10, valid: true }, gold: { pct: -5, valid: true } };
+  test("today's change prices each metal's pure ounces at the two compared prices", () => {
+    // Silver: melt 330 at spot 33 is 10 oz; 30 -> 33 is +30.
+    // Gold: melt 3800 at spot 3800 is 1 oz; 4000 -> 3800 is -200.
+    const changes = {
+      silver: { valid: true, oldPrice: 30, newPrice: 33, spot: 33 },
+      gold: { valid: true, oldPrice: 4000, newPrice: 3800, spot: 3800 },
+    };
     const figures = computeStackHeadline(
       {
         silver: metal({ totalMeltValue: 330, activeRows: 1 }),
@@ -71,13 +74,29 @@ describe("computeStackHeadline", () => {
     assert.ok(Math.abs(figures.todayPct - (-170 / 4300) * 100) < 1e-9);
   });
 
-  test("a metal without a valid 24h change adds nothing to today's change", () => {
+  test("an open-to-open comparison uses its own prices, not the current spot", () => {
+    // 1 oz: yesterday's open 100, today's open 110, current spot 121.
+    const figures = computeStackHeadline(
+      { gold: metal({ totalMeltValue: 121, activeRows: 1 }) },
+      () => ({ valid: true, oldPrice: 100, newPrice: 110, spot: 121 })
+    );
+    assert.ok(Math.abs(figures.today - 10) < 1e-9, `today ${figures.today}`);
+    assert.ok(Math.abs(figures.todayPct - 10) < 1e-9);
+  });
+
+  test("a metal without a valid 24h change or spot adds nothing to today's change", () => {
+    const changes = {
+      silver: { valid: true, oldPrice: 30, newPrice: 33, spot: 33 },
+      platinum: { pct: 0, valid: false },
+      palladium: { valid: true, oldPrice: 900, newPrice: 1000, spot: 0 },
+    };
     const figures = computeStackHeadline(
       {
         silver: metal({ totalMeltValue: 330, activeRows: 1 }),
         platinum: metal({ totalMeltValue: 1000, activeRows: 1 }),
+        palladium: metal({ totalMeltValue: 1000, activeRows: 1 }),
       },
-      (key) => (key === "silver" ? { pct: 10, valid: true } : { pct: 0, valid: false })
+      (key) => changes[key]
     );
     assert.ok(Math.abs(figures.today - 30) < 1e-9);
     assert.ok(Math.abs(figures.todayPct - 10) < 1e-9);

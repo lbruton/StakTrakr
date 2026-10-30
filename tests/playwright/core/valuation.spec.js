@@ -483,25 +483,47 @@ test.describe("Dashboard stack headline", () => {
     expect(await readMoney(page, "#stackGainValue")).toBe(await readMoney(page, "#lossProfitAll"));
     await expect(page.locator("#stackGainValue")).toContainText("on cost");
 
-    // Each metal's melt value moved by its 24h spot change: melt now minus melt at
-    // yesterday's price, summed over the active Items.
-    const expected = await page.evaluate(() => {
-      const moved = {};
-      let change = 0;
-      for (const item of inventory.filter((i) => !isDisposed(i))) {
-        const key = item.metal.toLowerCase();
-        const pct = (moved[key] ??= get24hChange(item.metal));
-        if (!pct.valid) continue;
-        const melt = computeItemValuation(item, spotPrices[key]).meltValue;
-        change += melt - melt / (1 + pct.pct / 100);
-      }
-      const seeded = ["silver", "gold"].every((key) => moved[key]?.valid && moved[key].pct !== 0);
-      const sign = change > 0 ? "" : "-";
-      return { seeded, money: `${sign}${formatCurrency(Math.abs(change)).replace(/^[^\d]*/, "")}` };
-    });
-    expect(expected.seeded, "the seeded history gives silver and gold a 24h change").toBe(true);
+    // Each Item's pure ounces (melt / current spot) priced at the two prices the 24h
+    // comparison uses, summed over the active Items.
+    const handTodayChange = () =>
+      page.evaluate(() => {
+        const moved = {};
+        let change = 0;
+        for (const item of inventory.filter((i) => !isDisposed(i))) {
+          const key = item.metal.toLowerCase();
+          const day = (moved[key] ??= get24hChange(item.metal));
+          if (!day.valid || !(spotPrices[key] > 0)) continue;
+          const pureOz = computeItemValuation(item, spotPrices[key]).meltValue / spotPrices[key];
+          change += pureOz * (day.newPrice - day.oldPrice);
+        }
+        const seeded = ["silver", "gold"].every((key) => moved[key]?.valid && moved[key].pct !== 0);
+        const sign = change > 0 ? "" : "-";
+        const amount = formatCurrency(Math.abs(change)).replace(/^[^\d]*/, "");
+        return { seeded, money: `${sign}${amount}` };
+      });
+    const expected = await handTodayChange();
+    expect(expected.seeded, "silver and gold have a 24h change").toBe(true);
     expect(await readMoney(page, "#stackTodayValue")).toBe(expected.money);
     await expect(page.locator("#stackTodayValue")).toContainText("today");
+
+    // A history pull redraws the sparklines through updateAllSparklines, and Today follows.
+    // The new close goes on the newest history day, whichever source supplied it.
+    await page.evaluate(async () => {
+      const newest = spotHistory
+        .filter((e) => e.metal === "Gold")
+        .reduce((a, b) => (new Date(a.timestamp) > new Date(b.timestamp) ? a : b));
+      spotHistory.push({
+        timestamp: `${newest.timestamp.slice(0, 10)}T23:00:00.000Z`,
+        metal: "Gold",
+        spot: 4300,
+        source: "seed",
+        provider: "Playwright",
+      });
+      await updateAllSparklines();
+    });
+    const afterPull = await handTodayChange();
+    expect(afterPull.money).not.toBe(expected.money);
+    expect(await readMoney(page, "#stackTodayValue")).toBe(afterPull.money);
 
     // Demo Items without a retail price count at melt, and the label says so.
     await expect(page.locator("#stackRetailLabel")).toHaveText("Retail (partial)");

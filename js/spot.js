@@ -1232,7 +1232,8 @@ const updateSparkline = async (metalKey) => {
  * Modes: close-close (default), open-open, open-close.
  * Graceful degradation: when only 1 entry/day exists, first === last so all modes match.
  * @param {string} metalName - 'Silver', 'Gold', etc.
- * @returns {{ pct: number, valid: boolean }}
+ * @returns {{ pct: number, valid: boolean, oldPrice?: number, newPrice?: number }} The
+ *   percentage and, when valid, the two prices it compares.
  */
 const get24hChange = (metalName) => {
   const mode = localStorage.getItem(SPOT_COMPARE_MODE_KEY) || "close-close";
@@ -1260,7 +1261,7 @@ const get24hChange = (metalName) => {
   }
 
   if (!oldPrice || oldPrice === 0) return { pct: 0, valid: false };
-  return { pct: ((newPrice - oldPrice) / oldPrice) * 100, valid: true };
+  return { pct: ((newPrice - oldPrice) / oldPrice) * 100, valid: true, oldPrice, newPrice };
 };
 
 /**
@@ -1377,9 +1378,11 @@ const updateSpotChangePercent = (metalKey, precomputedData = null) => {
 };
 
 /**
- * Refreshes sparklines on all 4 metal cards concurrently
+ * Refreshes sparklines on all 4 metal cards concurrently, and the stack headline's
+ * Today figure, which reads the same spot history and 24h comparison mode.
  */
 const updateAllSparklines = async () => {
+  if (typeof refreshStackHeadline === "function") refreshStackHeadline();
   await Promise.all(Object.values(METALS).map((mc) => updateSparkline(mc.key)));
 };
 
