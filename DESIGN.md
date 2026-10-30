@@ -367,6 +367,16 @@ under the figures says how many. Below 768px the lead takes the full width and t
 
 The spot price section draws no panel of its own: each spot card carries the frame.
 
+### Totals Ledger
+
+The totals are one table in one flat frame on the secondary background, with no shadow and no nested
+cards. Each metal the user holds has a row, in Metal Order; All Metals is the footer, set off by a 2px rule
+and bold figures. Columns are Items, Weight, Avg cost/oz, Paid, Melt, Retail, Gain and Realized. Figures
+use the data face with tabular numerals, right-aligned, so decimals line up down each column. Gain is the
+bold column and the only one in the `*-text` status colours. Each metal name carries its colour dot and
+opens the details modal. Below 768px each metal is a two-line block: name, melt and gain, then Items,
+ounces and the amount paid.
+
 The approved end state of the Dashboard is `playground/STRK-485-dashboard-end-state.html`.
 
 ## Do's and Don'ts

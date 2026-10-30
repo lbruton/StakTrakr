@@ -2895,12 +2895,13 @@ const saveMetalOrderConfig = (config) => {
 };
 
 /**
- * Applies metal order config: reorders and shows/hides spot price cards and totals cards.
+ * Applies metal order config: reorders and shows/hides the spot price cards, and orders
+ * and enables the totals ledger rows. All Metals stays the ledger footer in any order.
  */
 const applyMetalOrder = () => {
   const config = getMetalOrderConfig();
   const spotGrid = document.querySelector(".spot-cards-grid");
-  const totalsEl = document.getElementById("totalsCarousel");
+  const ledgerBody = document.getElementById("totalsLedgerBody");
 
   const spotMap = {
     silver: document.querySelector(".spot-input.silver"),
@@ -2909,17 +2910,8 @@ const applyMetalOrder = () => {
     palladium: document.querySelector(".spot-input.palladium"),
     copper: document.querySelector(".spot-input.copper"),
   };
-  const totalsMap = {
-    silver: document.querySelector(".total-card.silver"),
-    gold: document.querySelector(".total-card.gold"),
-    platinum: document.querySelector(".total-card.platinum"),
-    palladium: document.querySelector(".total-card.palladium"),
-    copper: document.querySelector(".total-card.copper"),
-    all: document.querySelector(".total-card.total-card-all"),
-  };
 
   let visibleSpot = 0;
-  let visibleTotals = 0;
   config.forEach(({ id, enabled }) => {
     const spotEl = spotMap[id];
     if (spotEl && spotGrid) {
@@ -2927,21 +2919,17 @@ const applyMetalOrder = () => {
       spotGrid.appendChild(spotEl);
       if (enabled) visibleSpot++;
     }
-    const totalEl = totalsMap[id];
-    if (totalEl && totalsEl) {
-      totalEl.style.display = enabled ? "" : "none";
-      totalsEl.appendChild(totalEl);
-      if (enabled) visibleTotals++;
+    const row = document.querySelector(`#totalsLedger .totals-row[data-metal-key="${id}"]`);
+    if (row) {
+      row.dataset.enabled = String(Boolean(enabled));
+      if (ledgerBody && row.parentElement === ledgerBody) ledgerBody.appendChild(row);
     }
   });
 
-  // Stamp the visible card counts — the five-spot-card and six-totals-card
-  // CSS tiers key on these, so the pre-copper layouts stay untouched while
-  // copper is disabled (STRK-306).
+  // The five-spot-card CSS tier keys on this count, so the four-card layout stays
+  // untouched while copper is disabled.
   if (spotGrid) spotGrid.dataset.cards = String(visibleSpot);
-  if (totalsEl) totalsEl.dataset.cards = String(visibleTotals);
 
-  if (typeof window.refreshTotalsDots === "function") window.refreshTotalsDots();
   // Redraw sparklines: a card enabled mid-session (copper, STRK-306) has a
   // zero-size canvas from while it was display:none and would show blank
   // until the next scheduled refresh otherwise.

@@ -312,19 +312,147 @@ test.describe("detail modal — mobile", () => {
 
 /**
  * Boots the Dashboard at a phone width with the seed inventory, a theme, and prices whose
- * full text is wider than a two-column card.
+ * full text is wider than a two-column card. `copper` adds a copper holding after the seed.
  */
-async function gotoPhoneDashboard(page, { width = 390, theme = "light" } = {}) {
+async function gotoPhoneDashboard(page, { width = 390, theme = "light", copper = false } = {}) {
   await page.setViewportSize({ width, height: 844 });
   await installStakTrakrNetworkMocks(page, {
     spotLatest: { xau: { price: 4123.45 }, xpd: { price: 1045.67 } },
   });
   await injectSeedInventory(page);
+  if (copper) await addCopperHolding(page);
   await page.addInitScript((t) => localStorage.setItem("appTheme", t), theme);
   await page.goto("/index.html");
   await expect(page.locator("#bestPriceTickerEl .ticker-track")).toHaveCount(1);
   await expect(page.locator("#spotPriceDisplayGold")).toContainText("4,123.45");
 }
+
+/** Enables copper in Metal Order and adds one copper Item, so the ledger holds five metals. */
+async function addCopperHolding(page) {
+  await page.addInitScript(() => {
+    const inv = JSON.parse(localStorage.getItem("metalInventory") || "[]");
+    inv.push({
+      uuid: "ledger-copper-round",
+      metal: "Copper",
+      composition: "Copper",
+      name: "Copper Round",
+      qty: 2,
+      type: "Round",
+      weight: 1,
+      weightUnit: "oz",
+      price: 4,
+      marketValue: 0,
+      date: "2026-04-25",
+      purity: 0.999,
+      serial: 9001,
+    });
+    localStorage.setItem("metalInventory", JSON.stringify(inv));
+    localStorage.setItem(
+      "metalOrderConfig",
+      JSON.stringify(
+        ["all", "silver", "gold", "platinum", "palladium", "copper"].map((id) => ({
+          id,
+          label: id,
+          enabled: true,
+        }))
+      )
+    );
+  });
+}
+
+/** Lists the visible metal rows of the totals ledger by metal key, in rendered order. */
+function visibleLedgerRows(page) {
+  return page
+    .locator("#totalsLedger tbody .totals-row")
+    .evaluateAll((rows) =>
+      rows.filter((r) => r.getClientRects().length > 0).map((r) => r.dataset.metalKey)
+    );
+}
+
+test.describe("Dashboard totals ledger", () => {
+  test("one table: a row per held metal in Metal Order, All Metals as the footer, aligned figures, one frame", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await injectSeedInventory(page);
+    await page.goto("/index.html");
+    const ledger = page.locator("#totalsLedger");
+    await expect(ledger).toBeVisible();
+    expect(await ledger.evaluate((el) => el.tagName)).toBe("TABLE");
+    await expect
+      .poll(() => visibleLedgerRows(page))
+      .toEqual(["silver", "gold", "platinum", "palladium"]);
+    await expect(page.locator("#totalsLedger tfoot .total-title")).toHaveText("All Metals");
+    await expect(page.locator("#totalsLedger thead th")).toHaveText([
+      "Metal",
+      "Items",
+      "Weight (oz)",
+      "Avg cost/oz",
+      "Paid",
+      "Melt",
+      "Retail",
+      "Gain",
+      "Realized",
+    ]);
+    await expect(page.locator("#totalsDots, #totalsPrev, #totalsNext, .total-card")).toHaveCount(0);
+
+    const layout = await page.evaluate(() => {
+      const cells = [...document.querySelectorAll("#totalsLedger .total-value")].filter(
+        (c) => c.getClientRects().length > 0
+      );
+      const melt = cells.filter((c) => c.classList.contains("totals-col-melt"));
+      const rights = melt.map((c) => Math.round(c.getBoundingClientRect().right));
+      const section = document.getElementById("totalsSectionEl");
+      const framed = [...section.querySelectorAll("*")].filter((el) => {
+        const s = getComputedStyle(el);
+        return (
+          el.getClientRects().length > 0 &&
+          ["Top", "Right", "Bottom", "Left"].every(
+            (side) => parseFloat(s[`border${side}Width`]) > 0
+          ) &&
+          parseFloat(s.borderTopLeftRadius) > 0
+        );
+      });
+      return {
+        notTabular: cells
+          .filter((c) => !getComputedStyle(c).fontVariantNumeric.includes("tabular-nums"))
+          .map((c) => c.id),
+        notRight: cells.filter((c) => getComputedStyle(c).textAlign !== "right").map((c) => c.id),
+        meltRows: melt.length,
+        meltRightEdges: new Set(rights).size,
+        sectionShadow: getComputedStyle(section).boxShadow,
+        nestedFrames: framed.map((el) => el.id || el.className),
+      };
+    });
+    expect(layout).toEqual({
+      notTabular: [],
+      notRight: [],
+      meltRows: 5,
+      meltRightEdges: 1,
+      sectionShadow: "none",
+      nestedFrames: [],
+    });
+  });
+
+  test("five held metals fit at 1440 without scrolling sideways", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await injectSeedInventory(page);
+    await addCopperHolding(page);
+    await page.goto("/index.html");
+    await expect
+      .poll(() => visibleLedgerRows(page))
+      .toEqual(["silver", "gold", "platinum", "palladium", "copper"]);
+    await expect(page.locator("#totalItemsCopper")).toHaveText("2");
+    const overflow = await page.evaluate(() => {
+      const section = document.getElementById("totalsSectionEl");
+      return {
+        section: section.scrollWidth - section.clientWidth,
+        page: document.documentElement.scrollWidth - window.innerWidth,
+      };
+    });
+    expect(overflow).toEqual({ section: 0, page: 0 });
+  });
+});
 
 /** Lists the spot cards, labels and values whose text is cut off inside their own box. */
 function readClippedText(page) {
@@ -339,7 +467,6 @@ function readClippedText(page) {
       ".spot-ratio-chip",
       ".spot-card-timestamp",
       ".total-title",
-      ".total-label",
       ".total-value",
     ].join(", ");
     return [...document.querySelectorAll(`#tabViewDashboard :is(${selector})`)]
@@ -371,6 +498,57 @@ test.describe("Dashboard at phone width", () => {
           { useInnerText: true }
         );
         await expect.poll(() => readClippedText(page)).toEqual([]);
+        expect(
+          await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
+        ).toBeLessThanOrEqual(0);
+      });
+    }
+  });
+
+  test("each held metal in the totals ledger is one two-line block at 390 and 320", async ({
+    page,
+  }) => {
+    test.setTimeout(test.info().timeout * 2);
+    for (const width of [390, 320]) {
+      await test.step(`${width}px`, async () => {
+        await page.goto("about:blank");
+        await gotoPhoneDashboard(page, { width, copper: true });
+        await expect(page.locator("#totalsDots, #totalsPrev, #totalsNext")).toHaveCount(0);
+        await expect(page.locator("#totalsLedger thead")).toBeHidden();
+        await expect
+          .poll(() => visibleLedgerRows(page))
+          .toEqual(["silver", "gold", "platinum", "palladium", "copper"]);
+        const blocks = await page.locator("#totalsLedger .totals-row").evaluateAll((rows) =>
+          rows
+            .filter((r) => r.getClientRects().length > 0)
+            .map((r) => {
+              const box = (sel) => r.querySelector(sel).getBoundingClientRect();
+              const top = (sel) => box(sel).top;
+              const shown = (sel) => r.querySelector(sel).getClientRects().length > 0;
+              const title = box(".total-title");
+              const melt = box(".totals-col-melt");
+              const meltMiddle = melt.top + melt.height / 2;
+              return {
+                key: r.dataset.metalKey,
+                lineOne: meltMiddle > title.top && meltMiddle < title.bottom,
+                gainShown: shown(".totals-col-gain"),
+                lineTwo: top(".totals-col-items") > top(".total-title") + 10,
+                paidShown: shown(".totals-col-paid") && shown(".totals-col-weight"),
+                avgHidden: !shown(".totals-col-avg") && !shown(".totals-col-retail"),
+              };
+            })
+        );
+        expect(blocks).toHaveLength(6);
+        for (const b of blocks) {
+          expect(b, b.key).toEqual({
+            key: b.key,
+            lineOne: true,
+            gainShown: true,
+            lineTwo: true,
+            paidShown: true,
+            avgHidden: true,
+          });
+        }
         expect(
           await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
         ).toBeLessThanOrEqual(0);

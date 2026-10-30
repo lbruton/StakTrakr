@@ -1259,287 +1259,126 @@
           </div>
         </section>
 
-        <!-- =============================================================================
-         TOTALS SECTION
-
-         Comprehensive financial summary cards for each metal type showing:
-         - Total items and weight in inventory
-         - Purchase price vs current value calculations
-         - Average prices and premium analysis
-         - Profit/loss calculations
-         - Clickable totals titles opening analytics modals with pie charts
-
-         All calculations are performed by updateSummary() in inventory.js
-         Values are updated automatically when inventory changes
-         ============================================================================= -->
-        <section class="totals-section" id="totalsSectionEl">
-          <h2 class="sr-only">Totals</h2>
-          <div class="totals-wrapper">
-            <button class="totals-nav-btn totals-prev" id="totalsPrev" aria-label="Previous card">
-              &#8249;
-            </button>
-            <div class="totals" id="totalsCarousel">
-              <!-- Silver totals card -->
-              <div class="total-card silver">
-                <h3 class="total-title" data-metal="Silver">
-                  <button type="button" class="total-title-btn">Silver</button>
-                </h3>
-                <div class="total-group">
-                  <div class="total-item">
-                    <span class="total-label">Items:</span>
-                    <span class="total-value" id="totalItemsSilver">0</span>
-                  </div>
-                  <div class="total-item">
-                    <span class="total-label">Weight (oz):</span>
-                    <span class="total-value" id="totalWeightSilver">0.00</span>
-                  </div>
-                  <div class="total-item">
-                    <span class="total-label">Avg Cost/oz:</span>
-                    <span class="total-value" id="avgCostPerOzSilver">$0.00</span>
-                  </div>
-                </div>
-                <div class="total-group">
-                  <div class="total-item">
-                    <span class="total-label">Purchase Price:</span>
-                    <span class="total-value" id="totalPurchasedSilver">$0.00</span>
-                  </div>
-                  <div class="total-item">
-                    <span class="total-label">Melt Value:</span>
-                    <span class="total-value" id="currentValueSilver">$0.00</span>
-                  </div>
-                  <div class="total-item">
-                    <span class="total-label">Retail Value:</span>
-                    <span class="total-value" id="retailValueSilver">$0.00</span>
-                  </div>
-                  <div class="total-item total-item-bottom-line">
-                    <span class="total-label">Gain:</span>
-                    <span class="total-value" id="lossProfitSilver">$0.00</span>
-                  </div>
-                  <div class="total-item">
-                    <span class="total-label">Realized:</span>
-                    <span class="total-value" id="realizedGainLossSilver">$0.00</span>
-                  </div>
-                </div>
-              </div>
-              <!-- Gold totals card -->
-              <div class="total-card gold">
-                <h3 class="total-title" data-metal="Gold">
-                  <button type="button" class="total-title-btn">Gold</button>
-                </h3>
-                <div class="total-group">
-                  <div class="total-item">
-                    <span class="total-label">Items:</span>
-                    <span class="total-value" id="totalItemsGold">0</span>
-                  </div>
-                  <div class="total-item">
-                    <span class="total-label">Weight (oz):</span>
-                    <span class="total-value" id="totalWeightGold">0.00</span>
-                  </div>
-                  <div class="total-item">
-                    <span class="total-label">Avg Cost/oz:</span>
-                    <span class="total-value" id="avgCostPerOzGold">$0.00</span>
-                  </div>
-                </div>
-                <div class="total-group">
-                  <div class="total-item">
-                    <span class="total-label">Purchase Price:</span>
-                    <span class="total-value" id="totalPurchasedGold">$0.00</span>
-                  </div>
-                  <div class="total-item">
-                    <span class="total-label">Melt Value:</span>
-                    <span class="total-value" id="currentValueGold">$0.00</span>
-                  </div>
-                  <div class="total-item">
-                    <span class="total-label">Retail Value:</span>
-                    <span class="total-value" id="retailValueGold">$0.00</span>
-                  </div>
-                  <div class="total-item total-item-bottom-line">
-                    <span class="total-label">Gain:</span>
-                    <span class="total-value" id="lossProfitGold">$0.00</span>
-                  </div>
-                  <div class="total-item">
-                    <span class="total-label">Realized:</span>
-                    <span class="total-value" id="realizedGainLossGold">$0.00</span>
-                  </div>
-                </div>
-              </div>
-              <!-- Platinum totals card -->
-              <div class="total-card platinum">
-                <h3 class="total-title" data-metal="Platinum">
-                  <button type="button" class="total-title-btn">Platinum</button>
-                </h3>
-                <div class="total-group">
-                  <div class="total-item">
-                    <span class="total-label">Items:</span>
-                    <span class="total-value" id="totalItemsPlatinum">0</span>
-                  </div>
-                  <div class="total-item">
-                    <span class="total-label">Weight (oz):</span>
-                    <span class="total-value" id="totalWeightPlatinum">0.00</span>
-                  </div>
-                  <div class="total-item">
-                    <span class="total-label">Avg Cost/oz:</span>
-                    <span class="total-value" id="avgCostPerOzPlatinum">$0.00</span>
-                  </div>
-                </div>
-                <div class="total-group">
-                  <div class="total-item">
-                    <span class="total-label">Purchase Price:</span>
-                    <span class="total-value" id="totalPurchasedPlatinum">$0.00</span>
-                  </div>
-                  <div class="total-item">
-                    <span class="total-label">Melt Value:</span>
-                    <span class="total-value" id="currentValuePlatinum">$0.00</span>
-                  </div>
-                  <div class="total-item">
-                    <span class="total-label">Retail Value:</span>
-                    <span class="total-value" id="retailValuePlatinum">$0.00</span>
-                  </div>
-                  <div class="total-item total-item-bottom-line">
-                    <span class="total-label">Gain:</span>
-                    <span class="total-value" id="lossProfitPlatinum">$0.00</span>
-                  </div>
-                  <div class="total-item">
-                    <span class="total-label">Realized:</span>
-                    <span class="total-value" id="realizedGainLossPlatinum">$0.00</span>
-                  </div>
-                </div>
-              </div>
-              <!-- Palladium totals card -->
-              <div class="total-card palladium">
-                <h3 class="total-title" data-metal="Palladium">
-                  <button type="button" class="total-title-btn">Palladium</button>
-                </h3>
-                <div class="total-group">
-                  <div class="total-item">
-                    <span class="total-label">Items:</span>
-                    <span class="total-value" id="totalItemsPalladium">0</span>
-                  </div>
-                  <div class="total-item">
-                    <span class="total-label">Weight (oz):</span>
-                    <span class="total-value" id="totalWeightPalladium">0.00</span>
-                  </div>
-                  <div class="total-item">
-                    <span class="total-label">Avg Cost/oz:</span>
-                    <span class="total-value" id="avgCostPerOzPalladium">$0.00</span>
-                  </div>
-                </div>
-                <div class="total-group">
-                  <div class="total-item">
-                    <span class="total-label">Purchase Price:</span>
-                    <span class="total-value" id="totalPurchasedPalladium">$0.00</span>
-                  </div>
-                  <div class="total-item">
-                    <span class="total-label">Melt Value:</span>
-                    <span class="total-value" id="currentValuePalladium">$0.00</span>
-                  </div>
-                  <div class="total-item">
-                    <span class="total-label">Retail Value:</span>
-                    <span class="total-value" id="retailValuePalladium">$0.00</span>
-                  </div>
-                  <div class="total-item total-item-bottom-line">
-                    <span class="total-label">Gain:</span>
-                    <span class="total-value" id="lossProfitPalladium">$0.00</span>
-                  </div>
-                  <div class="total-item">
-                    <span class="total-label">Realized:</span>
-                    <span class="total-value" id="realizedGainLossPalladium">$0.00</span>
-                  </div>
-                </div>
-              </div>
-              <!-- Copper totals card (STRK-306) — hidden until enabled in
-                   Settings › Metal Order; applyMetalOrder() shows it -->
-              <div class="total-card copper" style="display: none">
-                <h3 class="total-title" data-metal="Copper">
-                  <button type="button" class="total-title-btn">Copper</button>
-                </h3>
-                <div class="total-group">
-                  <div class="total-item">
-                    <span class="total-label">Items:</span>
-                    <span class="total-value" id="totalItemsCopper">0</span>
-                  </div>
-                  <div class="total-item">
-                    <span class="total-label">Weight (oz):</span>
-                    <span class="total-value" id="totalWeightCopper">0.00</span>
-                  </div>
-                  <div class="total-item">
-                    <span class="total-label">Avg Cost/oz:</span>
-                    <span class="total-value" id="avgCostPerOzCopper">$0.00</span>
-                  </div>
-                </div>
-                <div class="total-group">
-                  <div class="total-item">
-                    <span class="total-label">Purchase Price:</span>
-                    <span class="total-value" id="totalPurchasedCopper">$0.00</span>
-                  </div>
-                  <div class="total-item">
-                    <span class="total-label">Melt Value:</span>
-                    <span class="total-value" id="currentValueCopper">$0.00</span>
-                  </div>
-                  <div class="total-item">
-                    <span class="total-label">Retail Value:</span>
-                    <span class="total-value" id="retailValueCopper">$0.00</span>
-                  </div>
-                  <div class="total-item total-item-bottom-line">
-                    <span class="total-label">Gain:</span>
-                    <span class="total-value" id="lossProfitCopper">$0.00</span>
-                  </div>
-                  <div class="total-item">
-                    <span class="total-label">Realized:</span>
-                    <span class="total-value" id="realizedGainLossCopper">$0.00</span>
-                  </div>
-                </div>
-              </div>
-              <!-- All metals combined totals card -->
-              <div class="total-card total-card-all">
-                <h3 class="total-title" data-metal="All">
-                  <button type="button" class="total-title-btn">All Metals</button>
-                </h3>
-                <div class="total-group">
-                  <div class="total-item">
-                    <span class="total-label">Items:</span>
-                    <span class="total-value" id="totalItemsAll">0</span>
-                  </div>
-                  <div class="total-item">
-                    <span class="total-label">Weight (oz):</span>
-                    <span class="total-value" id="totalWeightAll">0.00</span>
-                  </div>
-                  <div class="total-item">
-                    <span class="total-label">Avg Cost/oz:</span>
-                    <span class="total-value" id="avgCostPerOzAll">$0.00</span>
-                  </div>
-                </div>
-                <div class="total-group">
-                  <div class="total-item">
-                    <span class="total-label">Purchase Price:</span>
-                    <span class="total-value" id="totalPurchasedAll">$0.00</span>
-                  </div>
-                  <div class="total-item">
-                    <span class="total-label">Melt Value:</span>
-                    <span class="total-value" id="currentValueAll">$0.00</span>
-                  </div>
-                  <div class="total-item">
-                    <span class="total-label">Retail Value:</span>
-                    <span class="total-value" id="retailValueAll">$0.00</span>
-                  </div>
-                  <div class="total-item total-item-bottom-line">
-                    <span class="total-label">Gain:</span>
-                    <span class="total-value" id="lossProfitAll">$0.00</span>
-                  </div>
-                  <div class="total-item">
-                    <span class="total-label">Realized:</span>
-                    <span class="total-value" id="realizedGainLossAll">$0.00</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <!-- /.totals -->
-            <button class="totals-nav-btn totals-next" id="totalsNext" aria-label="Next card">
-              &#8250;
-            </button>
-            <div class="totals-dots" id="totalsDots"></div>
-          </div>
-          <!-- /.totals-wrapper -->
+        <!-- Totals ledger: one row per held metal in Metal Order, All Metals as the footer.
+             updateSummary (js/inventory-table.js) fills the cells by id and marks rows held;
+             applyMetalOrder (js/settings.js) orders the rows and marks them enabled. -->
+        <section class="totals-section" id="totalsSectionEl" aria-labelledby="totalsTitle">
+          <h2 class="totals-title" id="totalsTitle">Totals</h2>
+          <table class="totals-ledger" id="totalsLedger" aria-labelledby="totalsTitle">
+            <thead>
+              <tr>
+                <th scope="col" class="totals-col-metal">Metal</th>
+                <th scope="col" class="totals-col-items">Items</th>
+                <th scope="col" class="totals-col-weight">Weight (oz)</th>
+                <th scope="col" class="totals-col-avg">Avg cost/oz</th>
+                <th scope="col" class="totals-col-paid">Paid</th>
+                <th scope="col" class="totals-col-melt">Melt</th>
+                <th scope="col" class="totals-col-retail">Retail</th>
+                <th scope="col" class="totals-col-gain">Gain</th>
+                <th scope="col" class="totals-col-realized">Realized</th>
+              </tr>
+            </thead>
+            <tbody id="totalsLedgerBody">
+              <tr class="totals-row silver" data-metal-key="silver" data-enabled="true">
+                <th scope="row" class="total-title" data-metal="Silver">
+                  <button type="button" class="total-title-btn">
+                    <span class="totals-metal-mark" aria-hidden="true"></span>Silver
+                  </button>
+                </th>
+                <td class="total-value totals-col-items" id="totalItemsSilver">0</td>
+                <td class="total-value totals-col-weight" id="totalWeightSilver">0.00</td>
+                <td class="total-value totals-col-avg" id="avgCostPerOzSilver">$0.00</td>
+                <td class="total-value totals-col-paid" id="totalPurchasedSilver">$0.00</td>
+                <td class="total-value totals-col-melt" id="currentValueSilver">$0.00</td>
+                <td class="total-value totals-col-retail" id="retailValueSilver">$0.00</td>
+                <td class="total-value totals-col-gain" id="lossProfitSilver">$0.00</td>
+                <td class="total-value totals-col-realized" id="realizedGainLossSilver">$0.00</td>
+              </tr>
+              <tr class="totals-row gold" data-metal-key="gold" data-enabled="true">
+                <th scope="row" class="total-title" data-metal="Gold">
+                  <button type="button" class="total-title-btn">
+                    <span class="totals-metal-mark" aria-hidden="true"></span>Gold
+                  </button>
+                </th>
+                <td class="total-value totals-col-items" id="totalItemsGold">0</td>
+                <td class="total-value totals-col-weight" id="totalWeightGold">0.00</td>
+                <td class="total-value totals-col-avg" id="avgCostPerOzGold">$0.00</td>
+                <td class="total-value totals-col-paid" id="totalPurchasedGold">$0.00</td>
+                <td class="total-value totals-col-melt" id="currentValueGold">$0.00</td>
+                <td class="total-value totals-col-retail" id="retailValueGold">$0.00</td>
+                <td class="total-value totals-col-gain" id="lossProfitGold">$0.00</td>
+                <td class="total-value totals-col-realized" id="realizedGainLossGold">$0.00</td>
+              </tr>
+              <tr class="totals-row platinum" data-metal-key="platinum" data-enabled="true">
+                <th scope="row" class="total-title" data-metal="Platinum">
+                  <button type="button" class="total-title-btn">
+                    <span class="totals-metal-mark" aria-hidden="true"></span>Platinum
+                  </button>
+                </th>
+                <td class="total-value totals-col-items" id="totalItemsPlatinum">0</td>
+                <td class="total-value totals-col-weight" id="totalWeightPlatinum">0.00</td>
+                <td class="total-value totals-col-avg" id="avgCostPerOzPlatinum">$0.00</td>
+                <td class="total-value totals-col-paid" id="totalPurchasedPlatinum">$0.00</td>
+                <td class="total-value totals-col-melt" id="currentValuePlatinum">$0.00</td>
+                <td class="total-value totals-col-retail" id="retailValuePlatinum">$0.00</td>
+                <td class="total-value totals-col-gain" id="lossProfitPlatinum">$0.00</td>
+                <td class="total-value totals-col-realized" id="realizedGainLossPlatinum">$0.00</td>
+              </tr>
+              <tr class="totals-row palladium" data-metal-key="palladium" data-enabled="true">
+                <th scope="row" class="total-title" data-metal="Palladium">
+                  <button type="button" class="total-title-btn">
+                    <span class="totals-metal-mark" aria-hidden="true"></span>Palladium
+                  </button>
+                </th>
+                <td class="total-value totals-col-items" id="totalItemsPalladium">0</td>
+                <td class="total-value totals-col-weight" id="totalWeightPalladium">0.00</td>
+                <td class="total-value totals-col-avg" id="avgCostPerOzPalladium">$0.00</td>
+                <td class="total-value totals-col-paid" id="totalPurchasedPalladium">$0.00</td>
+                <td class="total-value totals-col-melt" id="currentValuePalladium">$0.00</td>
+                <td class="total-value totals-col-retail" id="retailValuePalladium">$0.00</td>
+                <td class="total-value totals-col-gain" id="lossProfitPalladium">$0.00</td>
+                <td class="total-value totals-col-realized" id="realizedGainLossPalladium">
+                  $0.00
+                </td>
+              </tr>
+              <tr class="totals-row copper" data-metal-key="copper" data-enabled="false">
+                <th scope="row" class="total-title" data-metal="Copper">
+                  <button type="button" class="total-title-btn">
+                    <span class="totals-metal-mark" aria-hidden="true"></span>Copper
+                  </button>
+                </th>
+                <td class="total-value totals-col-items" id="totalItemsCopper">0</td>
+                <td class="total-value totals-col-weight" id="totalWeightCopper">0.00</td>
+                <td class="total-value totals-col-avg" id="avgCostPerOzCopper">$0.00</td>
+                <td class="total-value totals-col-paid" id="totalPurchasedCopper">$0.00</td>
+                <td class="total-value totals-col-melt" id="currentValueCopper">$0.00</td>
+                <td class="total-value totals-col-retail" id="retailValueCopper">$0.00</td>
+                <td class="total-value totals-col-gain" id="lossProfitCopper">$0.00</td>
+                <td class="total-value totals-col-realized" id="realizedGainLossCopper">$0.00</td>
+              </tr>
+            </tbody>
+            <tfoot>
+              <tr class="totals-row totals-row-all" data-metal-key="all" data-enabled="true">
+                <th scope="row" class="total-title" data-metal="All">
+                  <button type="button" class="total-title-btn">
+                    <span class="totals-metal-mark" aria-hidden="true"></span>All Metals
+                  </button>
+                </th>
+                <td class="total-value totals-col-items" id="totalItemsAll">0</td>
+                <td class="total-value totals-col-weight" id="totalWeightAll">0.00</td>
+                <td class="total-value totals-col-avg" id="avgCostPerOzAll">$0.00</td>
+                <td class="total-value totals-col-paid" id="totalPurchasedAll">$0.00</td>
+                <td class="total-value totals-col-melt" id="currentValueAll">$0.00</td>
+                <td class="total-value totals-col-retail" id="retailValueAll">$0.00</td>
+                <td class="total-value totals-col-gain" id="lossProfitAll">$0.00</td>
+                <td class="total-value totals-col-realized" id="realizedGainLossAll">$0.00</td>
+              </tr>
+            </tfoot>
+          </table>
+          <p class="totals-ledger-note">
+            <span>Select a metal for its breakdown chart.</span>
+            <span class="totals-col-realized">Realized gain covers sold Items.</span>
+          </p>
         </section>
       </div>
       <!-- v2 tab view: Inventory (STRK-282) -->

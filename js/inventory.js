@@ -2911,18 +2911,13 @@ const printInventory = () => {
   }
 };
 /**
- * Show or hide the "Realized:" row on all summary cards (STAK-72).
- * Called from settings toggle and on page load.
+ * Show or hide the Realized column of the totals ledger and its footnote.
+ * Called from the settings toggle and on page load.
  */
 const applyRealizedVisibility = (show) => {
-  // Derived from METALS (+ the aggregate card) so a new first-class metal's
-  // Realized row can never silently ignore the toggle (STRK-306).
-  const metals = [...Object.values(METALS).map((m) => m.name), "All"];
-  metals.forEach((m) => {
-    // Use getElementById directly — this runs from events.js top-level (before init.js defines safeGetElement)
-    const el = document.getElementById(`realizedGainLoss${m}`);
-    if (el && el.parentElement) el.parentElement.style.display = show ? "" : "none";
-  });
+  // getElementById, not safeGetElement: events.js calls this at parse time, before init.js.
+  const section = document.getElementById("totalsSectionEl");
+  if (section) section.classList.toggle("hide-realized", !show);
 };
 
 // =============================================================================

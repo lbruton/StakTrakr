@@ -2101,7 +2101,8 @@ input[type="submit"] {
   padding: var(--spacing) var(--spacing-lg) var(--spacing-lg);
 }
 
-.stack-headline-title {
+.stack-headline-title,
+.totals-title {
   font-family: var(--font-heading);
   font-size: var(--font-size-xl);
   font-weight: 400;
@@ -2506,14 +2507,12 @@ input[type="submit"] {
 }
 
 /* Gain and loss text set by formatLossProfit and the totals and table gain/loss writers.
-   The compound selectors outrank the later .total-label and .gainloss-estimated colours. */
+   The compound selectors outrank the later .gainloss-estimated colour. */
 .gl-gain,
-.total-label.gl-gain,
 .gainloss-estimated.gl-gain {
   color: var(--success-text);
 }
 .gl-loss,
-.total-label.gl-loss,
 .gainloss-estimated.gl-loss {
   color: var(--danger-text);
 }
@@ -5976,320 +5975,245 @@ input.spot-lookup-flash {
 }
 
 /* =============================================================================
-   TOTALS CARDS — CAROUSEL
-   Five summary cards in a snap-scroll row. All Metals shows first on mobile.
-   At ≥1350px all five are visible at once (no carousel chrome needed).
+   TOTALS LEDGER
+   One table: a row per held metal in Metal Order, with All Metals as the footer.
+   Figures are mono with tabular numerals, right-aligned, so decimals line up.
    ============================================================================= */
 
-/* Wrapper provides positioning context for the prev/next arrow buttons */
-.totals-wrapper {
-  position: relative;
-}
-
-/* Carousel row: horizontal flex, snap-scroll, hidden scrollbar */
-.totals {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: var(--spacing);
+/* One flat frame: the global section rule adds a card surface and a shadow. */
+#totalsSectionEl,
+#totalsSectionEl:hover {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: none;
+  padding: var(--spacing) var(--spacing-lg) var(--spacing-sm);
   overflow-x: auto;
-  scroll-snap-type: x mandatory;
-  scroll-behavior: smooth;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-  padding: 0 2px var(--spacing-sm); /* 2px side padding so box-shadow isn't clipped */
-}
-.totals::-webkit-scrollbar {
-  display: none;
 }
 
-/* Cards: snap to start, sized per viewport */
-.total-card {
-  background: var(--bg-secondary);
-  border-radius: var(--radius-lg);
-  padding: var(--spacing-lg);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow);
-  transition: var(--transition);
-  flex: 0 0 calc(100% - 1.5rem); /* mobile: nearly full width, next card peeks */
-  scroll-snap-align: start;
-  min-width: 0;
+/* The global table, row and cell rules add a surface, stripes and column borders;
+   the ledger draws only its row rules. */
+.totals-ledger {
+  width: 100%;
+  border-collapse: collapse;
+  background: none;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: visible;
+}
+.totals-ledger tr,
+.totals-ledger tr:nth-child(even),
+.totals-ledger tr:hover {
+  background: none;
+  filter: none;
+  box-shadow: none;
+}
+.totals-ledger :is(th, td) {
+  background: none;
+  border-right: 0;
+  cursor: auto;
+  max-width: none;
+  overflow: visible;
+  font-size: var(--font-size-base);
+  line-height: 1.3;
 }
 
-@media (min-width: 580px) {
-  .total-card {
-    flex: 0 0 calc(50% - var(--spacing) * 0.5);
-  }
-}
-@media (min-width: 960px) {
-  .total-card {
-    flex: 0 0 calc(33.333% - var(--spacing) * 0.667);
-  }
-}
-@media (min-width: 1350px) {
-  /* All cards (5, or 6 with copper) in one row — disable carousel scrolling */
-  .totals {
-    overflow-x: visible;
-    scroll-snap-type: none;
-  }
-  .total-card {
-    flex: 1;
-  }
-}
-
-/* Six-card tier (STRK-306/341) — every row is a uniform two-line block:
-   label left on the first line, value RIGHT-ALIGNED on the second, so
-   $123,456.78 never truncates AND row separators stay height-aligned
-   across all six cards. (The earlier per-row conditional wrap fixed
-   truncation but let long-value cards grow taller than their neighbors —
-   STRK-341 live review chose all-lines-drop over misaligned rows.)
-   Keyed on the data-cards count applyMetalOrder() stamps, so five-card
-   layouts stay pixel-identical to the pre-copper dashboard. */
-@media (min-width: 1350px) {
-  .totals[data-cards="6"] .total-item {
-    display: block;
-    padding: 0.3rem 0;
-  }
-  .totals[data-cards="6"] .total-label {
-    display: block;
-    font-size: var(--font-size-sm);
-    line-height: 1.2;
-  }
-  .totals[data-cards="6"] .total-value {
-    display: block;
-    overflow: visible;
-    text-overflow: clip;
-    text-align: right;
-    line-height: 1.35;
-  }
-}
-
-/* All Metals is pinned first in the carousel below 1350px (pre-existing
-   behavior, unchanged). At ≥1350px the pin resets and the user's
-   Settings › Metal Order config governs; the DEFAULT config now leads
-   with All Metals (STRK-306 review decision), so new users see the
-   aggregate card first at every width, while a stored custom order still
-   controls the ≥1350px row exactly as before. */
-.total-card-all {
-  order: -1;
-}
-@media (min-width: 1350px) {
-  .total-card-all {
-    order: 0;
-  } /* config/DOM order at full desktop */
-}
-
-/* ── Carousel navigation arrows ─────────────────────────────────────────── */
-.totals-nav-btn {
-  position: absolute;
-  top: calc(50% - 16px); /* 16px = half button height, above the dots row */
-  transform: translateY(-50%);
-  z-index: 10;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: 1px solid var(--border);
-  background: var(--bg-card);
-  color: var(--text-primary);
-  font-size: var(--font-size-xl);
-  line-height: 1;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: var(--shadow);
-  transition:
-    background 0.15s,
-    opacity 0.15s;
-  opacity: 0.85;
-  padding: 0;
-}
-.totals-nav-btn:hover {
-  background: var(--bg-secondary);
-  opacity: 1;
-}
-.totals-nav-btn:disabled {
-  opacity: 0.3;
-  cursor: default;
-}
-.totals-prev {
-  left: -14px;
-}
-.totals-next {
-  right: -14px;
-}
-
-@media (min-width: 1350px) {
-  .totals-prev,
-  .totals-next {
-    display: none;
-  }
-}
-
-/* ── Carousel dot indicators ─────────────────────────────────────────────── */
-.totals-dots {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 6px;
-  padding: 0.5rem 0 0;
-}
-.totals-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--border);
-  border: none;
-  cursor: pointer;
-  padding: 0;
-  transition:
-    background 0.2s,
-    transform 0.2s;
-}
-.totals-dot.active {
-  background: var(--primary);
-  transform: scale(1.3);
-}
-@media (min-width: 1350px) {
-  .totals-dots {
-    display: none;
-  }
-}
-
-.total-card {
-  background: var(--bg-secondary);
-  border-radius: var(--radius-lg);
-  padding: var(--spacing-lg);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow);
-  transition: var(--transition);
-  /* Prevent grid item from overflowing its cell (min-width:auto default causes overflow) */
-  min-width: 0;
-  overflow: hidden;
-}
-
-.total-title {
-  font-size: var(--font-size-xl);
-  font-weight: 700;
-  margin-bottom: var(--spacing);
-  color: var(--primary);
-  text-align: center;
-  padding-bottom: var(--spacing-sm);
-  border-bottom: 2px solid var(--border);
-}
-
-.total-group {
-  background: var(--bg-primary);
-  border-radius: var(--radius);
-  padding: var(--spacing);
-  margin: var(--spacing-sm) 0;
-  border: 1px solid var(--border);
-}
-
-.total-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.375rem 0;
-  border-bottom: 1px dashed var(--border);
-}
-
-.total-item:last-child {
-  border-bottom: none;
-}
-
-.total-label {
+.totals-ledger thead th {
+  font-size: var(--font-size-sm);
   font-weight: 500;
   color: var(--text-secondary);
-  font-size: var(--font-size-base);
+  text-align: right;
   white-space: nowrap;
-  flex-shrink: 0;
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.totals-ledger thead .totals-col-metal,
+.totals-ledger .total-title {
+  text-align: left;
+}
+
+.totals-ledger .total-title,
+.total-value {
+  padding: 0.55rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.totals-ledger .total-title {
+  font-weight: 600;
+  color: var(--text-primary);
 }
 
 .total-value {
-  font-weight: 600;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
   color: var(--text-primary);
-  font-size: var(--font-size-lg);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
 }
 
-.total-title {
-  font-size: var(--font-size-xl);
+td.totals-col-gain {
   font-weight: 700;
-  margin-top: 0;
-  margin-bottom: var(--spacing);
-  color: var(--text-primary);
-  text-align: center;
-  padding-bottom: var(--spacing-sm);
-  border-bottom: 4px solid var(--border); /* fallback, will be overridden below */
-  transition:
-    border-color 0.2s,
-    color 0.2s;
-  user-select: none;
 }
 
-.total-title:hover {
-  color: var(--primary);
+.totals-ledger tfoot :is(.total-title, .total-value) {
+  border-top: 2px solid var(--text-secondary);
+  border-bottom: 0;
+  font-weight: 700;
+  padding-top: 0.7rem;
 }
 
-/* The heading holds a real button so the details modal opens from the keyboard;
-   the button keeps the heading's look. */
+.totals-ledger tbody tr:hover > * {
+  background: var(--bg-tertiary);
+}
+
+/* A metal that is off in Metal Order, or has no active or sold Items, has no row. */
+.totals-ledger .totals-row:is([data-enabled="false"], [data-held="false"]),
+.hide-realized .totals-col-realized {
+  display: none;
+}
+
+/* The metal name is the button that opens that metal's details modal. */
 .total-title-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
   font: inherit;
   color: inherit;
+  text-align: left;
   background: none;
   border: 0;
   padding: 0;
   cursor: pointer;
   border-radius: var(--radius-sm, 4px);
 }
+.total-title-btn:hover {
+  color: var(--primary);
+}
 .total-title-btn:focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
 }
 
-/* Metal-specific underline accent */
-.silver .total-title {
-  border-bottom: 4px solid var(--silver);
+.totals-metal-mark {
+  flex: none;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
 }
-.gold .total-title {
-  border-bottom: 4px solid var(--gold);
+.silver .totals-metal-mark {
+  background: var(--silver);
 }
-.platinum .total-title {
-  border-bottom: 4px solid var(--platinum);
+.gold .totals-metal-mark {
+  background: var(--gold);
 }
-.palladium .total-title {
-  border-bottom: 4px solid var(--palladium);
+.platinum .totals-metal-mark {
+  background: var(--platinum);
 }
-.copper .total-title {
-  border-bottom: 4px solid var(--copper);
+.palladium .totals-metal-mark {
+  background: var(--palladium);
 }
-
-/* All Metals combined card — uses primary accent */
-.total-card-all .total-title {
-  border-bottom: 4px solid var(--primary);
+.copper .totals-metal-mark {
+  background: var(--copper);
 }
-
-/* Gain/Loss bottom-line emphasis — the "bottom line" of each card */
-.total-item-bottom-line {
-  border-bottom: none;
-  border-top: 2px solid var(--border);
-  margin-top: 0.25rem;
-  padding-top: 0.5rem;
-}
-.total-item-bottom-line .total-label {
-  font-weight: 700;
-  font-size: var(--font-size-md);
-}
-.total-item-bottom-line .total-value {
-  font-weight: 700;
-  font-size: var(--font-size-lg);
+.totals-row-all .totals-metal-mark {
+  display: none;
 }
 
-/* In carousel mode cards can be full-width or near-full, so standard sizes work fine.
-   No per-column-count overrides needed. */
+.totals-ledger-note {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--spacing-xs) var(--spacing);
+  margin: 0;
+  padding: 0.6rem 0.6rem 0.3rem;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+/* Phones: each metal is one block. Name, melt and gain on the first line; Items, ounces
+   and the amount paid on the second. The ::after item is the line break. */
+@media (max-width: 767px) {
+  #totalsSectionEl,
+  #totalsSectionEl:hover {
+    padding: var(--spacing-sm) var(--spacing);
+  }
+  .totals-ledger,
+  .totals-ledger tbody,
+  .totals-ledger tfoot {
+    display: block;
+  }
+  .totals-ledger thead {
+    display: none;
+  }
+  .totals-ledger .totals-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    column-gap: var(--spacing-sm);
+    padding: 0.6rem 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .totals-ledger tfoot .totals-row {
+    border-bottom: 0;
+    border-top: 2px solid var(--text-secondary);
+  }
+  .totals-ledger .totals-row > *,
+  .totals-ledger tfoot .totals-row > * {
+    padding: 0;
+    border: 0;
+    font-size: max(13px, var(--font-size-base));
+  }
+  .totals-ledger .totals-row::after {
+    content: "";
+    order: 4;
+    flex-basis: 100%;
+    height: 0;
+  }
+  .totals-ledger .total-title {
+    order: 1;
+    flex: 1 1 auto;
+  }
+  .totals-ledger .totals-col-melt {
+    order: 2;
+  }
+  .totals-ledger .totals-col-gain {
+    order: 3;
+  }
+  .totals-ledger .totals-row :is(.totals-col-items, .totals-col-weight, .totals-col-paid) {
+    font-family: var(--font-body);
+    font-weight: 400;
+    font-size: max(12px, var(--font-size-sm));
+    color: var(--text-secondary);
+  }
+  .totals-ledger .totals-col-items {
+    order: 5;
+  }
+  .totals-ledger .totals-col-weight {
+    order: 6;
+  }
+  .totals-ledger .totals-col-paid {
+    order: 7;
+  }
+  .totals-ledger .totals-col-items::before {
+    content: "Items ";
+  }
+  .totals-ledger .totals-col-weight::before {
+    content: "· ";
+  }
+  .totals-ledger .totals-col-weight::after {
+    content: " oz";
+  }
+  .totals-ledger .totals-col-paid::before {
+    content: "· paid ";
+  }
+  .totals-ledger-note {
+    padding-inline: 0;
+  }
+  .totals-ledger :is(.totals-col-avg, .totals-col-retail, .totals-col-realized) {
+    display: none;
+  }
+}
 
 /* =============================================================================
    TABLES - Main inventory table with interactive features
@@ -10307,46 +10231,6 @@ input:disabled + .slider {
     justify-content: center;
   }
 
-  .totals {
-    gap: var(--spacing-sm);
-  }
-
-  .total-card {
-    padding: var(--spacing-sm);
-  }
-
-  .total-group {
-    padding: var(--spacing-xs);
-    margin: var(--spacing-xs) 0;
-  }
-
-  .total-item {
-    padding: 0.2rem 0;
-  }
-
-  .total-label {
-    font-size: var(--font-size-xs);
-  }
-
-  .total-value {
-    font-size: var(--font-size-base);
-  }
-
-  .total-title {
-    font-size: var(--font-size-md);
-    margin-bottom: var(--spacing-xs);
-    padding-bottom: var(--spacing-xs);
-    border-bottom-width: 3px;
-  }
-
-  .total-item-bottom-line .total-label {
-    font-size: var(--font-size-sm);
-  }
-
-  .total-item-bottom-line .total-value {
-    font-size: var(--font-size-md);
-  }
-
   .import-export-grid {
     grid-template-columns: 1fr;
   }
@@ -10380,26 +10264,6 @@ input:disabled + .slider {
   .modal-content {
     margin: 0.25rem;
     padding: 0.6rem;
-  }
-
-  .total-card {
-    padding: var(--spacing-xs);
-  }
-
-  .total-label {
-    font-size: var(--font-size-xs);
-  }
-
-  .total-value {
-    font-size: var(--font-size-sm);
-  }
-
-  .total-title {
-    font-size: var(--font-size-base);
-  }
-
-  .total-item-bottom-line .total-value {
-    font-size: var(--font-size-base);
   }
 
   .spot-input {
@@ -21602,7 +21466,7 @@ input[type="number"] {
       .spot-edit-btn,
       .spot-sync-icon,
       .spot-ratio-chip,
-      .totals-dot,
+      .total-title-btn,
       .ticker-item
     ) {
     position: relative;
@@ -21613,8 +21477,7 @@ input[type="number"] {
       .spot-edit-btn,
       .spot-sync-icon,
       .spot-ratio-chip,
-      .totals-nav-btn,
-      .totals-dot,
+      .total-title-btn,
       .ticker-item
     )::after {
     content: "";
@@ -21638,44 +21501,6 @@ input[type="number"] {
     font-size: max(12px, var(--font-size-xs));
   }
 
-  .totals-prev {
-    left: -6px;
-  }
-  .totals-next {
-    right: -6px;
-  }
-  .totals-dots {
-    gap: 36px;
-    padding-top: 1rem;
-  }
-  /* A wider pill marks the active dot; a scale would grow its hit area over the next dot. */
-  .totals-dot.active {
-    width: 18px;
-    border-radius: var(--radius-pill);
-    transform: none;
-  }
-  /* 48px, so the rounded focus corners stay outside the 44px hit square. */
-  .total-title-btn {
-    min-width: 48px;
-    min-height: 48px;
-  }
-
-  .total-item {
-    flex-wrap: wrap;
-    column-gap: var(--spacing-sm);
-  }
-  .total-label {
-    white-space: normal;
-    flex-shrink: 1;
-  }
-  .total-value {
-    margin-left: auto;
-    overflow: visible;
-    text-overflow: clip;
-    text-align: right;
-    overflow-wrap: break-word;
-  }
-
   /* 12px floor for Dashboard text; max() keeps a larger user font size in effect. */
   .spot-card-label,
   .spot-card-period,
@@ -21685,22 +21510,16 @@ input[type="number"] {
   .spot-ratio-chip .est,
   .ticker-item .vendor,
   .ticker-item .premium,
-  .total-label,
-  .total-item-bottom-line .total-label,
   .gain-loss-pct,
   .stack-figure-label,
   .stack-figure-sub,
-  .stack-headline-note {
+  .stack-headline-note,
+  .totals-ledger-note {
     font-size: max(12px, var(--font-size-xs));
   }
   .spot-card-change,
   .ticker-item .coin,
-  .ticker-item .price,
-  .total-value,
-  .total-title {
+  .ticker-item .price {
     font-size: max(13px, var(--font-size-base));
-  }
-  .total-item-bottom-line .total-value {
-    font-size: max(14px, var(--font-size-md));
   }
 }

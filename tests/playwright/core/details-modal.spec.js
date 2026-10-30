@@ -807,7 +807,10 @@ test("AC-21: a never-populated scope shows the empty state whose CTA runs the #n
 }) => {
   await installSeed(page);
   await bootApp(page);
-  await openScope(page, "Palladium");
+  // The totals ledger has no row for a metal with no Items, so open the scope directly.
+  await expect(page.locator("#totalsLedger .totals-row.palladium")).toBeHidden();
+  await page.evaluate(() => showDetailsModal("Palladium"));
+  await expect(page.locator("#detailsModal")).toBeVisible();
   const empty = page.locator("#detailsModal .empty-state");
   await expect(empty).toBeVisible();
   await expect(empty).toContainText(/no palladium items yet/i);

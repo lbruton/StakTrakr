@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.91] - 2026-10-29
+
+### Changed — STRK-491: Dashboard totals ledger
+
+- **Totals ledger**: The six totals cards are one table with a row per metal you hold, in Metal Order, and All Metals as the footer. Figures are mono with tabular numerals and line up on the decimal point; Gain is the bold column (STRK-491).
+- **Rows**: A metal that is off in Metal Order, or has no active or sold Items, has no row. All Metals stays the footer wherever Metal Order places it (STRK-491).
+- **Details**: Each metal name is the button that opens its details modal, as the card titles were (STRK-491).
+- **Realized**: The Show Realized Gain/Loss setting hides the Realized column (STRK-491).
+- **Phones**: Each metal is a two-line block: name, melt and gain, then Items, ounces and the amount paid. The carousel, its arrows and its dots are gone (STRK-491).
+- **Frame**: The totals draw one flat frame with no shadow and no nested cards (STRK-491).
+
+---
+
 ## [3.36.90] - 2026-10-29
 
 ### Added — STRK-490: Dashboard stack headline

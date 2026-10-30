@@ -62,7 +62,7 @@ test.describe("Dashboard keyboard and screen reader access", () => {
   });
 
   test("Enter on a totals title opens that metal's details modal", async ({ page }) => {
-    const titles = page.locator("#tabViewDashboard h3.total-title > button");
+    const titles = page.locator("#totalsLedger th.total-title[scope='row'] > button");
     await expect(titles.first()).toBeVisible();
     expect(await titles.count()).toBeGreaterThanOrEqual(4);
     const silver = page.locator(".total-title[data-metal='Silver'] > button");
@@ -211,12 +211,16 @@ test.describe("Dashboard keyboard and screen reader access", () => {
     await expect(edit).toBeFocused();
   });
 
-  test("the Dashboard has a heading for each section and each totals card", async ({ page }) => {
+  test("the Dashboard has a heading for each section and a row header for each totals metal", async ({
+    page,
+  }) => {
     const panel = page.locator("#tabViewDashboard");
     for (const name of ["Spot prices", "Best dealer prices", "Totals"]) {
       await expect(panel.getByRole("heading", { level: 2, name })).toHaveCount(1);
     }
-    await expect(panel.getByRole("heading", { level: 3, name: "Silver" })).toHaveCount(1);
+    const ledger = page.getByRole("table", { name: "Totals" });
+    await expect(ledger.getByRole("rowheader", { name: "Silver" })).toHaveCount(1);
+    await expect(ledger.getByRole("columnheader", { name: "Gain" })).toHaveCount(1);
   });
 
   test("ratio chips and refresh buttons name their value and freshness", async ({ page }) => {
@@ -383,27 +387,5 @@ test.describe("best-price ticker motion", () => {
         })
       )
       .toBe(false);
-  });
-});
-
-test.describe("totals carousel dots", () => {
-  test("the active dot follows the scroll position after the metal order changes", async ({
-    page,
-  }) => {
-    await page.setViewportSize({ width: 390, height: 844 });
-    await gotoDashboard(page);
-    await page.evaluate(() => window.refreshTotalsDots());
-    const dots = page.locator("#totalsDots .totals-dot");
-    await expect(dots.first()).toHaveAttribute("aria-current", "true");
-    await page.evaluate(() => {
-      const carousel = document.getElementById("totalsCarousel");
-      const cards = [...carousel.querySelectorAll(".total-card")]
-        .filter((c) => c.style.display !== "none")
-        .sort((a, b) => a.offsetLeft - b.offsetLeft);
-      carousel.scrollTo({ left: cards[1].offsetLeft, behavior: "instant" });
-    });
-    await expect(dots.nth(1)).toHaveClass(/\bactive\b/);
-    await expect(dots.nth(1)).toHaveAttribute("aria-current", "true");
-    await expect(dots.first()).not.toHaveAttribute("aria-current", "true");
   });
 });
