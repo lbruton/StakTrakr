@@ -6177,8 +6177,10 @@ td.totals-col-gain {
   .totals-ledger .totals-col-melt {
     order: 2;
   }
+  /* When name, melt and gain do not fit on one line, gain wraps alone, right-aligned. */
   .totals-ledger .totals-col-gain {
     order: 3;
+    margin-left: auto;
   }
   .totals-ledger .totals-row :is(.totals-col-items, .totals-col-weight, .totals-col-paid) {
     font-family: var(--font-body);
@@ -6194,6 +6196,13 @@ td.totals-col-gain {
   }
   .totals-ledger .totals-col-paid {
     order: 7;
+  }
+  /* The header row is hidden, so Melt and Gain carry their names as alt text only. */
+  .totals-ledger .totals-col-melt::before {
+    content: "" / "Melt ";
+  }
+  .totals-ledger .totals-col-gain::before {
+    content: "" / "Gain ";
   }
   .totals-ledger .totals-col-items::before {
     content: "Items ";

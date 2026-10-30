@@ -1358,7 +1358,8 @@
 
   /**
    * Write one per-metal totals row (basics, gain/loss, avg cost, realized). A metal with
-   * no active or sold Items is marked not held, and the ledger hides its row.
+   * no active Items and no realized gain or loss is marked not held, and the ledger hides
+   * its row; a gifted, lost or returned Item alone does not keep it.
    * @param {object} metalConfig - METALS entry (has key + name).
    * @param {object} metalTotals - Per-metal totals accumulator.
    * @returns {void}
@@ -1373,7 +1374,7 @@
     const row = document.querySelector(
       `#totalsLedger .totals-row[data-metal-key="${metalConfig.key}"]`
     );
-    if (row) row.dataset.held = String(totals.totalItems > 0 || totals.disposedItems > 0);
+    if (row) row.dataset.held = String(totals.totalItems > 0 || totals.realizedGainLoss !== 0);
   }
 
   /**

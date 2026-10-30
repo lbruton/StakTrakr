@@ -250,11 +250,11 @@ These elements are defined in `index.html` and are part of the `layoutSectionCon
 | Hook                                   | Writer                         | Effect                                                                  |
 | -------------------------------------- | ------------------------------ | ----------------------------------------------------------------------- |
 | `data-enabled` on `.totals-row`        | `applyMetalOrder()`            | `false` hides the row; the writer also reorders the `tbody` rows        |
-| `data-held` on `.totals-row`           | `updateSummary()`              | `false` (no active or sold Items) hides the row                         |
+| `data-held` on `.totals-row`           | `updateSummary()`              | `false` (no active Items and no realized gain or loss) hides the row    |
 | `.hide-realized` on `#totalsSectionEl` | `applyRealizedVisibility()`    | Hides every `.totals-col-realized` cell and the Realized footnote       |
 | `th.total-title[data-metal]`           | `setupHeaderButtonListeners()` | A click on the row header or its button opens `showDetailsModal(metal)` |
 
-Below 768px the table, `tbody` and `tfoot` render as blocks and each row is a two-line flex block. CSS `order` and a `::after` line break place the cells.
+Below 768px the table, `tbody` and `tfoot` render as blocks and each row is a two-line flex block. CSS `order` and a `::after` line break place the cells. Melt and Gain carry their names as CSS alt text, since the header row is hidden.
 
 ### Market Filter Matrix Settings Panel
 

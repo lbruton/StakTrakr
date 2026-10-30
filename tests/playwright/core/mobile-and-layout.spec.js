@@ -434,6 +434,49 @@ test.describe("Dashboard totals ledger", () => {
     });
   });
 
+  test("a metal keeps its row for active Items or a realized gain, not for a gift alone", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      const item = (uuid, metal, disposition) => ({
+        uuid,
+        metal,
+        composition: metal,
+        name: `${metal} Round`,
+        qty: 1,
+        type: "Round",
+        weight: 1,
+        weightUnit: "oz",
+        price: 30,
+        marketValue: 0,
+        date: "2026-04-25",
+        purity: 0.999,
+        ...(disposition ? { disposition } : {}),
+      });
+      localStorage.setItem(
+        "metalInventory",
+        JSON.stringify([
+          item("ledger-silver", "Silver"),
+          item("ledger-gold-sold", "Gold", {
+            type: "sold",
+            date: "2026-05-01",
+            amount: 60,
+            realizedGainLoss: 30,
+          }),
+          item("ledger-platinum-gift", "Platinum", {
+            type: "gifted",
+            date: "2026-05-01",
+            amount: 0,
+            realizedGainLoss: 0,
+          }),
+        ])
+      );
+    });
+    await page.goto("/index.html");
+    await expect.poll(() => visibleLedgerRows(page)).toEqual(["silver", "gold"]);
+    await expect(page.locator("#realizedGainLossGold")).toContainText("30");
+  });
+
   test("five held metals fit at 1440 without scrolling sideways", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await injectSeedInventory(page);
@@ -526,11 +569,19 @@ test.describe("Dashboard at phone width", () => {
               const top = (sel) => box(sel).top;
               const shown = (sel) => r.querySelector(sel).getClientRects().length > 0;
               const title = box(".total-title");
-              const melt = box(".totals-col-melt");
-              const meltMiddle = melt.top + melt.height / 2;
+              const onLineOne = (sel) => {
+                const b = box(sel);
+                const middle = b.top + b.height / 2;
+                return middle > title.top && middle < title.bottom;
+              };
+              const label = (sel) =>
+                getComputedStyle(r.querySelector(sel), "::before").content.includes(
+                  sel.endsWith("melt") ? "Melt" : "Gain"
+                );
               return {
                 key: r.dataset.metalKey,
-                lineOne: meltMiddle > title.top && meltMiddle < title.bottom,
+                lineOne: onLineOne(".totals-col-melt") && onLineOne(".totals-col-gain"),
+                labelled: label(".totals-col-melt") && label(".totals-col-gain"),
                 gainShown: shown(".totals-col-gain"),
                 lineTwo: top(".totals-col-items") > top(".total-title") + 10,
                 paidShown: shown(".totals-col-paid") && shown(".totals-col-weight"),
@@ -543,6 +594,7 @@ test.describe("Dashboard at phone width", () => {
           expect(b, b.key).toEqual({
             key: b.key,
             lineOne: true,
+            labelled: true,
             gainShown: true,
             lineTwo: true,
             paidShown: true,
