@@ -8,7 +8,7 @@ description: >-
   copies. Dry-run by default. Run once per project in a fresh session. Operationalizes
   DEVS-37. Triggers: "/setup-foundation-context", "setup foundation context", "migrate
   foundation docs to .context", "onboard foundation docs", "context foundation setup".
-library-version: c5ea7b155499
+library-version: f74e60a961bf
 ---
 
 # Setup Foundation Context

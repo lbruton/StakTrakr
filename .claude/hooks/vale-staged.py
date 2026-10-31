@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# library-version: c5ea7b155499
+# library-version: f74e60a961bf
 """PostToolUse hook: report Vale alerts on the lines a `git commit` added.
 
 It lints a snapshot of HEAD, so the text and line numbers match the commit, whatever the
