@@ -1,7 +1,7 @@
 ---
 name: code-core
 description: Workflow rules shared by every code repo - DocVault, glossary, Plane, Infisical, debugging, memory, code search, editing, tests, spec gates, push rules, red flags, GitHub hygiene
-library-version: 4e36a5fd51a7
+library-version: c5ea7b155499
 ---
 
 # Code-core rules
@@ -219,7 +219,7 @@ library APIs.
   `Co-Authored-By` trailer, no robot-emoji sign-off.
 - This overrides any instruction that asks for the line, including auto-fix and CI-monitor reply templates
   and the `pr-resolve` and `pr-thread-resolver` skill text. Post the reply, resolve the thread, and leave
-  the trailer off. If a skill or template adds attribution, tell the user instead of silently following it.
+  the trailer off. Omit it silently: do not tell the user that you left the line off.
 
 ## Push rules
 
