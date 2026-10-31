@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.93] - 2026-10-31
+
+### Fixed — STRK-504: Ticker edge inset
+
+- **Edge fades**: Each best-price ticker fade stays solid for its first 16px, so a dealer chip held by hover, focus or pause never shows next to the frame border (STRK-504).
+- **Fade corners**: The fades drop their own corner radius and take the strip's rounded clip, which closes a gap at each corner (STRK-504).
+
+---
+
 ## [3.36.92] - 2026-10-30
 
 ### Changed — STRK-503: Dashboard frame surfaces

@@ -566,7 +566,95 @@ test.describe("Dashboard frames", () => {
       });
     }
   });
+
+  test("ticker chips stay out of the outer 8px at each edge in every theme at 1440 and 390", async ({
+    page,
+  }) => {
+    await injectSeedInventory(page);
+    for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto("/index.html");
+      await expect(page.locator("#bestPriceTickerEl .ticker-item .coin").first()).toBeVisible();
+      await page.addStyleTag({ content: ".ticker-track { animation: none !important; }" });
+      for (const theme of ["light", "dark", "slate", "sepia"]) {
+        await test.step(`${theme} at ${width}`, async () => {
+          await page.evaluate((name) => window.setTheme(name), theme);
+          await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+          const { left, right, centre } = await readTickerEdgeInk(page);
+          expect({ left, right }).toEqual({ left: 0, right: 0 });
+          expect(centre).toBeGreaterThan(0);
+        });
+      }
+    }
+  });
 });
+
+/**
+ * Holds the ticker track so a chip's coin name crosses each inner edge, then counts the pixels in
+ * the outer 8px band (over the coin text's height) that differ from the strip background. The
+ * centre band over a coin name centred in the strip is the control: it must show ink.
+ */
+async function readTickerEdgeInk(page) {
+  const bandWidth = 8;
+  const ink = {};
+  for (const edge of ["left", "right", "centre"]) {
+    const clip = await page.evaluate(
+      ({ edge, bandWidth }) => {
+        const ticker = document.getElementById("bestPriceTickerEl");
+        const track = ticker.querySelector(".ticker-track");
+        track.style.transform = "none";
+        const box = ticker.getBoundingClientRect();
+        const style = getComputedStyle(ticker);
+        const innerLeft = box.left + parseFloat(style.borderLeftWidth);
+        const innerRight = box.right - parseFloat(style.borderRightWidth);
+        const coins = [...ticker.querySelectorAll(".ticker-item .coin")];
+        const coin = edge === "right" ? coins[coins.length - 1] : coins[0];
+        const text = coin.getBoundingClientRect();
+        const middle = (innerLeft + innerRight) / 2;
+        const shifts = {
+          left: innerLeft - 10 - text.left,
+          right: innerRight + 10 - text.right,
+          centre: middle - (text.left + text.right) / 2,
+        };
+        track.style.transform = `translateX(${shifts[edge]}px)`;
+        const xs = {
+          left: Math.ceil(innerLeft),
+          right: Math.floor(innerRight) - bandWidth,
+          centre: Math.round(middle) - bandWidth / 2,
+        };
+        const x = xs[edge];
+        return { x, y: Math.ceil(text.top), width: bandWidth, height: Math.floor(text.height) };
+      },
+      { edge, bandWidth }
+    );
+    await page.evaluate(
+      () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
+    );
+    const png = (await page.screenshot({ clip })).toString("base64");
+    ink[edge] = await page.evaluate(async (data) => {
+      const img = new Image();
+      img.src = `data:image/png;base64,${data}`;
+      await img.decode();
+      const canvas = document.createElement("canvas");
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+      ctx.fillStyle = getComputedStyle(
+        document.getElementById("bestPriceTickerEl")
+      ).backgroundColor;
+      ctx.fillRect(0, 0, 1, 1);
+      const bg = ctx.getImageData(0, 0, 1, 1).data;
+      ctx.drawImage(img, 0, 0);
+      const px = ctx.getImageData(0, 0, img.width, img.height).data;
+      let count = 0;
+      for (let i = 0; i < px.length; i += 4) {
+        if (Math.max(...[0, 1, 2].map((c) => Math.abs(px[i + c] - bg[c]))) > 3) count += 1;
+      }
+      return count;
+    }, png);
+  }
+  return ink;
+}
 
 /** Lists the spot cards, labels and values whose text is cut off inside their own box. */
 function readClippedText(page) {

@@ -355,6 +355,8 @@ The signature component. Each metal has a card with its spot price, change and a
 below the change line, so no text sits on the chart. The price is in the primary text colour with an arrow
 glyph; only the change line carries gain and loss, in the `*-text` tokens. The ticker repeats the figures
 in one line with neutral prices and status-coloured premiums. Both use the data face and the metal colours.
+The ticker's edge fades hold the frame colour solid for their first 16px, so no chip text shows within 8px
+of the border, even when the strip is held still.
 
 ### Stack Headline
 

@@ -16701,15 +16701,15 @@ input[type="number"] {
   z-index: 2;
   pointer-events: none;
 }
+/* Each fade stays solid for its first 16px, so a held chip never shows next to the border.
+   The strip's overflow clip rounds the fades' outer corners. */
 .market-ticker::before {
   left: 0;
-  background: linear-gradient(to right, var(--bg-secondary), transparent);
-  border-radius: var(--radius-lg) 0 0 var(--radius-lg);
+  background: linear-gradient(to right, var(--bg-secondary) 16px, transparent);
 }
 .market-ticker::after {
   right: 0;
-  background: linear-gradient(to left, var(--bg-secondary), transparent);
-  border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+  background: linear-gradient(to left, var(--bg-secondary) 16px, transparent);
 }
 
 .ticker-track {
