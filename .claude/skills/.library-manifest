@@ -1,6 +1,6 @@
 # Managed by skills-deploy (DEVS-125). Entries here are overwritten or removed by --apply;
 # every other skill or agent in this repo is project-owned and never touched.
-# library-version: c5ea7b155499
+# library-version: f74e60a961bf
 skill start
 skill wrap
 skill issue

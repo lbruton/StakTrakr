@@ -1,7 +1,7 @@
 ---
 name: code-core
 description: Workflow rules shared by every code repo - DocVault, glossary, Plane, Infisical, debugging, memory, code search, editing, tests, spec gates, push rules, red flags, GitHub hygiene
-library-version: c5ea7b155499
+library-version: f74e60a961bf
 ---
 
 # Code-core rules
@@ -190,6 +190,10 @@ library APIs.
   projects use `git worktree add -b fix/desc .worktrees/fix-desc` (new branch) or
   `git worktree add .worktrees/fix-desc fix/desc` (branch already exists). Push and merge rules are in "Push rules"
   below. Verify the repo root with `git rev-parse --show-toplevel` before committing.
+- Before creating a worktree or a child session for an issue, run `git worktree list` and check for one
+  that already exists.
+- Stage files by name. Never use `git add -A` or `git add .`: they pick up regenerated screenshots and stray
+  files.
 - Issue scan: use `mcp__plane__workitem` (`action: "list"`) scoped to the current project. Do not use
   cross-project globs unless the user asks for a cross-project view.
 - For a new feature, check `DocVault/specs/` (or the repo's `specs.path`) for an active spec on the issue
@@ -241,3 +245,6 @@ library APIs.
 Rebase the working branch (`git pull --rebase`), run `git status` for loose files, then STOP and ask the
 user before starting the next task. Cleanup, archive and the next issue all count as "the next task". Skip
 the ask only when the user explicitly pre-authorized the batch (for example "cleanup, archive, then wrap").
+
+Before restarting a service or running post-merge checks, run `git checkout main && git pull` in the checkout
+the service runs from.
