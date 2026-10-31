@@ -563,15 +563,14 @@ test.describe("Dashboard totals ledger", () => {
         await page.evaluate((name) => window.setTheme(name), theme);
         await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
         // Both reads come from one moment, so a colour transition cannot skew the gap.
+        const gap = async (cell) =>
+          Math.abs((await shownLightness(cell)) - (await shownLightness("#totalsSectionEl")));
         for (const cell of ["#currentValueSilver", "#lossProfitAll"]) {
+          // At rest the row shows the section surface; only the hover sets it apart.
+          await page.mouse.move(0, 0);
+          await expect.poll(() => gap(cell), { message: `${cell} at rest` }).toBeLessThanOrEqual(1);
           await page.locator(cell).hover();
-          await expect
-            .poll(
-              async () =>
-                Math.abs((await shownLightness(cell)) - (await shownLightness("#totalsSectionEl"))),
-              { message: cell }
-            )
-            .toBeGreaterThanOrEqual(4);
+          await expect.poll(() => gap(cell), { message: cell }).toBeGreaterThanOrEqual(4);
           expect(await page.locator(cell).evaluate((c) => getComputedStyle(c).cursor)).toBe(
             "pointer"
           );

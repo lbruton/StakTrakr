@@ -70,6 +70,15 @@ test.describe("Dashboard keyboard and screen reader access", () => {
     expect([...new Set(ledgerStops.map((s) => s.ledgerMetal))].sort()).toEqual(
       [...visibleRows].sort()
     );
+    // The Tab loop can pass a row twice, so count each row's focusable elements directly.
+    const focusablePerRow = await page
+      .locator("#totalsLedger .totals-row")
+      .evaluateAll((rows) =>
+        rows
+          .filter((r) => r.getClientRects().length > 0)
+          .map((r) => [r, ...r.querySelectorAll("*")].filter((el) => el.tabIndex >= 0).length)
+      );
+    expect(focusablePerRow).toEqual(visibleRows.map(() => 1));
     expect(order.some((s) => s.inTicker && s.tag === "BUTTON")).toBe(true);
     expect(order.filter((s) => s.inDuplicate)).toEqual([]);
   });
