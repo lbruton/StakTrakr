@@ -580,7 +580,9 @@ test.describe("Dashboard frames", () => {
         await test.step(`${theme} at ${width}`, async () => {
           await page.evaluate((name) => window.setTheme(name), theme);
           await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
-          expect(await readTickerEdgeInk(page)).toEqual({ left: 0, right: 0 });
+          const { left, right, centre } = await readTickerEdgeInk(page);
+          expect({ left, right }).toEqual({ left: 0, right: 0 });
+          expect(centre).toBeGreaterThan(0);
         });
       }
     }
@@ -589,12 +591,13 @@ test.describe("Dashboard frames", () => {
 
 /**
  * Holds the ticker track so a chip's coin name crosses each inner edge, then counts the pixels in
- * the outer 8px band (over the coin text's height) that differ from the strip background.
+ * the outer 8px band (over the coin text's height) that differ from the strip background. The
+ * centre band over a coin name centred in the strip is the control: it must show ink.
  */
 async function readTickerEdgeInk(page) {
   const bandWidth = 8;
   const ink = {};
-  for (const edge of ["left", "right"]) {
+  for (const edge of ["left", "right", "centre"]) {
     const clip = await page.evaluate(
       ({ edge, bandWidth }) => {
         const ticker = document.getElementById("bestPriceTickerEl");
@@ -605,11 +608,21 @@ async function readTickerEdgeInk(page) {
         const innerLeft = box.left + parseFloat(style.borderLeftWidth);
         const innerRight = box.right - parseFloat(style.borderRightWidth);
         const coins = [...ticker.querySelectorAll(".ticker-item .coin")];
-        const coin = edge === "left" ? coins[0] : coins[coins.length - 1];
+        const coin = edge === "right" ? coins[coins.length - 1] : coins[0];
         const text = coin.getBoundingClientRect();
-        const shift = edge === "left" ? innerLeft - 10 - text.left : innerRight + 10 - text.right;
-        track.style.transform = `translateX(${shift}px)`;
-        const x = edge === "left" ? Math.ceil(innerLeft) : Math.floor(innerRight) - bandWidth;
+        const middle = (innerLeft + innerRight) / 2;
+        const shifts = {
+          left: innerLeft - 10 - text.left,
+          right: innerRight + 10 - text.right,
+          centre: middle - (text.left + text.right) / 2,
+        };
+        track.style.transform = `translateX(${shifts[edge]}px)`;
+        const xs = {
+          left: Math.ceil(innerLeft),
+          right: Math.floor(innerRight) - bandWidth,
+          centre: Math.round(middle) - bandWidth / 2,
+        };
+        const x = xs[edge];
         return { x, y: Math.ceil(text.top), width: bandWidth, height: Math.floor(text.height) };
       },
       { edge, bandWidth }
