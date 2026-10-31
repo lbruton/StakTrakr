@@ -226,14 +226,6 @@
         color: var(--text-secondary);
         margin-top: 0.15rem;
       }
-      .mk-hl-note {
-        grid-column: 1 / -1;
-        margin-top: 0.9rem;
-        padding-top: 0.6rem;
-        border-top: 1px solid var(--border);
-        font-size: var(--font-size-sm);
-        color: var(--text-secondary);
-      }
       .mk-phone .mk-hl {
         grid-template-columns: 1fr 1fr;
         gap: 0.9rem 1rem;
@@ -388,15 +380,11 @@
         font-weight: 700;
         padding-top: 0.7rem;
       }
-      .mk-ledger tbody tr:hover td {
-        background: var(--bg-tertiary);
+      .mk-ledger :is(tbody, tfoot) tr {
+        cursor: pointer;
       }
-      .mk-ledger-foot {
-        display: flex;
-        justify-content: space-between;
-        font-size: var(--font-size-sm);
-        color: var(--text-secondary);
-        padding: 0.6rem 0.6rem 0.3rem;
+      .mk-ledger :is(tbody, tfoot) tr:hover td {
+        background: var(--bg-tertiary);
       }
 
       /* Phone ledger: one block per metal, two lines each */
@@ -515,9 +503,6 @@
           <div class="mk-hl-fig">$14,658.01</div>
           <div class="mk-hl-sub">8.00 oz across 8 Items</div>
         </div>
-        <p class="mk-hl-note">
-          8 of 8 Items have no retail price, so Retail counts them at melt value.
-        </p>
       </section>
 
       <!-- 3b. Stack headline: the first draft, kept for comparison -->
@@ -564,10 +549,6 @@
           <tfoot id="ledgerFoot"></tfoot>
         </table>
         <ul class="mk-ledger-phone" id="ledgerPhone"></ul>
-        <div class="mk-ledger-foot">
-          <span>Select a metal for its breakdown chart.</span>
-          <span>Realized gain covers sold Items.</span>
-        </div>
       </section>
     </main>
 

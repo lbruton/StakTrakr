@@ -135,7 +135,6 @@ const elements = {
   detailsModal: null,
   detailsModalTitle: null,
   detailsCloseBtn: null,
-  totalTitles: null,
 
   // Portal view elements
   itemsPerPage: null,

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.94] - 2026-10-31
+
+### Changed — STRK-499: Dashboard declutter
+
+- **Footnotes**: Your stack drops the note and rule under its figures, and the totals ledger drops its footnote, at every width (STRK-499).
+- **Whole-row click**: A click on any cell of a totals ledger row, All Metals included, opens that row's details modal once. One delegated listener on `#totalsLedger` replaces the per-title listeners (STRK-499).
+- **Row affordance**: Every ledger row shows a pointer and the tertiary surface on hover; on phones the whole two-line block highlights. The metal button stays the row's only keyboard stop (STRK-499).
+
+---
+
 ## [3.36.93] - 2026-10-31
 
 ### Fixed — STRK-504: Ticker edge inset

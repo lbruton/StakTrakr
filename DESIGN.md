@@ -364,8 +364,8 @@ of the border, even when the strip is held still.
 with the ledger they summarise. It is a flat strip on the secondary background with no accent border: an
 Instrument Serif title and three figures in the data face. Retail value leads at 2.5rem with today's change
 under it; gain on cost and melt value sit beside it, each with a line of context (amount paid, ounces and
-Items). Only the change and gain carry the `*-text` status colours. When Items count at melt, a visible note
-under the figures says how many. Below 768px the lead takes the full width and the other two share a row.
+Items). Only the change and gain carry the `*-text` status colours. The strip ends on the figures, with no
+footnote or rule below them. Below 768px the lead takes the full width and the other two share a row.
 
 The spot price section draws no panel of its own: each spot card carries the frame.
 
@@ -380,9 +380,11 @@ The totals are one table in one flat frame on the secondary background, with no 
 cards. Each metal the user holds has a row, in Metal Order; All Metals is the footer, set off by a 2px rule
 and bold figures. Columns are Items, Weight, Avg cost/oz, Paid, Melt, Retail, Gain and Realized. Figures
 use the data face with tabular numerals, right-aligned, so decimals line up down each column. Gain is the
-bold column and the only one in the `*-text` status colours. Each metal name carries its colour dot and
-opens the details modal. Below 768px each metal is a two-line block: name, melt and gain, then Items,
-ounces and the amount paid.
+bold column and the only one in the `*-text` status colours. Each metal name carries its colour dot. A
+click anywhere on a row, All Metals included, opens the details modal; the row shows a pointer and the
+tertiary surface on hover. The metal name is the row's only keyboard stop. The table ends on the All Metals
+row, with no footnote. Below 768px each metal is a two-line block: name, melt and gain, then Items, ounces
+and the amount paid.
 
 The approved end state of the Dashboard is `playground/STRK-485-dashboard-end-state.html`.
 

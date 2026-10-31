@@ -495,6 +495,118 @@ test.describe("Dashboard totals ledger", () => {
     });
     expect(overflow).toEqual({ section: 0, page: 0 });
   });
+
+  test("a click anywhere on a ledger row opens that row's breakdown once, at 1440 and 390", async ({
+    page,
+  }) => {
+    await injectSeedInventory(page);
+    const cases = [
+      [1440, "Silver", "#currentValueSilver"],
+      [1440, "Gold", "#totalItemsGold"],
+      [1440, "Silver", ".total-title[data-metal='Silver'] > button"],
+      [1440, "All", "#lossProfitAll"],
+      [390, "Gold", "#totalPurchasedGold"],
+      [390, "All", "#lossProfitAll"],
+    ];
+    test.setTimeout(test.info().timeout * 2);
+    for (const [width, metal, target] of cases) {
+      await test.step(`${target} at ${width}`, async () => {
+        if (page.viewportSize()?.width !== width) {
+          await page.setViewportSize({ width, height: 900 });
+          await page.goto("/index.html");
+        }
+        // Each call to showDetailsModal rewrites the modal title once.
+        await page.evaluate(() => {
+          window.__titleWrites = 0;
+          window.__titleObserver?.disconnect();
+          window.__titleObserver = new MutationObserver((records) => {
+            window.__titleWrites += records.length;
+          });
+          window.__titleObserver.observe(document.getElementById("detailsModalTitle"), {
+            childList: true,
+          });
+        });
+        await page.locator(target).click();
+        await expect(page.locator("#detailsModal")).toBeVisible();
+        await expect(page.locator("#detailsModalTitle")).toContainText(
+          metal === "All" ? "All Metals" : metal
+        );
+        expect(await page.evaluate(() => window.__titleWrites)).toBe(1);
+        await page.evaluate(() => closeDetailsModal());
+        await expect(page.locator("#detailsModal")).toBeHidden();
+      });
+    }
+  });
+
+  test("ledger rows show a pointer and a hover surface in every theme", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await injectSeedInventory(page);
+    await page.goto("/index.html");
+    await expect(page.locator("#currentValueSilver")).toBeVisible();
+    // The colour a cell shows: its own background, or the nearest opaque one behind it.
+    const shownLightness = (selector) =>
+      page.locator(selector).evaluate((cell) => {
+        const ctx = document.createElement("canvas").getContext("2d", { willReadFrequently: true });
+        let el = cell;
+        let css = getComputedStyle(el).backgroundColor;
+        while (el && /rgba\(0, 0, 0, 0\)|transparent/.test(css)) {
+          el = el.parentElement;
+          css = el ? getComputedStyle(el).backgroundColor : "white";
+        }
+        ctx.fillStyle = css;
+        ctx.fillRect(0, 0, 1, 1);
+        const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
+        return Math.round(0.2126 * r + 0.7152 * g + 0.0722 * b);
+      });
+    for (const theme of ["light", "dark", "slate", "sepia"]) {
+      await test.step(theme, async () => {
+        await page.evaluate((name) => window.setTheme(name), theme);
+        await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+        // Both reads come from one moment, so a colour transition cannot skew the gap.
+        for (const cell of ["#currentValueSilver", "#lossProfitAll"]) {
+          await page.locator(cell).hover();
+          await expect
+            .poll(
+              async () =>
+                Math.abs((await shownLightness(cell)) - (await shownLightness("#totalsSectionEl"))),
+              { message: cell }
+            )
+            .toBeGreaterThanOrEqual(4);
+          expect(await page.locator(cell).evaluate((c) => getComputedStyle(c).cursor)).toBe(
+            "pointer"
+          );
+        }
+      });
+    }
+  });
+
+  test("the stack card and the ledger end on their figures, with no footnote or rule, at 1440 and 390", async ({
+    page,
+  }) => {
+    await injectSeedInventory(page);
+    for (const width of [1440, 390]) {
+      await test.step(`${width}px`, async () => {
+        await page.setViewportSize({ width, height: 900 });
+        await page.goto("/index.html");
+        await expect(page.locator("#stackRetailValue")).not.toHaveText("$0.00");
+        const below = await page.evaluate(() => {
+          // Lists each visible element of a section that sits below its figures block.
+          const after = (sectionId, figuresId) => {
+            const figuresBottom = document.getElementById(figuresId).getBoundingClientRect().bottom;
+            return [...document.getElementById(sectionId).querySelectorAll("*")]
+              .filter((el) => el.getClientRects().length > 0)
+              .filter((el) => el.getBoundingClientRect().top >= figuresBottom - 1)
+              .map((el) => `${el.tagName}.${el.className}`);
+          };
+          return {
+            stack: after("stackHeadlineSection", "stackHeadlineFigures"),
+            totals: after("totalsSectionEl", "totalsLedger"),
+          };
+        });
+        expect(below).toEqual({ stack: [], totals: [] });
+      });
+    }
+  });
 });
 
 /**

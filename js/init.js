@@ -410,7 +410,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     elements.detailsModal = safeGetElement("detailsModal");
     elements.detailsModalTitle = safeGetElement("detailsModalTitle");
     elements.detailsCloseBtn = safeGetElement("detailsCloseBtn");
-    elements.totalTitles = document.querySelectorAll(".total-title");
 
     // Phase 9: Initialize Metal-Specific Elements
     debugLog("Phase 9: Initializing metal-specific elements...");

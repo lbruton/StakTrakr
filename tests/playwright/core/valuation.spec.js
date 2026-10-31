@@ -531,22 +531,16 @@ test.describe("Dashboard stack headline", () => {
     expect(afterPull.money).not.toBe(expected.money);
     expect(await readMoney(page, "#stackTodayValue")).toBe(afterPull.money);
 
-    // Demo Items without a retail price count at melt; a visible note under the figures says so.
+    // Demo Items without a retail price count at melt, with no footnote under the figures.
     await expect(page.locator("#stackRetailLabel")).toHaveText("Retail value");
-    const note = await page.locator("#stackRetailValue").getAttribute("aria-describedby");
-    await expect(page.locator(`#${note}`)).toBeVisible();
-    await expect(page.locator(`#${note}`)).toHaveText(
-      /^\d+ of \d+ Items have no retail price, so Retail counts them at melt value\.$/
-    );
+    await expect(page.locator("#stackRetailValue")).not.toHaveAttribute("aria-describedby", /./);
+    await expect(page.locator("#stackHeadlineSection")).not.toContainText("no retail price");
 
-    // Emptying the stack clears the note along with the figures.
     await page.evaluate(() => {
       inventory.length = 0;
       updateSummary();
     });
     await expect(page.locator("#stackHeadlineSection")).toContainText("No Items yet.");
-    await expect(page.locator(`#${note}`)).toBeHidden();
-    await expect(page.locator(`#${note}`)).toHaveText("");
   });
 
   test("a damaged inventory under recovery shows no Add Item prompt", async ({ page }) => {

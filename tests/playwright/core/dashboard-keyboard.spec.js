@@ -48,6 +48,8 @@ test.describe("Dashboard keyboard and screen reader access", () => {
         return {
           id: el.id,
           tag: el.tagName,
+          inLedger: !!el.closest("#totalsLedger"),
+          ledgerMetal: el.closest("#totalsLedger .totals-row")?.dataset.metalKey ?? null,
           inTitle: !!el.closest(".total-title"),
           inTicker: !!el.closest(".ticker-item"),
           inDuplicate: !!el.closest("[data-ticker-block='duplicate']"),
@@ -57,19 +59,36 @@ test.describe("Dashboard keyboard and screen reader access", () => {
     }
     expect(order.map((s) => s.id)).toContain("spotEditSilver");
     expect(order.filter((s) => s.inTitle && s.tag === "BUTTON").length).toBeGreaterThanOrEqual(4);
+    // One stop per visible ledger row: its metal button, never the row or a cell.
+    const ledgerStops = order.filter((s) => s.inLedger);
+    const visibleRows = await page
+      .locator("#totalsLedger .totals-row")
+      .evaluateAll((rows) =>
+        rows.filter((r) => r.getClientRects().length > 0).map((r) => r.dataset.metalKey)
+      );
+    expect(ledgerStops.filter((s) => !(s.inTitle && s.tag === "BUTTON"))).toEqual([]);
+    expect([...new Set(ledgerStops.map((s) => s.ledgerMetal))].sort()).toEqual(
+      [...visibleRows].sort()
+    );
     expect(order.some((s) => s.inTicker && s.tag === "BUTTON")).toBe(true);
     expect(order.filter((s) => s.inDuplicate)).toEqual([]);
   });
 
-  test("Enter on a totals title opens that metal's details modal", async ({ page }) => {
+  test("Enter or Space on a totals title opens that metal's details modal", async ({ page }) => {
     const titles = page.locator("#totalsLedger th.total-title[scope='row'] > button");
     await expect(titles.first()).toBeVisible();
     expect(await titles.count()).toBeGreaterThanOrEqual(4);
-    const silver = page.locator(".total-title[data-metal='Silver'] > button");
-    await silver.focus();
-    await page.keyboard.press("Enter");
-    await expect(page.locator("#detailsModal")).toBeVisible();
-    await expect(page.locator("#detailsModal")).toContainText("Silver");
+    for (const [metal, key] of [
+      ["Silver", "Enter"],
+      ["Gold", "Space"],
+    ]) {
+      await page.locator(`.total-title[data-metal='${metal}'] > button`).focus();
+      await page.keyboard.press(key);
+      await expect(page.locator("#detailsModal")).toBeVisible();
+      await expect(page.locator("#detailsModalTitle")).toContainText(metal);
+      await page.evaluate(() => closeDetailsModal());
+      await expect(page.locator("#detailsModal")).toBeHidden();
+    }
   });
 
   test("ticker dealers are buttons in a named region, listed once", async ({ page }) => {
