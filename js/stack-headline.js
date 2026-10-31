@@ -10,7 +10,7 @@
  *   spot: number}|null} changeFor - 24h comparison prices and the current spot.
  * @returns {{retail: number, melt: number, gain: number, gainPct: number, purchased: number,
  *   weight: number, items: number, today: number, todayPct: number, hasToday: boolean,
- *   activeRows: number, meltFallbackRows: number, empty: boolean}}
+ *   activeRows: number, empty: boolean}}
  */
 const computeStackHeadline = (metalTotals, changeFor) => {
   const figures = {
@@ -25,7 +25,6 @@ const computeStackHeadline = (metalTotals, changeFor) => {
     todayPct: 0,
     hasToday: false,
     activeRows: 0,
-    meltFallbackRows: 0,
     empty: true,
   };
   let valueBefore = 0;
@@ -37,7 +36,6 @@ const computeStackHeadline = (metalTotals, changeFor) => {
     figures.weight += totals.totalWeight || 0;
     figures.items += totals.totalItems || 0;
     figures.activeRows += totals.activeRows;
-    figures.meltFallbackRows += totals.meltFallbackRows;
     if (totals.activeRows > 0 || totals.disposedItems > 0) figures.empty = false;
     if (!(totals.totalMeltValue > 0)) continue;
     const change = changeFor(metalKey);
@@ -87,15 +85,7 @@ const renderStackHeadline = (metalTotals) => {
   };
   const figures = computeStackHeadline(metalTotals, changeFor);
 
-  const note = document.getElementById("stackRetailNote");
   const retailEl = document.getElementById("stackRetailValue");
-  const partial = !figures.empty && figures.meltFallbackRows > 0;
-  note.textContent = partial
-    ? `${figures.meltFallbackRows} of ${figures.activeRows} Items have no retail price, so Retail counts them at melt value.`
-    : "";
-  note.hidden = !partial;
-  if (partial) retailEl.setAttribute("aria-describedby", note.id);
-  else retailEl.removeAttribute("aria-describedby");
 
   // Under an inventory recovery hold the in-memory inventory is empty but the stored one
   // is not, and saving an Item from the Add Item prompt would overwrite it: show neither.

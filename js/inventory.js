@@ -2911,7 +2911,7 @@ const printInventory = () => {
   }
 };
 /**
- * Show or hide the Realized column of the totals ledger and its footnote.
+ * Show or hide the Realized column of the totals ledger.
  * Called from the settings toggle and on page load.
  */
 const applyRealizedVisibility = (show) => {

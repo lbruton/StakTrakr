@@ -1194,7 +1194,6 @@
         totalRetailValue: 0,
         totalGainLoss: 0,
         activeRows: 0,
-        meltFallbackRows: 0,
         disposedItems: 0,
         realizedGainLoss: 0,
         totalDisposedCost: 0,
@@ -1260,9 +1259,6 @@
       const retailTotal = valuation ? valuation.retailTotal : meltValue;
       totals.totalRetailValue += retailTotal;
       totals.activeRows += 1;
-      if (!(valuation && (valuation.marketValue > 0 || valuation.gbDenomPrice))) {
-        totals.meltFallbackRows += 1;
-      }
 
       totals.totalGainLoss += retailTotal - purchaseTotal;
     }

@@ -20,7 +20,6 @@ const metal = (fields) => ({
   totalRetailValue: 0,
   totalGainLoss: 0,
   activeRows: 0,
-  meltFallbackRows: 0,
   disposedItems: 0,
   ...fields,
 });
@@ -110,16 +109,12 @@ describe("computeStackHeadline", () => {
     assert.equal(figures.hasToday, false);
   });
 
-  test("counts the Items that fall back to melt for the partial retail note", () => {
+  test("counts the active rows across every metal", () => {
     const figures = computeStackHeadline(
-      {
-        silver: metal({ activeRows: 3, meltFallbackRows: 2 }),
-        gold: metal({ activeRows: 1, meltFallbackRows: 0 }),
-      },
+      { silver: metal({ activeRows: 3 }), gold: metal({ activeRows: 1 }) },
       () => ({ pct: 0, valid: false })
     );
     assert.equal(figures.activeRows, 4);
-    assert.equal(figures.meltFallbackRows, 2);
   });
 
   test("an inventory with no active or disposed Items is empty", () => {

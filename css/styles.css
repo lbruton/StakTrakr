@@ -2162,14 +2162,6 @@ input[type="submit"] {
   font-size: var(--font-size-md);
 }
 
-.stack-headline-note {
-  margin: var(--spacing) 0 0;
-  padding-top: var(--spacing-sm);
-  border-top: 1px solid var(--border);
-  font-size: var(--font-size-sm);
-  color: var(--text-secondary);
-}
-
 /* Phones: the lead takes the full width; gain on cost and melt share the row below. */
 @media (max-width: 767px) {
   .stack-headline-figures {
@@ -6009,7 +6001,7 @@ input.spot-lookup-flash {
 .totals-ledger :is(th, td) {
   background: none;
   border-right: 0;
-  cursor: auto;
+  cursor: inherit;
   max-width: none;
   overflow: visible;
   font-size: var(--font-size-base);
@@ -6061,7 +6053,11 @@ td.totals-col-gain {
   padding-top: 0.7rem;
 }
 
-.totals-ledger tbody tr:hover > * {
+/* A click anywhere on a row opens that metal's details modal. */
+.totals-ledger .totals-row {
+  cursor: pointer;
+}
+.totals-ledger .totals-row:hover > * {
   background: var(--bg-tertiary);
 }
 
@@ -6116,17 +6112,6 @@ td.totals-col-gain {
 }
 .totals-row-all .totals-metal-mark {
   display: none;
-}
-
-.totals-ledger-note {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: var(--spacing-xs) var(--spacing);
-  margin: 0;
-  padding: 0.6rem 0.6rem 0.3rem;
-  font-size: var(--font-size-sm);
-  color: var(--text-secondary);
 }
 
 /* Phones: each metal is one block. Name, melt and gain on the first line; Items, ounces
@@ -6214,8 +6199,9 @@ td.totals-col-gain {
   .totals-ledger .totals-col-paid::before {
     content: "· paid ";
   }
-  .totals-ledger-note {
-    padding-inline: 0;
+  /* The block, gaps included, carries the hover surface on phones. */
+  .totals-ledger .totals-row:hover {
+    background: var(--bg-tertiary);
   }
   .totals-ledger :is(.totals-col-avg, .totals-col-retail, .totals-col-realized) {
     display: none;
@@ -21526,9 +21512,7 @@ input[type="number"] {
   .ticker-item .premium,
   .gain-loss-pct,
   .stack-figure-label,
-  .stack-figure-sub,
-  .stack-headline-note,
-  .totals-ledger-note {
+  .stack-figure-sub {
     font-size: max(12px, var(--font-size-xs));
   }
   .spot-card-change,

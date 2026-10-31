@@ -1515,21 +1515,20 @@ const setupHeaderButtonListeners = () => {
   // showSettingsModal("about"), and About is the default settings panel, so
   // opening Settings already lands there.
 
-  // Details modal triggers
-  if (elements.totalTitles && elements.totalTitles.length) {
-    elements.totalTitles.forEach((title) => {
-      safeAttachListener(
-        title,
-        "click",
-        () => {
-          const metal = title.dataset.metal;
-          if (typeof showDetailsModal === "function") {
-            showDetailsModal(metal);
-          }
-        },
-        `Totals title (${title.dataset.metal})`
-      );
-    });
+  // A click anywhere on a totals ledger row opens that row's details modal. The row's
+  // metal button stays its only keyboard stop, and its click bubbles here.
+  const totalsLedger = document.getElementById("totalsLedger");
+  if (totalsLedger) {
+    safeAttachListener(
+      totalsLedger,
+      "click",
+      (e) => {
+        const row = e.target instanceof Element ? e.target.closest("tr.totals-row") : null;
+        const metal = row?.querySelector("th.total-title")?.dataset.metal;
+        if (metal && typeof showDetailsModal === "function") showDetailsModal(metal);
+      },
+      "Totals ledger row"
+    );
   }
 
   if (elements.detailsCloseBtn) {
