@@ -360,6 +360,21 @@ async function addCopperHolding(page) {
   });
 }
 
+/** Boots the Dashboard at 1440 with the seed inventory. */
+async function gotoDesktopDashboard(page) {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await injectSeedInventory(page);
+  await page.goto("/index.html");
+}
+
+const THEMES = ["light", "dark", "slate", "sepia"];
+
+/** Switches the app theme and waits until the page carries it. */
+async function applyTheme(page, theme) {
+  await page.evaluate((name) => window.setTheme(name), theme);
+  await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+}
+
 /** Lists the visible metal rows of the totals ledger by metal key, in rendered order. */
 function visibleLedgerRows(page) {
   return page
@@ -373,9 +388,7 @@ test.describe("Dashboard totals ledger", () => {
   test("one table: a row per held metal in Metal Order, All Metals as the footer, aligned figures, one frame", async ({
     page,
   }) => {
-    await page.setViewportSize({ width: 1440, height: 900 });
-    await injectSeedInventory(page);
-    await page.goto("/index.html");
+    await gotoDesktopDashboard(page);
     const ledger = page.locator("#totalsLedger");
     await expect(ledger).toBeVisible();
     expect(await ledger.evaluate((el) => el.tagName)).toBe("TABLE");
@@ -539,9 +552,7 @@ test.describe("Dashboard totals ledger", () => {
   });
 
   test("ledger rows show a pointer and a hover surface in every theme", async ({ page }) => {
-    await page.setViewportSize({ width: 1440, height: 900 });
-    await injectSeedInventory(page);
-    await page.goto("/index.html");
+    await gotoDesktopDashboard(page);
     await expect(page.locator("#currentValueSilver")).toBeVisible();
     // The colour a cell shows: its own background, or the nearest opaque one behind it.
     const shownLightness = (selector) =>
@@ -558,10 +569,9 @@ test.describe("Dashboard totals ledger", () => {
         const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
         return Math.round(0.2126 * r + 0.7152 * g + 0.0722 * b);
       });
-    for (const theme of ["light", "dark", "slate", "sepia"]) {
+    for (const theme of THEMES) {
       await test.step(theme, async () => {
-        await page.evaluate((name) => window.setTheme(name), theme);
-        await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+        await applyTheme(page, theme);
         // Both reads come from one moment, so a colour transition cannot skew the gap.
         const gap = async (cell) =>
           Math.abs((await shownLightness(cell)) - (await shownLightness("#totalsSectionEl")));
@@ -654,15 +664,12 @@ test.describe("Dashboard frames", () => {
   test("header, spot cards, ticker, stack, totals and footer share one surface in every theme", async ({
     page,
   }) => {
-    await page.setViewportSize({ width: 1440, height: 900 });
-    await injectSeedInventory(page);
-    await page.goto("/index.html");
+    await gotoDesktopDashboard(page);
     await expect(page.locator("#bestPriceTickerEl .ticker-track")).toHaveCount(1);
     await expect(page.locator(".spot-ratio-chip").first()).toBeVisible();
-    for (const theme of ["light", "dark", "slate", "sepia"]) {
+    for (const theme of THEMES) {
       await test.step(theme, async () => {
-        await page.evaluate((name) => window.setTheme(name), theme);
-        await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+        await applyTheme(page, theme);
         await expect
           .poll(async () => {
             const { backgrounds, shadowed, fades, chipLighter } = await readDashboardFrames(page);
@@ -687,10 +694,9 @@ test.describe("Dashboard frames", () => {
       await page.goto("/index.html");
       await expect(page.locator("#bestPriceTickerEl .ticker-item .coin").first()).toBeVisible();
       await page.addStyleTag({ content: ".ticker-track { animation: none !important; }" });
-      for (const theme of ["light", "dark", "slate", "sepia"]) {
+      for (const theme of THEMES) {
         await test.step(`${theme} at ${width}`, async () => {
-          await page.evaluate((name) => window.setTheme(name), theme);
-          await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+          await applyTheme(page, theme);
           const { left, right, centre } = await readTickerEdgeInk(page);
           expect({ left, right }).toEqual({ left: 0, right: 0 });
           expect(centre).toBeGreaterThan(0);
@@ -794,9 +800,7 @@ test.describe("Dashboard at phone width", () => {
   test("spot prices, labels and totals values show in full at 390 and 320 in every theme", async ({
     page,
   }) => {
-    const cases = [390, 320].flatMap((width) =>
-      ["light", "dark", "slate", "sepia"].map((theme) => ({ width, theme }))
-    );
+    const cases = [390, 320].flatMap((width) => THEMES.map((theme) => ({ width, theme })));
     test.setTimeout(test.info().timeout * cases.length);
     for (const { width, theme } of cases) {
       await test.step(`${width}px ${theme}`, async () => {
