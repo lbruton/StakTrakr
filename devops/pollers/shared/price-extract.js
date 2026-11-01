@@ -13,7 +13,7 @@
  * Environment:
  *   FIRECRAWL_API_KEY   Required for cloud Firecrawl. Omit for self-hosted.
  *   FIRECRAWL_BASE_URL  Self-hosted Firecrawl endpoint (default: api.firecrawl.dev)
- *   HOME_PROXY_URL        Cox WiFi tinyproxy URL (e.g. http://100.112.198.50:8888)
+ *   HOME_PROXY_URL        Cox WiFi tinyproxy URL (e.g. http://<home-tailnet-ip>:8888)
  *   DATA_DIR              Path to repo data/ folder (default: ../../data)
  *   COINS               Comma-separated coin slugs to run (default: all)
  *   DRY_RUN             Set to "1" to skip writing files
@@ -84,7 +84,7 @@ let cfAttempts = 0;
 let cfSuccess = 0;
 let cfFailures = 0;
 // Cox WiFi tinyproxy (port 8888) — residential proxy via Tailscale.
-// Set as Fly.io secret: fly secrets set HOME_PROXY_URL=http://100.112.198.50:8888
+// Set as Fly.io secret: fly secrets set HOME_PROXY_URL=http://<home-tailnet-ip>:8888
 const HOME_PROXY_URL = process.env.HOME_PROXY_URL || null;
 
 // Sequential with per-request jitter (2-8s) — avoids rate-limit fingerprinting.

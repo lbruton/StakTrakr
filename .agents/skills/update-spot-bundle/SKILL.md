@@ -21,14 +21,14 @@ Fills the gap between the committed year JSON files and today's sqld data, then 
 `SQLD_URL` must be set and Tailscale must be connected:
 
 ```bash
-export SQLD_URL=http://192.168.1.81:8080
+export SQLD_URL=http://<home-vm>:8080
 # SQLD_AUTH_TOKEN is optional — local sqld runs without auth
 ```
 
 ## Execution
 
 ```bash
-SQLD_URL=http://192.168.1.81:8080 python3 .agents/skills/update-spot-bundle/update-spot-bundle.py
+SQLD_URL=http://<home-vm>:8080 python3 .agents/skills/update-spot-bundle/update-spot-bundle.py
 ```
 
 Run from the **project root** (script resolves paths relative to itself).

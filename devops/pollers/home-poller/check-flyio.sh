@@ -9,9 +9,9 @@
 # Suggested cron (every 5 min, as root):
 #   */5 * * * * root /opt/poller/check-flyio.sh >> /var/log/retail-poller.log 2>&1
 #
-# Set FLYIO_TAILSCALE_IP once the container is back up.
+# FLYIO_TAILSCALE_IP comes from the stack env; the ping is skipped when it is unset.
 
-FLYIO_TAILSCALE_IP="${FLYIO_TAILSCALE_IP:-100.90.171.110}"
+FLYIO_TAILSCALE_IP="${FLYIO_TAILSCALE_IP:-}"
 FLYIO_HTTP_URL="${FLYIO_HTTP_URL:-https://api2.staktrakr.com/data/retail/providers.json}"
 SQLD_HEALTH_URL="${SQLD_HEALTH_URL:-https://api2.staktrakr.com/health/sqld-reachable}"
 PUBLISHED_MANIFEST_URL="${PUBLISHED_MANIFEST_URL:-https://api.staktrakr.com/data/api/manifest.json}"
@@ -32,7 +32,7 @@ json_str()  { echo "$1" | grep -oE "(^|[,{])[[:space:]]*\"$2\"[[:space:]]*:[[:sp
 # ── Tailscale ping (best-effort from Docker bridge) ──────────────────────────
 ts_ok=false
 ts_ms="skipped"
-if [ "$FLYIO_TAILSCALE_IP" != "TODO_REPLACE_WITH_IP" ] && command -v ping > /dev/null 2>&1; then
+if [ -n "$FLYIO_TAILSCALE_IP" ] && command -v ping > /dev/null 2>&1; then
   if ping -c 1 -W "$TIMEOUT" "$FLYIO_TAILSCALE_IP" > /dev/null 2>&1; then
     ts_ms=$(ping -c 1 -W "$TIMEOUT" "$FLYIO_TAILSCALE_IP" 2>/dev/null | grep -oP 'time=\K[0-9.]+' | head -1)
     ts_ok=true

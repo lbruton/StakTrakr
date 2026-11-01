@@ -56,9 +56,9 @@ All feeds served from `lbruton/StakTrakrApi` `api` branch via GitHub Pages at `a
 
 ## Database (sqld)
 
-sqld is a self-hosted libSQL server on the home VM (`192.168.1.81:8080`). Both pollers write to it. Turso Cloud is retained as a nightly DR backup only.
+sqld is a self-hosted libSQL server on the home VM (`<home-vm>:8080`). Both pollers write to it. Turso Cloud is retained as a nightly DR backup only.
 
-- **Primary:** `http://staktrakr-sqld:8080` (Docker) / `http://192.168.1.81:8080` (Tailscale)
+- **Primary:** `http://staktrakr-sqld:8080` (Docker) / `http://<home-vm>:8080` (Tailscale)
 - **DR backup:** `staktrakrapi-lbruton.aws-us-east-2.turso.io` (Turso Cloud free tier, nightly sync)
 - **Credentials:** `TURSO_DATABASE_URL` + `TURSO_AUTH_TOKEN` (Infisical)
 - **Table:** `price_snapshots` — one row per scrape attempt, per vendor, per 15-min window

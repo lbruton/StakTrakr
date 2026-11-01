@@ -153,7 +153,7 @@ deployed app ships with current data:
 
 ```bash
 # Invokes /update-spot-bundle — queries sqld, regenerates data/spot-history-bundle.js
-# Requires Tailscale + SQLD_URL=http://192.168.1.81:8080
+# Requires Tailscale + SQLD_URL=http://<home-vm>:8080
 ```
 
 Run `/update-spot-bundle` (skill). If new data is bundled, the change must land

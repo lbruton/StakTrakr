@@ -160,12 +160,12 @@ name, but it is the live one) on every push. Full detail: `.context/infrastructu
 
 ## Cloudflare DNS
 
-| Property    | Value                                                 |
-| ----------- | ----------------------------------------------------- |
-| Domain      | `lbruton.cc`                                          |
-| Tier        | Free                                                  |
-| Nameservers | `dell.ns.cloudflare.com`, `john.ns.cloudflare.com`    |
-| Records     | `A @ → 192.168.1.40`, `A * → 192.168.1.40` (DNS only) |
+| Property    | Value                                              |
+| ----------- | -------------------------------------------------- |
+| Domain      | `lbruton.cc`                                       |
+| Tier        | Free                                               |
+| Nameservers | `dell.ns.cloudflare.com`, `john.ns.cloudflare.com` |
+| Records     | `A @ → <home-npm>`, `A * → <home-npm>` (DNS only)  |
 
 Used for all `*.lbruton.cc` subdomains routed through NPM (see `home-infrastructure`).
 Cloudflare API token for Let's Encrypt DNS challenge: `CLOUDFLARE_TOKEN` in Infisical.

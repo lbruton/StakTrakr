@@ -122,9 +122,16 @@ The Tailscale sidecar (`tailscale-staktrakr`) runs in its own container with two
 1. **Exit node**: Fly.io routes outbound traffic through the home residential IP
 2. **Subnet router**: advertises `<home-lan>/24` via `TS_ROUTES` so Fly.io can reach home-network services (sqld at `<home-vm>:8080`) without exit-node routing
 
-The compose file (`docker-compose.tinyproxy.yml`) sets `TS_ROUTES=<home-lan>/24` and enables `net.ipv4.ip_forward=1` / `net.ipv6.conf.all.forwarding=1` via `sysctls`. The subnet route must be approved in the Tailscale admin console. On the Fly.io side, `--accept-routes` in `supervisord.conf` enables the container to use the advertised routes.
+The compose file (`docker-compose.tinyproxy.yml`) passes `TS_ROUTES` from the Portainer stack env and enables `net.ipv4.ip_forward=1` / `net.ipv6.conf.all.forwarding=1` via `sysctls`. The subnet route must be approved in the Tailscale admin console. On the Fly.io side, `--accept-routes` in `supervisord.conf` enables the container to use the advertised routes.
 
 > **Gotcha:** The `containerboot` entrypoint in the Tailscale Docker image does not re-apply `TS_ROUTES` when existing state exists in the volume. If the route is missing after a redeploy, manually run `tailscale set --advertise-routes=<home-lan>/24` inside the container.
+
+The stack env of the tinyproxy stack holds the addresses, so the repo carries none. The compose file stops a deploy that lacks either variable:
+
+| Variable          | Value                                                                              |
+| ----------------- | ---------------------------------------------------------------------------------- |
+| `TS_ROUTES`       | `<home-lan>/24`                                                                    |
+| `TINYPROXY_ALLOW` | `<home-tailnet-ip>,<fly-tailnet-ip>`; `entrypoint.sh` writes one `Allow` line each |
 
 Tinyproxy shares the sidecar's network namespace. The home-poller container does NOT share the Tailscale network: it uses the standard Docker bridge. Tailscale is needed for the proxy path from Fly.io and for subnet-routed access to home LAN services.
 
