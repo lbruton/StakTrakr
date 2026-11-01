@@ -20,10 +20,10 @@ including the day in progress, and never revisited it — every release froze a
 partial-day average (68 of them by 2026-09-26) and a 2026-02-27..03-08 hole.
 
 Usage (from project root):
-    SQLD_URL=http://192.168.1.81:8080 python3 .claude/skills/update-spot-bundle/update-spot-bundle.py
+    SQLD_URL=http://<home-vm>:8080 python3 .claude/skills/update-spot-bundle/update-spot-bundle.py
 
 Env vars:
-    SQLD_URL          Required. sqld HTTP endpoint (e.g. http://192.168.1.81:8080)
+    SQLD_URL          Required. sqld HTTP endpoint (e.g. http://<home-vm>:8080)
     SQLD_AUTH_TOKEN   Optional. Bearer token — local sqld runs without auth.
 """
 
@@ -220,7 +220,7 @@ def main():
         print("ERROR: SQLD_URL is not set.")
         print()
         print("Run with:")
-        print("  SQLD_URL=http://192.168.1.81:8080 python3 .claude/skills/update-spot-bundle/update-spot-bundle.py")
+        print("  SQLD_URL=http://<home-vm>:8080 python3 .claude/skills/update-spot-bundle/update-spot-bundle.py")
         sys.exit(1)
 
     sqld_token = os.environ.get("SQLD_AUTH_TOKEN", "").strip()

@@ -3,7 +3,7 @@
 # Fly.io container routes Chromium traffic through tinyproxy via Tailscale
 # to get a residential IP that dealer sites accept.
 #
-# Also advertises 192.168.1.0/24 as a subnet route so Fly.io (and any
+# Also advertises <home-lan>/24 as a subnet route so Fly.io (and any
 # Tailscale peer) can reach home-network services like sqld without
 # exit-node routing.  Route must be approved in Tailscale admin console.
 #
@@ -14,6 +14,11 @@
 #
 # Deploy: Single Portainer stack from git repo
 # Replaces: old separate tailscale + tinyproxy stacks
+#
+# Stack env (required; the live values are in the private Devops DocVault):
+#   TS_ROUTES        home LAN subnet to advertise, for example 192.0.2.0/24
+#   TINYPROXY_ALLOW  comma-separated tailnet addresses of this VM and the
+#                    Fly.io container that may use the proxy
 
 services:
   tailscale:
@@ -35,7 +40,7 @@ services:
     environment:
       - TS_STATE_DIR=/var/lib/tailscale
       - TS_USERSPACE=false
-      - TS_ROUTES=192.168.1.0/24
+      - TS_ROUTES=${TS_ROUTES:?set TS_ROUTES to the home LAN subnet in the stack env}
       - TS_EXTRA_ARGS=--accept-dns=false --advertise-exit-node --reset
     healthcheck:
       test: ["CMD-SHELL", "tailscale status --peers=false 2>/dev/null | grep -q '100\\.'"]
@@ -55,6 +60,8 @@ services:
     container_name: staktrakr-tinyproxy
     restart: unless-stopped
     network_mode: container:tailscale-staktrakr
+    environment:
+      - TINYPROXY_ALLOW=${TINYPROXY_ALLOW:?set TINYPROXY_ALLOW to the allowed tailnet addresses in the stack env}
     depends_on:
       tailscale:
         condition: service_healthy

@@ -7,6 +7,24 @@
 
 set -e
 
+# Tailnet peers allowed to use the proxy come from the stack env, so the public
+# repo holds no addresses. Without them Fly.io cannot reach the proxy, so stop.
+CONF=/tmp/tinyproxy.conf
+if [ -z "${TINYPROXY_ALLOW:-}" ]; then
+  echo "tinyproxy: ERROR — TINYPROXY_ALLOW is empty. Set it to the tailnet addresses of this VM and the Fly.io container."
+  exit 1
+fi
+cp /etc/tinyproxy/tinyproxy.conf "$CONF"
+for addr in $(echo "$TINYPROXY_ALLOW" | tr ',' ' '); do
+  case "$addr" in
+    *[!0-9a-fA-F.:/]*)
+      echo "tinyproxy: ERROR — TINYPROXY_ALLOW entry '${addr}' is not an IP address or CIDR"
+      exit 1
+      ;;
+  esac
+  echo "Allow ${addr}" >> "$CONF"
+done
+
 # The image creates and owns the log directory; a root override must keep it.
 if [ "$(id -u)" = 0 ]; then
   mkdir -p /var/log/tinyproxy
@@ -46,7 +64,7 @@ if ip addr 2>/dev/null | grep -q '100\.'; then
 fi
 
 # Forward port 8191 from Tailscale namespace to Docker host → Byparr container.
-# Fly.io reaches Byparr at 100.112.198.50:8191 via Tailscale, socat routes to
+# Fly.io reaches Byparr at <home-tailnet-ip>:8191 via Tailscale, socat routes to
 # the Docker bridge gateway (host port 8191 → staktrakr-byparr:8191).
 GATEWAY=$(ip route | grep default | awk '{print $3}')
 if [ -n "$GATEWAY" ]; then
@@ -54,4 +72,4 @@ if [ -n "$GATEWAY" ]; then
   socat TCP-LISTEN:8191,fork,reuseaddr TCP:${GATEWAY}:8191 &
 fi
 
-exec tinyproxy -d
+exec tinyproxy -d -c "$CONF"
