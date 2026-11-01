@@ -1,7 +1,7 @@
 ---
 name: receiving-code-review
 description: Receiving code review feedback — verify before implementing, never blindly agree.
-library-version: 2f9730d23fa3
+library-version: 88accb389051
 ---
 
 # Code Review Reception

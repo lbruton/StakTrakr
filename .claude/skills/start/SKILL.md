@@ -8,7 +8,7 @@ description: >
   for continuing same-day work or resuming after a short break.
   No indexing, no code search, no agent dispatch.
   Triggers: "start", "quick start", "resume", "orient me", "where were we".
-library-version: 2f9730d23fa3
+library-version: 88accb389051
 ---
 
 # Start
@@ -91,9 +91,9 @@ git for-each-ref --sort=-committerdate --format='%(committerdate:relative)|%(ref
 echo "== open PRs =="
 case "$(git remote get-url origin 2>/dev/null)" in
   *github.com*)
-    gh pr list --state open --limit 200 \
+    gh pr list --state open --limit 1000 \
       --json number,title,headRefName,isDraft,updatedAt,author,reviewDecision,mergeable,mergeStateStatus,statusCheckRollup \
-      --jq '(.[] | "#\(.number) \(.headRefName) \(if .isDraft then "[draft] " else "" end)\(.title) — \(.author.login)\(if .author.is_bot then " [bot]" else "" end), \(.updatedAt[0:10]) | review:\(if (.reviewDecision // "") == "" then "none" else .reviewDecision end) merge:\(.mergeable)/\(.mergeStateStatus) checks:\([.statusCheckRollup[]? | if (.conclusion // "") != "" then .conclusion else (.state // .status) end] | group_by(.) | map("\(.[0])=\(length)") | join(","))"), (if length >= 200 then "⚠ 200 PRs listed: more may be open" else empty end)' \
+      --jq '(.[] | "#\(.number) \(.headRefName) \(if .isDraft then "[draft] " else "" end)\(.title) — \(.author.login)\(if .author.is_bot then " [bot]" else "" end), \(.updatedAt[0:10]) | review:\(if (.reviewDecision // "") == "" then "none" else .reviewDecision end) merge:\(.mergeable)/\(.mergeStateStatus) checks:\([.statusCheckRollup[]? | if (.conclusion // "") != "" then .conclusion else (.state // .status) end] | group_by(.) | map("\(.[0])=\(length)") | join(","))"), (if length >= 1000 then "⚠ 1000 PRs listed: the list is incomplete" else empty end)' \
       2>/dev/null || echo "⚠ gh unavailable" ;;
   *) echo "origin is not GitHub: no PRs to list" ;;
 esac
@@ -138,8 +138,9 @@ mcp__plane__workitem(action: "list", project_id: "<uuid>", expand: "state",
 ```
 
 `parent` is the parent's UUID (or null). Keep the closed items of the page too: they resolve a parent
-UUID to its `sequence_id`, name and state. When a parent is not on the page, fetch it with
-`action: "retrieve"`. When `next_page_results` is true, read the next page with `cursor` before ranking.
+UUID to its `sequence_id`, name and state. While `next_page_results` is true, call `list` again with
+`cursor: <next_cursor>` and add that page before ranking. When a parent is on no page, fetch it with
+`action: "retrieve"`, `project_id` and `workitem_id: <parent UUID>`.
 
 > **Plane Community Edition limits (verified 2026-10-10):** `pql` is rejected (`"PQL and
 > structured filters are not supported on this Plane edition"`, returned as a payload,
