@@ -6,7 +6,7 @@ description: >
   facts to .context/, syncs docs, and reports Session Health. Run at end of any session, optionally after
   /pr-cleanup. Triggers: "wrap", "wrap up", "close session", "end of session",
   "done for the night", "finish up", "closing time".
-library-version: 04dbfc6b5d14
+library-version: ef6d266e06ec
 ---
 
 # Wrap Session
@@ -239,11 +239,19 @@ session's handoff in between, so check before the write:
 ```
 mcp__sessionflow__list_memories(project: PROJECT, type: "handoff", status: "superseded",
                                 source_session_id: SESSION_ID, format: "json")
+mcp__sessionflow__list_memories(project: PROJECT, type: "handoff",
+                                source_session_id: SESSION_ID, format: "json")
 ```
 
-When a record there has the topic key you are about to use, append the local time to the key
-(`handoff:<ISSUE or PARENT>:<SESSION_ID>:<YYYYMMDDHHMM>`), so the write creates a new active record. Never write a secret value into a
-handoff.
+Choose the key in this order:
+
+1. When an open record of this session has a key that starts with
+   `handoff:<ISSUE or PARENT>:<SESSION_ID>`, reuse that key. The write replaces the record in place.
+2. When only a superseded record has the plain key, append the local time to the key
+   (`handoff:<ISSUE or PARENT>:<SESSION_ID>:<YYYYMMDDHHMM>`), so the write creates a new active record.
+3. Otherwise, use the plain key.
+
+Never write a secret value into a handoff.
 
 ### Step 4 — Operating memory (local agent memory)
 

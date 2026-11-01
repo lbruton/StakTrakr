@@ -17,7 +17,7 @@ description: >
   to double-check, cite, or review — the skill file explains these
   boundaries and the exact output format.
 license: Complete terms in LICENSE.txt
-library-version: 04dbfc6b5d14
+library-version: ef6d266e06ec
 ---
 
 # Discernment nudge
