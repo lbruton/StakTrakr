@@ -4,8 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Dashboard End State</title>
-    <!-- Mockup for the STRK-485 epic: the Dashboard after STRK-490 (stack headline) and
-         STRK-491 (totals ledger). The app stylesheet supplies the tokens and four themes;
+    <!-- Mockup for the STRK-485 epic: the Dashboard with Your stack and the totals ledger in
+         one card (STRK-500). The app stylesheet supplies the tokens and four themes;
          every class here is prefixed mk- so nothing collides with the app. -->
     <link rel="stylesheet" href="../css/styles.css" />
     <style>
@@ -140,105 +140,111 @@
       .mk-block {
         margin-bottom: 1.25rem;
       }
+      .mk-block[hidden],
+      [hidden] {
+        display: none !important;
+      }
       .mk-section-label {
         font-family: var(--font-heading);
         font-size: var(--font-size-xl);
         font-weight: 400;
         margin: 0 0 0.6rem;
       }
-
-      /* ---------- Headline: as shipped in v3.36.90 ---------- */
-      .mk-hl-shipped {
+      .mk-frame {
         background: var(--bg-secondary);
         border: 1px solid var(--border);
         border-radius: var(--radius-lg);
-        padding: 0.75rem 1.25rem 1.25rem;
-      }
-      .mk-hl-shipped dl {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
-        gap: 0.75rem 1.5rem;
-        margin: 0;
-      }
-      .mk-hl-shipped dt {
-        font-size: var(--font-size-sm);
-        color: var(--text-secondary);
-        font-weight: 500;
-      }
-      .mk-hl-shipped dd {
-        margin: 0;
-        font-family: var(--font-mono);
-        font-size: var(--font-size-lg);
-      }
-      .mk-hl-shipped .lead dd {
-        font-size: var(--font-size-2xl);
-      }
-      .mk-phone .mk-hl-shipped dl {
-        grid-template-columns: 1fr;
       }
 
-      /* ---------- Headline: proposed ---------- */
-      .mk-hl {
-        display: grid;
-        grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr);
-        gap: 0 2rem;
-        align-items: end;
-        background: var(--bg-secondary);
-        border: 1px solid var(--border);
-        border-radius: var(--radius-lg);
-        padding: 1rem 1.5rem 1.25rem;
+      /* ---------- Your stack: one card, figures over the ledger ---------- */
+      .mk-stack {
+        padding: 1rem 1.5rem 0.5rem;
       }
-      .mk-hl[hidden] {
-        display: none;
-      }
-      .mk-hl-title {
-        grid-column: 1 / -1;
+      .mk-stack-title {
         font-family: var(--font-heading);
         font-size: var(--font-size-xl);
-        margin: 0 0 0.25rem;
         font-weight: 400;
+        margin: 0 0 0.25rem;
       }
-      .mk-hl-lead-value {
+      /* The lead takes the first track; every other figure gets an equal auto column,
+         so hiding Realized closes its column instead of leaving a gap. */
+      .mk-figs {
+        display: grid;
+        grid-template-columns: minmax(0, 1.5fr);
+        grid-auto-columns: minmax(0, 1fr);
+        grid-auto-flow: column;
+        gap: 0 2rem;
+        align-items: end;
+        margin: 0;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid var(--border);
+      }
+      .mk-figs dd {
+        margin: 0;
+      }
+      .mk-fig-label {
+        font-size: var(--font-size-sm);
+        font-weight: 500;
+        color: var(--text-secondary);
+        margin-bottom: 0.15rem;
+      }
+      .mk-lead-value {
         font-family: var(--font-mono);
         font-variant-numeric: tabular-nums;
         font-size: 2.5rem;
         line-height: 1.1;
         letter-spacing: -0.02em;
       }
-      .mk-hl-label {
-        font-size: var(--font-size-sm);
-        font-weight: 500;
-        color: var(--text-secondary);
-        margin-bottom: 0.15rem;
-      }
-      .mk-hl-today {
+      .mk-today {
         margin-top: 0.35rem;
         font-family: var(--font-mono);
         font-size: var(--font-size-md);
       }
-      .mk-hl-fig {
+      .mk-fig-value {
         font-family: var(--font-mono);
         font-variant-numeric: tabular-nums;
         font-size: 1.375rem;
       }
-      .mk-hl-sub {
+      .mk-fig-sub {
         font-size: var(--font-size-sm);
         color: var(--text-secondary);
         margin-top: 0.15rem;
       }
-      .mk-phone .mk-hl {
-        grid-template-columns: 1fr 1fr;
-        gap: 0.9rem 1rem;
-        padding: 0.9rem 1rem 1rem;
+      .mk-fig-sub .mk-num {
+        font-size: inherit;
       }
-      .mk-phone .mk-hl-lead {
+      .mk-hide-realized .mk-realized {
+        display: none;
+      }
+      .mk-empty {
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+        padding: 0.5rem 0 1rem;
+      }
+      .mk-empty p {
+        margin: 0;
+        color: var(--text-secondary);
+      }
+      .mk-phone .mk-stack {
+        padding: 0.9rem 1rem 0.4rem;
+      }
+      .mk-phone .mk-figs {
+        grid-template-columns: 1fr 1fr;
+        grid-auto-flow: row;
+        gap: 0.9rem 1rem;
+      }
+      .mk-phone .mk-fig-lead {
         grid-column: 1 / -1;
       }
-      .mk-phone .mk-hl-lead-value {
+      .mk-phone .mk-lead-value {
         font-size: 2rem;
       }
-      .mk-phone .mk-hl-fig {
+      .mk-phone .mk-fig-value {
         font-size: 1.125rem;
+      }
+      .mk-phone .mk-fig-sub {
+        font-size: max(12px, var(--font-size-sm));
       }
 
       /* ---------- Spot cards (no outer panel) ---------- */
@@ -309,9 +315,6 @@
         align-items: center;
         overflow: hidden;
         padding: 0.5rem 0.75rem;
-        border: 1px solid var(--border);
-        border-radius: var(--radius-lg);
-        background: var(--bg-secondary);
         white-space: nowrap;
         font-size: var(--font-size-sm);
       }
@@ -321,17 +324,32 @@
         padding: 0.25rem 0.7rem;
       }
 
-      /* ---------- Totals ledger (STRK-491) ---------- */
+      /* ---------- Totals ledger ---------- */
       .mk-ledger-wrap {
-        background: var(--bg-secondary);
-        border: 1px solid var(--border);
-        border-radius: var(--radius-lg);
         padding: 0.9rem 1.25rem 0.5rem;
       }
+      /* The app's global table rule adds a fill, a radius and a shadow; the ledger is flat. */
       .mk-ledger {
         width: 100%;
         border-collapse: collapse;
         font-size: var(--font-size-base);
+        background: none;
+        border-radius: 0;
+        box-shadow: none;
+        overflow: visible;
+      }
+      .mk-ledger tr,
+      .mk-ledger tr:nth-child(even),
+      .mk-ledger tr:hover {
+        background: none;
+        filter: none;
+        box-shadow: none;
+      }
+      .mk-ledger :is(thead, th, td) {
+        background: none;
+        border-right: 0;
+        max-width: none;
+        overflow: visible;
       }
       .mk-ledger th {
         text-align: right;
@@ -345,6 +363,14 @@
       .mk-ledger th:first-child,
       .mk-ledger td:first-child {
         text-align: left;
+      }
+      .mk-stack .mk-ledger th:first-child,
+      .mk-stack .mk-ledger td:first-child {
+        padding-left: 0;
+      }
+      .mk-stack .mk-ledger th:last-child,
+      .mk-stack .mk-ledger td:last-child {
+        padding-right: 0;
       }
       .mk-ledger td {
         text-align: right;
@@ -385,6 +411,12 @@
       }
       .mk-ledger :is(tbody, tfoot) tr:hover td {
         background: var(--bg-tertiary);
+      }
+      .mk-hide-realized .mk-ledger :is(th, td):last-child {
+        display: none;
+      }
+      .mk-hide-realized .mk-stack .mk-ledger :is(th, td):nth-last-child(2) {
+        padding-right: 0;
       }
 
       /* Phone ledger: one block per metal, two lines each */
@@ -448,9 +480,19 @@
         <button type="button" data-width-btn="phone">Phone 390</button>
       </fieldset>
       <fieldset>
-        <legend>Headline</legend>
-        <button type="button" data-hl-btn="proposed" aria-pressed="true">Approved</button>
-        <button type="button" data-hl-btn="shipped">First draft</button>
+        <legend>Layout</legend>
+        <button type="button" data-layout-btn="merged" aria-pressed="true">One card</button>
+        <button type="button" data-layout-btn="before">v3.36.94</button>
+      </fieldset>
+      <fieldset>
+        <legend>Realized</legend>
+        <button type="button" data-realized-btn="show" aria-pressed="true">Shown</button>
+        <button type="button" data-realized-btn="hide">Hidden</button>
+      </fieldset>
+      <fieldset>
+        <legend>Stack</legend>
+        <button type="button" data-stack-btn="items" aria-pressed="true">Items</button>
+        <button type="button" data-stack-btn="empty">No Items</button>
       </fieldset>
     </div>
 
@@ -465,134 +507,164 @@
       <!-- 1. Spot cards, without the outer panel -->
       <section class="mk-block mk-spot-grid" aria-label="Spot prices" id="spotGrid"></section>
 
-      <!-- 2. Best-price ticker (unchanged) -->
-      <section class="mk-block mk-ticker" aria-label="Best prices">
-        <span class="item"
-          >American Gold Eagle 1/10 oz
-          <span style="color: var(--vendor-mintbuilder)">MintBuilder</span>
-          <b class="mk-num">$437.57</b> <span class="mk-loss">+9.2%</span></span
-        >
-        <span class="item"
-          >American Platinum Eagle 1 oz <span style="color: var(--vendor-herobullion)">Hero</span>
-          <b class="mk-num">$1,636.65</b> <span class="mk-loss">+10.4%</span></span
-        >
-        <span class="item"
-          >American Silver Eagle 1 oz
-          <span style="color: var(--vendor-mintbuilder)">MintBuilder</span>
-          <b class="mk-num">$56.51</b> <span class="mk-loss">+8.8%</span></span
-        >
-      </section>
+      <!-- v3.36.94 order: the ticker sits between the spot cards and the stack -->
+      <section
+        class="mk-block mk-frame mk-ticker"
+        aria-label="Best prices"
+        data-ticker
+        data-layout="before"
+        hidden
+      ></section>
 
-      <!-- 3. Stack headline: approved 2026-10-29, directly above the totals -->
-      <section class="mk-block mk-hl" id="hlProposed" aria-labelledby="hlTitle">
-        <h2 class="mk-hl-title" id="hlTitle">Your stack</h2>
-        <div class="mk-hl-lead">
-          <div class="mk-hl-label">Retail value</div>
-          <div class="mk-hl-lead-value">$14,658.01</div>
-          <div class="mk-hl-today">
-            <span class="mk-loss">−$26.68 (−0.18%)</span> <span class="mk-muted">today</span>
-          </div>
-        </div>
-        <div>
-          <div class="mk-hl-label">Gain on cost</div>
-          <div class="mk-hl-fig mk-gain">+$1,733.51</div>
-          <div class="mk-hl-sub"><span class="mk-gain">+13.4%</span> on $12,924.50 paid</div>
-        </div>
-        <div>
-          <div class="mk-hl-label">Melt value</div>
-          <div class="mk-hl-fig">$14,658.01</div>
-          <div class="mk-hl-sub">8.00 oz across 8 Items</div>
-        </div>
-      </section>
-
-      <!-- 3b. Stack headline: the first draft, kept for comparison -->
-      <section class="mk-block mk-hl-shipped" id="hlShipped" hidden>
-        <h2 class="mk-section-label">Your stack</h2>
-        <dl>
-          <div class="lead">
-            <dt>Retail (partial)</dt>
-            <dd>$14,658.01</dd>
+      <!-- 2. Your stack: the five figures over the ledger, one frame, one heading -->
+      <section class="mk-block mk-frame mk-stack" aria-labelledby="stackTitle" data-layout="merged">
+        <h2 class="mk-stack-title" id="stackTitle">Your stack</h2>
+        <dl class="mk-figs" data-items>
+          <div class="mk-fig-lead">
+            <dt class="mk-fig-label">Retail value</dt>
+            <dd class="mk-lead-value" data-v="retail"></dd>
+            <dd class="mk-today">
+              <span class="mk-loss">−$26.68 (−0.18%)</span> <span class="mk-muted">today</span>
+            </dd>
           </div>
           <div>
-            <dt>Melt value</dt>
-            <dd>$14,658.01</dd>
+            <dt class="mk-fig-label">Melt value</dt>
+            <dd class="mk-fig-value" data-v="melt"></dd>
+            <dd class="mk-fig-sub">8.00 oz across 8 Items</dd>
           </div>
           <div>
-            <dt>Today</dt>
-            <dd><span class="mk-loss">-$26.68 (-0.18%)</span> today</dd>
+            <dt class="mk-fig-label">Gain on cost</dt>
+            <dd class="mk-fig-value mk-gain" data-v="gain"></dd>
+            <dd class="mk-fig-sub"><span class="mk-gain">+13.4%</span> at retail</dd>
           </div>
           <div>
-            <dt>Gain</dt>
-            <dd><span class="mk-gain">+$1,733.51 (+13.4%)</span> on cost</dd>
+            <dt class="mk-fig-label">Cost basis</dt>
+            <dd class="mk-fig-value" data-v="paid"></dd>
+            <dd class="mk-fig-sub">Avg <span class="mk-num" data-v="avg"></span>/oz</dd>
+          </div>
+          <div class="mk-realized">
+            <dt class="mk-fig-label">Realized</dt>
+            <dd class="mk-fig-value mk-gain" data-v="realized"></dd>
+            <dd class="mk-fig-sub">
+              <span class="mk-gain" data-v="realizedPct"></span> on
+              <span class="mk-num" data-v="disposedCost"></span> cost
+            </dd>
           </div>
         </dl>
+        <div class="mk-empty" data-empty hidden>
+          <p>No Items yet.</p>
+          <button type="button" class="btn success">Add Item</button>
+        </div>
+        <div data-items data-ledger="merged"></div>
       </section>
 
-      <!-- 4. Totals ledger (STRK-491) -->
-      <section class="mk-block mk-ledger-wrap" aria-labelledby="ledgerTitle">
-        <h2 class="mk-section-label" id="ledgerTitle">Totals</h2>
-        <table class="mk-ledger">
-          <thead>
-            <tr>
-              <th scope="col">Metal</th>
-              <th scope="col">Items</th>
-              <th scope="col">Weight (oz)</th>
-              <th scope="col">Avg cost/oz</th>
-              <th scope="col">Paid</th>
-              <th scope="col">Melt</th>
-              <th scope="col">Retail</th>
-              <th scope="col">Gain</th>
-              <th scope="col">Realized</th>
-            </tr>
-          </thead>
-          <tbody id="ledgerBody"></tbody>
-          <tfoot id="ledgerFoot"></tfoot>
-        </table>
-        <ul class="mk-ledger-phone" id="ledgerPhone"></ul>
+      <!-- v3.36.94: separate stack headline and totals cards -->
+      <section
+        class="mk-block mk-frame mk-stack"
+        aria-label="Your stack (v3.36.94)"
+        data-layout="before"
+        hidden
+      >
+        <h2 class="mk-stack-title">Your stack</h2>
+        <dl
+          class="mk-figs"
+          style="
+            grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr);
+            border: 0;
+            padding-bottom: 0.75rem;
+          "
+          data-items
+        >
+          <div class="mk-fig-lead">
+            <dt class="mk-fig-label">Retail value</dt>
+            <dd class="mk-lead-value" data-v="retail"></dd>
+            <dd class="mk-today">
+              <span class="mk-loss">−$26.68 (−0.18%)</span> <span class="mk-muted">today</span>
+            </dd>
+          </div>
+          <div>
+            <dt class="mk-fig-label">Gain on cost</dt>
+            <dd class="mk-fig-value mk-gain" data-v="gain"></dd>
+            <dd class="mk-fig-sub">
+              <span class="mk-gain">+13.4%</span> on <span class="mk-num" data-v="paid"></span> paid
+            </dd>
+          </div>
+          <div>
+            <dt class="mk-fig-label">Melt value</dt>
+            <dd class="mk-fig-value" data-v="melt"></dd>
+            <dd class="mk-fig-sub">8.00 oz across 8 Items</dd>
+          </div>
+        </dl>
+        <div class="mk-empty" data-empty hidden>
+          <p>No Items yet.</p>
+          <button type="button" class="btn success">Add Item</button>
+        </div>
       </section>
+      <section
+        class="mk-block mk-frame mk-ledger-wrap"
+        aria-labelledby="ledgerTitleBefore"
+        data-layout="before"
+        hidden
+      >
+        <h2 class="mk-section-label" id="ledgerTitleBefore">Totals</h2>
+        <div data-ledger="before"></div>
+      </section>
+
+      <!-- 3. Best-price ticker, below the stack -->
+      <section
+        class="mk-block mk-frame mk-ticker"
+        aria-label="Best prices"
+        data-ticker
+        data-layout="merged"
+      ></section>
     </main>
 
     <section class="mk-notes" aria-labelledby="notesTitle">
-      <h2 id="notesTitle">What changes from today's Dashboard</h2>
+      <h2 id="notesTitle">What changes from v3.36.94</h2>
       <ol>
         <li>
-          Order: spot cards, then the ticker, then Your stack directly above the totals, so the
-          market reads first and the stack figures sit with the ledger they summarise.
+          One card: Your stack and Totals merge into one frame with one heading. The five figures
+          sit on top, a 1px rule separates them from the ledger, and the ledger keeps its columns,
+          rows and click-to-open behaviour. The ledger loses its own "Totals" heading; it keeps an
+          accessible name through a visually hidden caption ("Totals by metal").
         </li>
         <li>
-          Headline: Retail value leads, with today's change directly under it. Gain on cost and Melt
-          sit beside it with their context (amount paid, ounces). The word "partial" moves out of
-          the label into a visible note under the figures, so the lead label stays "Retail value".
+          Figures, in DOM and visual order: Retail value (lead, with today's change), Melt value,
+          Gain on cost, Cost basis, Realized. The four figures after the lead share the rest of the
+          row equally.
         </li>
         <li>
-          Headline: when no Item has a retail price (the demo data), Retail and Melt are the same
-          number. The note says why. An alternative is to hide Retail in that case and lead with
-          Melt.
+          Sub-lines: Melt keeps ounces and Items. Gain reads "+13.4% at retail", since Cost basis
+          has its own figure. Cost basis shows the average cost per ounce (the ledger's All Metals
+          Avg cost/oz). Realized shows its percentage on the cost of the Items that left the stack,
+          the same figure as the ledger cell.
         </li>
         <li>
-          Spot cards lose the outer panel that wrapped all four (one border level, not two). The
-          panel comes from the global <code>section</code> rule in css/styles.css, which also wraps
-          the totals in a third border. The cards themselves are unchanged from v3.36.86 to
-          v3.36.89.
+          Realized hides with the Show Realized setting, in the headline and in the ledger. The
+          other three figures widen to fill the row.
         </li>
         <li>
-          Totals (STRK-491): the six nested cards become one ledger. One row per metal with
-          holdings, All Metals as the bold footer, figures in Geist Mono with tabular numerals, Gain
-          as the bold column. Metals with no holdings drop out instead of showing zero rows.
+          Order: spot cards, Your stack, Best Price Ticker. Saved layouts keep the user's order; the
+          two old sections become one entry at the earlier position.
         </li>
         <li>
-          Phone: the ledger becomes one two-line block per metal (Melt and Gain on the first line;
-          Items, ounces and paid on the second). No carousel and no dots.
+          No Items: the card shows the title, "No Items yet." and Add Item. The ledger hides, since
+          it has no row to show.
         </li>
         <li>
-          Metal order, copper on or off and the Realized setting keep working: rows follow Metal
-          Order, and the Realized column hides with the setting.
+          Phone: the lead takes the full width, the other four figures share two columns, and the
+          ledger keeps its two-line blocks under the rule.
+        </li>
+        <li>
+          Demo data: the seed inventory plus one sold Silver Item, so Realized shows a value. Retail
+          equals melt because no seed Item has a retail price.
         </li>
       </ol>
     </section>
 
     <script>
-      // Demo figures copied from the v3.36.90 preview build with the seed inventory.
+      // Demo figures copied from the v3.36.90 preview build with the seed inventory; the
+      // Silver realized figures are a sale added for the mockup.
       const METALS = [
         {
           key: "silver",
@@ -605,6 +677,8 @@
           retail: 155.72,
           gain: 36.22,
           pct: 30.3,
+          realized: 18.4,
+          realizedPct: 19.2,
           spot: 51.96,
           ch: "-9.78% (-0.06% 24h)",
         },
@@ -619,6 +693,7 @@
           retail: 12019.17,
           gain: 1789.17,
           pct: 17.5,
+          realized: 0,
           spot: 4006.79,
           ch: "-0.90% (-0.20% 24h)",
         },
@@ -633,6 +708,7 @@
           retail: 1481.47,
           gain: 81.47,
           pct: 5.8,
+          realized: 0,
           spot: 1482.21,
           ch: "-10.11% (-0.12% 24h)",
         },
@@ -647,6 +723,7 @@
           retail: 1001.65,
           gain: -173.35,
           pct: -14.8,
+          realized: 0,
           spot: 1002.15,
           ch: "-21.60% (-0.07% 24h)",
         },
@@ -660,12 +737,16 @@
         retail: 14658.01,
         gain: 1733.51,
         pct: 13.4,
+        realized: 18.4,
+        realizedPct: 19.2,
+        disposedCost: 96,
       };
       const usd = (v) =>
         (v < 0 ? "−" : "") +
         "$" +
         Math.abs(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       const signed = (v) => (v > 0 ? "+" : "") + usd(v);
+      const pct = (v) => `${v > 0 ? "+" : ""}${v.toFixed(1)}%`;
       const cls = (v) => (v > 0 ? "mk-gain" : v < 0 ? "mk-loss" : "");
       const spark = (seed) => {
         let y = 30,
@@ -680,6 +761,20 @@
         return pts.join(" ");
       };
 
+      const FIGURES = {
+        retail: usd(ALL.retail),
+        melt: usd(ALL.melt),
+        gain: signed(ALL.gain),
+        paid: usd(ALL.paid),
+        avg: usd(ALL.avg),
+        realized: signed(ALL.realized),
+        realizedPct: pct(ALL.realizedPct),
+        disposedCost: usd(ALL.disposedCost),
+      };
+      document.querySelectorAll("[data-v]").forEach((el) => {
+        el.textContent = FIGURES[el.dataset.v];
+      });
+
       document.getElementById("spotGrid").innerHTML = METALS.map(
         (m, i) => `
         <div class="mk-spot">
@@ -693,6 +788,21 @@
         </div>`
       ).join("");
 
+      const TICKER = `
+        <span class="item">American Gold Eagle 1/10 oz
+          <span style="color: var(--vendor-mintbuilder)">MintBuilder</span>
+          <b class="mk-num">$437.57</b> <span class="mk-loss">+9.2%</span></span>
+        <span class="item">American Platinum Eagle 1 oz <span style="color: var(--vendor-herobullion)">Hero</span>
+          <b class="mk-num">$1,636.65</b> <span class="mk-loss">+10.4%</span></span>
+        <span class="item">American Silver Eagle 1 oz
+          <span style="color: var(--vendor-mintbuilder)">MintBuilder</span>
+          <b class="mk-num">$56.51</b> <span class="mk-loss">+8.8%</span></span>`;
+      document.querySelectorAll("[data-ticker]").forEach((el) => {
+        el.innerHTML = TICKER;
+      });
+
+      const realizedCell = (m) =>
+        m.realized ? `<span class="${cls(m.realized)}">${signed(m.realized)}</span>` : "$0.00";
       const row = (m, name, dot) => `
         <td>${dot ? `<span class="mk-dot" style="background: var(--${dot})"></span>` : ""}${name}</td>
         <td>${m.items}</td>
@@ -701,52 +811,73 @@
         <td>${usd(m.paid)}</td>
         <td>${usd(m.melt)}</td>
         <td>${usd(m.retail)}</td>
-        <td class="mk-col-gain ${cls(m.gain)}">${signed(m.gain)}<span class="mk-pct">${m.pct > 0 ? "+" : ""}${m.pct.toFixed(1)}%</span></td>
-        <td>$0.00</td>`;
-      document.getElementById("ledgerBody").innerHTML = METALS.map(
-        (m) => `<tr>${row(m, m.name, m.key)}</tr>`
-      ).join("");
-      document.getElementById("ledgerFoot").innerHTML = `<tr>${row(ALL, "All Metals")}</tr>`;
-
+        <td class="mk-col-gain ${cls(m.gain)}">${signed(m.gain)}<span class="mk-pct">${pct(m.pct)}</span></td>
+        <td>${realizedCell(m)}</td>`;
       const phoneItem = (m, name, dot) => `
         <li>
           <div class="mk-lp-row">
             <span class="mk-lp-name">${dot ? `<span class="mk-dot" style="display:inline-block;width:.6rem;height:.6rem;border-radius:50%;margin-right:.45rem;background: var(--${dot})"></span>` : ""}${name}</span>
             <span class="mk-lp-main">${usd(m.melt)} <span class="${cls(m.gain)}">${signed(m.gain)}</span></span>
           </div>
-          <div class="mk-lp-sub">${m.items} Items · ${m.oz.toFixed(2)} oz · paid ${usd(m.paid)} · ${m.pct > 0 ? "+" : ""}${m.pct.toFixed(1)}%</div>
+          <div class="mk-lp-sub">${m.items} Items · ${m.oz.toFixed(2)} oz · paid ${usd(m.paid)} · ${pct(m.pct)}</div>
         </li>`;
-      document.getElementById("ledgerPhone").innerHTML =
-        METALS.map((m) => phoneItem(m, m.name, m.key)).join("") + phoneItem(ALL, "All Metals");
+      const ledger = (caption) => `
+        <table class="mk-ledger">
+          ${caption ? `<caption class="sr-only">${caption}</caption>` : ""}
+          <thead>
+            <tr>
+              <th scope="col">Metal</th>
+              <th scope="col">Items</th>
+              <th scope="col">Weight (oz)</th>
+              <th scope="col">Avg cost/oz</th>
+              <th scope="col">Paid</th>
+              <th scope="col">Melt</th>
+              <th scope="col">Retail</th>
+              <th scope="col">Gain</th>
+              <th scope="col">Realized</th>
+            </tr>
+          </thead>
+          <tbody>${METALS.map((m) => `<tr>${row(m, m.name, m.key)}</tr>`).join("")}</tbody>
+          <tfoot><tr>${row(ALL, "All Metals")}</tr></tfoot>
+        </table>
+        <ul class="mk-ledger-phone">
+          ${METALS.map((m) => phoneItem(m, m.name, m.key)).join("")}${phoneItem(ALL, "All Metals")}
+        </ul>`;
+      document.querySelector('[data-ledger="merged"]').innerHTML = ledger("Totals by metal");
+      document.querySelector('[data-ledger="before"]').innerHTML = ledger();
 
+      const stage = document.getElementById("stage");
       const press = (attr, value) =>
         document
           .querySelectorAll(`[${attr}]`)
           .forEach((b) => b.setAttribute("aria-pressed", String(b.getAttribute(attr) === value)));
-      document.querySelectorAll("[data-theme-btn]").forEach((b) =>
-        b.addEventListener("click", () => {
-          const t = b.dataset.themeBtn;
-          if (t === "light") document.documentElement.removeAttribute("data-theme");
-          else document.documentElement.setAttribute("data-theme", t);
-          press("data-theme-btn", t);
+      const on = (attr, handler) =>
+        document.querySelectorAll(`[${attr}]`).forEach((b) =>
+          b.addEventListener("click", () => {
+            const value = b.getAttribute(attr);
+            handler(value);
+            press(attr, value);
+          })
+        );
+      on("data-theme-btn", (t) => {
+        if (t === "light") document.documentElement.removeAttribute("data-theme");
+        else document.documentElement.setAttribute("data-theme", t);
+      });
+      on("data-width-btn", (w) => stage.classList.toggle("mk-phone", w === "phone"));
+      on("data-layout-btn", (layout) =>
+        document.querySelectorAll("[data-layout]").forEach((el) => {
+          el.hidden = el.dataset.layout !== layout;
         })
       );
-      document.querySelectorAll("[data-width-btn]").forEach((b) =>
-        b.addEventListener("click", () => {
-          document
-            .getElementById("stage")
-            .classList.toggle("mk-phone", b.dataset.widthBtn === "phone");
-          press("data-width-btn", b.dataset.widthBtn);
-        })
-      );
-      document.querySelectorAll("[data-hl-btn]").forEach((b) =>
-        b.addEventListener("click", () => {
-          const shipped = b.dataset.hlBtn === "shipped";
-          document.getElementById("hlShipped").hidden = !shipped;
-          document.getElementById("hlProposed").hidden = shipped;
-          press("data-hl-btn", b.dataset.hlBtn);
-        })
-      );
+      on("data-realized-btn", (r) => stage.classList.toggle("mk-hide-realized", r === "hide"));
+      on("data-stack-btn", (s) => {
+        document.querySelectorAll("[data-items]").forEach((el) => {
+          el.hidden = s === "empty";
+        });
+        document.querySelectorAll("[data-empty]").forEach((el) => {
+          el.hidden = s !== "empty";
+        });
+      });
     </script>
   </body>
 </html>
