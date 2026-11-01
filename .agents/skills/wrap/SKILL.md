@@ -6,7 +6,7 @@ description: >
   facts to .context/, syncs docs, and reports Session Health. Run at end of any session, optionally after
   /pr-cleanup. Triggers: "wrap", "wrap up", "close session", "end of session",
   "done for the night", "finish up", "closing time".
-library-version: ec8d191d27ee
+library-version: 995aa5c33005
 ---
 
 # Wrap Session
@@ -231,25 +231,10 @@ mcp__sessionflow__add_memory(
 )
 ```
 
-The topic key names the session because a topic-key replace keeps a superseded record superseded:
-reusing `handoff:<ISSUE>` after an earlier handoff closed would write a record `/start` never sees. A
-re-wrap of the same session replaces its own handoff in place. Another session can supersede this
-session's handoff in between, so check before the write:
-
-```
-mcp__sessionflow__list_memories(project: PROJECT, type: "handoff", status: "superseded",
-                                source_session_id: SESSION_ID, format: "json")
-mcp__sessionflow__list_memories(project: PROJECT, type: "handoff",
-                                source_session_id: SESSION_ID, format: "json")
-```
-
-Choose the key in this order:
-
-1. When an open record of this session has a key that starts with
-   `handoff:<ISSUE or PARENT>:<SESSION_ID>`, reuse that key. The write replaces the record in place.
-2. When only a superseded record has `handoff:<ISSUE or PARENT>:<SESSION_ID>`, append the local time
-   (`handoff:<ISSUE or PARENT>:<SESSION_ID>:<YYYYMMDDHHMM>`), so the write creates a new active record.
-3. Otherwise, use `handoff:<ISSUE or PARENT>:<SESSION_ID>`. Omit `topic_key` when `SESSION_ID` is unknown.
+The topic key names the session, so a re-wrap replaces this session's handoff in place and leaves
+handoffs from other sessions alone. A topic-key replace takes its status from the new write, so the
+record is active even when another session superseded the earlier one. SessionFlow 0.14.1 or later
+is required for that status rule.
 
 Never write a secret value into a handoff.
 
