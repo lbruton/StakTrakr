@@ -1,7 +1,7 @@
 ---
 name: pr-resolve
 description: PR resolve — work through open PR review threads and Codacy issues to get a PR approved and merged.
-library-version: 6f84ff770f80
+library-version: 04dbfc6b5d14
 ---
 
 # PR Resolve

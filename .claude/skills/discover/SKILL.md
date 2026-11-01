@@ -21,7 +21,7 @@ allowed-tools: >-
   mcp__sessionflow__add_memory,
   mcp__sessionflow__search_all_sessions,
   mcp__sessionflow__get_issue_timeline
-library-version: 6f84ff770f80
+library-version: 04dbfc6b5d14
 ---
 
 # Discover — Phase 1 Structured Brainstorm

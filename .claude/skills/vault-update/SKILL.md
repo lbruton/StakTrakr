@@ -8,7 +8,7 @@ description: >
   "vault update", "docvault", "update docs", "add to vault", "vault"
 user-invocable: true
 allowed-tools: Bash, Read, Write, Edit, Grep, Glob
-library-version: 6f84ff770f80
+library-version: 04dbfc6b5d14
 ---
 
 # Vault Update

@@ -9,7 +9,7 @@ description: >-
   DEVS-37. Triggers: "/setup-foundation-context", "setup foundation context", "migrate
   foundation docs to .context", "onboard foundation docs", "context foundation setup".
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Skill
-library-version: 6f84ff770f80
+library-version: 04dbfc6b5d14
 ---
 
 # Setup Foundation Context
