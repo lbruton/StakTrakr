@@ -397,7 +397,7 @@ const CERT_LOOKUP_URLS = {
  * Updated: 2026-05-12 - STRK-66: Add ¼ Goldback denomination (Idaho, g0.25)
  */
 
-const APP_VERSION = "3.36.95";
+const APP_VERSION = "3.36.96";
 
 /**
  * Numista metadata cache TTL: 30 days in milliseconds.
@@ -941,6 +941,9 @@ const DEFAULT_SORT_DIR_KEY = "defaultSortDir"; // nosemgrep: codacy.javascript.s
 /** @constant {string} SHOW_REALIZED_KEY - LocalStorage key for showing realized G/L in summary cards (STAK-72) */
 const SHOW_REALIZED_KEY = "showRealizedGainLoss"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
+/** @constant {string} STACK_HEADLINE_LEAD_KEY - LocalStorage key for the Your stack lead figure ("retail" or "melt") */
+const STACK_HEADLINE_LEAD_KEY = "stackHeadlineLead"; // nosemgrep: codacy.javascript.security.hard-coded-password
+
 /** @constant {string} METAL_ORDER_KEY - LocalStorage key for metal order/visibility config */
 const METAL_ORDER_KEY = "metalOrderConfig"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
@@ -1087,6 +1090,7 @@ const SYNC_SCOPE_KEYS = [
   "defaultSortColumn", // DEFAULT_SORT_COL_KEY
   "defaultSortDir", // DEFAULT_SORT_DIR_KEY
   "showRealizedGainLoss", // SHOW_REALIZED_KEY
+  "stackHeadlineLead", // STACK_HEADLINE_LEAD_KEY
   "metalOrderConfig", // METAL_ORDER_KEY
   "settingsItemsPerPage", // ITEMS_PER_PAGE_KEY
   "appTimeZone", // TIMEZONE_KEY
@@ -1236,6 +1240,7 @@ const ALLOWED_STORAGE_KEYS = [
   DEFAULT_SORT_COL_KEY, // number string: default sort column index
   DEFAULT_SORT_DIR_KEY, // string: "asc"|"desc" — default sort direction
   SHOW_REALIZED_KEY, // boolean string: "true"/"false" — show realized G/L in summary cards (STAK-72)
+  STACK_HEADLINE_LEAD_KEY, // string: "retail"|"melt" — which figure leads Your stack
   METAL_ORDER_KEY, // JSON array: metal order/visibility config
   ITEM_TAGS_KEY, // JSON object: per-item tags keyed by UUID (STAK-126)
   ITEM_REMOVED_TAGS_KEY, // JSON object: per-item removed Numista tags keyed by UUID (STAK-556)

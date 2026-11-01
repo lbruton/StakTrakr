@@ -2101,23 +2101,35 @@ input[type="submit"] {
   margin: 0 0 var(--spacing-sm);
 }
 
-/* Retail value leads the row; every other figure gets an equal auto column, so a hidden
-   Realized closes its column. A rule separates the figures from the ledger below.
-   The explicit display beats the UA's [hidden] rule, so restate it. */
-.stack-headline-figures {
+/* The figures and the activity line on the left, the weights on the right. A rule
+   separates the head from the ledger below. The explicit display beats the UA's
+   [hidden] rule, so restate it. */
+.stack-headline-head {
   display: grid;
-  grid-template-columns: minmax(0, 1.5fr);
-  grid-auto-columns: minmax(0, 1fr);
-  grid-auto-flow: column;
-  align-items: end;
+  grid-template-columns: minmax(0, 1fr) fit-content(18rem);
+  grid-template-areas: "figures weights" "activity weights";
   gap: var(--spacing) var(--spacing-xl);
-  margin: 0;
   padding-bottom: var(--spacing);
   border-bottom: 1px solid var(--border);
 }
-.stack-headline-figures[hidden],
+.stack-headline-head[hidden],
+.stack-activity[hidden],
+.stack-weights[hidden],
 .hide-realized .stack-figure-realized {
   display: none;
+}
+
+/* The lead takes the first track and never truncates; every other figure gets an equal
+   auto column, so a hidden Realized closes its column. */
+.stack-headline-figures {
+  grid-area: figures;
+  display: grid;
+  grid-template-columns: minmax(max-content, 1.5fr);
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  align-items: end;
+  gap: var(--spacing) var(--spacing-lg);
+  margin: 0;
 }
 
 .stack-figure {
@@ -2134,12 +2146,105 @@ input[type="submit"] {
   margin: 0;
 }
 
+/* The weights column takes width from the four figures after the lead, so they step
+   down from 1.375rem to fit a 1280px page. */
 .stack-figure-value {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
-  font-size: 1.375rem;
+  font-size: 1.25rem;
   color: var(--text-primary);
   overflow-wrap: break-word;
+}
+
+/* A 26px round button in the lead's label, with a 44px hit area at any root size. The
+   ring is an inset shadow: a control, not a bordered frame inside the card. */
+.stack-lead-swap {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 1.625rem;
+  height: 1.625rem;
+  margin-left: 0.35rem;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px var(--border);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  vertical-align: middle;
+  cursor: pointer;
+}
+.stack-lead-swap::after {
+  content: "";
+  position: absolute;
+  inset: calc(50% - 22px);
+}
+.stack-lead-swap:hover {
+  color: var(--text-primary);
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
+.stack-lead-swap:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+.stack-lead-swap svg {
+  width: 0.9rem;
+  height: 0.9rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.stack-activity {
+  grid-area: activity;
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+.stack-activity > span {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.stack-activity-figure {
+  color: var(--text-primary);
+}
+
+.stack-weights {
+  grid-area: weights;
+  align-self: end;
+  padding-left: var(--spacing-lg);
+  border-left: 1px solid var(--border);
+}
+.stack-weights h3 {
+  margin: 0 0 0.35rem;
+}
+.stack-weights-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.stack-weight-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto minmax(5.75rem, auto);
+  align-items: baseline;
+  gap: 0 0.6rem;
+  padding: 0.2rem 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+}
+.stack-weight-row .totals-metal-mark {
+  align-self: center;
+}
+.stack-weight-oz,
+.stack-weight-pace {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.stack-weight-pace {
+  color: var(--text-secondary);
 }
 
 .stack-figure-lead .stack-figure-value {
@@ -2161,12 +2266,29 @@ input[type="submit"] {
   font-size: var(--font-size-md);
 }
 
-/* Phones: the lead takes the full width; the other figures fill two columns below it. */
+/* Phones: the lead takes the full width; the other figures fill two columns below it.
+   The activity line and the weights list, under a rule, follow the figures. */
 @media (max-width: 767px) {
+  .stack-headline-head {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "figures" "activity" "weights";
+  }
   .stack-headline-figures {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     grid-auto-flow: row;
     gap: var(--spacing) var(--spacing);
+  }
+  .stack-weights {
+    padding: var(--spacing-sm) 0 0;
+    border-left: 0;
+    border-top: 1px solid var(--border);
+  }
+  .stack-weight-row,
+  .stack-activity {
+    font-size: max(12px, var(--font-size-sm));
+  }
+  .stack-weight-row {
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
   }
   .stack-figure-lead {
     grid-column: 1 / -1;

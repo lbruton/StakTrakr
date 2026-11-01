@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.96] - 2026-11-01
+
+### Changed — STRK-505: Your stack lead swap, weights and activity
+
+- **Lead swap**: A swap button in the lead figure's label makes Retail value or Melt value lead. The lead moves first in reading order with today's change, which reads "today at spot" under the retail lead. The choice is saved as `stackHeadlineLead` and syncs (STRK-505).
+- **Gain on cost**: Follows the lead: retail minus cost basis, or melt minus cost basis. The ledger's Gain column stays at retail (STRK-505).
+- **Weight held**: A column lists the ounces of each enabled metal with active Items, in Metal Order, with its 12-month pace, the breakdown modal's 1Y figure (STRK-505).
+- **Activity**: A line under the figures shows the last 12 months: amount added, acquisitions and market change, matching the All Metals breakdown at 1Y (STRK-505).
+- **Melt sub-line**: Drops the ounces summed across metals (STRK-505).
+
+---
+
 ## [3.36.95] - 2026-10-31
 
 ### Changed — STRK-500: Your stack in one card

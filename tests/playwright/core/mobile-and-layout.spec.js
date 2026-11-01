@@ -749,7 +749,11 @@ test.describe("Dashboard frames", () => {
       await page.setViewportSize({ width, height: 900 });
       await page.goto("/index.html");
       await expect(page.locator("#bestPriceTickerEl .ticker-item .coin").first()).toBeVisible();
-      await page.addStyleTag({ content: ".ticker-track { animation: none !important; }" });
+      // The boot toast sits bottom right and can cover the strip's right band when it is at the fold.
+      await page.addStyleTag({
+        content:
+          ".ticker-track { animation: none !important; } .cloud-toast { display: none !important; }",
+      });
       for (const theme of THEMES) {
         await test.step(`${theme} at ${width}`, async () => {
           await applyTheme(page, theme);

@@ -11,6 +11,20 @@ const computeStackHeadline = evalSource("js/stack-headline.js", {
   slice: rangeOf(headlineSrc, sliceArrowConst(headlineSrc, "const computeStackHeadline = (")),
   suffix: "\nreturn computeStackHeadline;",
 });
+const HEADLINE_HELPERS = [
+  "pickStackLead",
+  "computeStackWeights",
+  "formatStackPace",
+  "stackActivityWindowStart",
+];
+const { pickStackLead, computeStackWeights, formatStackPace, stackActivityWindowStart } =
+  evalSource("js/stack-headline.js", {
+    slice: HEADLINE_HELPERS.map((name) =>
+      rangeOf(headlineSrc, sliceArrowConst(headlineSrc, `const ${name} = (`))
+    ),
+    params: { STACK_ACTIVITY_DAYS: 365 },
+    suffix: `\nreturn { ${HEADLINE_HELPERS.join(", ")} };`,
+  });
 
 /** Builds one metal's updateSummary accumulator with zeroed defaults. */
 const metal = (fields) => ({
@@ -157,6 +171,102 @@ describe("computeStackHeadline", () => {
       valid: false,
     }));
     assert.equal(disposedOnly.empty, false);
+  });
+
+  test("retail's premium over melt is retail minus melt over melt, and zero without melt", () => {
+    const priced = computeStackHeadline(
+      { silver: metal({ totalMeltValue: 200, totalRetailValue: 250, activeRows: 1 }) },
+      () => ({ pct: 0, valid: false })
+    );
+    assert.equal(priced.premiumPct, 25);
+    const noMelt = computeStackHeadline({ silver: metal({}) }, () => ({ pct: 0, valid: false }));
+    assert.equal(noMelt.premiumPct, 0);
+  });
+});
+
+describe("Your stack lead", () => {
+  const figures = { retail: 1200, melt: 900, gain: 200, gainPct: 20, purchased: 1000 };
+
+  test("Retail lead keeps the retail gain on cost", () => {
+    assert.deepEqual(pickStackLead(figures, "retail"), {
+      lead: "retail",
+      other: "melt",
+      gain: 200,
+      gainPct: 20,
+    });
+  });
+
+  test("Melt lead takes gain on cost at melt: melt minus cost basis", () => {
+    assert.deepEqual(pickStackLead(figures, "melt"), {
+      lead: "melt",
+      other: "retail",
+      gain: -100,
+      gainPct: -10,
+    });
+  });
+
+  test("an unknown or missing preference leads with retail", () => {
+    for (const saved of [undefined, null, "", "Melt", "spot", []]) {
+      assert.equal(pickStackLead(figures, saved).lead, "retail", String(saved));
+    }
+  });
+
+  test("with no cost basis the melt gain percentage is zero", () => {
+    assert.equal(pickStackLead({ ...figures, purchased: 0 }, "melt").gainPct, 0);
+  });
+});
+
+describe("Your stack weights", () => {
+  const order = [
+    { id: "gold", enabled: true },
+    { id: "silver", enabled: true },
+    { id: "platinum", enabled: true },
+    { id: "copper", enabled: false },
+  ];
+
+  test("lists held, enabled metals in Metal Order with their ounces", () => {
+    const rows = computeStackWeights(
+      {
+        silver: metal({ totalItems: 10, totalWeight: 10.5 }),
+        gold: metal({ totalItems: 1, totalWeight: 0.1 }),
+        platinum: metal({}),
+        copper: metal({ totalItems: 4, totalWeight: 32 }),
+      },
+      order
+    );
+    assert.deepEqual(rows, [
+      { key: "gold", weight: 0.1 },
+      { key: "silver", weight: 10.5 },
+    ]);
+  });
+
+  test("a metal with only disposed Items is not listed", () => {
+    const rows = computeStackWeights(
+      { silver: metal({ disposedItems: 2, realizedGainLoss: 5 }), gold: metal({}) },
+      order
+    );
+    assert.deepEqual(rows, []);
+  });
+});
+
+describe("Your stack activity", () => {
+  test("pace uses the breakdown modal's digits with a leading plus", () => {
+    assert.equal(formatStackPace(2.44), "+2.4 oz/mo");
+    assert.equal(formatStackPace(1 / 12), "+0.083 oz/mo");
+  });
+
+  test("a metal with no buys in the window reads No buys", () => {
+    assert.equal(formatStackPace(0), "No buys");
+  });
+
+  test("the window starts 365 days before the series' last day, like the 1Y pill", () => {
+    const days = Array.from({ length: 400 }, (_, i) => `d${i}`);
+    assert.equal(stackActivityWindowStart(days), "d34");
+  });
+
+  test("a series shorter than a year starts the window at its first day", () => {
+    assert.equal(stackActivityWindowStart(["a", "b", "c"]), "a");
+    assert.equal(stackActivityWindowStart([]), "");
   });
 });
 

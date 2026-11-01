@@ -1487,6 +1487,41 @@ const showDetailsModal = (metal) => {
 };
 
 /**
+ * Loads the per-metal spot day maps that a scope's portfolio series needs, back past
+ * the scope's first dated acquisition. The "All" maps also serve every metal scope.
+ * @param {string} scope - "All" or a metal display name
+ * @returns {Promise<Object<string, Map<string, number>>>} Day maps keyed by metal name
+ */
+const loadPortfolioSpotMaps = async (scope) => {
+  // psIsDayKey (js/portfolio-series.js): a malformed key is "undated" here
+  // exactly as it is inside the fold, so fromKey never slices a NaN year
+  const usable = inventory.filter(
+    (it) =>
+      (scope === "All" || it?.metal === scope) &&
+      (!isDisposed(it) || psIsDayKey(it.disposition?.date))
+  );
+  const metals = [...new Set(usable.map((it) => it.metal).filter(Boolean))];
+  const dated = usable.map((it) => it.date).filter(psIsDayKey);
+  const todayKey = todayStr();
+  // fetch back past the series' own boundary (the fold re-derives exactly);
+  // one extra year of map rows costs little and covers the 14-day pre-roll
+  const fromKey =
+    dated.length > 0
+      ? `${Number(dated.reduce((a, b) => (a < b ? a : b)).slice(0, 4)) - 1}-12-01`
+      : `${Number(todayKey.slice(0, 4)) - 1}-12-01`;
+
+  const maps = {};
+  // window indirection on purpose: the public export is the injection seam
+  // for the two-phase open (a bare const reference cannot be intercepted)
+  await Promise.all(
+    metals.map(async (m) => {
+      maps[m] = await window.getSpotDayMap(m, fromKey);
+    })
+  );
+  return maps;
+};
+
+/**
  * Async phase of the open: assemble day maps, build the series, render.
  * Aborts silently when the generation went stale (closed or reopened — D-3).
  * @param {string} scope - Scope being opened
@@ -1494,32 +1529,9 @@ const showDetailsModal = (metal) => {
  */
 const _dmLoadAndRender = async (scope, generation) => {
   try {
-    // psIsDayKey (js/portfolio-series.js): a malformed key is "undated" here
-    // exactly as it is inside the fold, so fromKey never slices a NaN year
-    const usable = inventory.filter(
-      (it) =>
-        (scope === "All" || it?.metal === scope) &&
-        (!isDisposed(it) || psIsDayKey(it.disposition?.date))
-    );
-    const metals = [...new Set(usable.map((it) => it.metal).filter(Boolean))];
-    const dated = usable.map((it) => it.date).filter(psIsDayKey);
-    const todayKey = todayStr();
-    // fetch back past the series' own boundary (the fold re-derives exactly);
-    // one extra year of map rows costs little and covers the 14-day pre-roll
-    const fromKey =
-      dated.length > 0
-        ? `${Number(dated.reduce((a, b) => (a < b ? a : b)).slice(0, 4)) - 1}-12-01`
-        : `${Number(todayKey.slice(0, 4)) - 1}-12-01`;
-
-    const maps = {};
-    // window indirection on purpose: the public export is the injection seam
-    // for the two-phase open (a bare const reference cannot be intercepted)
-    await Promise.all(
-      metals.map(async (m) => {
-        maps[m] = await window.getSpotDayMap(m, fromKey);
-      })
-    );
+    const maps = await loadPortfolioSpotMaps(scope);
     if (generation !== _dmGeneration) return; // stale — modal closed/reopened
+    const todayKey = todayStr();
 
     _dmSpotMaps = maps;
     // todayKey is local-frame (matching item.date's entry frame); spot day
@@ -1644,5 +1656,6 @@ window._refreshDetailsModalTheme = () => {
 
 // Expose details modal functions globally for inline handlers
 window.showDetailsModal = showDetailsModal;
+window.loadPortfolioSpotMaps = loadPortfolioSpotMaps;
 window.refreshDetailsModalIfOpen = refreshDetailsModalIfOpen;
 window.closeDetailsModal = closeDetailsModal;

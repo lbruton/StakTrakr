@@ -1184,42 +1184,69 @@
              renderStackHeadline (js/stack-headline.js) fills the figures from the totals
              updateSummary (js/inventory-table.js) builds; updateSummary fills the ledger
              cells by id and marks rows held; applyMetalOrder (js/settings.js) orders the
-             rows and marks them enabled. The figures follow reading order. -->
+             rows and marks them enabled. The figures follow reading order: the lead swap
+             moves the lead figure first, with the swap button and today's line. -->
         <section
           class="totals-section stack-card"
           id="totalsSectionEl"
           aria-labelledby="stackHeadlineTitle"
         >
           <h2 class="stack-headline-title" id="stackHeadlineTitle">Your stack</h2>
-          <dl class="stack-headline-figures" id="stackHeadlineFigures">
-            <div class="stack-figure stack-figure-lead">
-              <dt class="stack-figure-label" id="stackRetailLabel">Retail value</dt>
-              <dd class="stack-figure-value" id="stackRetailValue">$0.00</dd>
-              <dd class="stack-figure-sub stack-figure-today" id="stackTodayValue">
-                No 24h change yet
-              </dd>
+          <div class="stack-headline-head" id="stackHeadlineHead">
+            <dl class="stack-headline-figures" id="stackHeadlineFigures">
+              <div class="stack-figure stack-figure-lead" id="stackRetailFigure">
+                <dt class="stack-figure-label" id="stackRetailLabel">
+                  Retail value<button
+                    type="button"
+                    class="stack-lead-swap"
+                    id="stackLeadSwap"
+                    aria-label="Lead with melt value"
+                    title="Lead with melt value"
+                  >
+                    <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                      <path d="M4 2.5v11M1.5 11 4 13.5 6.5 11M12 13.5v-11M9.5 5 12 2.5 14.5 5" />
+                    </svg>
+                  </button>
+                </dt>
+                <dd class="stack-figure-value" id="stackRetailValue">$0.00</dd>
+                <dd class="stack-figure-sub stack-figure-today" id="stackTodayValue">
+                  No 24h change yet
+                </dd>
+                <dd class="stack-figure-sub" id="stackRetailSub" hidden></dd>
+              </div>
+              <div class="stack-figure" id="stackMeltFigure">
+                <dt class="stack-figure-label" id="stackMeltLabel">Melt value</dt>
+                <dd class="stack-figure-value" id="stackMeltValue">$0.00</dd>
+                <dd class="stack-figure-sub" id="stackMeltSub"></dd>
+              </div>
+              <div class="stack-figure">
+                <dt class="stack-figure-label" id="stackGainLabel">Gain on cost</dt>
+                <dd class="stack-figure-value" id="stackGainValue">$0.00</dd>
+                <dd class="stack-figure-sub" id="stackGainSub"></dd>
+              </div>
+              <div class="stack-figure">
+                <dt class="stack-figure-label">Cost basis</dt>
+                <dd class="stack-figure-value" id="stackCostValue">$0.00</dd>
+                <dd class="stack-figure-sub" id="stackCostSub"></dd>
+              </div>
+              <div class="stack-figure stack-figure-realized" id="stackRealizedFigure">
+                <dt class="stack-figure-label">Realized</dt>
+                <dd class="stack-figure-value" id="stackRealizedValue">$0.00</dd>
+                <dd class="stack-figure-sub" id="stackRealizedSub"></dd>
+              </div>
+            </dl>
+            <!-- Filled once the 12-month series load; hidden until then and on a failed load. -->
+            <p class="stack-activity" id="stackActivity" hidden></p>
+            <div
+              class="stack-weights"
+              id="stackWeights"
+              role="group"
+              aria-labelledby="stackWeightsTitle"
+            >
+              <h3 class="stack-figure-label" id="stackWeightsTitle">Weight held</h3>
+              <ul class="stack-weights-list" id="stackWeightsList"></ul>
             </div>
-            <div class="stack-figure">
-              <dt class="stack-figure-label">Melt value</dt>
-              <dd class="stack-figure-value" id="stackMeltValue">$0.00</dd>
-              <dd class="stack-figure-sub" id="stackMeltSub"></dd>
-            </div>
-            <div class="stack-figure">
-              <dt class="stack-figure-label" id="stackGainLabel">Gain on cost</dt>
-              <dd class="stack-figure-value" id="stackGainValue">$0.00</dd>
-              <dd class="stack-figure-sub" id="stackGainSub"></dd>
-            </div>
-            <div class="stack-figure">
-              <dt class="stack-figure-label">Cost basis</dt>
-              <dd class="stack-figure-value" id="stackCostValue">$0.00</dd>
-              <dd class="stack-figure-sub" id="stackCostSub"></dd>
-            </div>
-            <div class="stack-figure stack-figure-realized" id="stackRealizedFigure">
-              <dt class="stack-figure-label">Realized</dt>
-              <dd class="stack-figure-value" id="stackRealizedValue">$0.00</dd>
-              <dd class="stack-figure-sub" id="stackRealizedSub"></dd>
-            </div>
-          </dl>
+          </div>
           <div class="stack-headline-empty" id="stackHeadlineEmpty" hidden>
             <p>No Items yet.</p>
             <button type="button" class="btn success" id="stackHeadlineAddItem">Add Item</button>

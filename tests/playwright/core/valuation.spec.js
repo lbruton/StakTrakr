@@ -81,6 +81,37 @@ const NO_SPOT = {
   date: "2031-06-15",
 };
 
+// A stack with buys inside and outside the 12 months before FIXED_NOW_ISO. Silver and Gold
+// carry a dealer price, so retail and melt differ; Platinum has no buy in the window.
+const STACK_ITEMS = [
+  { ...BASE_ITEM, uuid: "stack-silver-old", date: "2024-03-01", qty: 5, price: 24, marketValue: 0 },
+  {
+    ...BASE_ITEM,
+    uuid: "stack-silver-new",
+    date: "2025-11-20",
+    qty: 2,
+    price: 31,
+    marketValue: 90,
+  },
+  {
+    ...SINGLE_GOLD,
+    uuid: "stack-gold-new",
+    date: "2026-02-01",
+    weight: 0.1,
+    price: 300,
+    marketValue: 450,
+  },
+  {
+    ...BASE_ITEM,
+    uuid: "stack-platinum",
+    metal: "Platinum",
+    composition: "Platinum",
+    date: "2024-06-01",
+    price: 950,
+    marketValue: 0,
+  },
+];
+
 function daysAgo(days, spot = 70, metal = "Silver") {
   return {
     timestamp: new Date(new Date(FIXED_NOW_ISO).getTime() - days * DAY_MS).toISOString(),
@@ -94,6 +125,12 @@ function daysAgo(days, spot = 70, metal = "Silver") {
 function makeSpotHistory(days, spot = 70, metal = "Silver") {
   return Array.from({ length: days }, (_, index) => daysAgo(days - index - 1, spot, metal));
 }
+
+const STACK_SPOT_HISTORY = [
+  ...makeSpotHistory(40, 70, "Silver"),
+  ...makeSpotHistory(40, 4000, "Gold"),
+  ...makeSpotHistory(40, 1000, "Platinum"),
+];
 
 async function seedValuationData(page, options = {}) {
   const {
@@ -497,9 +534,12 @@ test.describe("Dashboard stack headline", () => {
     await expect(page.locator("#stackGainSub")).toHaveText(
       `${await page.locator("#lossProfitAll .gain-loss-pct").textContent()} at retail`
     );
+    // Ounces of different metals do not sum to a figure, so the headline shows none.
     await expect(page.locator("#stackMeltSub")).toHaveText(
-      `${await page.locator("#totalWeightAll").textContent()} oz across ${await page.locator("#totalItemsAll").textContent()} Items`
+      `${await page.locator("#totalItemsAll").textContent()} Items, priced at spot`
     );
+    const figureText = await page.locator("#stackHeadlineFigures").evaluate((el) => el.innerText);
+    expect(figureText).not.toMatch(/\d oz\b/);
     await expect(page.locator("#stackCostSub")).toHaveText(
       `Avg ${await page.locator("#avgCostPerOzAll").textContent()}/oz`
     );
@@ -532,7 +572,8 @@ test.describe("Dashboard stack headline", () => {
     const expected = await handTodayChange();
     expect(expected.seeded, "silver and gold have a 24h change").toBe(true);
     expect(await readMoney(page, "#stackTodayValue")).toBe(expected.money);
-    await expect(page.locator("#stackTodayValue")).toContainText("today");
+    // Under the retail lead, the line names its basis: it is a change at spot.
+    await expect(page.locator("#stackTodayValue")).toContainText(/today at spot$/);
 
     // A history pull redraws the sparklines through updateAllSparklines, and Today follows.
     // The new close goes on the newest history day, whichever source supplied it.
@@ -565,6 +606,177 @@ test.describe("Dashboard stack headline", () => {
     });
     await expect(card).toContainText("No Items yet.");
     await expect(page.locator("#totalsLedger")).toBeHidden();
+  });
+
+  test("the lead swaps between retail and melt by keyboard, follows the gain and survives a reload", async ({
+    page,
+  }) => {
+    await seedValuationData(page, { inventory: STACK_ITEMS, spotHistory: STACK_SPOT_HISTORY });
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() => window.appListenersReady === true);
+    const figures = page.locator("#stackHeadlineFigures");
+    const swap = page.getByRole("button", { name: /^Lead with/ });
+    await expect(swap).toHaveAccessibleName("Lead with melt value");
+    await expect.poll(() => readMoney(page, "#stackRetailValue")).not.toBe("0.00");
+    await expect(page.locator("#stackRetailSub")).toBeHidden();
+
+    await swap.focus();
+    await page.keyboard.press("Enter");
+    await expect(figures.locator("dt")).toHaveText([
+      "Melt value",
+      "Retail value",
+      "Gain on cost",
+      "Cost basis",
+      "Realized",
+    ]);
+    await expect(swap).toBeFocused();
+    await expect(swap).toHaveAccessibleName("Lead with retail value");
+
+    // The lead figure is first in DOM order, carries today's line in the large type, and
+    // the button sits in its label.
+    const lead = figures.locator(".stack-figure").first();
+    await expect(lead.locator("dt")).toHaveText("Melt value");
+    await expect(lead.locator("#stackTodayValue")).toHaveText(/today$/);
+    await expect(lead.locator("dt button")).toHaveCount(1);
+    const fontSize = (selector) =>
+      page.locator(selector).evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+    expect(await fontSize("#stackMeltValue")).toBeGreaterThan(await fontSize("#stackRetailValue"));
+    await expect(page.locator("#stackMeltSub")).toBeHidden();
+    await expect(page.locator("#stackRetailSub")).toHaveText(/^[+-]\d+\.\d% over melt$/);
+
+    // Gain on cost at melt: the ledger's All Metals melt minus its cost basis. The ledger's
+    // own Gain column stays at retail.
+    const meltGain = await page.evaluate(() => {
+      const money = (id) => Number(document.getElementById(id).textContent.replace(/[^\d.-]/g, ""));
+      const gain = money("currentValueAll") - money("totalPurchasedAll");
+      return `${gain < 0 ? "-" : ""}${formatCurrency(Math.abs(gain)).replace(/^[^\d]*/, "")}`;
+    });
+    expect(await readMoney(page, "#stackGainValue")).toBe(meltGain);
+    await expect(page.locator("#stackGainSub")).toHaveText(/^[+-]\d+\.\d% at melt$/);
+    expect(await readMoney(page, "#lossProfitAll")).not.toBe(meltGain);
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() => window.appListenersReady === true);
+    await expect(figures.locator("dt").first()).toHaveText("Melt value");
+
+    await swap.focus();
+    await page.keyboard.press("Space");
+    await expect(figures.locator("dt").first()).toHaveText("Retail value");
+    await expect(swap).toBeFocused();
+    await expect(page.locator("#stackGainSub")).toHaveText(/ at retail$/);
+
+    // A write that fails for a reason other than a full store says so; the lead stays.
+    await page.evaluate(() => {
+      const setItem = Storage.prototype.setItem;
+      Storage.prototype.setItem = function (key, value) {
+        if (key === "stackHeadlineLead") throw new Error("write blocked");
+        return setItem.call(this, key, value);
+      };
+    });
+    await swap.click();
+    await expect(page.locator(".cloud-toast")).toHaveText(
+      "Could not save the lead figure. Swap it again to retry."
+    );
+    await expect(figures.locator("dt").first()).toHaveText("Retail value");
+  });
+
+  test("the weights list matches the ledger and the 12-month line matches the breakdown modal at 1Y", async ({
+    page,
+  }) => {
+    await seedValuationData(page, { inventory: STACK_ITEMS, spotHistory: STACK_SPOT_HISTORY });
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() => window.appListenersReady === true);
+
+    // One row per held metal in Metal Order; Palladium and Copper hold nothing.
+    const rows = page.locator("#stackWeights li");
+    await expect(rows.locator(".stack-weight-name")).toHaveText(["Silver", "Gold", "Platinum"]);
+    for (const name of ["Silver", "Gold", "Platinum"]) {
+      const row = rows.filter({ hasText: name });
+      const ledgerOz = await page.locator(`#totalWeight${name}`).textContent();
+      await expect(row.locator(".stack-weight-oz")).toHaveText(`${ledgerOz} oz`);
+    }
+
+    /** Reads the breakdown modal's 1Y strip for a scope. */
+    const modalStrip = async (scope) => {
+      await page.evaluate((s) => window.showDetailsModal(s), scope);
+      await expect(page.locator("#dmSubstrip2 span").first()).toBeVisible();
+      const strip = await page.evaluate(() =>
+        Object.fromEntries(
+          [...document.querySelectorAll("#dmSubstrip2 span")].map((span) => [
+            span.firstChild.textContent.trim(),
+            span.querySelector("strong").textContent,
+          ])
+        )
+      );
+      await page.evaluate(() => window.closeDetailsModal());
+      return strip;
+    };
+
+    for (const name of ["Silver", "Gold", "Platinum"]) {
+      const { pace } = await modalStrip(name);
+      const expected = pace === "0.000 oz/mo" ? "No buys" : `+${pace}`;
+      await expect(rows.filter({ hasText: name }).locator(".stack-weight-pace")).toHaveText(
+        expected
+      );
+    }
+    await expect(rows.filter({ hasText: "Platinum" }).locator(".stack-weight-pace")).toHaveText(
+      "No buys"
+    );
+
+    const all = await modalStrip("All");
+    expect(all.acquisitions).toBe("2");
+    await expect(page.locator("#stackActivity")).toHaveText(
+      `Last 12 months: ${all.invested.split(" (")[0]} added across ${all.acquisitions} acquisitions, market ${all.market}`
+    );
+
+    // The series values today at live spot, so a spot move redraws the market figure with
+    // the inventory unchanged, and it still matches the breakdown modal.
+    await page.evaluate(() => {
+      spotPrices.silver *= 1.25;
+      updateSummary();
+    });
+    const moved = await modalStrip("All");
+    expect(moved.market).not.toBe(all.market);
+    await expect(page.locator("#stackActivity")).toHaveText(
+      `Last 12 months: ${moved.invested.split(" (")[0]} added across ${moved.acquisitions} acquisitions, market ${moved.market}`
+    );
+
+    // A spot history import redraws through updateAllSparklines. A corrected close on the
+    // day before the window moves its baseline, so the market figure follows it.
+    await page.evaluate(async () => {
+      for (const day of ["2025-05-08", "2025-05-09", "2025-05-10"]) {
+        spotHistory.push({
+          timestamp: `${day}T20:00:00.000Z`,
+          metal: "Silver",
+          spot: 5,
+          source: "seed",
+          provider: "Playwright",
+        });
+      }
+      await updateAllSparklines();
+    });
+    const corrected = await modalStrip("All");
+    expect(corrected.market).not.toBe(moved.market);
+    await expect(page.locator("#stackActivity")).toHaveText(
+      `Last 12 months: ${corrected.invested.split(" (")[0]} added across ${corrected.acquisitions} acquisitions, market ${corrected.market}`
+    );
+
+    // Phones: the weights list and the activity line wrap below the figures.
+    await page.setViewportSize({ width: 390, height: 844 });
+    const bottomOf = (selector) =>
+      page.locator(selector).evaluate((el) => el.getBoundingClientRect().bottom);
+    const topOf = (selector) =>
+      page.locator(selector).evaluate((el) => el.getBoundingClientRect().top);
+    await expect
+      .poll(
+        async () => (await topOf("#stackActivity")) >= (await bottomOf("#stackHeadlineFigures"))
+      )
+      .toBe(true);
+    await expect
+      .poll(async () => (await topOf("#stackWeights")) >= (await bottomOf("#stackActivity")))
+      .toBe(true);
+    await page.getByRole("button", { name: "Lead with melt value" }).click();
+    await expect(page.locator("#stackHeadlineFigures dt").first()).toHaveText("Melt value");
   });
 
   test("a damaged inventory under recovery shows no Add Item prompt", async ({ page }) => {

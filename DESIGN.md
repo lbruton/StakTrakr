@@ -364,14 +364,20 @@ of the border, even when the strip is held still.
 then the totals ledger. It is a flat frame on the secondary background with no accent border and one
 Instrument Serif title. The ledger has no heading of its own; a visually hidden caption names it.
 
-Five figures in the data face read in this order, on screen and in the page: Retail value, Melt value, Gain
-on cost, Cost basis and Realized. Retail value leads at 2.5rem with today's change under it. The other four
-share the rest of the row equally, each with a line of context: ounces and Items, the gain percentage at
-retail, the average cost per ounce, and the realized percentage on the cost of the Items that left the
-stack. Only the change, gain and realized carry the `*-text` status colours. Realized hides with the Show
-Realized setting, and the other figures widen to fill the row. Below 768px the lead takes the full width
-and the other four fill two columns. With no Items the card shows "No Items yet." and Add Item, and the
-ledger hides.
+Five figures in the data face read in this order, on screen and in the page: the lead value, the other
+value, Gain on cost, Cost basis and Realized. Retail value leads by default; a 26px round swap button in
+the lead's label (44px hit area) swaps it with Melt value, and the choice is saved. The lead sits at 2.5rem
+with today's change under it ("today at spot" under the retail lead). The other four share the rest of
+the row at 1.25rem, each with a line of context: the Items priced at spot, or retail's premium over melt;
+the gain percentage at the lead's basis; the average cost per ounce; and the realized percentage on the
+cost of the Items that left the stack. Only the change, gain, premium and realized carry the `*-text`
+status colours. Realized hides with the Show Realized setting, and the other figures widen to fill the row.
+
+A "Weight held" column to the right, behind a 1px rule, lists each held metal in Metal Order: the ledger's
+metal mark, the name, the ounces and the 12-month pace ("+0.083 oz/mo" or "No buys"). Below the figures, a
+line reads the last 12 months: the amount added, the acquisitions and the market change. Below 768px the
+lead takes the full width, the other four fill two columns, and the activity line and the weights list
+(under a rule) follow. With no Items the card shows "No Items yet." and Add Item, and the ledger hides.
 
 The spot price section draws no panel of its own: each spot card carries the frame.
 
