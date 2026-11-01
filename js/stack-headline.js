@@ -89,13 +89,13 @@ const pickStackLead = (figures, lead) => {
 };
 
 /**
- * Names the gain figure. An amount that displays as $0.00 reads as a gain. The magnitude is
- * rounded because Math.round(-0.5) is -0, which would hide a loss that displays as -$0.01.
+ * Names the gain figure. A negative amount that displays as zero reads as a gain, so the
+ * test uses formatCurrency, which applies the display currency's rate and precision.
  * @param {number} gain - Signed gain on cost.
  * @returns {string}
  */
 const stackGainLabel = (gain) => {
-  return gain < 0 && Math.round(Math.abs(gain) * 100) > 0 ? "Loss on cost" : "Gain on cost";
+  return gain < 0 && /[1-9]/.test(formatCurrency(Math.abs(gain))) ? "Loss on cost" : "Gain on cost";
 };
 
 /**

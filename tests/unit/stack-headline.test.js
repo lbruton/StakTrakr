@@ -18,6 +18,12 @@ const HEADLINE_HELPERS = [
   "formatStackPace",
   "stackActivityWindowStart",
 ];
+/** Display currency for the formatCurrency double. */
+const display = { code: "USD", rate: 1 };
+const formatCurrency = (value) =>
+  new Intl.NumberFormat("en-US", { style: "currency", currency: display.code }).format(
+    value * display.rate
+  );
 const {
   pickStackLead,
   stackGainLabel,
@@ -28,7 +34,7 @@ const {
   slice: HEADLINE_HELPERS.map((name) =>
     rangeOf(headlineSrc, sliceArrowConst(headlineSrc, `const ${name} = (`))
   ),
-  params: { STACK_ACTIVITY_DAYS: 365 },
+  params: { STACK_ACTIVITY_DAYS: 365, formatCurrency },
   suffix: `\nreturn { ${HEADLINE_HELPERS.join(", ")} };`,
 });
 
@@ -223,6 +229,13 @@ describe("Your stack lead", () => {
     ]) {
       assert.equal(stackGainLabel(gain), label, String(gain));
     }
+  });
+
+  test("the gain label follows the precision and rate of the display currency", () => {
+    Object.assign(display, { code: "JPY", rate: 150 });
+    assert.equal(stackGainLabel(-0.003), "Gain on cost");
+    assert.equal(stackGainLabel(-0.004), "Loss on cost");
+    Object.assign(display, { code: "USD", rate: 1 });
   });
 
   test("an unknown or missing preference leads with retail", () => {
