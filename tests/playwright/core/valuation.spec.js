@@ -715,6 +715,18 @@ test.describe("Dashboard stack headline", () => {
       `Last 12 months: ${all.invested.split(" (")[0]} added across ${all.acquisitions} acquisitions, market ${all.market}`
     );
 
+    // The series values today at live spot, so a spot move redraws the market figure with
+    // the inventory unchanged, and it still matches the breakdown modal.
+    await page.evaluate(() => {
+      spotPrices.silver *= 1.25;
+      updateSummary();
+    });
+    const moved = await modalStrip("All");
+    expect(moved.market).not.toBe(all.market);
+    await expect(page.locator("#stackActivity")).toHaveText(
+      `Last 12 months: ${moved.invested.split(" (")[0]} added across ${moved.acquisitions} acquisitions, market ${moved.market}`
+    );
+
     // Phones: the weights list and the activity line wrap below the figures.
     await page.setViewportSize({ width: 390, height: 844 });
     const bottomOf = (selector) =>

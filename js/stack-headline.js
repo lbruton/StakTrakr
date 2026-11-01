@@ -129,13 +129,19 @@ const stackActivityWindowStart = (days) => {
 let _lastMetalTotals = null;
 
 /**
- * Last-12-months activity for the inventory it was built from: the All Metals window
- * stats and each held metal's pace, both null after a failed load. Kept until the
- * inventory changes.
- * @type {{fingerprint: string, all: object|null, pace: Object<string, number|null>|null}|null}
+ * Spot day maps for the All Metals series, loaded for one inventory and day.
+ * @type {{mapsKey: string, maps: Object<string, Map<string, number>>}|null}
+ */
+let _stackSpotMaps = null;
+/**
+ * Last-12-months activity: the All Metals window stats and each held metal's pace, both
+ * null after a failed load. `statsKey` adds the live spot prices and the constitutional
+ * wear factor to `mapsKey`, since the series values today with them.
+ * @type {{mapsKey: string, statsKey: string, all: object|null,
+ *   pace: Object<string, number|null>|null}|null}
  */
 let _stackActivity = null;
-/** Fingerprint of the inventory whose activity is loading, or null. */
+/** statsKey of the activity being computed, or null. */
 let _stackActivityPending = null;
 /** Supersede generation: a load that finishes after a newer one started is dropped. */
 let _stackActivityGeneration = 0;
@@ -282,43 +288,54 @@ const _renderStackActivity = (stats) => {
 };
 
 /**
- * A cheap fingerprint of the fields the activity series read, so a redraw that leaves the
- * inventory unchanged (a spot refresh, a filter) reuses the loaded activity.
- * @returns {string}
+ * Keys for the cached activity. `mapsKey` covers today and the Item fields the series
+ * read, so a new day or an inventory edit reloads the spot maps; `statsKey` also covers
+ * the live spot prices and the constitutional wear factor, which value the series.
+ * @returns {{todayKey: string, mapsKey: string, statsKey: string}}
  */
-const _stackInventoryFingerprint = () =>
-  JSON.stringify(
-    inventory.map((it) => [
-      it.uuid,
-      it.metal,
-      it.date,
-      it.qty,
-      it.weight,
-      it.weightUnit,
-      it.purity,
-      it.price,
-      it.disposition,
-    ])
-  );
+const _stackActivityKeys = () => {
+  // todayStr is local-frame like item dates; buildPortfolioSeries absorbs the UTC
+  // spot-key seam, as the breakdown modal's load does.
+  const todayKey = todayStr();
+  const items = inventory.map((it) => [
+    it.uuid,
+    it.metal,
+    it.date,
+    it.qty,
+    it.weight,
+    it.weightUnit,
+    it.purity,
+    it.price,
+    it.constitutionalVariant,
+    it.constitutionalEntryMode,
+    it.disposition,
+  ]);
+  const mapsKey = `${todayKey}|${JSON.stringify(items)}`;
+  const wear =
+    typeof getConstitutionalWearFactor === "function" ? getConstitutionalWearFactor() : 1;
+  return { todayKey, mapsKey, statsKey: `${mapsKey}|${wear}|${JSON.stringify(spotPrices)}` };
+};
 
 /**
  * Builds the All Metals series and one series per held metal from one set of spot maps,
- * then redraws the headline. A load that a newer one superseded is dropped; a failed
- * load leaves the activity line and the pace hidden.
- * @param {string} fingerprint - Inventory fingerprint the load starts from.
- * @param {number} generation - Generation captured when the load started.
+ * loading the maps only when the inventory or the day changed, then redraws the headline.
+ * A run that a newer one superseded is dropped; a failed run leaves the activity line and
+ * the pace hidden until the keys change.
+ * @param {{todayKey: string, mapsKey: string, statsKey: string}} keys - _stackActivityKeys().
+ * @param {number} generation - Generation captured when the run started.
  */
-const _loadStackActivity = async (fingerprint, generation) => {
-  // A failed load is kept for its inventory too, so the redraw below does not retry it.
-  let activity = { fingerprint, all: null, pace: null };
+const _loadStackActivity = async (keys, generation) => {
+  // A failed run is kept for its keys too, so the redraw below does not retry it.
+  let activity = { mapsKey: keys.mapsKey, statsKey: keys.statsKey, all: null, pace: null };
   try {
-    const maps = await window.loadPortfolioSpotMaps("All");
-    if (generation !== _stackActivityGeneration) return;
-    // todayStr is local-frame like item dates; buildPortfolioSeries absorbs the UTC
-    // spot-key seam, as the breakdown modal's load does.
-    const todayKey = todayStr();
+    if (_stackSpotMaps?.mapsKey !== keys.mapsKey) {
+      const loaded = await window.loadPortfolioSpotMaps("All");
+      if (generation !== _stackActivityGeneration) return;
+      _stackSpotMaps = { mapsKey: keys.mapsKey, maps: loaded };
+    }
+    const maps = _stackSpotMaps.maps;
     const statsFor = (scope) => {
-      const series = buildPortfolioSeries(inventory, maps, scope, spotPrices, todayKey);
+      const series = buildPortfolioSeries(inventory, maps, scope, spotPrices, keys.todayKey);
       return computeWindowStats(series, stackActivityWindowStart(series.days));
     };
     const pace = Object.create(null);
@@ -327,7 +344,7 @@ const _loadStackActivity = async (fingerprint, generation) => {
         pace[metal.key] = statsFor(metal.name).paceOzPerMonth;
       }
     }
-    activity = { fingerprint, all: statsFor("All"), pace };
+    activity = { ...activity, all: statsFor("All"), pace };
   } catch (error) {
     console.error("[stack-headline] activity load failed:", error);
   }
@@ -338,15 +355,17 @@ const _loadStackActivity = async (fingerprint, generation) => {
 };
 
 /**
- * Starts an activity load after this paint when the inventory changed since the last one.
- * @param {string} fingerprint - Current inventory fingerprint.
+ * Starts an activity run after this paint when any of its inputs changed since the last one.
+ * @param {{todayKey: string, mapsKey: string, statsKey: string}} keys - _stackActivityKeys().
  */
-const _scheduleStackActivity = (fingerprint) => {
-  if (_stackActivity?.fingerprint === fingerprint || _stackActivityPending === fingerprint) return;
+const _scheduleStackActivity = (keys) => {
+  if (_stackActivity?.statsKey === keys.statsKey || _stackActivityPending === keys.statsKey) {
+    return;
+  }
   if (typeof window.loadPortfolioSpotMaps !== "function") return;
-  _stackActivityPending = fingerprint;
+  _stackActivityPending = keys.statsKey;
   const generation = ++_stackActivityGeneration;
-  setTimeout(() => _loadStackActivity(fingerprint, generation), 0);
+  setTimeout(() => _loadStackActivity(keys, generation), 0);
 };
 
 /**
@@ -420,11 +439,13 @@ const renderStackHeadline = (metalTotals) => {
     );
   }
 
-  const fingerprint = _stackInventoryFingerprint();
-  const activity = _stackActivity?.fingerprint === fingerprint ? _stackActivity : null;
+  // The last activity for this inventory and day stays up while a spot move recomputes it;
+  // an inventory edit or a new day hides it until the series load again.
+  const keys = _stackActivityKeys();
+  const activity = _stackActivity?.mapsKey === keys.mapsKey ? _stackActivity : null;
   _renderStackWeights(metalTotals, activity?.pace ?? null);
   _renderStackActivity(activity?.all ?? null);
-  _scheduleStackActivity(fingerprint);
+  _scheduleStackActivity(keys);
 };
 window.renderStackHeadline = renderStackHeadline;
 
