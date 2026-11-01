@@ -5,8 +5,9 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Dashboard End State</title>
     <!-- Mockup for the STRK-485 epic: the Dashboard with Your stack and the totals ledger in
-         one card (STRK-500). The app stylesheet supplies the tokens and four themes;
-         every class here is prefixed mk- so nothing collides with the app. -->
+         one card (STRK-500), plus the lead swap, the weights column and the 12-month activity
+         line (STRK-505). The app stylesheet supplies the tokens and four themes; every class
+         here is prefixed mk- so nothing collides with the app. -->
     <link rel="stylesheet" href="../css/styles.css" />
     <style>
       body {
@@ -52,9 +53,10 @@
         cursor: pointer;
       }
       .mk-controls button[aria-pressed="true"] {
-        background: var(--primary);
-        border-color: var(--primary);
-        color: var(--text-inverse, #fff);
+        background: var(--bg-primary);
+        border: 2px solid var(--primary);
+        color: var(--text-primary);
+        font-weight: 600;
       }
       .mk-stage {
         margin: 1.5rem auto 3rem;
@@ -463,6 +465,150 @@
         color: var(--text-secondary);
         margin-top: 0.2rem;
       }
+
+      /* ---------- STRK-505: lead swap, weights column, activity line ---------- */
+      /* Figures and the activity line on the left, weights on the right; the rule that
+         separates the headline from the ledger moves from the figures to this wrapper. */
+      .mk-head {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) fit-content(18rem);
+        grid-template-areas: "figs weights" "activity weights";
+        gap: 0.9rem 2rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid var(--border);
+      }
+      .mk-head .mk-figs {
+        grid-area: figs;
+        padding-bottom: 0;
+        border-bottom: 0;
+        /* The lead never truncates; the other four figures share what is left. */
+        grid-template-columns: minmax(max-content, 1.5fr);
+        gap: 0 1.25rem;
+      }
+      /* The weights column takes width from the four figures after the lead, so their
+         values step down from 1.375rem to fit a 1280px page. */
+      .mk-head:not(.mk-v95) .mk-fig-value {
+        font-size: 1.25rem;
+      }
+      .mk-head.mk-v95 {
+        display: block;
+      }
+      .mk-head.mk-v95 .mk-figs {
+        grid-template-columns: minmax(0, 1.5fr);
+        gap: 0 2rem;
+      }
+      .mk-swap {
+        position: relative;
+        display: inline-grid;
+        place-items: center;
+        width: 1.6rem;
+        height: 1.6rem;
+        margin-left: 0.35rem;
+        padding: 0;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: var(--bg-primary);
+        color: var(--text-secondary);
+        vertical-align: middle;
+        cursor: pointer;
+      }
+      /* 44px hit area around the 26px visual button. */
+      .mk-swap::after {
+        content: "";
+        position: absolute;
+        inset: -10px;
+      }
+      .mk-swap:hover {
+        color: var(--text-primary);
+        border-color: var(--primary);
+      }
+      .mk-swap:focus-visible {
+        outline: 2px solid var(--primary);
+        outline-offset: 2px;
+      }
+      .mk-swap svg {
+        width: 0.9rem;
+        height: 0.9rem;
+      }
+      .mk-activity {
+        grid-area: activity;
+        margin: 0;
+        font-size: var(--font-size-sm);
+        color: var(--text-secondary);
+      }
+      .mk-activity .mk-num {
+        color: var(--text-primary);
+      }
+      .mk-activity .mk-num.mk-gain {
+        color: var(--success-text);
+      }
+      .mk-activity .mk-num.mk-loss {
+        color: var(--danger-text);
+      }
+      .mk-weights {
+        grid-area: weights;
+        align-self: end;
+        padding-left: 1.5rem;
+        border-left: 1px solid var(--border);
+      }
+      .mk-weights h3 {
+        margin: 0 0 0.35rem;
+      }
+      .mk-weights ul {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+      .mk-weights li {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto auto;
+        align-items: baseline;
+        gap: 0 0.6rem;
+        padding: 0.2rem 0;
+        font-size: var(--font-size-sm);
+      }
+      .mk-weights .mk-dot {
+        display: inline-block;
+        width: 0.6rem;
+        height: 0.6rem;
+        border-radius: 50%;
+        align-self: center;
+      }
+      .mk-weights .mk-w-oz {
+        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
+        text-align: right;
+      }
+      .mk-weights .mk-w-pace {
+        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
+        color: var(--text-secondary);
+        text-align: right;
+        min-width: 5.75rem;
+      }
+      .mk-weights .mk-w-none {
+        font-family: var(--font-body);
+      }
+      .mk-phone .mk-head {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-areas: "figs" "activity" "weights";
+      }
+      .mk-phone .mk-head .mk-figs {
+        grid-template-columns: 1fr 1fr;
+        gap: 0.9rem 1rem;
+      }
+      .mk-phone .mk-weights {
+        padding: 0.75rem 0 0;
+        border-left: 0;
+        border-top: 1px solid var(--border);
+      }
+      .mk-phone .mk-weights li,
+      .mk-phone .mk-activity {
+        font-size: max(12px, var(--font-size-sm));
+      }
+      .mk-phone .mk-weights .mk-w-pace {
+        min-width: 0;
+      }
     </style>
   </head>
   <body>
@@ -480,9 +626,15 @@
         <button type="button" data-width-btn="phone">Phone 390</button>
       </fieldset>
       <fieldset>
-        <legend>Layout</legend>
-        <button type="button" data-layout-btn="merged" aria-pressed="true">One card</button>
-        <button type="button" data-layout-btn="before">v3.36.94</button>
+        <legend>Version</legend>
+        <button type="button" data-layout-btn="505" aria-pressed="true">STRK-505</button>
+        <button type="button" data-layout-btn="95">v3.36.95</button>
+        <button type="button" data-layout-btn="94">v3.36.94</button>
+      </fieldset>
+      <fieldset>
+        <legend>Lead</legend>
+        <button type="button" data-lead-btn="retail" aria-pressed="true">Retail</button>
+        <button type="button" data-lead-btn="melt">Melt</button>
       </fieldset>
       <fieldset>
         <legend>Realized</legend>
@@ -519,38 +671,8 @@
       <!-- 2. Your stack: the five figures over the ledger, one frame, one heading -->
       <section class="mk-block mk-frame mk-stack" aria-labelledby="stackTitle" data-layout="merged">
         <h2 class="mk-stack-title" id="stackTitle">Your stack</h2>
-        <dl class="mk-figs" data-items>
-          <div class="mk-fig-lead">
-            <dt class="mk-fig-label">Retail value</dt>
-            <dd class="mk-lead-value" data-v="retail"></dd>
-            <dd class="mk-today">
-              <span class="mk-loss">−$26.68 (−0.18%)</span> <span class="mk-muted">today</span>
-            </dd>
-          </div>
-          <div>
-            <dt class="mk-fig-label">Melt value</dt>
-            <dd class="mk-fig-value" data-v="melt"></dd>
-            <dd class="mk-fig-sub">8.00 oz across 8 Items</dd>
-          </div>
-          <div>
-            <dt class="mk-fig-label">Gain on cost</dt>
-            <dd class="mk-fig-value mk-gain" data-v="gain"></dd>
-            <dd class="mk-fig-sub"><span class="mk-gain">+13.4%</span> at retail</dd>
-          </div>
-          <div>
-            <dt class="mk-fig-label">Cost basis</dt>
-            <dd class="mk-fig-value" data-v="paid"></dd>
-            <dd class="mk-fig-sub">Avg <span class="mk-num" data-v="avg"></span>/oz</dd>
-          </div>
-          <div class="mk-realized">
-            <dt class="mk-fig-label">Realized</dt>
-            <dd class="mk-fig-value mk-gain" data-v="realized"></dd>
-            <dd class="mk-fig-sub">
-              <span class="mk-gain" data-v="realizedPct"></span> on
-              <span class="mk-num" data-v="disposedCost"></span> cost
-            </dd>
-          </div>
-        </dl>
+        <!-- Drawn by renderHead(): the figures in lead order, the activity line, the weights. -->
+        <div class="mk-head" id="stackHead" data-items></div>
         <div class="mk-empty" data-empty hidden>
           <p>No Items yet.</p>
           <button type="button" class="btn success">Add Item</button>
@@ -586,7 +708,7 @@
             <dt class="mk-fig-label">Gain on cost</dt>
             <dd class="mk-fig-value mk-gain" data-v="gain"></dd>
             <dd class="mk-fig-sub">
-              <span class="mk-gain">+13.4%</span> on <span class="mk-num" data-v="paid"></span> paid
+              <span class="mk-gain">+17.9%</span> on <span class="mk-num" data-v="paid"></span> paid
             </dd>
           </div>
           <div>
@@ -620,7 +742,50 @@
     </main>
 
     <section class="mk-notes" aria-labelledby="notesTitle">
-      <h2 id="notesTitle">What changes from v3.36.94</h2>
+      <h2 id="notesTitle">What STRK-505 changes from v3.36.95</h2>
+      <ol>
+        <li>
+          Lead swap: a round button next to the lead label swaps Retail value and Melt value. Its
+          accessible name names the action ("Lead with melt value"). The 26px button has a 44px hit
+          area. The DOM order follows the lead, so the reading order matches the screen.
+        </li>
+        <li>
+          Today's change sits under the lead. Under Retail lead it reads "today at spot", since the
+          change is a melt change. Under Melt lead it reads "today".
+        </li>
+        <li>
+          Gain on cost follows the lead: retail minus cost basis, or melt minus cost basis. The
+          sub-line names the basis ("+17.9% at retail", "+13.4% at melt").
+        </li>
+        <li>
+          The second figure gets a sub-line of its own. Melt reads "8 Items, priced at spot", with
+          no summed ounces. Retail reads "+4.0% over melt", the premium the dealers price in.
+        </li>
+        <li>
+          Weight held: a column to the right of the figures with one row per held metal in Metal
+          Order. Each row has the metal mark, the name, the ounces (the ledger's Weight (oz)) and
+          the 12-month pace from the breakdown modal's 1Y strip. A metal with no buys in 12 months
+          reads "No buys".
+        </li>
+        <li>
+          Activity line under the figures: invested, acquisitions and market for the All Metals
+          scope over the last 12 months, the same figures as the modal's 1Y strip.
+        </li>
+        <li>
+          Phone: the weights list and the activity line wrap below the figures. The weights list
+          sits under a 1px rule.
+        </li>
+        <li>
+          Open question: the ledger's Gain column stays retail-based under Melt lead. The headline
+          then shows melt gain over a ledger that shows retail gain.
+        </li>
+        <li>
+          Demo data: the seed inventory with dealer prices added to three metals, so retail and melt
+          differ. Palladium has no retail price and falls back to melt. Activity and pace figures
+          are illustrative.
+        </li>
+      </ol>
+      <h2>STRK-500 (v3.36.95) from v3.36.94</h2>
       <ol>
         <li>
           One card: Your stack and Totals merge into one frame with one heading. The five figures
@@ -655,10 +820,7 @@
           Phone: the lead takes the full width, the other four figures share two columns, and the
           ledger keeps its two-line blocks under the rule.
         </li>
-        <li>
-          Demo data: the seed inventory plus one sold Silver Item, so Realized shows a value. Retail
-          equals melt because no seed Item has a retail price.
-        </li>
+        <li>Demo data: the seed inventory plus one sold Silver Item, so Realized shows a value.</li>
       </ol>
     </section>
 
@@ -674,9 +836,10 @@
           avg: 39.83,
           paid: 119.5,
           melt: 155.72,
-          retail: 155.72,
-          gain: 36.22,
-          pct: 30.3,
+          retail: 172.1,
+          gain: 52.6,
+          pct: 44.0,
+          pace: 2 / 12,
           realized: 18.4,
           realizedPct: 19.2,
           spot: 51.96,
@@ -690,9 +853,10 @@
           avg: 3410,
           paid: 10230,
           melt: 12019.17,
-          retail: 12019.17,
-          gain: 1789.17,
-          pct: 17.5,
+          retail: 12540,
+          gain: 2310,
+          pct: 22.6,
+          pace: 1 / 12,
           realized: 0,
           spot: 4006.79,
           ch: "-0.90% (-0.20% 24h)",
@@ -705,9 +869,10 @@
           avg: 1400,
           paid: 1400,
           melt: 1481.47,
-          retail: 1481.47,
-          gain: 81.47,
-          pct: 5.8,
+          retail: 1530,
+          gain: 130,
+          pct: 9.3,
+          pace: 0,
           realized: 0,
           spot: 1482.21,
           ch: "-10.11% (-0.12% 24h)",
@@ -723,6 +888,7 @@
           retail: 1001.65,
           gain: -173.35,
           pct: -14.8,
+          pace: 1 / 12,
           realized: 0,
           spot: 1002.15,
           ch: "-21.60% (-0.07% 24h)",
@@ -734,13 +900,19 @@
         avg: 1615.56,
         paid: 12924.5,
         melt: 14658.01,
-        retail: 14658.01,
-        gain: 1733.51,
-        pct: 13.4,
+        retail: 15243.75,
+        gain: 2319.25,
+        pct: 17.9,
+        meltGain: 1733.51,
+        meltPct: 13.4,
         realized: 18.4,
         realizedPct: 19.2,
         disposedCost: 96,
+        today: -26.68,
+        todayPct: -0.18,
       };
+      // Last 12 months for the All Metals scope, as the breakdown modal's 1Y strip reports it.
+      const ACTIVITY = { invested: 4664.66, buys: 4, market: 1021.4, marketPct: 7.9 };
       const usd = (v) =>
         (v < 0 ? "−" : "") +
         "$" +
@@ -846,6 +1018,96 @@
       document.querySelector('[data-ledger="merged"]').innerHTML = ledger("Totals by metal");
       document.querySelector('[data-ledger="before"]').innerHTML = ledger();
 
+      // ---------- Your stack headline (STRK-505 or v3.36.95) ----------
+      const view = { version: "505", lead: "retail" };
+      const SWAP_ICON = `<svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor"
+          stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 2.5v11M1.5 11 4 13.5 6.5 11M12 13.5v-11M9.5 5 12 2.5 14.5 5" /></svg>`;
+      const tag = (v, text) => `<span class="${cls(v)}">${text}</span>`;
+      const paceText = (p) =>
+        p > 0 ? `+${p.toFixed(p < 0.1 ? 3 : 1)} oz/mo` : `<span class="mk-w-none">No buys</span>`;
+
+      const renderHead = () => {
+        const head = document.getElementById("stackHead");
+        const v505 = view.version === "505";
+        const lead = v505 ? view.lead : "retail";
+        const other = lead === "retail" ? "melt" : "retail";
+        const NAMES = { retail: "Retail value", melt: "Melt value" };
+        const gain = lead === "melt" ? ALL.meltGain : ALL.gain;
+        const gainPct = lead === "melt" ? ALL.meltPct : ALL.pct;
+        const premiumPct = ((ALL.retail - ALL.melt) / ALL.melt) * 100;
+        const swap = v505
+          ? `<button type="button" class="mk-swap" aria-label="Lead with ${NAMES[other].toLowerCase()}"
+               title="Lead with ${NAMES[other].toLowerCase()}">${SWAP_ICON}</button>`
+          : "";
+        const todayBasis = v505 && lead === "retail" ? "today at spot" : "today";
+        const otherSub = !v505
+          ? "8.00 oz across 8 Items"
+          : other === "melt"
+            ? "8 Items, priced at spot"
+            : `${tag(premiumPct, pct(premiumPct))} over melt`;
+
+        const figs = `
+          <dl class="mk-figs">
+            <div class="mk-fig-lead">
+              <dt class="mk-fig-label">${NAMES[lead]}${swap}</dt>
+              <dd class="mk-lead-value">${usd(ALL[lead])}</dd>
+              <dd class="mk-today">${tag(ALL.today, `${signed(ALL.today)} (${ALL.todayPct.toFixed(2)}%)`.replace("-", "−"))}
+                <span class="mk-muted">${todayBasis}</span></dd>
+            </div>
+            <div>
+              <dt class="mk-fig-label">${NAMES[other]}</dt>
+              <dd class="mk-fig-value">${usd(ALL[other])}</dd>
+              <dd class="mk-fig-sub">${otherSub}</dd>
+            </div>
+            <div>
+              <dt class="mk-fig-label">Gain on cost</dt>
+              <dd class="mk-fig-value ${cls(gain)}">${signed(gain)}</dd>
+              <dd class="mk-fig-sub">${tag(gainPct, pct(gainPct))} at ${lead}</dd>
+            </div>
+            <div>
+              <dt class="mk-fig-label">Cost basis</dt>
+              <dd class="mk-fig-value">${usd(ALL.paid)}</dd>
+              <dd class="mk-fig-sub">Avg <span class="mk-num">${usd(ALL.avg)}</span>/oz</dd>
+            </div>
+            <div class="mk-realized">
+              <dt class="mk-fig-label">Realized</dt>
+              <dd class="mk-fig-value ${cls(ALL.realized)}">${signed(ALL.realized)}</dd>
+              <dd class="mk-fig-sub">${tag(ALL.realizedPct, pct(ALL.realizedPct))} on
+                <span class="mk-num">${usd(ALL.disposedCost)}</span> cost</dd>
+            </div>
+          </dl>`;
+        const activity = `
+          <p class="mk-activity">Last 12 months:
+            <span class="mk-num">${usd(ACTIVITY.invested)}</span> added across ${ACTIVITY.buys}
+            acquisitions, market
+            <span class="mk-num ${cls(ACTIVITY.market)}">${signed(ACTIVITY.market)} (${pct(ACTIVITY.marketPct)})</span></p>`;
+        const weights = `
+          <div class="mk-weights" role="group" aria-labelledby="weightsTitle">
+            <h3 class="mk-fig-label" id="weightsTitle">Weight held</h3>
+            <ul>${METALS.filter((m) => m.oz > 0)
+              .map(
+                (m) => `<li>
+                  <span class="mk-dot" style="background: var(--${m.key})"></span>
+                  <span>${m.name}</span>
+                  <span class="mk-w-oz">${m.oz.toFixed(2)} oz</span>
+                  <span class="mk-w-pace">${paceText(m.pace)}</span>
+                </li>`
+              )
+              .join("")}</ul>
+          </div>`;
+
+        head.classList.toggle("mk-v95", !v505);
+        head.innerHTML = v505 ? figs + activity + weights : figs;
+        head.querySelector(".mk-swap")?.addEventListener("click", () => {
+          view.lead = other;
+          press("data-lead-btn", other);
+          renderHead();
+          // The button is redrawn; keep keyboard focus on it, as the app must.
+          head.querySelector(".mk-swap")?.focus();
+        });
+      };
+
       const stage = document.getElementById("stage");
       const press = (attr, value) =>
         document
@@ -864,11 +1126,19 @@
         else document.documentElement.setAttribute("data-theme", t);
       });
       on("data-width-btn", (w) => stage.classList.toggle("mk-phone", w === "phone"));
-      on("data-layout-btn", (layout) =>
+      on("data-layout-btn", (version) => {
+        const layout = version === "94" ? "before" : "merged";
         document.querySelectorAll("[data-layout]").forEach((el) => {
           el.hidden = el.dataset.layout !== layout;
-        })
-      );
+        });
+        view.version = version;
+        renderHead();
+      });
+      on("data-lead-btn", (lead) => {
+        view.lead = lead;
+        renderHead();
+      });
+      renderHead();
       on("data-realized-btn", (r) => stage.classList.toggle("mk-hide-realized", r === "hide"));
       on("data-stack-btn", (s) => {
         document.querySelectorAll("[data-items]").forEach((el) => {
