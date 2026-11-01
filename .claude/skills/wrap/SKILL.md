@@ -6,7 +6,7 @@ description: >
   facts to .context/, syncs docs, and reports Session Health. Run at end of any session, optionally after
   /pr-cleanup. Triggers: "wrap", "wrap up", "close session", "end of session",
   "done for the night", "finish up", "closing time".
-library-version: 995aa5c33005
+library-version: f0ca78a2b4c9
 ---
 
 # Wrap Session
@@ -210,7 +210,7 @@ were only discussed.
 
 ```
 mcp__sessionflow__add_memory(
-  text: "[Handoff <ISSUE or PARENT> | <Project> <YYYY-MM-DD> | <branch> | claude-code] Continue <ID>
+  text: "[Handoff <ISSUE or PARENT> | <Project> <YYYY-MM-DD HH:MM> | <branch> | claude-code] Continue <ID>
          (<title>). State: <where it stands>. First action: <one command or step>. Gotchas: <…>.
          Chain: <child IDs and their states, when a chain>.",
   agent_id: "claude-code",
@@ -234,7 +234,8 @@ mcp__sessionflow__add_memory(
 The topic key names the session, so a re-wrap replaces this session's handoff in place and leaves
 handoffs from other sessions alone. A topic-key replace takes its status from the new write, so the
 record is active even when another session superseded the earlier one. SessionFlow 0.14.1 or later
-is required for that status rule.
+is required for that status rule. A write with identical text returns `deduplicated` and keeps the
+stored status, so the header carries the local time to make each renewal differ.
 
 Never write a secret value into a handoff.
 
