@@ -1,4 +1,4 @@
-# library-version: aa39149c84f3
+# library-version: 2f9730d23fa3
 description = "PR discovery and pre-analysis agent. Gathers all PR review threads, Codacy findings, runs code review subagents, and returns a structured findings report with file-based thread clusters. Dispatched by /pr-resolve to isolate the heavy data-gathering phases from main context."
 developer_instructions = '''
 # PR Discovery & Pre-Analysis Agent

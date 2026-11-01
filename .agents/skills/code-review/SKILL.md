@@ -3,7 +3,7 @@ name: code-review
 description: "Run CodeRabbit CLI reviews, retrieve saved local or GitHub PR fix prompts, and interpret CodeRabbit authentication and review output. Use for CodeRabbit review commands, committed/uncommitted or directory scopes, and CodeRabbit runbooks. Default code-review skill: also trigger for explicit code/PR/quality/security review requests or when a review is needed."
 metadata:
   version: "0.1.0"
-library-version: aa39149c84f3
+library-version: 2f9730d23fa3
 ---
 
 # CodeRabbit Code Review

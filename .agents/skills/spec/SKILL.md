@@ -2,7 +2,7 @@
 name: spec
 description: "Phased spec workflow above a quick fix. Driver for the /spec-* phase family + execution engines (run/workflow/dispatch). Phased markdown artifacts in the repo's specs root (specs.path in .claude/project.json, default DocVault/specs/)."
 user-invocable: true
-library-version: aa39149c84f3
+library-version: 2f9730d23fa3
 ---
 
 # Spec — Phased Spec Workflow (driver)

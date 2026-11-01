@@ -8,7 +8,7 @@ description: >
   Triggers on "/discover", "/brainstorm", "research this issue", "explore this
   before we spec it".
 user-invocable: true
-library-version: aa39149c84f3
+library-version: 2f9730d23fa3
 ---
 
 # Discover — Phase 1 Structured Brainstorm
@@ -104,8 +104,10 @@ mcp__sessionflow__search_all_sessions
   n: 5
 ```
 
-For the full history of the issue, call `mcp__sessionflow__get_issue_timeline(issue_id: "<ISSUE-ID>")`:
-every turn that names it, oldest first, across harnesses. Skip `/start` report turns in both results;
+For the history of the issue, call
+`mcp__sessionflow__get_issue_timeline(issue_id: "<ISSUE-ID>", limit: 200)`: the turns that name it,
+oldest first, across harnesses. The default `limit` is 50. When the result fills the limit, call it
+again with `date_from` set to the last turn's date to read the rest. Skip `/start` report turns in both results;
 they list every open issue and carry no decisions.
 
 Present any relevant past decisions, related work, or prior discussions.
