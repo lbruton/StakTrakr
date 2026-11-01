@@ -10,15 +10,49 @@ set -e
 # Tailnet peers allowed to use the proxy come from the stack env, so the public
 # repo holds no addresses. Without them Fly.io cannot reach the proxy, so stop.
 CONF=/tmp/tinyproxy.conf
+
+# Succeeds for one IPv4 or IPv6 address with an optional CIDR prefix; hostnames,
+# ports and out-of-range octets or prefixes fail.
+valid_addr() {
+  printf '%s\n' "$1" | awk '
+    function prefix_ok(p, max) { return p ~ /^[0-9]+$/ && p + 0 <= max }
+    {
+      n = split($0, part, "/")
+      if (n > 2) exit 1
+      a = part[1]
+      if (a ~ /^[0-9.]+$/) {
+        if (n == 2 && !prefix_ok(part[2], 32)) exit 1
+        if (split(a, oct, ".") != 4) exit 1
+        for (i = 1; i <= 4; i++)
+          if (oct[i] !~ /^[0-9][0-9]?[0-9]?$/ || oct[i] + 0 > 255) exit 1
+        exit 0
+      }
+      if (a !~ /^[0-9a-fA-F:]+$/) exit 1
+      if (n == 2 && !prefix_ok(part[2], 128)) exit 1
+      if (a ~ /:::/ || (a ~ /^:/ && a !~ /^::/) || (a ~ /:$/ && a !~ /::$/)) exit 1
+      rest = a
+      doubles = gsub(/::/, "", rest)
+      if (doubles > 1) exit 1
+      groups = 0
+      g = split(a, grp, ":")
+      for (i = 1; i <= g; i++) {
+        if (grp[i] == "") continue
+        if (grp[i] !~ /^[0-9a-fA-F][0-9a-fA-F]?[0-9a-fA-F]?[0-9a-fA-F]?$/) exit 1
+        groups++
+      }
+      if (doubles == 0 && groups != 8) exit 1
+      if (doubles == 1 && groups > 7) exit 1
+      exit 0
+    }'
+}
+
 cp /etc/tinyproxy/tinyproxy.conf "$CONF"
 ALLOWED=0
 for addr in $(echo "${TINYPROXY_ALLOW:-}" | tr ',' ' '); do
-  case "$addr" in
-    *[!0-9a-fA-F.:/]*)
-      echo "tinyproxy: ERROR — TINYPROXY_ALLOW entry '${addr}' is not an IP address or CIDR"
-      exit 1
-      ;;
-  esac
+  if ! valid_addr "$addr"; then
+    echo "tinyproxy: ERROR — TINYPROXY_ALLOW entry '${addr}' is not an IP address or CIDR"
+    exit 1
+  fi
   echo "Allow ${addr}" >> "$CONF"
   ALLOWED=$((ALLOWED + 1))
 done
