@@ -1,7 +1,7 @@
 ---
 name: code-core
 description: Workflow rules shared by every code repo - DocVault, glossary, Plane, Infisical, debugging, memory, code search, editing, tests, spec gates, push rules, red flags, GitHub hygiene
-library-version: 88accb389051
+library-version: 6f84ff770f80
 ---
 
 # Code-core rules
