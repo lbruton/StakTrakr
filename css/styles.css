@@ -2217,8 +2217,21 @@ input[type="submit"] {
   padding-left: var(--spacing-lg);
   border-left: 1px solid var(--border);
 }
-.stack-weights h3 {
+.stack-weights-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.6rem;
   margin: 0 0 0.35rem;
+}
+.stack-weights h3 {
+  margin: 0;
+}
+.stack-weights-rate {
+  white-space: nowrap;
+}
+.stack-weights-rate[hidden] {
+  display: none;
 }
 .stack-weights-list {
   list-style: none;
@@ -6135,6 +6148,7 @@ input.spot-lookup-flash {
   overflow: visible;
   font-size: var(--font-size-base);
   line-height: 1.3;
+  transition: none; /* The row hover reaches every cell on one frame. */
 }
 
 .totals-ledger thead th {
@@ -6252,8 +6266,8 @@ td.totals-col-gain {
   display: none;
 }
 
-/* Phones: each metal is one block. Name, melt and gain on the first line; Items, ounces
-   and the amount paid on the second. The ::after item is the line break. */
+/* Phones: each metal is one block. Name, the lead value and gain on the first line; Items,
+   ounces and the amount paid on the second. The ::after item is the line break. */
 @media (max-width: 767px) {
   #totalsSectionEl,
   #totalsSectionEl:hover {
@@ -6295,10 +6309,10 @@ td.totals-col-gain {
     order: 1;
     flex: 1 1 auto;
   }
-  .totals-ledger .totals-col-melt {
+  .totals-ledger :is(.totals-col-melt, .totals-col-retail) {
     order: 2;
   }
-  /* When name, melt and gain do not fit on one line, gain wraps alone, right-aligned. */
+  /* When name, value and gain do not fit on one line, gain wraps alone, right-aligned. */
   .totals-ledger .totals-col-gain {
     order: 3;
     margin-left: auto;
@@ -6318,12 +6332,15 @@ td.totals-col-gain {
   .totals-ledger .totals-col-paid {
     order: 7;
   }
-  /* The header row is hidden, so Melt and Gain carry their names as alt text only. */
+  /* The header row is hidden, so the value and Gain/Loss carry their names as alt text only. */
   .totals-ledger .totals-col-melt::before {
     content: "" / "Melt ";
   }
+  .totals-ledger .totals-col-retail::before {
+    content: "" / "Retail ";
+  }
   .totals-ledger .totals-col-gain::before {
-    content: "" / "Gain ";
+    content: "" / "Gain/Loss ";
   }
   .totals-ledger .totals-col-items::before {
     content: "Items ";
@@ -6341,7 +6358,9 @@ td.totals-col-gain {
   .totals-ledger .totals-row:hover {
     background: var(--bg-tertiary);
   }
-  .totals-ledger :is(.totals-col-avg, .totals-col-retail, .totals-col-realized) {
+  .totals-ledger :is(.totals-col-avg, .totals-col-realized),
+  .totals-ledger[data-lead="retail"] .totals-col-melt,
+  .totals-ledger[data-lead="melt"] .totals-col-retail {
     display: none;
   }
 }

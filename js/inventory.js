@@ -2846,6 +2846,7 @@ const _buildInventoryPdf = () => {
 
   // Helper to safely read element text
   const txt = (el) => (el && el.textContent) || "—";
+  const gainLabel = `Gain/Loss (at ${readStackLead()})`;
 
   // Add totals section
   doc.setFontSize(12);
@@ -2859,7 +2860,7 @@ const _buildInventoryPdf = () => {
   doc.text(`Purchase: ${txt(elements.totals.silver.purchased)}`, 25, finalY + 34);
   doc.text(`Melt Value: ${txt(elements.totals.silver.value)}`, 25, finalY + 40);
   doc.text(`Retail: ${txt(elements.totals.silver.retailValue)}`, 25, finalY + 46);
-  doc.text(`Gain/Loss: ${txt(elements.totals.silver.lossProfit)}`, 25, finalY + 52);
+  doc.text(`${gainLabel}: ${txt(elements.totals.silver.lossProfit)}`, 25, finalY + 52);
 
   // Gold Totals
   doc.text("Gold:", 100, finalY + 16);
@@ -2868,7 +2869,7 @@ const _buildInventoryPdf = () => {
   doc.text(`Purchase: ${txt(elements.totals.gold.purchased)}`, 111, finalY + 34);
   doc.text(`Melt Value: ${txt(elements.totals.gold.value)}`, 111, finalY + 40);
   doc.text(`Retail: ${txt(elements.totals.gold.retailValue)}`, 111, finalY + 46);
-  doc.text(`Gain/Loss: ${txt(elements.totals.gold.lossProfit)}`, 111, finalY + 52);
+  doc.text(`${gainLabel}: ${txt(elements.totals.gold.lossProfit)}`, 111, finalY + 52);
 
   // Platinum Totals
   doc.text("Platinum:", 186, finalY + 16);
@@ -2877,7 +2878,7 @@ const _buildInventoryPdf = () => {
   doc.text(`Purchase: ${txt(elements.totals.platinum.purchased)}`, 197, finalY + 34);
   doc.text(`Melt Value: ${txt(elements.totals.platinum.value)}`, 197, finalY + 40);
   doc.text(`Retail: ${txt(elements.totals.platinum.retailValue)}`, 197, finalY + 46);
-  doc.text(`Gain/Loss: ${txt(elements.totals.platinum.lossProfit)}`, 197, finalY + 52);
+  doc.text(`${gainLabel}: ${txt(elements.totals.platinum.lossProfit)}`, 197, finalY + 52);
 
   // Palladium Totals
   doc.text("Palladium:", 14, finalY + 60);
@@ -2886,7 +2887,7 @@ const _buildInventoryPdf = () => {
   doc.text(`Purchase: ${txt(elements.totals.palladium.purchased)}`, 25, finalY + 78);
   doc.text(`Melt Value: ${txt(elements.totals.palladium.value)}`, 25, finalY + 84);
   doc.text(`Retail: ${txt(elements.totals.palladium.retailValue)}`, 25, finalY + 90);
-  doc.text(`Gain/Loss: ${txt(elements.totals.palladium.lossProfit)}`, 25, finalY + 96);
+  doc.text(`${gainLabel}: ${txt(elements.totals.palladium.lossProfit)}`, 25, finalY + 96);
 
   return doc;
 };

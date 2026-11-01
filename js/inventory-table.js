@@ -1280,18 +1280,24 @@
   }
 
   /**
-   * Write the gain/loss cell (signed, coloured value with its percent on cost).
-   * Shared by per-metal and "All" rows.
+   * Write the gain/loss cell (signed, coloured value with its percent on cost) at the
+   * basis of the Your stack lead. Shared by per-metal and "All" rows.
    * @param {object} els - Element bag with a `lossProfit` node.
    * @param {object} totals - Totals accumulator for that row.
    * @returns {void}
    */
   function _writeGainLossCell(els, totals) {
     if (!els.lossProfit) return;
-    const gl = totals.totalGainLoss || 0;
-    const gainLossPct = totals.totalPurchased > 0 ? (gl / totals.totalPurchased) * 100 : 0;
+    const { gain, gainPct } = pickStackLead(
+      {
+        gain: totals.totalGainLoss || 0,
+        melt: totals.totalMeltValue || 0,
+        purchased: totals.totalPurchased || 0,
+      },
+      readStackLead()
+    );
     // nosemgrep: javascript.browser.security.insecure-innerhtml.insecure-innerhtml, javascript.browser.security.insecure-document-method.insecure-document-method
-    els.lossProfit.innerHTML = formatLossProfit(gl, gainLossPct);
+    els.lossProfit.innerHTML = formatLossProfit(gain, gainPct);
   }
 
   /**

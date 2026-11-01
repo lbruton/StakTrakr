@@ -404,7 +404,7 @@ test.describe("Dashboard totals ledger", () => {
       "Paid",
       "Melt",
       "Retail",
-      "Gain",
+      "Gain/Loss",
       "Realized",
     ]);
     await expect(page.locator("#totalsDots, #totalsPrev, #totalsNext, .total-card")).toHaveCount(0);
@@ -588,6 +588,18 @@ test.describe("Dashboard totals ledger", () => {
             "pointer"
           );
         }
+        // Every cell of a row changes on one frame: the name cell has no fade of its own.
+        await page.mouse.move(0, 0);
+        await page.locator("#currentValueSilver").hover();
+        const cells = await page.evaluate(() => {
+          const read = (selector) => {
+            const style = getComputedStyle(document.querySelector(selector));
+            return { background: style.backgroundColor, fade: style.transitionDuration };
+          };
+          return [read(".totals-row.silver .total-title"), read("#currentValueSilver")];
+        });
+        expect(cells[0]).toEqual(cells[1]);
+        expect(cells[0].fade).toBe("0s");
       });
     }
   });
@@ -640,7 +652,7 @@ test.describe("Dashboard totals ledger", () => {
             };
           });
       });
-    const labels = ["Retail value", "Melt value", "Gain on cost", "Cost basis", "Realized"];
+    const labels = ["Retail value", "Melt value", "Loss on cost", "Cost basis", "Realized"];
 
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto("/index.html");
@@ -897,45 +909,57 @@ test.describe("Dashboard at phone width", () => {
         await expect
           .poll(() => visibleLedgerRows(page))
           .toEqual(["silver", "gold", "platinum", "palladium", "copper"]);
-        const blocks = await page.locator("#totalsLedger .totals-row").evaluateAll((rows) =>
-          rows
-            .filter((r) => r.getClientRects().length > 0)
-            .map((r) => {
-              const box = (sel) => r.querySelector(sel).getBoundingClientRect();
-              const top = (sel) => box(sel).top;
-              const shown = (sel) => r.querySelector(sel).getClientRects().length > 0;
-              const title = box(".total-title");
-              const onLineOne = (sel) => {
-                const b = box(sel);
-                const middle = b.top + b.height / 2;
-                return middle > title.top && middle < title.bottom;
-              };
-              const label = (sel) =>
-                getComputedStyle(r.querySelector(sel), "::before").content.includes(
-                  sel.endsWith("melt") ? "Melt" : "Gain"
-                );
-              return {
-                key: r.dataset.metalKey,
-                lineOne: onLineOne(".totals-col-melt") && onLineOne(".totals-col-gain"),
-                labelled: label(".totals-col-melt") && label(".totals-col-gain"),
-                gainShown: shown(".totals-col-gain"),
-                lineTwo: top(".totals-col-items") > top(".total-title") + 10,
-                paidShown: shown(".totals-col-paid") && shown(".totals-col-weight"),
-                avgHidden: !shown(".totals-col-avg") && !shown(".totals-col-retail"),
-              };
-            })
-        );
-        expect(blocks).toHaveLength(6);
-        for (const b of blocks) {
-          expect(b, b.key).toEqual({
-            key: b.key,
-            lineOne: true,
-            labelled: true,
-            gainShown: true,
-            lineTwo: true,
-            paidShown: true,
-            avgHidden: true,
-          });
+        // The row shows the value that leads, so the gain reads against the figure beside it.
+        for (const [lead, other, name] of [
+          ["retail", "melt", "Retail"],
+          ["melt", "retail", "Melt"],
+        ]) {
+          await expect(page.locator("#totalsLedger")).toHaveAttribute("data-lead", lead);
+          const blocks = await page.locator("#totalsLedger .totals-row").evaluateAll(
+            (rows, { value, hidden, valueName }) =>
+              rows
+                .filter((r) => r.getClientRects().length > 0)
+                .map((r) => {
+                  const box = (sel) => r.querySelector(sel).getBoundingClientRect();
+                  const top = (sel) => box(sel).top;
+                  const shown = (sel) => r.querySelector(sel).getClientRects().length > 0;
+                  const title = box(".total-title");
+                  const onLineOne = (sel) => {
+                    const b = box(sel);
+                    const middle = b.top + b.height / 2;
+                    return middle > title.top && middle < title.bottom;
+                  };
+                  const label = (sel, text) =>
+                    getComputedStyle(r.querySelector(sel), "::before").content.includes(text);
+                  return {
+                    key: r.dataset.metalKey,
+                    lineOne: onLineOne(value) && onLineOne(".totals-col-gain"),
+                    labelled: label(value, valueName) && label(".totals-col-gain", "Gain/Loss"),
+                    gainShown: shown(".totals-col-gain"),
+                    lineTwo: top(".totals-col-items") > top(".total-title") + 10,
+                    paidShown: shown(".totals-col-paid") && shown(".totals-col-weight"),
+                    avgHidden: !shown(".totals-col-avg") && !shown(hidden),
+                  };
+                }),
+            {
+              value: `.totals-col-${lead}`,
+              hidden: `.totals-col-${other}`,
+              valueName: name,
+            }
+          );
+          expect(blocks).toHaveLength(6);
+          for (const b of blocks) {
+            expect(b, `${lead} ${b.key}`).toEqual({
+              key: b.key,
+              lineOne: true,
+              labelled: true,
+              gainShown: true,
+              lineTwo: true,
+              paidShown: true,
+              avgHidden: true,
+            });
+          }
+          await page.locator("#stackLeadSwap").click();
         }
         expect(
           await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)

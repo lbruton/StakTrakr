@@ -152,7 +152,7 @@ let _stackSpotHistoryVersion = 0;
  * Reads the saved lead figure.
  * @returns {string} "retail" or "melt"
  */
-const _readStackLead = () =>
+const readStackLead = () =>
   loadDataSync(STACK_HEADLINE_LEAD_KEY, "retail") === "melt" ? "melt" : "retail";
 
 /**
@@ -250,6 +250,7 @@ const _renderStackWeights = (metalTotals, pace) => {
   });
   list.replaceChildren(...rows);
   safeGetElement("stackWeights").hidden = rows.length === 0;
+  safeGetElement("stackWeightsRate").hidden = !pace;
 };
 
 /**
@@ -404,8 +405,9 @@ const renderStackHeadline = (metalTotals) => {
   safeGetElement("stackHeadlineEmpty").hidden = !figures.empty || recovering;
   if (figures.empty) return;
 
-  const picked = pickStackLead(figures, _readStackLead());
+  const picked = pickStackLead(figures, readStackLead());
   _arrangeStackLead(picked.lead);
+  safeGetElement("totalsLedger").dataset.lead = picked.lead;
 
   _fillFigure("stackRetailValue", formatCurrency(figures.retail));
   _fillFigure("stackMeltValue", formatCurrency(figures.melt));
@@ -424,6 +426,9 @@ const renderStackHeadline = (metalTotals) => {
   );
   _fillFigure("stackMeltSub", `${figures.items} Items, priced at spot`);
 
+  // Rounds to cents first, so an amount that displays as $0.00 reads as a gain.
+  safeGetElement("stackGainLabel").textContent =
+    Math.round(picked.gain * 100) < 0 ? "Loss on cost" : "Gain on cost";
   _fillFigure("stackGainValue", _statusSpan(picked.gain, _signedCurrency(picked.gain)));
   _fillFigure(
     "stackGainSub",
@@ -472,9 +477,9 @@ const refreshStackHeadline = () => {
 };
 window.refreshStackHeadline = refreshStackHeadline;
 
-/** Swaps which value leads, saves the choice and redraws the headline. */
+/** Swaps which value leads, saves the choice and redraws the headline and the ledger. */
 const _swapStackLead = () => {
-  const next = _readStackLead() === "melt" ? "retail" : "melt";
+  const next = readStackLead() === "melt" ? "retail" : "melt";
   try {
     saveDataSync(STACK_HEADLINE_LEAD_KEY, next);
   } catch (error) {
@@ -485,7 +490,7 @@ const _swapStackLead = () => {
     }
   }
   if (typeof scheduleSyncPush === "function") scheduleSyncPush();
-  if (_lastMetalTotals) renderStackHeadline(_lastMetalTotals);
+  if (_lastMetalTotals) updateSummary();
 };
 
 // Parse-time wiring: this script is deferred, so the buttons exist, and safeGetElement may not yet.
