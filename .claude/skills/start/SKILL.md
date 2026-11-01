@@ -8,7 +8,7 @@ description: >
   for continuing same-day work or resuming after a short break.
   No indexing, no code search, no agent dispatch.
   Triggers: "start", "quick start", "resume", "orient me", "where were we".
-library-version: a30d29ec7463
+library-version: 3265cf015af6
 ---
 
 # Start
@@ -332,8 +332,10 @@ mcp__sessionflow__search_memories(query="<topic query from Step 3>", project=PRO
                                   format="json")
 ```
 
-`list_memories` and `search_memories` return only `active` records, so a handoff that a later
-`/wrap` superseded drops out. Map each handoff to issues by `extra.issues`, then by `issue_ids`:
+Page (a) to the end: while the JSON result carries a `next_cursor`, call it again with
+`cursor: <next_cursor>`. Missing
+a page leaves open handoffs unmarked. `list_memories` and `search_memories` return only `active`
+records, so a handoff that a later `/wrap` superseded drops out. Map each handoff to issues by `extra.issues`, then by `issue_ids`:
 
 - **Issue handoff:** one issue in `extra.issues`. Mark that issue's line `🔁 handoff`.
 - **Chain handoff:** `extra.chain` names a parent or epic, or `extra.issues` holds several issues

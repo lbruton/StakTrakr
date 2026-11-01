@@ -6,7 +6,7 @@ allowed-tools: >-
   Bash, Read, Write, Edit, Glob, Grep, Workflow, ToolSearch,
   mcp__context7__resolve-library-id,
   mcp__brave-search__brave_web_search
-library-version: a30d29ec7463
+library-version: 3265cf015af6
 ---
 
 # /spec-discovery ISSUE

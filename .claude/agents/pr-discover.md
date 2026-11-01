@@ -2,7 +2,7 @@
 name: pr-discover
 description: "PR discovery and pre-analysis agent. Gathers all PR review threads, Codacy findings, runs code review subagents, and returns a structured findings report with file-based thread clusters. Dispatched by /pr-resolve to isolate the heavy data-gathering phases from main context."
 model: sonnet
-library-version: a30d29ec7463
+library-version: 3265cf015af6
 ---
 
 # PR Discovery & Pre-Analysis Agent

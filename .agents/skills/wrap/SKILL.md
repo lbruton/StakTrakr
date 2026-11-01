@@ -6,7 +6,7 @@ description: >
   facts to .context/, syncs docs, and reports Session Health. Run at end of any session, optionally after
   /pr-cleanup. Triggers: "wrap", "wrap up", "close session", "end of session",
   "done for the night", "finish up", "closing time".
-library-version: a30d29ec7463
+library-version: 3265cf015af6
 ---
 
 # Wrap Session
@@ -189,6 +189,10 @@ write, because the summary's `supersedes` comes from it.
 ```
 mcp__sessionflow__list_memories(project: PROJECT, type: "handoff", limit: 20, format: "json")
 ```
+
+While the JSON result carries a `next_cursor`, call it again with `cursor: <next_cursor>` until the
+last page. A handoff
+on a page you skip is never superseded and stays open in `/start`.
 
 **Close** each open handoff whose work this session finished or took over: its issues are Done, or
 this session did its first action. Put its ID in the Step 3 summary's `supersedes`.
