@@ -6,7 +6,7 @@ description: >
   facts to .context/, syncs docs, and reports Session Health. Run at end of any session, optionally after
   /pr-cleanup. Triggers: "wrap", "wrap up", "close session", "end of session",
   "done for the night", "finish up", "closing time".
-library-version: 3265cf015af6
+library-version: aa39149c84f3
 ---
 
 # Wrap Session
@@ -197,9 +197,11 @@ on a page you skip is never superseded and stays open in `/start`.
 **Close** each open handoff whose work this session finished or took over: its issues are Done, or
 this session did its first action. Put its ID in the Step 3 summary's `supersedes`.
 
-**Never supersede this session's own handoffs.** A handoff whose `source_session_id` is `SESSION_ID`
-came from an earlier `/wrap` of this session; the topic key below replaces it in place. Leave it out
-of every `supersedes` list, or the re-wrap retires the handoff it means to keep.
+**Never supersede a handoff this wrap renews.** A handoff whose `source_session_id` is `SESSION_ID`
+came from an earlier `/wrap` of this session. When its work still continues, the write below
+replaces it in place through the same topic key: leave it out of every `supersedes` list, or the
+re-wrap retires the handoff it means to keep. When its work is finished, no new handoff replaces it:
+close it like any other, in the summary's `supersedes`.
 
 **Write** one handoff per unit of continuing work when `--handoff` was passed, or when an issue this
 session worked on stays `In Progress` or `In Review` with a next action still owed. A unit is one

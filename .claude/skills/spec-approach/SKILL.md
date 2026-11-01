@@ -4,7 +4,7 @@ description: "Spec Phase 3 — architecture, key decisions, file map (+ UI Contr
 user-invocable: true
 allowed-tools: >-
   Bash, Read, Write, Edit, Glob, Grep
-library-version: 3265cf015af6
+library-version: aa39149c84f3
 ---
 
 # /spec-approach ISSUE
