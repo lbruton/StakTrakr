@@ -8,7 +8,7 @@ description: >
   Triggers on "/discover", "/brainstorm", "research this issue", "explore this
   before we spec it".
 user-invocable: true
-library-version: 995aa5c33005
+library-version: f0ca78a2b4c9
 ---
 
 # Discover — Phase 1 Structured Brainstorm
