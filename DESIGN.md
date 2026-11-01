@@ -358,27 +358,33 @@ in one line with neutral prices and status-coloured premiums. Both use the data 
 The ticker's edge fades hold the frame colour solid for their first 16px, so no chip text shows within 8px
 of the border, even when the strip is held still.
 
-### Stack Headline
+### Your Stack
 
-"Your stack" sits between the ticker and the totals, so the market reads first and the stack figures sit
-with the ledger they summarise. It is a flat strip on the secondary background with no accent border: an
-Instrument Serif title and three figures in the data face. Retail value leads at 2.5rem with today's change
-under it; gain on cost and melt value sit beside it, each with a line of context (amount paid, ounces and
-Items). Only the change and gain carry the `*-text` status colours. The strip ends on the figures, with no
-footnote or rule below them. Below 768px the lead takes the full width and the other two share a row.
+"Your stack" is one card below the spot cards and above the ticker: the stack figures on top, a 1px rule,
+then the totals ledger. It is a flat frame on the secondary background with no accent border and one
+Instrument Serif title. The ledger has no heading of its own; a visually hidden caption names it.
+
+Five figures in the data face read in this order, on screen and in the page: Retail value, Melt value, Gain
+on cost, Cost basis and Realized. Retail value leads at 2.5rem with today's change under it. The other four
+share the rest of the row equally, each with a line of context: ounces and Items, the gain percentage at
+retail, the average cost per ounce, and the realized percentage on the cost of the Items that left the
+stack. Only the change, gain and realized carry the `*-text` status colours. Realized hides with the Show
+Realized setting, and the other figures widen to fill the row. Below 768px the lead takes the full width
+and the other four fill two columns. With no Items the card shows "No Items yet." and Add Item, and the
+ledger hides.
 
 The spot price section draws no panel of its own: each spot card carries the frame.
 
-The header, spot cards, ticker, stack headline, totals ledger and footer share the secondary background, so
-the Dashboard reads as one set of frames one step off the page. The ratio chips on the spot cards take an
+The header, spot cards, ticker, Your stack card and footer share the secondary background, so the
+Dashboard reads as one set of frames one step off the page. The ratio chips on the spot cards take an
 opaque fill one step lighter than the card: the card token in light and sepia, the tertiary token in dark
 and slate.
 
 ### Totals Ledger
 
-The totals are one table in one flat frame on the secondary background, with no shadow and no nested
-cards. Each metal the user holds has a row, in Metal Order; All Metals is the footer, set off by a 2px rule
-and bold figures. Columns are Items, Weight, Avg cost/oz, Paid, Melt, Retail, Gain and Realized. Figures
+The totals are one table inside the Your stack card, with no shadow and no nested cards. Its outer columns
+align with the figures above. Each metal the user holds has a row, in Metal Order; All Metals is the
+footer, set off by a 2px rule and bold figures. Columns are Items, Weight, Avg cost/oz, Paid, Melt, Retail, Gain and Realized. Figures
 use the data face with tabular numerals, right-aligned, so decimals line up down each column. Gain is the
 bold column and the only one in the `*-text` status colours. Each metal name carries its colour dot. A
 click anywhere on a row, All Metals included, opens the details modal; the row shows a pointer and the

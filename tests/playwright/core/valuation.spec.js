@@ -469,25 +469,47 @@ test.describe("Dashboard stack headline", () => {
     });
     await page.goto("/index.html", { waitUntil: "domcontentloaded" });
     await page.waitForFunction(() => window.appListenersReady === true);
-    const headline = page.locator("#stackHeadlineSection");
-    await expect(headline).toBeVisible();
-    await expect(headline.locator("h2")).toHaveText("Your stack");
+    // One card: one heading, the figures, then the ledger, which keeps its own name.
+    const card = page.locator("#totalsSectionEl");
+    await expect(card).toBeVisible();
+    await expect(card.locator("h2")).toHaveText(["Your stack"]);
+    await expect(card.locator("#stackHeadlineFigures")).toBeVisible();
+    await expect(card.getByRole("table", { name: "Totals by metal" })).toBeVisible();
+    await expect(page.locator("#stackHeadlineFigures dt")).toHaveText([
+      "Retail value",
+      "Melt value",
+      "Gain on cost",
+      "Cost basis",
+      "Realized",
+    ]);
 
     await expect.poll(() => readMoney(page, "#stackRetailValue")).not.toBe("0.00");
-    expect(await readMoney(page, "#stackRetailValue")).toBe(
-      await readMoney(page, "#retailValueAll")
-    );
-    expect(await readMoney(page, "#stackMeltValue")).toBe(
-      await readMoney(page, "#currentValueAll")
-    );
-    expect(await readMoney(page, "#stackGainValue")).toBe(await readMoney(page, "#lossProfitAll"));
-    await expect(page.locator("#stackGainLabel")).toHaveText("Gain on cost");
+    const matches = {
+      "#stackRetailValue": "#retailValueAll",
+      "#stackMeltValue": "#currentValueAll",
+      "#stackGainValue": "#lossProfitAll",
+      "#stackCostValue": "#totalPurchasedAll",
+      "#stackRealizedValue": "#realizedGainLossAll",
+    };
+    for (const [figure, cell] of Object.entries(matches)) {
+      expect(await readMoney(page, figure), figure).toBe(await readMoney(page, cell));
+    }
     await expect(page.locator("#stackGainSub")).toHaveText(
-      `${await page.locator("#lossProfitAll .gain-loss-pct").textContent()} on ${await page.locator("#totalPurchasedAll").textContent()} paid`
+      `${await page.locator("#lossProfitAll .gain-loss-pct").textContent()} at retail`
     );
     await expect(page.locator("#stackMeltSub")).toHaveText(
       `${await page.locator("#totalWeightAll").textContent()} oz across ${await page.locator("#totalItemsAll").textContent()} Items`
     );
+    await expect(page.locator("#stackCostSub")).toHaveText(
+      `Avg ${await page.locator("#avgCostPerOzAll").textContent()}/oz`
+    );
+
+    // Realized follows the Show Realized setting, in the figures and in the ledger.
+    await page.evaluate(() => applyRealizedVisibility(false));
+    await expect(page.locator("#stackRealizedFigure")).toBeHidden();
+    await expect(page.locator("#realizedGainLossAll")).toBeHidden();
+    await page.evaluate(() => applyRealizedVisibility(true));
+    await expect(page.locator("#stackRealizedFigure")).toBeVisible();
 
     // Each Item's pure ounces (melt / current spot) priced at the two prices the 24h
     // comparison uses, summed over the active Items.
@@ -534,13 +556,15 @@ test.describe("Dashboard stack headline", () => {
     // Demo Items without a retail price count at melt, with no footnote under the figures.
     await expect(page.locator("#stackRetailLabel")).toHaveText("Retail value");
     await expect(page.locator("#stackRetailValue")).not.toHaveAttribute("aria-describedby", /./);
-    await expect(page.locator("#stackHeadlineSection")).not.toContainText("no retail price");
+    await expect(card).not.toContainText("no retail price");
 
+    // With no Items the card offers Add Item, and the ledger has no row to show.
     await page.evaluate(() => {
       inventory.length = 0;
       updateSummary();
     });
-    await expect(page.locator("#stackHeadlineSection")).toContainText("No Items yet.");
+    await expect(card).toContainText("No Items yet.");
+    await expect(page.locator("#totalsLedger")).toBeHidden();
   });
 
   test("a damaged inventory under recovery shows no Add Item prompt", async ({ page }) => {
@@ -568,7 +592,7 @@ test.describe("Dashboard stack headline", () => {
     await seedValuationData(page, { inventory: [] });
     await page.goto("/index.html", { waitUntil: "domcontentloaded" });
     await page.waitForFunction(() => window.appListenersReady === true);
-    const headline = page.locator("#stackHeadlineSection");
+    const headline = page.locator("#totalsSectionEl");
     await expect(headline).toContainText("No Items yet.");
     await expect(page.locator("#stackRetailValue")).toBeHidden();
 

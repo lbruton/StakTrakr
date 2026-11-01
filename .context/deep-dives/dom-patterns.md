@@ -228,23 +228,26 @@ The market data module (`js/market-data.js`) uses eight DOM elements, all looked
 
 These elements are defined in `index.html` and are part of the `layoutSectionConfig` system. The `bestPriceTicker` section moves `bestPriceTickerFrame`, not the ribbon. The ticker is inserted in the main page flow; the modal is a top-level overlay with `hidden` attribute toggled by JS.
 
-## Stack Headline DOM Elements
+## Your Stack DOM Elements
 
-`js/stack-headline.js` fills `#stackHeadlineSection` (the `stackHeadline` layout section, between the ticker and the totals by default). `updateSummary()` calls `renderStackHeadline(metalTotals)` with the same per-metal accumulators the totals ledger uses. `updateAllSparklines()` calls `refreshStackHeadline()`, so a spot history or comparison-mode change redraws today's change.
+`#totalsSectionEl` is the Your stack card and the `totals` layout section, between the spot cards and the ticker by default. It holds the `#stackHeadlineTitle` heading, the stack figures and the totals ledger. `js/stack-headline.js` fills the figures: `updateSummary()` calls `renderStackHeadline(metalTotals)` with the same per-metal accumulators the totals ledger uses. `updateAllSparklines()` calls `refreshStackHeadline()`, so a spot history or comparison-mode change redraws today's change.
 
 | Element ID                                   | Purpose                                                                        |
 | -------------------------------------------- | ------------------------------------------------------------------------------ |
-| `stackHeadlineFigures`                       | Figure list; hidden when the inventory holds no Items                          |
+| `stackHeadlineFigures`                       | Figure list, in reading order; hidden when the inventory holds no Items        |
 | `stackRetailValue`, `stackTodayValue`        | Retail value and today's change under it                                       |
-| `stackGainValue`, `stackGainSub`             | Gain on cost and its percentage of the amount paid                             |
 | `stackMeltValue`, `stackMeltSub`             | Melt value and the ounces and Items it covers                                  |
+| `stackGainValue`, `stackGainSub`             | Gain on cost and its percentage at retail                                      |
+| `stackCostValue`, `stackCostSub`             | Cost basis (the All Metals Paid) and the average cost per ounce                |
+| `stackRealizedFigure`                        | Realized figure; `.hide-realized` on `#totalsSectionEl` hides it               |
+| `stackRealizedValue`, `stackRealizedSub`     | Realized gain or loss and its percentage of the disposed cost                  |
 | `stackHeadlineEmpty`, `stackHeadlineAddItem` | "No Items yet." and the Add Item button, which opens the add form on Inventory |
 
-`_loadSectionConfig` gives a saved config each default section it lacks. The new section goes before the next default the user already has.
+`_loadSectionConfig` gives a saved config each default section it lacks. The new section goes before the next default the user already has. Labels always come from the defaults. `_foldStackHeadlineSection` folds a saved `stackHeadline` entry into `totals` at the earlier position, enabled if either entry was.
 
 ## Totals Ledger DOM Elements
 
-`#totalsSectionEl` (the `totals` layout section) holds one table, `#totalsLedger`. Each metal row in `#totalsLedgerBody` is a `.totals-row` with `data-metal-key`; the All Metals row is the only row in `tfoot`. Each value cell keeps the id `elements.totals` reads in `js/init.js` (`totalItems<Metal>`, `currentValue<Metal>`, `lossProfit<Metal>` and the rest), so `updateSummary()` writes cells by id.
+`#totalsLedger` sits in the Your stack card under the figures. It has a visually hidden caption, "Totals by metal", and hides when the inventory holds no Items. Each metal row in `#totalsLedgerBody` is a `.totals-row` with `data-metal-key`; the All Metals row is the only row in `tfoot`. Each value cell keeps the id `elements.totals` reads in `js/init.js` (`totalItems<Metal>`, `currentValue<Metal>`, `lossProfit<Metal>` and the rest), so `updateSummary()` writes cells by id.
 
 | Hook                                   | Writer                         | Effect                                                               |
 | -------------------------------------- | ------------------------------ | -------------------------------------------------------------------- |

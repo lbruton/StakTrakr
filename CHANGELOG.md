@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.95] - 2026-10-31
+
+### Changed — STRK-500: Your stack in one card
+
+- **One card**: Your stack and the totals ledger share one frame with one heading, the figures over the ledger. The ledger keeps an accessible name through a hidden caption, "Totals by metal" (STRK-500).
+- **Figures**: Retail value, Melt value, Gain on cost, Cost basis and Realized, in reading and visual order. Cost basis shows the average cost per ounce; Realized shows its percentage of the disposed cost and hides with Show Realized (STRK-500).
+- **Layout**: The `stackHeadline` and `totals` layout sections fold into one `totals` entry named "Your stack", at the earlier saved position and enabled if either was. Fresh installs order spot cards, Your stack, then the ticker. Saved labels follow the defaults (STRK-500).
+- **No Items**: The card shows the Add Item prompt and hides the ledger (STRK-500).
+
+---
+
 ## [3.36.94] - 2026-10-31
 
 ### Changed — STRK-499: Dashboard declutter

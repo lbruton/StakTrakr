@@ -412,32 +412,74 @@ test.describe("core/tab visibility", () => {
         (tr) => tr.dataset.sectionId
       )
     );
-    expect(sectionIds).toEqual(["spotPrices", "bestPriceTicker", "stackHeadline", "totals"]);
+    expect(sectionIds).toEqual(["spotPrices", "bestPriceTicker", "totals"]);
+    // A saved label gives way to the current name.
+    await expect(
+      page.locator("#layoutSectionConfigContainer tr[data-section-id='totals']")
+    ).toContainText("Your stack");
   });
 
-  test("hiding the stack headline in Settings removes it and survives a reload", async ({
+  test("a fresh install orders spot cards, Your stack, ticker; hiding Your stack survives a reload", async ({
     page,
   }) => {
     // A plain boot: gotoWithLayout's init script would re-seed the config on reload.
     await gotoApp(page);
-    await expect(page.locator("#stackHeadlineSection")).toBeVisible();
+    await expect(page.locator("#totalsSectionEl")).toBeVisible();
+    await expect(page.locator("#stackHeadlineSection")).toHaveCount(0);
     const order = await page.evaluate(() =>
       [...document.querySelectorAll("#tabViewDashboard > [id]")].map((el) => el.id)
     );
-    expect(order.indexOf("bestPriceTickerFrame")).toBeLessThan(
-      order.indexOf("stackHeadlineSection")
+    const positions = ["spotPricesSection", "totalsSectionEl", "bestPriceTickerFrame"].map((id) =>
+      order.indexOf(id)
     );
-    expect(order.indexOf("stackHeadlineSection")).toBeLessThan(order.indexOf("totalsSectionEl"));
+    expect(positions.every((i) => i > -1)).toBe(true);
+    expect(positions).toEqual([...positions].sort((a, b) => a - b));
     await page.evaluate(() => window.showSettingsModal("site"));
     await page
-      .locator("#layoutSectionConfigContainer tr[data-section-id='stackHeadline'] input")
+      .locator("#layoutSectionConfigContainer tr[data-section-id='totals'] input")
       .uncheck();
-    await expect(page.locator("#stackHeadlineSection")).toBeHidden();
+    await expect(page.locator("#totalsSectionEl")).toBeHidden();
 
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForFunction(() => window.appListenersReady === true);
     await expect(page.locator("#spotPricesSection")).toBeVisible();
-    await expect(page.locator("#stackHeadlineSection")).toBeHidden();
+    await expect(page.locator("#totalsSectionEl")).toBeHidden();
+  });
+
+  test("a saved layout with a separate stack headline and totals loads as one Your stack section", async ({
+    page,
+  }) => {
+    await suppressWhatsNewPopup(page);
+    await page.addInitScript(() => {
+      localStorage.setItem(
+        "layoutSectionConfig",
+        JSON.stringify([
+          { id: "spotPrices", label: "Spot price cards", enabled: true },
+          { id: "stackHeadline", label: "Stack headline", enabled: false },
+          { id: "bestPriceTicker", label: "Best Price Ticker", enabled: true },
+          { id: "totals", label: "Summary totals", enabled: true },
+        ])
+      );
+    });
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() => window.appListenersReady === true);
+
+    // The headline's earlier position wins; either section enabled keeps the card on.
+    await expect(page.locator("#totalsSectionEl")).toBeVisible();
+    const order = await page.evaluate(() =>
+      [...document.querySelectorAll("#tabViewDashboard > [id]")].map((el) => el.id)
+    );
+    expect(order.indexOf("totalsSectionEl")).toBeLessThan(order.indexOf("bestPriceTickerFrame"));
+
+    await page.evaluate(() => window.showSettingsModal("site"));
+    const rows = page.locator("#layoutSectionConfigContainer tbody tr");
+    await expect(rows).toHaveCount(3);
+    expect(await rows.evaluateAll((trs) => trs.map((tr) => tr.dataset.sectionId))).toEqual([
+      "spotPrices",
+      "totals",
+      "bestPriceTicker",
+    ]);
+    await expect(rows.nth(1)).toContainText("Your stack");
   });
 
   test("reordering a Dashboard section leaves other tabs' sections in place", async ({ page }) => {
@@ -455,9 +497,8 @@ test.describe("core/tab visibility", () => {
     const ids = await page.evaluate(() => window.getLayoutSectionConfig().map((s) => s.id));
     expect(ids).toEqual([
       "spotPrices",
-      "bestPriceTicker",
       "totals",
-      "stackHeadline",
+      "bestPriceTicker",
       "search",
       "table",
       "vendorPrices",
@@ -468,8 +509,8 @@ test.describe("core/tab visibility", () => {
     const order = await page.evaluate(() =>
       [...document.querySelectorAll("#tabViewDashboard > [id]")].map((el) => el.id)
     );
-    expect(order.indexOf("stackHeadlineSection")).toBeGreaterThan(-1);
-    expect(order.indexOf("totalsSectionEl")).toBeLessThan(order.indexOf("stackHeadlineSection"));
+    expect(order.indexOf("totalsSectionEl")).toBeGreaterThan(-1);
+    expect(order.indexOf("totalsSectionEl")).toBeLessThan(order.indexOf("bestPriceTickerFrame"));
   });
 });
 

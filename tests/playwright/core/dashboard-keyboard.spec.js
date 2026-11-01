@@ -28,6 +28,8 @@ async function renderLoopingTicker(page) {
   });
   await expect(page.locator("#bestPriceTickerEl .ticker-track")).toHaveCount(1);
   await expect(page.locator("#bestPriceTickerEl [data-ticker-block='duplicate']")).toHaveCount(1);
+  // The ticker follows Your stack and can sit below the fold; pointer input needs it on screen.
+  await page.locator("#bestPriceTickerEl").scrollIntoViewIfNeeded();
 }
 
 test.describe("Dashboard keyboard and screen reader access", () => {
@@ -243,10 +245,10 @@ test.describe("Dashboard keyboard and screen reader access", () => {
     page,
   }) => {
     const panel = page.locator("#tabViewDashboard");
-    for (const name of ["Spot prices", "Best dealer prices", "Totals"]) {
+    for (const name of ["Spot prices", "Your stack", "Best dealer prices"]) {
       await expect(panel.getByRole("heading", { level: 2, name })).toHaveCount(1);
     }
-    const ledger = page.getByRole("table", { name: "Totals" });
+    const ledger = page.getByRole("table", { name: "Totals by metal" });
     await expect(ledger.getByRole("rowheader", { name: "Silver" })).toHaveCount(1);
     await expect(ledger.getByRole("columnheader", { name: "Gain" })).toHaveCount(1);
   });

@@ -109,6 +109,38 @@ describe("computeStackHeadline", () => {
     assert.equal(figures.hasToday, false);
   });
 
+  test("sums cost basis, average cost per ounce and realized gain across every metal", () => {
+    const figures = computeStackHeadline(
+      {
+        silver: metal({
+          totalPurchased: 200,
+          totalWeight: 10,
+          realizedGainLoss: 30,
+          totalDisposedCost: 100,
+        }),
+        gold: metal({
+          totalPurchased: 4200,
+          totalWeight: 1,
+          realizedGainLoss: -10,
+          totalDisposedCost: 100,
+        }),
+      },
+      () => ({ pct: 0, valid: false })
+    );
+    assert.equal(figures.purchased, 4400);
+    assert.equal(figures.avgCostPerOz, 4400 / 11);
+    assert.equal(figures.realized, 20);
+    assert.equal(figures.disposedCost, 200);
+    assert.equal(figures.realizedPct, 10);
+  });
+
+  test("with no weight or no disposed cost, the average and realized percentage are zero", () => {
+    const figures = computeStackHeadline({ silver: metal({}) }, () => ({ pct: 0, valid: false }));
+    assert.equal(figures.avgCostPerOz, 0);
+    assert.equal(figures.realized, 0);
+    assert.equal(figures.realizedPct, 0);
+  });
+
   test("counts the active rows across every metal", () => {
     const figures = computeStackHeadline(
       { silver: metal({ activeRows: 3 }), gold: metal({ activeRows: 1 }) },
@@ -135,45 +167,150 @@ describe("layout section merge", () => {
     getItem: (k) => (storage.has(k) ? storage.get(k) : null),
     setItem: (k, v) => storage.set(k, String(v)),
   };
-  const { loadSectionConfig, defaults } = evalSource("js/constants.js", {
+  const { loadLayout, loadSectionConfig, defaults } = evalSource("js/constants.js", {
     params: { localStorage },
     slice: [
       sliceConstArray(constantsSrc, "const LAYOUT_SECTION_DEFAULTS = ["),
       sliceArrowConst(constantsSrc, "const _loadSectionConfig = ("),
+      sliceArrowConst(constantsSrc, "const _foldStackHeadlineSection = ("),
     ].map((text) => rangeOf(constantsSrc, text)),
-    suffix:
-      "\nreturn { loadSectionConfig: _loadSectionConfig, defaults: LAYOUT_SECTION_DEFAULTS };",
+    suffix: `
+return {
+  loadSectionConfig: _loadSectionConfig,
+  loadLayout: () =>
+    _loadSectionConfig("layoutSectionConfig", LAYOUT_SECTION_DEFAULTS, null, null,
+      _foldStackHeadlineSection),
+  defaults: LAYOUT_SECTION_DEFAULTS,
+};`,
   });
 
-  test("the stack headline sits between the ticker and the totals by default", () => {
-    assert.deepEqual(
-      defaults.slice(0, 4).map((d) => d.id),
-      ["spotPrices", "bestPriceTicker", "stackHeadline", "totals"]
+  /** Saves a layout config built from [id, enabled] pairs, with the labels it shipped with. */
+  const saveLayout = (pairs) =>
+    storage.set(
+      "layoutSectionConfig",
+      JSON.stringify(pairs.map(([id, enabled]) => ({ id, label: `old ${id}`, enabled })))
     );
-    assert.equal(defaults[2].enabled, true);
+  const DASHBOARD = ["spotPrices", "totals", "bestPriceTicker"];
+
+  test("Your stack sits between the spot cards and the ticker by default, as one section", () => {
+    assert.deepEqual(
+      defaults.slice(0, 3).map((d) => d.id),
+      DASHBOARD
+    );
+    assert.deepEqual(defaults[1], { id: "totals", label: "Your stack", enabled: true });
+    assert.equal(
+      defaults.some((d) => d.id === "stackHeadline"),
+      false
+    );
   });
 
   test("a saved config gains a new default section at its default position", () => {
-    const saved = defaults
-      .filter((d) => d.id !== "stackHeadline")
-      .map((d) => ({ ...d, enabled: d.id !== "totals" }));
-    storage.set("layoutSectionConfig", JSON.stringify(saved));
+    saveLayout(defaults.filter((d) => d.id !== "bestPriceTicker").map((d) => [d.id, true]));
     const merged = loadSectionConfig("layoutSectionConfig", defaults);
     assert.deepEqual(
       merged.map((s) => s.id),
       defaults.map((d) => d.id)
     );
-    assert.equal(merged.find((s) => s.id === "totals").enabled, false);
   });
 
-  test("a reordered saved config keeps its order and places the new section before its next default", () => {
-    const saved = [
-      { id: "totals", label: "Summary totals", enabled: true },
-      { id: "spotPrices", label: "Spot price cards", enabled: true },
-      { id: "bestPriceTicker", label: "Best Price Ticker", enabled: true },
-    ];
-    storage.set("layoutSectionConfig", JSON.stringify(saved));
-    const ids = loadSectionConfig("layoutSectionConfig", defaults).map((s) => s.id);
-    assert.deepEqual(ids.slice(0, 4), ["stackHeadline", "totals", "spotPrices", "bestPriceTicker"]);
+  test("saved labels give way to the current default labels", () => {
+    saveLayout(defaults.map((d) => [d.id, d.id !== "table"]));
+    const merged = loadSectionConfig("layoutSectionConfig", defaults);
+    assert.deepEqual(
+      merged.map((s) => s.label),
+      defaults.map((d) => d.label)
+    );
+    assert.equal(merged.find((s) => s.id === "table").enabled, false);
   });
+
+  const folds = [
+    {
+      name: "both enabled, ticker between them",
+      saved: [
+        ["spotPrices", true],
+        ["stackHeadline", true],
+        ["bestPriceTicker", true],
+        ["totals", true],
+      ],
+      ids: DASHBOARD,
+      enabled: true,
+    },
+    {
+      name: "totals first, headline after the ticker",
+      saved: [
+        ["totals", true],
+        ["spotPrices", true],
+        ["bestPriceTicker", true],
+        ["stackHeadline", true],
+      ],
+      ids: ["totals", "spotPrices", "bestPriceTicker"],
+      enabled: true,
+    },
+    {
+      name: "headline disabled, totals enabled",
+      saved: [
+        ["spotPrices", true],
+        ["bestPriceTicker", true],
+        ["stackHeadline", false],
+        ["totals", true],
+      ],
+      ids: ["spotPrices", "bestPriceTicker", "totals"],
+      enabled: true,
+    },
+    {
+      name: "headline enabled, totals disabled",
+      saved: [
+        ["spotPrices", true],
+        ["stackHeadline", true],
+        ["bestPriceTicker", true],
+        ["totals", false],
+      ],
+      ids: DASHBOARD,
+      enabled: true,
+    },
+    {
+      name: "both disabled",
+      saved: [
+        ["spotPrices", true],
+        ["bestPriceTicker", true],
+        ["stackHeadline", false],
+        ["totals", false],
+      ],
+      ids: ["spotPrices", "bestPriceTicker", "totals"],
+      enabled: false,
+    },
+    {
+      name: "headline only",
+      saved: [
+        ["stackHeadline", false],
+        ["spotPrices", true],
+        ["bestPriceTicker", true],
+      ],
+      ids: ["totals", "spotPrices", "bestPriceTicker"],
+      enabled: false,
+    },
+  ];
+  for (const fold of folds) {
+    test(`a saved stack headline and totals load as one section: ${fold.name}`, () => {
+      saveLayout(fold.saved);
+      const layout = loadLayout();
+      assert.deepEqual(
+        layout.slice(0, 3).map((s) => s.id),
+        fold.ids
+      );
+      assert.equal(layout.filter((s) => s.id === "totals").length, 1);
+      assert.deepEqual(
+        layout.find((s) => s.id === "totals"),
+        {
+          id: "totals",
+          label: "Your stack",
+          enabled: fold.enabled,
+        }
+      );
+      assert.equal(
+        layout.some((s) => s.id === "stackHeadline"),
+        false
+      );
+    });
+  }
 });

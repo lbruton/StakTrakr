@@ -397,7 +397,7 @@ const CERT_LOOKUP_URLS = {
  * Updated: 2026-05-12 - STRK-66: Add ¼ Goldback denomination (Idaho, g0.25)
  */
 
-const APP_VERSION = "3.36.94";
+const APP_VERSION = "3.36.95";
 
 /**
  * Numista metadata cache TTL: 30 days in milliseconds.
@@ -1488,9 +1488,8 @@ const saveFilterChipCategoryConfig = (config) => {
  */
 const LAYOUT_SECTION_DEFAULTS = [
   { id: "spotPrices", label: "Spot price cards", enabled: true },
+  { id: "totals", label: "Your stack", enabled: true },
   { id: "bestPriceTicker", label: "Best Price Ticker", enabled: true },
-  { id: "stackHeadline", label: "Stack headline", enabled: true },
-  { id: "totals", label: "Summary totals", enabled: true },
   { id: "search", label: "Search & filter bar", enabled: true },
   { id: "table", label: "Inventory table", enabled: true },
   { id: "vendorPrices", label: "Vendor Prices", enabled: true },
@@ -1520,19 +1519,25 @@ const migrateLayoutVisibility = (obj) => {
  * Generic loader for section config arrays from localStorage.
  * Merges saved user config with defaults. A default the saved config lacks goes in
  * before the next default the user already has, so a new section lands where it belongs.
+ * Labels come from the defaults; only order and the enabled flag are user data.
  * @param {string} key - localStorage key
  * @param {Array<{id: string, label: string, enabled: boolean}>} defaults
  * @param {string} [legacyKey] - Optional legacy key to migrate from
  * @param {function} [migrateFn] - Migration function for legacy data
+ * @param {function} [normalizeSaved] - Rewrites the saved array before the merge
  * @returns {Array<{id: string, label: string, enabled: boolean}>}
  */
-const _loadSectionConfig = (key, defaults, legacyKey, migrateFn) => {
+const _loadSectionConfig = (key, defaults, legacyKey, migrateFn, normalizeSaved) => {
   try {
     const raw = localStorage.getItem(key);
     if (raw) {
-      const saved = JSON.parse(raw);
+      const parsed = JSON.parse(raw);
+      const saved = normalizeSaved ? normalizeSaved(parsed) : parsed;
       const savedMap = new Map(saved.map((c) => [c.id, c]));
-      const merged = saved.filter((c) => defaults.some((d) => d.id === c.id));
+      const labels = new Map(defaults.map((d) => [d.id, d.label]));
+      const merged = saved
+        .filter((c) => labels.has(c.id))
+        .map((c) => ({ ...c, label: labels.get(c.id) }));
       defaults.forEach((def, index) => {
         if (savedMap.has(def.id)) return;
         const next = defaults.slice(index + 1).find((d) => savedMap.has(d.id));
@@ -1564,13 +1569,35 @@ const _saveSectionConfig = (key, config) => {
   }
 };
 
+/**
+ * Folds a saved `stackHeadline` entry into `totals`, which is the one Your stack card.
+ * The card keeps the earlier of the two positions and stays on if either entry was on.
+ * Runs at read time, so a config another device writes in the old shape folds too.
+ * @param {Array<{id: string, label: string, enabled: boolean}>} saved
+ * @returns {Array<{id: string, label: string, enabled: boolean}>}
+ */
+const _foldStackHeadlineSection = (saved) => {
+  const headline = saved.findIndex((c) => c.id === "stackHeadline");
+  if (headline === -1) return saved;
+  const totals = saved.findIndex((c) => c.id === "totals");
+  if (totals === -1) {
+    return saved.map((c, i) => (i === headline ? { ...c, id: "totals" } : c));
+  }
+  const keep = Math.min(headline, totals);
+  const enabled = Boolean(saved[headline].enabled || saved[totals].enabled);
+  return saved
+    .filter((_, i) => i !== Math.max(headline, totals))
+    .map((c, i) => (i === keep ? { ...c, id: "totals", enabled } : c));
+};
+
 /** Loads the layout section config, with migration from old layoutVisibility format. */
 const getLayoutSectionConfig = () =>
   _loadSectionConfig(
     "layoutSectionConfig",
     LAYOUT_SECTION_DEFAULTS,
     "layoutVisibility",
-    migrateLayoutVisibility
+    migrateLayoutVisibility,
+    _foldStackHeadlineSection
   );
 
 /** Saves the layout section config to localStorage. */

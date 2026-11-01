@@ -2089,18 +2089,11 @@ input[type="submit"] {
 }
 
 /* =============================================================================
-   STACK HEADLINE — the stack's value, today's change and gain on cost
+   YOUR STACK FIGURES — the stack's value and today's change, melt value, gain on
+   cost, cost basis and realized, over the totals ledger in the same frame
    ============================================================================= */
 
-.stack-headline {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: var(--spacing) var(--spacing-lg) var(--spacing-lg);
-}
-
-.stack-headline-title,
-.totals-title {
+.stack-headline-title {
   font-family: var(--font-heading);
   font-size: var(--font-size-xl);
   font-weight: 400;
@@ -2108,16 +2101,22 @@ input[type="submit"] {
   margin: 0 0 var(--spacing-sm);
 }
 
-/* Retail value leads the row; gain on cost and melt sit beside it, bottom-aligned.
+/* Retail value leads the row; every other figure gets an equal auto column, so a hidden
+   Realized closes its column. A rule separates the figures from the ledger below.
    The explicit display beats the UA's [hidden] rule, so restate it. */
 .stack-headline-figures {
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.5fr);
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
   align-items: end;
   gap: var(--spacing) var(--spacing-xl);
   margin: 0;
+  padding-bottom: var(--spacing);
+  border-bottom: 1px solid var(--border);
 }
-.stack-headline-figures[hidden] {
+.stack-headline-figures[hidden],
+.hide-realized .stack-figure-realized {
   display: none;
 }
 
@@ -2162,10 +2161,11 @@ input[type="submit"] {
   font-size: var(--font-size-md);
 }
 
-/* Phones: the lead takes the full width; gain on cost and melt share the row below. */
+/* Phones: the lead takes the full width; the other figures fill two columns below it. */
 @media (max-width: 767px) {
   .stack-headline-figures {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-auto-flow: row;
     gap: var(--spacing) var(--spacing);
   }
   .stack-figure-lead {
@@ -2184,6 +2184,7 @@ input[type="submit"] {
   flex-wrap: wrap;
   align-items: center;
   gap: var(--spacing);
+  padding-bottom: var(--spacing-sm);
 }
 .stack-headline-empty[hidden] {
   display: none;
@@ -5966,11 +5967,13 @@ input.spot-lookup-flash {
 
 /* =============================================================================
    TOTALS LEDGER
-   One table: a row per held metal in Metal Order, with All Metals as the footer.
-   Figures are mono with tabular numerals, right-aligned, so decimals line up.
+   One table under the Your stack figures: a row per held metal in Metal Order, with
+   All Metals as the footer. Figures are mono with tabular numerals, right-aligned,
+   so decimals line up.
    ============================================================================= */
 
-/* One flat frame: the global section rule adds a card surface and a shadow. */
+/* One flat frame for the figures and the ledger: the global section rule adds a card
+   surface and a shadow. */
 #totalsSectionEl,
 #totalsSectionEl:hover {
   background: var(--bg-secondary);
@@ -5990,6 +5993,10 @@ input.spot-lookup-flash {
   border-radius: 0;
   box-shadow: none;
   overflow: visible;
+}
+/* With no Items the ledger has no row to show; the phone block display beats [hidden]. */
+.totals-ledger[hidden] {
+  display: none;
 }
 .totals-ledger tr,
 .totals-ledger tr:nth-child(even),
@@ -6044,6 +6051,15 @@ input.spot-lookup-flash {
 
 td.totals-col-gain {
   font-weight: 700;
+}
+
+/* The outer columns align with the figures above. Realized is the last column unless
+   Show Realized is off, when Gain is. */
+.totals-ledger :is(th, td):first-child {
+  padding-left: 0;
+}
+.totals-ledger :is(.totals-col-realized, .hide-realized .totals-col-gain) {
+  padding-right: 0;
 }
 
 .totals-ledger tfoot :is(.total-title, .total-value) {
