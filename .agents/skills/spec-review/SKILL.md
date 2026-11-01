@@ -1,7 +1,7 @@
 ---
 name: spec-review
 description: "Reviewer-side /spec peer review. Reviews one phase of an active spec against the codebase."
-library-version: f74e60a961bf
+library-version: 8cb423b84b38
 ---
 
 # /spec-review

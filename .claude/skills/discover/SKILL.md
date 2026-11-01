@@ -20,7 +20,7 @@ allowed-tools: >-
   mcp__sessionflow__search_memories,
   mcp__sessionflow__add_memory,
   mcp__sessionflow__search_all_sessions
-library-version: f74e60a961bf
+library-version: 8cb423b84b38
 ---
 
 # Discover — Phase 1 Structured Brainstorm
@@ -97,7 +97,8 @@ mcp__sessionflow__search_memories
   n: 10
   format: "json"
 ```
-Pass `project: "*"` as a second query when the topic spans projects.
+Pass `project: "*"` as a second query when the topic spans projects. Run a third query with
+`issue_id: "<ISSUE-ID>"` to get every summary, decision and handoff that names the issue.
 
 ### Vault search
 Search both the project vault and the shared vault. Grep for the key terms and their synonyms, then
@@ -113,8 +114,11 @@ mcp__sessionflow__search_all_sessions
   query: "{issue title} {key terms}"
   project_root: "<repo root>"
   n: 5
-  sort_by: "hybrid"
 ```
+
+For the full history of the issue, call `mcp__sessionflow__get_issue_timeline(issue_id: "<ISSUE-ID>")`:
+every turn that names it, oldest first, across harnesses. Skip `/start` report turns in both results;
+they list every open issue and carry no decisions.
 
 Present any relevant past decisions, related work, or prior discussions.
 

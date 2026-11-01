@@ -1,7 +1,7 @@
 ---
 name: code-core
 description: Workflow rules shared by every code repo - DocVault, glossary, Plane, Infisical, debugging, memory, code search, editing, tests, spec gates, push rules, red flags, GitHub hygiene
-library-version: f74e60a961bf
+library-version: 8cb423b84b38
 ---
 
 # Code-core rules
@@ -123,10 +123,14 @@ Lessons ("when X, do Y") go to local memory, not SessionFlow memory. Durable fou
 summaries and recent turns for the project, with session provenance. Go further only when the task needs it:
 
 ```javascript
-mcp__sessionflow__list_memories({ project: "<project>", type: "session-summary", limit: 10 })
-mcp__sessionflow__search_memories({ query: "<issue ID> <feature> handoff", project: "<project>", n: 10 })
-mcp__sessionflow__search_all_sessions({ query: "<issue ID> <feature>", n: 5 })
+mcp__sessionflow__list_memories({ project: "<project>", type: "handoff", limit: 20 })
+mcp__sessionflow__search_memories({ query: "<feature>", project: "<project>", issue_id: "<issue ID>", n: 10 })
+mcp__sessionflow__search_all_sessions({ query: "<issue ID> <feature>", project_root: "<repo root>", n: 5 })
+mcp__sessionflow__get_issue_timeline({ issue_id: "<issue ID>" })
 ```
+
+Keep transcript queries short and specific. Skip `/start` report turns in the results: they list every
+open issue and rank first for any issue query.
 
 **Memory standard**: every record carries these keys.
 
@@ -137,7 +141,8 @@ mcp__sessionflow__search_all_sessions({ query: "<issue ID> <feature>", n: 5 })
 | `project` | lowercase project slug (`staktrakr`, `devops`) | `project.json` → `memory.project`, else the lowercase `tag` |
 | `type` | `session-summary`, `decision`, `handoff`, `fact`, `workflow`, `discovery`, `contact`, `blocker`, `preference`, `open-item`, `milestone` or `guardrail` | the kind of note |
 
-- **Writes:** routine writes come from `/wrap` only (one `session-summary` per session). Call
+- **Writes:** routine writes come from `/wrap` only: one `session-summary` per session, plus one `handoff`
+  per issue or chain that continues. Call
   `mcp__sessionflow__add_memory` directly (`type: decision` or `handoff`) only for an explicit decision or
   handoff that must be shared before the session ends. Never write a memory per task: commits, PRs and Plane
   comments record each task.
