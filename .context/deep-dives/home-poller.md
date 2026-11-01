@@ -9,7 +9,7 @@ updated: "2026-04-11"
 
 # Home Poller (Docker/Portainer)
 
-> **Last verified:** 2026-03-22: Docker containers on Ubuntu 24.04 LXC at `<home-vm>`, managed by Portainer. Five stacks on `staktrakr-net` bridge network.
+> **Last verified:** 2026-03-22. Docker containers on Ubuntu 24.04 LXC at `<home-vm>`, managed by Portainer. Five stacks on `staktrakr-net` bridge network.
 
 ---
 
@@ -52,10 +52,10 @@ Five Portainer-managed stacks on the `staktrakr-net` bridge network:
 | Stack       | Container                 | Purpose                                                                                                     | Ports                                                                              | Stack ID |
 | ----------- | ------------------------- | ----------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | -------- |
 | home-poller | `staktrakr-home-poller`   | Retail/spot/goldback pollers + dashboard + metrics                                                          | 3010, 3011, 9100                                                                   | 7        |
-| byparr      | `staktrakr-byparr`        | Cloudflare bypass sidecar (Camoufox Firefox, returns `cf_clearance` cookie)                                 | 8191 (host-exposed for debugging and Fly.io → Tailscale → Byparr CF bypass access) | —        |
+| byparr      | `staktrakr-byparr`        | Cloudflare bypass sidecar (Camoufox Firefox, returns `cf_clearance` cookie)                                 | 8191 (host-exposed for debugging and Fly.io → Tailscale → Byparr CF bypass access) | n/a      |
 | firecrawl   | `firecrawl-api` + backing | Firecrawl self-hosted (`devops/firecrawl-docker/`)                                                          | 3002                                                                               | 4        |
 | tinyproxy   | `tinyproxy-staktrakr`     | HTTP proxy for Cloud - Fly.io residential IP routing                                                        | 8888                                                                               | 5        |
-| tailscale   | `tailscale-staktrakr`     | Tailscale sidecar: exit node and subnet router for `<home-lan>/24` (tinyproxy shares its network namespace) | —                                                                                  | 8        |
+| tailscale   | `tailscale-staktrakr`     | Tailscale sidecar: exit node and subnet router for `<home-lan>/24` (tinyproxy shares its network namespace) | None                                                                               | 8        |
 
 **Portainer UI:** `https://<home-vm>:9443` (HTTPS only, self-signed cert)
 
