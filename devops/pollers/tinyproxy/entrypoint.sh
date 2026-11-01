@@ -10,12 +10,9 @@ set -e
 # Tailnet peers allowed to use the proxy come from the stack env, so the public
 # repo holds no addresses. Without them Fly.io cannot reach the proxy, so stop.
 CONF=/tmp/tinyproxy.conf
-if [ -z "${TINYPROXY_ALLOW:-}" ]; then
-  echo "tinyproxy: ERROR — TINYPROXY_ALLOW is empty. Set it to the tailnet addresses of this VM and the Fly.io container."
-  exit 1
-fi
 cp /etc/tinyproxy/tinyproxy.conf "$CONF"
-for addr in $(echo "$TINYPROXY_ALLOW" | tr ',' ' '); do
+ALLOWED=0
+for addr in $(echo "${TINYPROXY_ALLOW:-}" | tr ',' ' '); do
   case "$addr" in
     *[!0-9a-fA-F.:/]*)
       echo "tinyproxy: ERROR — TINYPROXY_ALLOW entry '${addr}' is not an IP address or CIDR"
@@ -23,7 +20,12 @@ for addr in $(echo "$TINYPROXY_ALLOW" | tr ',' ' '); do
       ;;
   esac
   echo "Allow ${addr}" >> "$CONF"
+  ALLOWED=$((ALLOWED + 1))
 done
+if [ "$ALLOWED" -eq 0 ]; then
+  echo "tinyproxy: ERROR — TINYPROXY_ALLOW has no addresses. Set it to the tailnet addresses of this VM and the Fly.io container."
+  exit 1
+fi
 
 # The image creates and owns the log directory; a root override must keep it.
 if [ "$(id -u)" = 0 ]; then
