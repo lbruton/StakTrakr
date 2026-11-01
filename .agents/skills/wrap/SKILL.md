@@ -6,7 +6,7 @@ description: >
   facts to .context/, syncs docs, and reports Session Health. Run at end of any session, optionally after
   /pr-cleanup. Triggers: "wrap", "wrap up", "close session", "end of session",
   "done for the night", "finish up", "closing time".
-library-version: f74e60a961bf
+library-version: ec8d191d27ee
 ---
 
 # Wrap Session
@@ -27,7 +27,8 @@ There is no `/retro`: lessons go to each harness's local memory, which that harn
 ## Arguments
 
 - **--handoff**: Pass `--handoff` if work continues in a new terminal. Adds the handoff fields
-  (continue issue ID, first action, gotchas) to the Step 3 session summary.
+  (continue issue ID, first action, gotchas) to the Step 3 session summary and writes a `handoff`
+  record for each continuing issue or chain (Step 3b).
 
 ---
 
@@ -115,8 +116,8 @@ Hold the results in working memory for later steps. Do not display them yet.
 ### Step 3 — Session summary to SessionFlow memory (always)
 
 Write **ONE** `mcp__sessionflow__add_memory` call that gives a detailed prose account of the
-session. This is the only routine memory write. Write it yourself from the conversation — never
-dispatch a subagent to summarize.
+session. Apart from the Step 3b handoffs, this is the only routine memory write. Write it yourself from
+the conversation — never dispatch a subagent to summarize.
 
 **Content — include every anchor that applies** (they are what makes the record findable):
 
@@ -157,6 +158,9 @@ mcp__sessionflow__add_memory(
   source_session_id: SESSION_ID,               # omit when unknown
   source_provider: PROVIDER,                   # omit when unknown
   source_project_root: "<git toplevel>",
+  source_started_at: "<ISO 8601 with offset>", # session start; omit when unknown
+  source_ended_at: "<ISO 8601 with offset>",   # now
+  supersedes: [<IDs of open handoffs this session closed>],   # Step 3b; omit when none
   extra: {
     "source": "wrap",
     "date": "<YYYY-MM-DD>",
@@ -168,10 +172,86 @@ mcp__sessionflow__add_memory(
 )
 ```
 
-`agent_id` is the harness (`codex` here), never the project. The result lists similar
+`agent_id` is the harness (`codex` here), never the project. Put every issue ID the session
+touched in the text as well as in `extra.issues`: the server extracts `issue_ids` from the text, and
+`/start` filters memories on them. The result lists similar
 memories; when one is an older summary this one replaces, mention it in the recap. If the write
 fails (`memory_unavailable`, a secret-scanner rejection), report it 🟡 with the error code —
 the transcripts still hold the session.
+
+### Step 3b — Handoff records (when work continues)
+
+`/start` marks an issue `🔁 handoff` from active `handoff` memories. Run this step before the Step 3
+write, because the summary's `supersedes` comes from it.
+
+**Read the open handoffs first:**
+
+```
+mcp__sessionflow__list_memories(project: PROJECT, type: "handoff", limit: 20, format: "json")
+```
+
+While the JSON result carries a `next_cursor`, call it again with `cursor: <next_cursor>` until the
+last page. A handoff
+on a page you skip is never superseded and stays open in `/start`.
+
+**Close** each open handoff whose work this session finished or took over: its issues are Done, or
+this session did its first action. Put its ID in the Step 3 summary's `supersedes`.
+
+**Never supersede a handoff this wrap renews.** A handoff whose `source_session_id` is `SESSION_ID`
+came from an earlier `/wrap` of this session. When its work still continues, the write below
+replaces it in place through the same topic key: leave it out of every `supersedes` list, or the
+re-wrap retires the handoff it means to keep. When its work is finished, no new handoff replaces it:
+close it like any other, in the summary's `supersedes`.
+
+**Write** one handoff per unit of continuing work when `--handoff` was passed, or when an issue this
+session worked on stays `In Progress` or `In Review` with a next action still owed. A unit is one
+issue, or a chain: several issues under one parent or epic that continue together. Skip issues that
+were only discussed.
+
+```
+mcp__sessionflow__add_memory(
+  text: "[Handoff <ISSUE or PARENT> | <Project> <YYYY-MM-DD> | <branch> | codex] Continue <ID>
+         (<title>). State: <where it stands>. First action: <one command or step>. Gotchas: <…>.
+         Chain: <child IDs and their states, when a chain>.",
+  agent_id: "codex",
+  project: PROJECT,
+  type: "handoff",
+  topic_key: "handoff:<ISSUE or PARENT>:" + SESSION_ID,   # omit when SESSION_ID is unknown
+  supersedes: [<IDs of open handoffs for the same issue or chain, from other sessions>],
+  source_session_id: SESSION_ID, source_provider: PROVIDER,
+  source_project_root: "<git toplevel>",
+  extra: {
+    "source": "wrap",
+    "issues": ["<ID>", ...],          # the issue, or every issue in the chain
+    "chain": "<parent ID>",           # only for a chain
+    "branch": "<branch>",
+    "first_action": "<one line>"
+  },
+  format: "json"
+)
+```
+
+The topic key names the session because a topic-key replace keeps a superseded record superseded:
+reusing `handoff:<ISSUE>` after an earlier handoff closed would write a record `/start` never sees. A
+re-wrap of the same session replaces its own handoff in place. Another session can supersede this
+session's handoff in between, so check before the write:
+
+```
+mcp__sessionflow__list_memories(project: PROJECT, type: "handoff", status: "superseded",
+                                source_session_id: SESSION_ID, format: "json")
+mcp__sessionflow__list_memories(project: PROJECT, type: "handoff",
+                                source_session_id: SESSION_ID, format: "json")
+```
+
+Choose the key in this order:
+
+1. When an open record of this session has a key that starts with
+   `handoff:<ISSUE or PARENT>:<SESSION_ID>`, reuse that key. The write replaces the record in place.
+2. When only a superseded record has `handoff:<ISSUE or PARENT>:<SESSION_ID>`, append the local time
+   (`handoff:<ISSUE or PARENT>:<SESSION_ID>:<YYYYMMDDHHMM>`), so the write creates a new active record.
+3. Otherwise, use `handoff:<ISSUE or PARENT>:<SESSION_ID>`. Omit `topic_key` when `SESSION_ID` is unknown.
+
+Never write a secret value into a handoff.
 
 ### Step 4 — Operating memory (local agent memory)
 
@@ -274,7 +354,7 @@ The recap is the *last* thing the user sees.
 **Session summary:** saved as <memory ID> (<issue IDs>; "replaced" when a re-wrap) — or "⚠ write failed: <code>"
 **Local memory:** <N entries added/updated> (or "nothing new")
 **Docs:** <"chore PR #N (auto-merge)" | "shared vault updated (Devops <sha>)" | "no impact">
-**Handoff:** <"included in the session summary" if --handoff, else "n/a">
+**Handoff:** <"<N> written (<IDs>), <M> closed" | "n/a">
 
 <Session Health block — see format below>
 
@@ -345,8 +425,9 @@ Even when red, the wrap still completes. Red is a *report*, not a halt.
 ## Rules (the short version)
 
 - **One flow, no gates.** No "STOP HERE", no phase banners, no mid-flow approval prompts.
-- **Exactly one routine memory write per wrap:** the Step 3 session summary, with `project` and
-  `type: session-summary`. No local-memory copies, no per-fact memory writes.
+- **One session summary per wrap:** the Step 3 record, with `project` and `type: session-summary`.
+  The only other writes are Step 3b handoffs, one per continuing issue or chain. No local-memory
+  copies, no per-fact memory writes.
 - **Lessons → local memory. Foundations → `.context/`. Big picture → SessionFlow memory.**
 - **Run actions autonomously where the action is obvious.** Fast-forward pull when clean,
   docs sync. Anything that touches dirty user work becomes a warning, not an action.
