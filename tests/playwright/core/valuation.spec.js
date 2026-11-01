@@ -727,6 +727,26 @@ test.describe("Dashboard stack headline", () => {
       `Last 12 months: ${moved.invested.split(" (")[0]} added across ${moved.acquisitions} acquisitions, market ${moved.market}`
     );
 
+    // A spot history import redraws through updateAllSparklines. A corrected close on the
+    // day before the window moves its baseline, so the market figure follows it.
+    await page.evaluate(async () => {
+      for (const day of ["2025-05-08", "2025-05-09", "2025-05-10"]) {
+        spotHistory.push({
+          timestamp: `${day}T20:00:00.000Z`,
+          metal: "Silver",
+          spot: 5,
+          source: "seed",
+          provider: "Playwright",
+        });
+      }
+      await updateAllSparklines();
+    });
+    const corrected = await modalStrip("All");
+    expect(corrected.market).not.toBe(moved.market);
+    await expect(page.locator("#stackActivity")).toHaveText(
+      `Last 12 months: ${corrected.invested.split(" (")[0]} added across ${corrected.acquisitions} acquisitions, market ${corrected.market}`
+    );
+
     // Phones: the weights list and the activity line wrap below the figures.
     await page.setViewportSize({ width: 390, height: 844 });
     const bottomOf = (selector) =>

@@ -145,6 +145,8 @@ let _stackActivity = null;
 let _stackActivityPending = null;
 /** Supersede generation: a load that finishes after a newer one started is dropped. */
 let _stackActivityGeneration = 0;
+/** Counts spot history changes; refreshStackHeadline bumps it so the maps reload. */
+let _stackSpotHistoryVersion = 0;
 
 /**
  * Reads the saved lead figure.
@@ -288,10 +290,11 @@ const _renderStackActivity = (stats) => {
 };
 
 /**
- * Keys for the cached activity. `mapsKey` covers today and the Item fields the series
- * read, so a new day or an inventory edit reloads the spot maps; `statsKey` also covers
- * the live spot prices and the constitutional wear factor, which value the series.
- * @returns {{todayKey: string, mapsKey: string, statsKey: string}}
+ * Keys for the cached activity. `viewKey` covers today and the Item fields the series
+ * read; a change hides the line until it loads again. `mapsKey` adds the spot history
+ * version, so a history change reloads the maps. `statsKey` adds the live spot prices and
+ * the constitutional wear factor, which value the series.
+ * @returns {{todayKey: string, viewKey: string, mapsKey: string, statsKey: string}}
  */
 const _stackActivityKeys = () => {
   // todayStr is local-frame like item dates; buildPortfolioSeries absorbs the UTC
@@ -310,23 +313,32 @@ const _stackActivityKeys = () => {
     it.constitutionalEntryMode,
     it.disposition,
   ]);
-  const mapsKey = `${todayKey}|${JSON.stringify(items)}`;
+  const viewKey = `${todayKey}|${JSON.stringify(items)}`;
+  const mapsKey = `${viewKey}|${_stackSpotHistoryVersion}`;
   const wear =
     typeof getConstitutionalWearFactor === "function" ? getConstitutionalWearFactor() : 1;
-  return { todayKey, mapsKey, statsKey: `${mapsKey}|${wear}|${JSON.stringify(spotPrices)}` };
+  const statsKey = `${mapsKey}|${wear}|${JSON.stringify(spotPrices)}`;
+  return { todayKey, viewKey, mapsKey, statsKey };
 };
 
 /**
  * Builds the All Metals series and one series per held metal from one set of spot maps,
- * loading the maps only when the inventory or the day changed, then redraws the headline.
- * A run that a newer one superseded is dropped; a failed run leaves the activity line and
- * the pace hidden until the keys change.
- * @param {{todayKey: string, mapsKey: string, statsKey: string}} keys - _stackActivityKeys().
+ * loading the maps only when the inventory, the day or the spot history changed, then
+ * redraws the headline. A run that a newer one superseded is dropped; a failed run leaves
+ * the activity line and the pace hidden until the keys change.
+ * @param {{todayKey: string, viewKey: string, mapsKey: string, statsKey: string}} keys -
+ *   _stackActivityKeys().
  * @param {number} generation - Generation captured when the run started.
  */
 const _loadStackActivity = async (keys, generation) => {
   // A failed run is kept for its keys too, so the redraw below does not retry it.
-  let activity = { mapsKey: keys.mapsKey, statsKey: keys.statsKey, all: null, pace: null };
+  let activity = {
+    viewKey: keys.viewKey,
+    mapsKey: keys.mapsKey,
+    statsKey: keys.statsKey,
+    all: null,
+    pace: null,
+  };
   try {
     if (_stackSpotMaps?.mapsKey !== keys.mapsKey) {
       const loaded = await window.loadPortfolioSpotMaps("All");
@@ -439,10 +451,10 @@ const renderStackHeadline = (metalTotals) => {
     );
   }
 
-  // The last activity for this inventory and day stays up while a spot move recomputes it;
-  // an inventory edit or a new day hides it until the series load again.
+  // The last activity for this inventory and day stays up while a spot or history change
+  // recomputes it; an inventory edit or a new day hides it until the series load again.
   const keys = _stackActivityKeys();
-  const activity = _stackActivity?.mapsKey === keys.mapsKey ? _stackActivity : null;
+  const activity = _stackActivity?.viewKey === keys.viewKey ? _stackActivity : null;
   _renderStackWeights(metalTotals, activity?.pace ?? null);
   _renderStackActivity(activity?.all ?? null);
   _scheduleStackActivity(keys);
@@ -452,8 +464,10 @@ window.renderStackHeadline = renderStackHeadline;
 /**
  * Redraws the headline from the last totals after spot history or the 24h comparison
  * mode changes; updateAllSparklines calls it, since those changes redraw the sparklines.
+ * The activity reloads its spot maps, which an import or restore may have corrected.
  */
 const refreshStackHeadline = () => {
+  _stackSpotHistoryVersion += 1;
   if (_lastMetalTotals) renderStackHeadline(_lastMetalTotals);
 };
 window.refreshStackHeadline = refreshStackHeadline;
@@ -467,7 +481,7 @@ const _swapStackLead = () => {
     console.warn("[stack-headline] could not save the lead figure:", error);
   }
   if (typeof scheduleSyncPush === "function") scheduleSyncPush();
-  refreshStackHeadline();
+  if (_lastMetalTotals) renderStackHeadline(_lastMetalTotals);
 };
 
 // Parse-time wiring: this script is deferred, so the buttons exist, and safeGetElement may not yet.
