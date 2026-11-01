@@ -619,13 +619,14 @@ test.describe("Dashboard stack headline", () => {
     await expect(swap).toHaveAccessibleName("Lead with melt value");
     await expect.poll(() => readMoney(page, "#stackRetailValue")).not.toBe("0.00");
     await expect(page.locator("#stackRetailSub")).toBeHidden();
-    // The PDF names the gain's basis on each of its four metal blocks.
+    // The PDF names the gain's basis on each of its four metal blocks. The item column
+    // stays at retail, under its own heading.
     const pdfGainBases = () =>
       page.evaluate(() =>
         [
           ..._buildInventoryPdf()
             .output()
-            .matchAll(/Gain\/Loss \\\(at (\w+)\\\)/g),
+            .matchAll(/Gain\/Loss \\\(at (\w+)\\\):/g),
         ].map((match) => match[1])
       );
     expect(await pdfGainBases()).toEqual(Array(4).fill("retail"));
@@ -688,6 +689,19 @@ test.describe("Dashboard stack headline", () => {
     await expect(swap).toBeFocused();
     await expect(page.locator("#stackGainSub")).toHaveText(/ at retail$/);
     expect(await readMoney(page, "#lossProfitAll")).toBe(await readMoney(page, "#stackGainValue"));
+
+    // A lead saved elsewhere reaches the PDF: its totals and label use one basis.
+    expect(
+      await page.evaluate(() => {
+        saveDataSync(STACK_HEADLINE_LEAD_KEY, "melt");
+        return _buildInventoryPdf().output().includes("Gain/Loss \\(at melt\\):");
+      })
+    ).toBe(true);
+    expect(await readMoney(page, "#lossProfitAll")).toBe(meltGain);
+    await page.evaluate(() => {
+      saveDataSync(STACK_HEADLINE_LEAD_KEY, "retail");
+      updateSummary();
+    });
 
     // A write that fails for a reason other than a full store says so; the lead stays.
     await page.evaluate(() => {

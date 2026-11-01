@@ -2821,7 +2821,7 @@ const _buildInventoryPdf = () => {
         "Purchase",
         "Melt Value",
         "Retail",
-        "Gain/Loss",
+        "Gain/Loss (at retail)",
         "Payment Method",
         "Location",
         "N#",
@@ -2843,6 +2843,10 @@ const _buildInventoryPdf = () => {
 
   // Add totals
   const finalY = doc.lastAutoTable.finalY || 30;
+
+  // Another tab or a sync can change the saved lead, so the totals are redrawn before the
+  // label and the cells are read.
+  updateSummary();
 
   // Helper to safely read element text
   const txt = (el) => (el && el.textContent) || "—";
