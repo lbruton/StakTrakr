@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# library-version: 8cb423b84b38
+# library-version: a30d29ec7463
 """Post-edit lint hook for DocVault vaults — markdownlint + frontmatter + wikilink checks.
 
 DEVS-78: any `*/DocVault/**` file is a vault page (project vaults in each repo, the shared

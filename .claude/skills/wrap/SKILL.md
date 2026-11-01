@@ -6,7 +6,7 @@ description: >
   facts to .context/, syncs docs, and reports Session Health. Run at end of any session, optionally after
   /pr-cleanup. Triggers: "wrap", "wrap up", "close session", "end of session",
   "done for the night", "finish up", "closing time".
-library-version: 8cb423b84b38
+library-version: a30d29ec7463
 ---
 
 # Wrap Session
@@ -193,6 +193,10 @@ mcp__sessionflow__list_memories(project: PROJECT, type: "handoff", limit: 20, fo
 **Close** each open handoff whose work this session finished or took over: its issues are Done, or
 this session did its first action. Put its ID in the Step 3 summary's `supersedes`.
 
+**Never supersede this session's own handoffs.** A handoff whose `source_session_id` is `SESSION_ID`
+came from an earlier `/wrap` of this session; the topic key below replaces it in place. Leave it out
+of every `supersedes` list, or the re-wrap retires the handoff it means to keep.
+
 **Write** one handoff per unit of continuing work when `--handoff` was passed, or when an issue this
 session worked on stays `In Progress` or `In Review` with a next action still owed. A unit is one
 issue, or a chain: several issues under one parent or epic that continue together. Skip issues that
@@ -207,7 +211,7 @@ mcp__sessionflow__add_memory(
   project: PROJECT,
   type: "handoff",
   topic_key: "handoff:<ISSUE or PARENT>:" + SESSION_ID,   # omit when SESSION_ID is unknown
-  supersedes: [<IDs of open handoffs for the same issue or chain>],
+  supersedes: [<IDs of open handoffs for the same issue or chain, from other sessions>],
   source_session_id: SESSION_ID, source_provider: PROVIDER,
   source_project_root: "<git toplevel>",
   extra: {
