@@ -1180,56 +1180,14 @@
             </div>
           </div>
         </section>
-        <!-- ── Best Price Ticker (STAK-504) ── -->
-        <div class="market-ticker-frame" id="bestPriceTickerFrame">
-          <div
-            id="bestPriceTickerEl"
-            class="market-ticker"
-            role="region"
-            aria-labelledby="bestPriceTickerHeading"
-            hidden
-          >
-            <h2 class="sr-only" id="bestPriceTickerHeading">Best dealer prices</h2>
-          </div>
-          <button
-            type="button"
-            class="ticker-pause-btn"
-            id="bestPriceTickerPause"
-            aria-pressed="false"
-            title="Pause dealer prices"
-            hidden
-          >
-            <span class="sr-only">Pause dealer prices</span>
-            <svg
-              class="ticker-pause-icon"
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="currentColor"
-              aria-hidden="true"
-            >
-              <rect x="6" y="5" width="4" height="14" rx="1" />
-              <rect x="14" y="5" width="4" height="14" rx="1" />
-            </svg>
-            <svg
-              class="ticker-play-icon"
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="currentColor"
-              aria-hidden="true"
-            >
-              <path
-                d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"
-              />
-            </svg>
-          </button>
-        </div>
-        <!-- Stack headline: retail, today's change, gain on cost and melt, filled by
-             renderStackHeadline (js/stack-headline.js) from the totals updateSummary builds. -->
+        <!-- Your stack: the stack figures over the totals ledger, in one frame.
+             renderStackHeadline (js/stack-headline.js) fills the figures from the totals
+             updateSummary (js/inventory-table.js) builds; updateSummary fills the ledger
+             cells by id and marks rows held; applyMetalOrder (js/settings.js) orders the
+             rows and marks them enabled. The figures follow reading order. -->
         <section
-          class="stack-headline"
-          id="stackHeadlineSection"
+          class="totals-section stack-card"
+          id="totalsSectionEl"
           aria-labelledby="stackHeadlineTitle"
         >
           <h2 class="stack-headline-title" id="stackHeadlineTitle">Your stack</h2>
@@ -1242,28 +1200,34 @@
               </dd>
             </div>
             <div class="stack-figure">
+              <dt class="stack-figure-label">Melt value</dt>
+              <dd class="stack-figure-value" id="stackMeltValue">$0.00</dd>
+              <dd class="stack-figure-sub" id="stackMeltSub"></dd>
+            </div>
+            <div class="stack-figure">
               <dt class="stack-figure-label" id="stackGainLabel">Gain on cost</dt>
               <dd class="stack-figure-value" id="stackGainValue">$0.00</dd>
               <dd class="stack-figure-sub" id="stackGainSub"></dd>
             </div>
             <div class="stack-figure">
-              <dt class="stack-figure-label">Melt value</dt>
-              <dd class="stack-figure-value" id="stackMeltValue">$0.00</dd>
-              <dd class="stack-figure-sub" id="stackMeltSub"></dd>
+              <dt class="stack-figure-label">Cost basis</dt>
+              <dd class="stack-figure-value" id="stackCostValue">$0.00</dd>
+              <dd class="stack-figure-sub" id="stackCostSub"></dd>
+            </div>
+            <div class="stack-figure stack-figure-realized" id="stackRealizedFigure">
+              <dt class="stack-figure-label">Realized</dt>
+              <dd class="stack-figure-value" id="stackRealizedValue">$0.00</dd>
+              <dd class="stack-figure-sub" id="stackRealizedSub"></dd>
             </div>
           </dl>
           <div class="stack-headline-empty" id="stackHeadlineEmpty" hidden>
             <p>No Items yet.</p>
             <button type="button" class="btn success" id="stackHeadlineAddItem">Add Item</button>
           </div>
-        </section>
-
-        <!-- Totals ledger: one row per held metal in Metal Order, All Metals as the footer.
-             updateSummary (js/inventory-table.js) fills the cells by id and marks rows held;
-             applyMetalOrder (js/settings.js) orders the rows and marks them enabled. -->
-        <section class="totals-section" id="totalsSectionEl" aria-labelledby="totalsTitle">
-          <h2 class="totals-title" id="totalsTitle">Totals</h2>
-          <table class="totals-ledger" id="totalsLedger" aria-labelledby="totalsTitle">
+          <table class="totals-ledger" id="totalsLedger">
+            <caption class="sr-only">
+              Totals by metal
+            </caption>
             <thead>
               <tr>
                 <th scope="col" class="totals-col-metal">Metal</th>
@@ -1375,6 +1339,51 @@
             </tfoot>
           </table>
         </section>
+        <!-- ── Best Price Ticker (STAK-504) ── -->
+        <div class="market-ticker-frame" id="bestPriceTickerFrame">
+          <div
+            id="bestPriceTickerEl"
+            class="market-ticker"
+            role="region"
+            aria-labelledby="bestPriceTickerHeading"
+            hidden
+          >
+            <h2 class="sr-only" id="bestPriceTickerHeading">Best dealer prices</h2>
+          </div>
+          <button
+            type="button"
+            class="ticker-pause-btn"
+            id="bestPriceTickerPause"
+            aria-pressed="false"
+            title="Pause dealer prices"
+            hidden
+          >
+            <span class="sr-only">Pause dealer prices</span>
+            <svg
+              class="ticker-pause-icon"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              aria-hidden="true"
+            >
+              <rect x="6" y="5" width="4" height="14" rx="1" />
+              <rect x="14" y="5" width="4" height="14" rx="1" />
+            </svg>
+            <svg
+              class="ticker-play-icon"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              aria-hidden="true"
+            >
+              <path
+                d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"
+              />
+            </svg>
+          </button>
+        </div>
       </div>
       <!-- v2 tab view: Inventory (STRK-282) -->
       <div class="tab-view" id="tabViewInventory" role="tabpanel" aria-labelledby="tabBtnInventory">

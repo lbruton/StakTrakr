@@ -2959,7 +2959,6 @@ window.renderMetalOrderConfigTable = renderMetalOrderConfigTable;
  * across tabs.
  */
 const LAYOUT_SECTION_TAB_VIEW = {
-  stackHeadline: "tabViewDashboard",
   spotPrices: "tabViewDashboard",
   bestPriceTicker: "tabViewDashboard",
   totals: "tabViewDashboard",
@@ -2977,8 +2976,8 @@ window.LAYOUT_SECTION_TAB_VIEW = LAYOUT_SECTION_TAB_VIEW;
 const applyLayoutOrder = () => {
   const config = getNormalizedLayoutSectionConfig();
   const sectionMap = {
-    stackHeadline: safeGetElement("stackHeadlineSection"),
     spotPrices: elements.spotPricesSection,
+    // Your stack: the figures and the totals ledger share this one section.
     totals: elements.totalsSectionEl,
     search: elements.searchSectionEl,
     table: elements.tableSectionEl,

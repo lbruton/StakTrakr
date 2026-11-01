@@ -134,11 +134,12 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.36.95 &ndash; Your stack in one card</strong>: Your stack and the Totals table share one card below the spot cards, with the best-price ticker after it. The figures read Retail value, Melt value, Gain on cost, Cost basis and Realized, and Realized follows the Show Realized setting. A saved layout keeps its order, with Your stack as one entry in Settings, Layout (STRK-500).</li>
     <li><strong>v3.36.94 &ndash; A quieter Dashboard</strong>: Your stack and the Totals table end on their figures, without the footnotes under them. Click anywhere on a row of the Totals table, All Metals included, to open that row's breakdown chart. The row highlights under the pointer, and the metal name still opens it from the keyboard (STRK-499).</li>
     <li><strong>v3.36.93 &ndash; Clean ticker edges</strong>: Dealer names in the best-price ticker fade out before they reach the frame border, on both sides. When you hover, focus or pause the ticker, a dealer that stops at the edge stays clear of the border (STRK-504).</li>
     <li><strong>v3.36.92 &ndash; One look for the Dashboard</strong>: The header, spot cards, best-price ticker and footer share one background with Your stack and Totals in every theme. In light and sepia the spot cards stand off the page instead of blending into it, and the header and footer drop their shadow. The ratio chips on the spot cards have a lighter fill, so they stand out from the card (STRK-503).</li>
     <li><strong>v3.36.91 &ndash; Totals in one table</strong>: The Dashboard totals are one table with a row for each metal you hold and All Metals as the bottom line. The figures line up on the decimal point, so you can compare metals down each column, and Gain stands out in bold. On a phone each metal takes two lines, with no carousel to swipe through. Select a metal name to open its breakdown chart (STRK-491).</li>
-    <li><strong>v3.36.90 &ndash; Your stack at a glance</strong>: A "Your stack" strip above the totals shows your retail value with today's change, your gain on what you paid, and the melt value of your metal. Today's change follows the same 24h spot move as the spot cards, and a note says when Items without a retail price count at melt. The spot cards also lose the extra panel around them, and you can hide or move the strip in Settings, Layout (STRK-490).</li>      `;
+      `;
 };
 
 // Expose globally for access from other modules

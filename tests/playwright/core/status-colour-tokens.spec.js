@@ -515,11 +515,11 @@ async function gotoDashboardWithGainAndLoss(page) {
 // Each selector names Dashboard text whose colour carries a status or a metal mark, plus
 // the stack headline, whose figures sit on their own surface.
 const DASHBOARD_STATUS_TEXT = {
-  "stack headline title": "#stackHeadlineSection h2",
-  "stack headline label": "#stackHeadlineSection .stack-figure-label",
-  "stack headline value": "#stackHeadlineSection .stack-figure-value",
-  "stack headline status": "#stackHeadlineSection dd > span",
-  "stack headline context": "#stackHeadlineSection .stack-figure-sub",
+  "stack headline title": "#totalsSectionEl h2",
+  "stack headline label": "#stackHeadlineFigures .stack-figure-label",
+  "stack headline value": "#stackHeadlineFigures .stack-figure-value",
+  "stack headline status": "#stackHeadlineFigures dd > span",
+  "stack headline context": "#stackHeadlineFigures .stack-figure-sub",
   "totals header": "#totalsLedger thead th",
   "totals metal": "#totalsLedger .total-title-btn",
   "totals figure": "#totalsLedger .total-value",

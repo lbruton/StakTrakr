@@ -488,6 +488,9 @@ test.describe("Dashboard totals ledger", () => {
     await page.goto("/index.html");
     await expect.poll(() => visibleLedgerRows(page)).toEqual(["silver", "gold"]);
     await expect(page.locator("#realizedGainLossGold")).toContainText("30");
+    // The Realized figure sums the same gains, as a percentage of the cost that left.
+    await expect(page.locator("#stackRealizedValue")).toHaveText("+$30.00");
+    await expect(page.locator("#stackRealizedSub")).toHaveText("+50.0% on $60.00 cost");
   });
 
   test("five held metals fit at 1440 without scrolling sideways", async ({ page }) => {
@@ -589,7 +592,7 @@ test.describe("Dashboard totals ledger", () => {
     }
   });
 
-  test("the stack card and the ledger end on their figures, with no footnote or rule, at 1440 and 390", async ({
+  test("Your stack: the figures sit over the ledger and the card ends on the ledger, at 1440 and 390", async ({
     page,
   }) => {
     await injectSeedInventory(page);
@@ -598,23 +601,77 @@ test.describe("Dashboard totals ledger", () => {
         await page.setViewportSize({ width, height: 900 });
         await page.goto("/index.html");
         await expect(page.locator("#stackRetailValue")).not.toHaveText("$0.00");
-        const below = await page.evaluate(() => {
-          // Lists each visible element of a section that sits below its figures block.
-          const after = (sectionId, figuresId) => {
-            const figuresBottom = document.getElementById(figuresId).getBoundingClientRect().bottom;
-            return [...document.getElementById(sectionId).querySelectorAll("*")]
-              .filter((el) => el.getClientRects().length > 0)
-              .filter((el) => el.getBoundingClientRect().top >= figuresBottom - 1)
-              .map((el) => `${el.tagName}.${el.className}`);
-          };
+        const card = await page.evaluate(() => {
+          const box = (id) => document.getElementById(id).getBoundingClientRect();
+          const ledgerBottom = box("totalsLedger").bottom;
           return {
-            stack: after("stackHeadlineSection", "stackHeadlineFigures"),
-            totals: after("totalsSectionEl", "totalsLedger"),
+            figuresAboveLedger: box("stackHeadlineFigures").bottom <= box("totalsLedger").top + 1,
+            belowLedger: [...document.getElementById("totalsSectionEl").querySelectorAll("*")]
+              .filter((el) => el.getClientRects().length > 0)
+              .filter((el) => el.getBoundingClientRect().top >= ledgerBottom - 1)
+              .map((el) => `${el.tagName}.${el.className}`),
           };
         });
-        expect(below).toEqual({ stack: [], totals: [] });
+        expect(card).toEqual({ figuresAboveLedger: true, belowLedger: [] });
       });
     }
+  });
+
+  test("Your stack figures: one row at 1440, the lead over two columns at 390, Realized hides", async ({
+    page,
+  }) => {
+    await injectSeedInventory(page);
+    // Each visible figure's box, in DOM order, relative to the figures block. The figures
+    // align on their last line, so a row shares a bottom edge, not a top one.
+    const readFigures = () =>
+      page.evaluate(() => {
+        const list = document.getElementById("stackHeadlineFigures");
+        const outer = list.getBoundingClientRect();
+        return [...list.children]
+          .filter((el) => el.getClientRects().length > 0)
+          .map((el) => {
+            const r = el.getBoundingClientRect();
+            return {
+              label: el.querySelector("dt").textContent.trim(),
+              bottom: Math.round(r.bottom - outer.top),
+              left: Math.round(r.left - outer.left),
+              right: Math.round(outer.right - r.right),
+              width: Math.round(r.width),
+            };
+          });
+      });
+    const labels = ["Retail value", "Melt value", "Gain on cost", "Cost basis", "Realized"];
+
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/index.html");
+    await expect(page.locator("#stackRetailValue")).not.toHaveText("$0.00");
+    const wide = await readFigures();
+    expect(wide.map((f) => f.label)).toEqual(labels);
+    expect(new Set(wide.map((f) => f.bottom)).size).toBe(1);
+    expect(wide.map((f) => f.left)).toEqual([...wide.map((f) => f.left)].sort((a, b) => a - b));
+    expect(new Set(wide.slice(1).map((f) => f.width)).size).toBe(1);
+    expect(wide[0].width).toBeGreaterThan(wide[1].width);
+
+    // With Realized off, the other figures widen to fill the row.
+    await page.evaluate(() => applyRealizedVisibility(false));
+    await expect(page.locator("#stackRealizedFigure")).toBeHidden();
+    const narrow = await readFigures();
+    expect(narrow.map((f) => f.label)).toEqual(labels.slice(0, 4));
+    expect(narrow.at(-1).right).toBeLessThanOrEqual(1);
+    expect(narrow[1].width).toBeGreaterThan(wide[1].width);
+    await page.evaluate(() => applyRealizedVisibility(true));
+
+    await page.setViewportSize({ width: 390, height: 900 });
+    await expect.poll(async () => (await readFigures())[0].right).toBeLessThanOrEqual(1);
+    const phone = await readFigures();
+    expect(phone[0]).toMatchObject({ left: 0, right: 0 });
+    // Melt and Gain share the second row, Cost basis and Realized the third.
+    expect(phone[1].bottom).toBe(phone[2].bottom);
+    expect(phone[3].bottom).toBe(phone[4].bottom);
+    expect(phone[1].bottom).toBeGreaterThan(phone[0].bottom);
+    expect(phone[3].bottom).toBeGreaterThan(phone[1].bottom);
+    expect(phone[1].left).toBe(0);
+    expect(phone[3].left).toBe(0);
   });
 });
 
@@ -637,8 +694,7 @@ function readDashboardFrames(page) {
       header: document.querySelector(".app-header"),
       spot: document.querySelector('.spot-card[data-metal="silver"]'),
       ticker: document.getElementById("bestPriceTickerEl"),
-      stack: document.querySelector(".stack-headline"),
-      totals: document.getElementById("totalsSectionEl"),
+      stack: document.getElementById("totalsSectionEl"),
       footer: document.querySelector(".app-footer"),
     };
     const ticker = frames.ticker;
@@ -661,7 +717,7 @@ function readDashboardFrames(page) {
 }
 
 test.describe("Dashboard frames", () => {
-  test("header, spot cards, ticker, stack, totals and footer share one surface in every theme", async ({
+  test("header, spot cards, ticker, Your stack and footer share one surface in every theme", async ({
     page,
   }) => {
     await gotoDesktopDashboard(page);
@@ -712,6 +768,8 @@ test.describe("Dashboard frames", () => {
  * centre band over a coin name centred in the strip is the control: it must show ink.
  */
 async function readTickerEdgeInk(page) {
+  // The ticker follows Your stack and can sit below the fold; a screenshot clip must be on screen.
+  await page.locator("#bestPriceTickerEl").scrollIntoViewIfNeeded();
   const bandWidth = 8;
   const ink = {};
   for (const edge of ["left", "right", "centre"]) {
