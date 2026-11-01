@@ -520,6 +520,8 @@ const DASHBOARD_STATUS_TEXT = {
   "stack headline value": "#stackHeadlineFigures .stack-figure-value",
   "stack headline status": "#stackHeadlineFigures dd > span",
   "stack headline context": "#stackHeadlineFigures .stack-figure-sub",
+  "stack weights": "#stackWeights li > span:not(.totals-metal-mark)",
+  "stack activity": "#stackActivity, #stackActivity > span",
   "totals header": "#totalsLedger thead th",
   "totals metal": "#totalsLedger .total-title-btn",
   "totals figure": "#totalsLedger .total-value",

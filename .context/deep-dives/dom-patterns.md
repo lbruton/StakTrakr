@@ -232,15 +232,23 @@ These elements are defined in `index.html` and are part of the `layoutSectionCon
 
 `#totalsSectionEl` is the Your stack card and the `totals` layout section, between the spot cards and the ticker by default. It holds the `#stackHeadlineTitle` heading, the stack figures and the totals ledger. `js/stack-headline.js` fills the figures: `updateSummary()` calls `renderStackHeadline(metalTotals)` with the same per-metal accumulators the totals ledger uses. `updateAllSparklines()` calls `refreshStackHeadline()`, so a spot history or comparison-mode change redraws today's change.
 
+The `stackHeadlineLead` preference (`"retail"` or `"melt"`, synced) picks the lead. `_arrangeStackLead` moves the lead figure first in the list, with the swap button and today's line, so reading order matches the screen. The activity line and the paces come from `buildPortfolioSeries` and `computeWindowStats` over the last 365 days, as the breakdown modal's 1Y range computes them. `loadPortfolioSpotMaps` (`js/detailsModal.js`) loads the spot maps for both. The result is kept until the inventory fingerprint changes.
+
 | Element ID                                   | Purpose                                                                        |
 | -------------------------------------------- | ------------------------------------------------------------------------------ |
-| `stackHeadlineFigures`                       | Figure list, in reading order; hidden when the inventory holds no Items        |
-| `stackRetailValue`, `stackTodayValue`        | Retail value and today's change under it                                       |
-| `stackMeltValue`, `stackMeltSub`             | Melt value and the ounces and Items it covers                                  |
-| `stackGainValue`, `stackGainSub`             | Gain on cost and its percentage at retail                                      |
+| `stackHeadlineHead`                          | Figures, activity line and weights; hidden when the inventory holds no Items   |
+| `stackHeadlineFigures`                       | Figure list, in reading order                                                  |
+| `stackRetailFigure`, `stackMeltFigure`       | Retail and melt figures; the lead one comes first                              |
+| `stackLeadSwap`                              | Swap button in the lead's label; its name names the action                     |
+| `stackTodayValue`                            | Today's change, under the lead; "today at spot" under the retail lead          |
+| `stackRetailValue`, `stackRetailSub`         | Retail value and, when it does not lead, its premium over melt                 |
+| `stackMeltValue`, `stackMeltSub`             | Melt value and, when it does not lead, the Items it covers                     |
+| `stackGainValue`, `stackGainSub`             | Gain on cost at the lead's basis and its percentage                            |
 | `stackCostValue`, `stackCostSub`             | Cost basis (the All Metals Paid) and the average cost per ounce                |
 | `stackRealizedFigure`                        | Realized figure; `.hide-realized` on `#totalsSectionEl` hides it               |
 | `stackRealizedValue`, `stackRealizedSub`     | Realized gain or loss and its percentage of the disposed cost                  |
+| `stackActivity`                              | Last 12 months: invested, acquisitions and market; hidden until loaded         |
+| `stackWeights`, `stackWeightsList`           | Weight held per enabled metal with active Items, in Metal Order, with pace     |
 | `stackHeadlineEmpty`, `stackHeadlineAddItem` | "No Items yet." and the Add Item button, which opens the add form on Inventory |
 
 `_loadSectionConfig` gives a saved config each default section it lacks. The new section goes before the next default the user already has. Labels always come from the defaults. `_foldStackHeadlineSection` folds a saved `stackHeadline` entry into `totals` at the earlier position, enabled if either entry was.
