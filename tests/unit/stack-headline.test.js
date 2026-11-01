@@ -13,18 +13,30 @@ const computeStackHeadline = evalSource("js/stack-headline.js", {
 });
 const HEADLINE_HELPERS = [
   "pickStackLead",
+  "stackGainLabel",
   "computeStackWeights",
   "formatStackPace",
   "stackActivityWindowStart",
 ];
-const { pickStackLead, computeStackWeights, formatStackPace, stackActivityWindowStart } =
-  evalSource("js/stack-headline.js", {
-    slice: HEADLINE_HELPERS.map((name) =>
-      rangeOf(headlineSrc, sliceArrowConst(headlineSrc, `const ${name} = (`))
-    ),
-    params: { STACK_ACTIVITY_DAYS: 365 },
-    suffix: `\nreturn { ${HEADLINE_HELPERS.join(", ")} };`,
-  });
+/** Display currency for the formatCurrency double. */
+const display = { code: "USD", rate: 1 };
+const formatCurrency = (value) =>
+  new Intl.NumberFormat("en-US", { style: "currency", currency: display.code }).format(
+    value * display.rate
+  );
+const {
+  pickStackLead,
+  stackGainLabel,
+  computeStackWeights,
+  formatStackPace,
+  stackActivityWindowStart,
+} = evalSource("js/stack-headline.js", {
+  slice: HEADLINE_HELPERS.map((name) =>
+    rangeOf(headlineSrc, sliceArrowConst(headlineSrc, `const ${name} = (`))
+  ),
+  params: { STACK_ACTIVITY_DAYS: 365, formatCurrency },
+  suffix: `\nreturn { ${HEADLINE_HELPERS.join(", ")} };`,
+});
 
 /** Builds one metal's updateSummary accumulator with zeroed defaults. */
 const metal = (fields) => ({
@@ -203,6 +215,27 @@ describe("Your stack lead", () => {
       gain: -100,
       gainPct: -10,
     });
+  });
+
+  test("the gain label follows the sign of the amount in whole cents", () => {
+    for (const [gain, label] of [
+      [-100, "Loss on cost"],
+      [-0.01, "Loss on cost"],
+      [-0.005, "Loss on cost"],
+      [-0.004, "Gain on cost"],
+      [-0, "Gain on cost"],
+      [0, "Gain on cost"],
+      [0.01, "Gain on cost"],
+    ]) {
+      assert.equal(stackGainLabel(gain), label, String(gain));
+    }
+  });
+
+  test("the gain label follows the precision and rate of the display currency", () => {
+    Object.assign(display, { code: "JPY", rate: 150 });
+    assert.equal(stackGainLabel(-0.003), "Gain on cost");
+    assert.equal(stackGainLabel(-0.004), "Loss on cost");
+    Object.assign(display, { code: "USD", rate: 1 });
   });
 
   test("an unknown or missing preference leads with retail", () => {

@@ -365,8 +365,9 @@ then the totals ledger. It is a flat frame on the secondary background with no a
 Instrument Serif title. The ledger has no heading of its own; a visually hidden caption names it.
 
 Five figures in the data face read in this order, on screen and in the page: the lead value, the other
-value, Gain on cost, Cost basis and Realized. Retail value leads by default; a 26px round swap button in
-the lead's label (44px hit area) swaps it with Melt value, and the choice is saved. The lead sits at 2.5rem
+value, Gain on cost (Loss on cost below zero), Cost basis and Realized. Retail value leads by default; a
+26px round swap button in the lead's label (44px hit area) swaps it with Melt value, and the choice is
+saved. The ledger's Gain/Loss column uses the lead's basis. The lead sits at 2.5rem
 with today's change under it ("today at spot" under the retail lead). The other four share the rest of
 the row at 1.25rem, each with a line of context: the Items priced at spot, or retail's premium over melt;
 the gain percentage at the lead's basis; the average cost per ounce; and the realized percentage on the
@@ -374,7 +375,8 @@ cost of the Items that left the stack. Only the change, gain, premium and realiz
 status colours. Realized hides with the Show Realized setting, and the other figures widen to fill the row.
 
 A "Weight held" column to the right, behind a 1px rule, lists each held metal in Metal Order: the ledger's
-metal mark, the name, the ounces and the 12-month pace ("+0.083 oz/mo" or "No buys"). Below the figures, a
+metal mark, the name, the ounces and the 12-month pace ("+0.083 oz/mo" or "No buys") under a Rate header.
+Below the figures, a
 line reads the last 12 months: the amount added, the acquisitions and the market change. Below 768px the
 lead takes the full width, the other four fill two columns, and the activity line and the weights list
 (under a rule) follow. With no Items the card shows "No Items yet." and Add Item, and the ledger hides.
@@ -390,13 +392,13 @@ and slate.
 
 The totals are one table inside the Your stack card, with no shadow and no nested cards. Its outer columns
 align with the figures above. Each metal the user holds has a row, in Metal Order; All Metals is the
-footer, set off by a 2px rule and bold figures. Columns are Items, Weight, Avg cost/oz, Paid, Melt, Retail, Gain and Realized. Figures
-use the data face with tabular numerals, right-aligned, so decimals line up down each column. Gain is the
+footer, set off by a 2px rule and bold figures. Columns are Items, Weight, Avg cost/oz, Paid, Melt, Retail, Gain/Loss and Realized. Figures
+use the data face with tabular numerals, right-aligned, so decimals line up down each column. Gain/Loss is the
 bold column and the only one in the `*-text` status colours. Each metal name carries its colour dot. A
 click anywhere on a row, All Metals included, opens the details modal; the row shows a pointer and the
 tertiary surface on hover. The metal name is the row's only keyboard stop. The table ends on the All Metals
-row, with no footnote. Below 768px each metal is a two-line block: name, melt and gain, then Items, ounces
-and the amount paid.
+row, with no footnote. Below 768px each metal is a two-line block: name, the lead value and gain or loss,
+then Items, ounces and the amount paid.
 
 The approved end state of the Dashboard is `playground/STRK-485-dashboard-end-state.html`.
 

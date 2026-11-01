@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.97] - 2026-11-01
+
+### Changed — STRK-506: Ledger follows the lead
+
+- **Gain/Loss column**: Follows the Your stack lead for each metal and All Metals, so the All Metals figure matches the headline. The PDF export names the basis in its label (STRK-506).
+- **Phone rows**: Each metal shows the value that leads beside its gain (STRK-506).
+
+### Fixed — STRK-507: Ledger row hover
+
+- **Row hover**: The metal name cell changes with the rest of the row, with no fade (STRK-507).
+
+### Changed — STRK-508: Your stack labels
+
+- **Labels**: The headline reads Loss on cost below zero, the ledger column reads Gain/Loss, and Weight held has a Rate header over the 12-month buying rate (STRK-508).
+
+---
+
 ## [3.36.96] - 2026-11-01
 
 ### Changed — STRK-505: Your stack lead swap, weights and activity

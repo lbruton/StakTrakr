@@ -619,6 +619,19 @@ test.describe("Dashboard stack headline", () => {
     await expect(swap).toHaveAccessibleName("Lead with melt value");
     await expect.poll(() => readMoney(page, "#stackRetailValue")).not.toBe("0.00");
     await expect(page.locator("#stackRetailSub")).toBeHidden();
+    // The PDF names the gain's basis on each of its four metal blocks. The item column
+    // stays at retail, under its own heading.
+    const pdfGainBases = () =>
+      page.evaluate(() =>
+        [
+          ..._buildInventoryPdf()
+            .output()
+            .matchAll(/Gain\/Loss \\\(at (\w+)\\\):/g),
+        ].map((match) => match[1])
+      );
+    expect(await pdfGainBases()).toEqual(Array(4).fill("retail"));
+    const retailBefore = await readMoney(page, "#retailValueAll");
+    const meltBefore = await readMoney(page, "#currentValueAll");
 
     await swap.focus();
     await page.keyboard.press("Enter");
@@ -645,25 +658,50 @@ test.describe("Dashboard stack headline", () => {
     await expect(page.locator("#stackRetailSub")).toHaveText(/^[+-]\d+\.\d% over melt$/);
 
     // Gain on cost at melt: the ledger's All Metals melt minus its cost basis. The ledger's
-    // own Gain column stays at retail.
-    const meltGain = await page.evaluate(() => {
-      const money = (id) => Number(document.getElementById(id).textContent.replace(/[^\d.-]/g, ""));
-      const gain = money("currentValueAll") - money("totalPurchasedAll");
-      return `${gain < 0 ? "-" : ""}${formatCurrency(Math.abs(gain)).replace(/^[^\d]*/, "")}`;
-    });
+    // Gain/Loss column follows the lead, and its value columns stay as they were.
+    const gainAtMelt = (row) =>
+      page.evaluate((name) => {
+        const money = (id) =>
+          Number(document.getElementById(id).textContent.replace(/[^\d.-]/g, ""));
+        const gain = money(`currentValue${name}`) - money(`totalPurchased${name}`);
+        return `${gain < 0 ? "-" : ""}${formatCurrency(Math.abs(gain)).replace(/^[^\d]*/, "")}`;
+      }, row);
+    const meltGain = await gainAtMelt("All");
     expect(await readMoney(page, "#stackGainValue")).toBe(meltGain);
     await expect(page.locator("#stackGainSub")).toHaveText(/^[+-]\d+\.\d% at melt$/);
-    expect(await readMoney(page, "#lossProfitAll")).not.toBe(meltGain);
+    await expect.poll(() => readMoney(page, "#lossProfitAll")).toBe(meltGain);
+    await expect(page.locator("#stackGainSub")).toHaveText(
+      `${await page.locator("#lossProfitAll .gain-loss-pct").textContent()} at melt`
+    );
+    expect(await readMoney(page, "#lossProfitSilver")).toBe(await gainAtMelt("Silver"));
+    expect(await pdfGainBases()).toEqual(Array(4).fill("melt"));
+    expect(await readMoney(page, "#retailValueAll")).toBe(retailBefore);
+    expect(await readMoney(page, "#currentValueAll")).toBe(meltBefore);
 
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForFunction(() => window.appListenersReady === true);
     await expect(figures.locator("dt").first()).toHaveText("Melt value");
+    await expect.poll(() => readMoney(page, "#lossProfitAll")).toBe(meltGain);
 
     await swap.focus();
     await page.keyboard.press("Space");
     await expect(figures.locator("dt").first()).toHaveText("Retail value");
     await expect(swap).toBeFocused();
     await expect(page.locator("#stackGainSub")).toHaveText(/ at retail$/);
+    expect(await readMoney(page, "#lossProfitAll")).toBe(await readMoney(page, "#stackGainValue"));
+
+    // A lead saved elsewhere reaches the PDF: its totals and label use one basis.
+    expect(
+      await page.evaluate(() => {
+        saveDataSync(STACK_HEADLINE_LEAD_KEY, "melt");
+        return _buildInventoryPdf().output().includes("Gain/Loss \\(at melt\\):");
+      })
+    ).toBe(true);
+    expect(await readMoney(page, "#lossProfitAll")).toBe(meltGain);
+    await page.evaluate(() => {
+      saveDataSync(STACK_HEADLINE_LEAD_KEY, "retail");
+      updateSummary();
+    });
 
     // A write that fails for a reason other than a full store says so; the lead stays.
     await page.evaluate(() => {
@@ -680,6 +718,49 @@ test.describe("Dashboard stack headline", () => {
     await expect(figures.locator("dt").first()).toHaveText("Retail value");
   });
 
+  test("the gain label reads Loss on cost below zero, across a swap and a spot change", async ({
+    page,
+  }) => {
+    await seedValuationData(page, { inventory: STACK_ITEMS, spotHistory: STACK_SPOT_HISTORY });
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() => window.appListenersReady === true);
+    await expect.poll(() => readMoney(page, "#stackRetailValue")).not.toBe("0.00");
+    const label = page.locator("#stackGainLabel");
+    await expect(page.locator("#totalsLedger thead .totals-col-gain")).toHaveText("Gain/Loss");
+
+    // Cost basis halfway between melt and retail: a gain at retail and a loss at melt.
+    await page.evaluate(() => {
+      const figures = computeStackHeadline(_lastMetalTotals, () => null);
+      const factor = (figures.melt + figures.retail) / 2 / figures.purchased;
+      if (!(figures.retail > figures.melt)) throw new Error("the seed needs retail above melt");
+      inventory.forEach((item) => {
+        item.price *= factor;
+      });
+      updateSummary();
+    });
+    await expect(label).toHaveText("Gain on cost");
+    await page.locator("#stackLeadSwap").click();
+    await expect(label).toHaveText("Loss on cost");
+    await expect(page.locator("#stackGainValue")).toHaveText(/^-/);
+
+    await page.evaluate(() => {
+      spotPrices.silver *= 10;
+      updateSummary();
+    });
+    await expect(label).toHaveText("Gain on cost");
+
+    // A gain of exactly zero reads as a gain.
+    await page.evaluate(() => {
+      const figures = computeStackHeadline(_lastMetalTotals, () => null);
+      const factor = figures.melt / figures.purchased;
+      inventory.forEach((item) => {
+        item.price *= factor;
+      });
+      updateSummary();
+    });
+    await expect(label).toHaveText("Gain on cost");
+  });
+
   test("the weights list matches the ledger and the 12-month line matches the breakdown modal at 1Y", async ({
     page,
   }) => {
@@ -690,6 +771,21 @@ test.describe("Dashboard stack headline", () => {
     // One row per held metal in Metal Order; Palladium and Copper hold nothing.
     const rows = page.locator("#stackWeights li");
     await expect(rows.locator(".stack-weight-name")).toHaveText(["Silver", "Gold", "Platinum"]);
+
+    // The Rate header sits over the pace column and names the measure in full.
+    const rate = page.locator("#stackWeightsRate");
+    await expect(rate).toBeVisible();
+    await expect(rate).toHaveAttribute("title", "12-month buying rate");
+    await expect(rate.locator(".sr-only")).toHaveText("12-month buying rate");
+    await expect(rate.locator("[aria-hidden]")).toHaveText("Rate");
+    const rightEdge = (locator) => locator.evaluate((el) => el.getBoundingClientRect().right);
+    await expect
+      .poll(async () =>
+        Math.abs(
+          (await rightEdge(rate)) - (await rightEdge(rows.first().locator(".stack-weight-pace")))
+        )
+      )
+      .toBeLessThanOrEqual(1);
     for (const name of ["Silver", "Gold", "Platinum"]) {
       const row = rows.filter({ hasText: name });
       const ledgerOz = await page.locator(`#totalWeight${name}`).textContent();

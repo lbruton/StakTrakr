@@ -243,12 +243,14 @@ The `stackHeadlineLead` preference (`"retail"` or `"melt"`, synced) picks the le
 | `stackTodayValue`                            | Today's change, under the lead; "today at spot" under the retail lead          |
 | `stackRetailValue`, `stackRetailSub`         | Retail value and, when it does not lead, its premium over melt                 |
 | `stackMeltValue`, `stackMeltSub`             | Melt value and, when it does not lead, the Items it covers                     |
+| `stackGainLabel`                             | "Gain on cost", or "Loss on cost" below zero at the lead's basis               |
 | `stackGainValue`, `stackGainSub`             | Gain on cost at the lead's basis and its percentage                            |
 | `stackCostValue`, `stackCostSub`             | Cost basis (the All Metals Paid) and the average cost per ounce                |
 | `stackRealizedFigure`                        | Realized figure; `.hide-realized` on `#totalsSectionEl` hides it               |
 | `stackRealizedValue`, `stackRealizedSub`     | Realized gain or loss and its percentage of the disposed cost                  |
 | `stackActivity`                              | Last 12 months: invested, acquisitions and market; hidden until loaded         |
 | `stackWeights`, `stackWeightsList`           | Weight held per enabled metal with active Items, in Metal Order, with pace     |
+| `stackWeightsRate`                           | Rate header over the pace column; hidden until the pace loads                  |
 | `stackHeadlineEmpty`, `stackHeadlineAddItem` | "No Items yet." and the Add Item button, which opens the add form on Inventory |
 
 `_loadSectionConfig` gives a saved config each default section it lacks. The new section goes before the next default the user already has. Labels always come from the defaults. `_foldStackHeadlineSection` folds a saved `stackHeadline` entry into `totals` at the earlier position, enabled if either entry was.
@@ -263,8 +265,9 @@ The `stackHeadlineLead` preference (`"retail"` or `"melt"`, synced) picks the le
 | `data-held` on `.totals-row`           | `updateSummary()`              | `false` (no active Items and no realized gain or loss) hides the row |
 | `.hide-realized` on `#totalsSectionEl` | `applyRealizedVisibility()`    | Hides every `.totals-col-realized` cell                              |
 | `th.total-title[data-metal]`           | `setupHeaderButtonListeners()` | A click anywhere on the row opens `showDetailsModal(metal)`          |
+| `data-lead` on `#totalsLedger`         | `renderStackHeadline()`        | Below 768px, shows the lead's value column and hides the other       |
 
-Below 768px the table, `tbody` and `tfoot` render as blocks and each row is a two-line flex block. CSS `order` and a `::after` line break place the cells. Melt and Gain carry their names as CSS alt text, since the header row is hidden.
+Below 768px the table, `tbody` and `tfoot` render as blocks and each row is a two-line flex block. CSS `order` and a `::after` line break place the cells. The lead value and Gain/Loss carry their names as CSS alt text, since the header row is hidden.
 
 ### Market Filter Matrix Settings Panel
 

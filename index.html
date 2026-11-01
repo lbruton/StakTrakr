@@ -1243,7 +1243,17 @@
               role="group"
               aria-labelledby="stackWeightsTitle"
             >
-              <h3 class="stack-figure-label" id="stackWeightsTitle">Weight held</h3>
+              <div class="stack-weights-head">
+                <h3 class="stack-figure-label" id="stackWeightsTitle">Weight held</h3>
+                <span
+                  class="stack-figure-label stack-weights-rate"
+                  id="stackWeightsRate"
+                  title="12-month buying rate"
+                  hidden
+                  ><span aria-hidden="true">Rate</span
+                  ><span class="sr-only">12-month buying rate</span></span
+                >
+              </div>
               <ul class="stack-weights-list" id="stackWeightsList"></ul>
             </div>
           </div>
@@ -1251,7 +1261,7 @@
             <p>No Items yet.</p>
             <button type="button" class="btn success" id="stackHeadlineAddItem">Add Item</button>
           </div>
-          <table class="totals-ledger" id="totalsLedger">
+          <table class="totals-ledger" id="totalsLedger" data-lead="retail">
             <caption class="sr-only">
               Totals by metal
             </caption>
@@ -1264,7 +1274,7 @@
                 <th scope="col" class="totals-col-paid">Paid</th>
                 <th scope="col" class="totals-col-melt">Melt</th>
                 <th scope="col" class="totals-col-retail">Retail</th>
-                <th scope="col" class="totals-col-gain">Gain</th>
+                <th scope="col" class="totals-col-gain">Gain/Loss</th>
                 <th scope="col" class="totals-col-realized">Realized</th>
               </tr>
             </thead>

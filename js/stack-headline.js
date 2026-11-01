@@ -89,6 +89,16 @@ const pickStackLead = (figures, lead) => {
 };
 
 /**
+ * Names the gain figure. A negative amount that displays as zero reads as a gain, so the
+ * test uses formatCurrency, which applies the display currency's rate and precision.
+ * @param {number} gain - Signed gain on cost.
+ * @returns {string}
+ */
+const stackGainLabel = (gain) => {
+  return gain < 0 && /[1-9]/.test(formatCurrency(Math.abs(gain))) ? "Loss on cost" : "Gain on cost";
+};
+
+/**
  * Lists the weight held per metal, in Metal Order, for enabled metals with active Items:
  * the same rows the ledger shows apart from metals held only as realized gain or loss.
  * @param {Object<string, object>} metalTotals - Accumulators keyed by metal key.
@@ -152,7 +162,7 @@ let _stackSpotHistoryVersion = 0;
  * Reads the saved lead figure.
  * @returns {string} "retail" or "melt"
  */
-const _readStackLead = () =>
+const readStackLead = () =>
   loadDataSync(STACK_HEADLINE_LEAD_KEY, "retail") === "melt" ? "melt" : "retail";
 
 /**
@@ -250,6 +260,7 @@ const _renderStackWeights = (metalTotals, pace) => {
   });
   list.replaceChildren(...rows);
   safeGetElement("stackWeights").hidden = rows.length === 0;
+  safeGetElement("stackWeightsRate").hidden = !pace;
 };
 
 /**
@@ -404,8 +415,9 @@ const renderStackHeadline = (metalTotals) => {
   safeGetElement("stackHeadlineEmpty").hidden = !figures.empty || recovering;
   if (figures.empty) return;
 
-  const picked = pickStackLead(figures, _readStackLead());
+  const picked = pickStackLead(figures, readStackLead());
   _arrangeStackLead(picked.lead);
+  safeGetElement("totalsLedger").dataset.lead = picked.lead;
 
   _fillFigure("stackRetailValue", formatCurrency(figures.retail));
   _fillFigure("stackMeltValue", formatCurrency(figures.melt));
@@ -424,6 +436,7 @@ const renderStackHeadline = (metalTotals) => {
   );
   _fillFigure("stackMeltSub", `${figures.items} Items, priced at spot`);
 
+  safeGetElement("stackGainLabel").textContent = stackGainLabel(picked.gain);
   _fillFigure("stackGainValue", _statusSpan(picked.gain, _signedCurrency(picked.gain)));
   _fillFigure(
     "stackGainSub",
@@ -472,9 +485,9 @@ const refreshStackHeadline = () => {
 };
 window.refreshStackHeadline = refreshStackHeadline;
 
-/** Swaps which value leads, saves the choice and redraws the headline. */
+/** Swaps which value leads, saves the choice and redraws the headline and the ledger. */
 const _swapStackLead = () => {
-  const next = _readStackLead() === "melt" ? "retail" : "melt";
+  const next = readStackLead() === "melt" ? "retail" : "melt";
   try {
     saveDataSync(STACK_HEADLINE_LEAD_KEY, next);
   } catch (error) {
@@ -485,7 +498,7 @@ const _swapStackLead = () => {
     }
   }
   if (typeof scheduleSyncPush === "function") scheduleSyncPush();
-  if (_lastMetalTotals) renderStackHeadline(_lastMetalTotals);
+  if (_lastMetalTotals) updateSummary();
 };
 
 // Parse-time wiring: this script is deferred, so the buttons exist, and safeGetElement may not yet.
