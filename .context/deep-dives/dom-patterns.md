@@ -265,8 +265,9 @@ The `stackHeadlineLead` preference (`"retail"` or `"melt"`, synced) picks the le
 | `data-held` on `.totals-row`           | `updateSummary()`              | `false` (no active Items and no realized gain or loss) hides the row |
 | `.hide-realized` on `#totalsSectionEl` | `applyRealizedVisibility()`    | Hides every `.totals-col-realized` cell                              |
 | `th.total-title[data-metal]`           | `setupHeaderButtonListeners()` | A click anywhere on the row opens `showDetailsModal(metal)`          |
+| `data-lead` on `#totalsLedger`         | `renderStackHeadline()`        | Below 768px, shows the lead's value column and hides the other       |
 
-Below 768px the table, `tbody` and `tfoot` render as blocks and each row is a two-line flex block. CSS `order` and a `::after` line break place the cells. Melt and Gain carry their names as CSS alt text, since the header row is hidden.
+Below 768px the table, `tbody` and `tfoot` render as blocks and each row is a two-line flex block. CSS `order` and a `::after` line break place the cells. The lead value and Gain/Loss carry their names as CSS alt text, since the header row is hidden.
 
 ### Market Filter Matrix Settings Panel
 

@@ -619,6 +619,16 @@ test.describe("Dashboard stack headline", () => {
     await expect(swap).toHaveAccessibleName("Lead with melt value");
     await expect.poll(() => readMoney(page, "#stackRetailValue")).not.toBe("0.00");
     await expect(page.locator("#stackRetailSub")).toBeHidden();
+    // The PDF names the gain's basis on each of its four metal blocks.
+    const pdfGainBases = () =>
+      page.evaluate(() =>
+        [
+          ..._buildInventoryPdf()
+            .output()
+            .matchAll(/Gain\/Loss \\\(at (\w+)\\\)/g),
+        ].map((match) => match[1])
+      );
+    expect(await pdfGainBases()).toEqual(Array(4).fill("retail"));
     const retailBefore = await readMoney(page, "#retailValueAll");
     const meltBefore = await readMoney(page, "#currentValueAll");
 
@@ -663,6 +673,7 @@ test.describe("Dashboard stack headline", () => {
       `${await page.locator("#lossProfitAll .gain-loss-pct").textContent()} at melt`
     );
     expect(await readMoney(page, "#lossProfitSilver")).toBe(await gainAtMelt("Silver"));
+    expect(await pdfGainBases()).toEqual(Array(4).fill("melt"));
     expect(await readMoney(page, "#retailValueAll")).toBe(retailBefore);
     expect(await readMoney(page, "#currentValueAll")).toBe(meltBefore);
 

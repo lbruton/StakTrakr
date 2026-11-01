@@ -89,6 +89,16 @@ const pickStackLead = (figures, lead) => {
 };
 
 /**
+ * Names the gain figure. An amount that displays as $0.00 reads as a gain. The magnitude is
+ * rounded because Math.round(-0.5) is -0, which would hide a loss that displays as -$0.01.
+ * @param {number} gain - Signed gain on cost.
+ * @returns {string}
+ */
+const stackGainLabel = (gain) => {
+  return gain < 0 && Math.round(Math.abs(gain) * 100) > 0 ? "Loss on cost" : "Gain on cost";
+};
+
+/**
  * Lists the weight held per metal, in Metal Order, for enabled metals with active Items:
  * the same rows the ledger shows apart from metals held only as realized gain or loss.
  * @param {Object<string, object>} metalTotals - Accumulators keyed by metal key.
@@ -426,9 +436,7 @@ const renderStackHeadline = (metalTotals) => {
   );
   _fillFigure("stackMeltSub", `${figures.items} Items, priced at spot`);
 
-  // Rounds to cents first, so an amount that displays as $0.00 reads as a gain.
-  safeGetElement("stackGainLabel").textContent =
-    Math.round(picked.gain * 100) < 0 ? "Loss on cost" : "Gain on cost";
+  safeGetElement("stackGainLabel").textContent = stackGainLabel(picked.gain);
   _fillFigure("stackGainValue", _statusSpan(picked.gain, _signedCurrency(picked.gain)));
   _fillFigure(
     "stackGainSub",

@@ -13,18 +13,24 @@ const computeStackHeadline = evalSource("js/stack-headline.js", {
 });
 const HEADLINE_HELPERS = [
   "pickStackLead",
+  "stackGainLabel",
   "computeStackWeights",
   "formatStackPace",
   "stackActivityWindowStart",
 ];
-const { pickStackLead, computeStackWeights, formatStackPace, stackActivityWindowStart } =
-  evalSource("js/stack-headline.js", {
-    slice: HEADLINE_HELPERS.map((name) =>
-      rangeOf(headlineSrc, sliceArrowConst(headlineSrc, `const ${name} = (`))
-    ),
-    params: { STACK_ACTIVITY_DAYS: 365 },
-    suffix: `\nreturn { ${HEADLINE_HELPERS.join(", ")} };`,
-  });
+const {
+  pickStackLead,
+  stackGainLabel,
+  computeStackWeights,
+  formatStackPace,
+  stackActivityWindowStart,
+} = evalSource("js/stack-headline.js", {
+  slice: HEADLINE_HELPERS.map((name) =>
+    rangeOf(headlineSrc, sliceArrowConst(headlineSrc, `const ${name} = (`))
+  ),
+  params: { STACK_ACTIVITY_DAYS: 365 },
+  suffix: `\nreturn { ${HEADLINE_HELPERS.join(", ")} };`,
+});
 
 /** Builds one metal's updateSummary accumulator with zeroed defaults. */
 const metal = (fields) => ({
@@ -203,6 +209,20 @@ describe("Your stack lead", () => {
       gain: -100,
       gainPct: -10,
     });
+  });
+
+  test("the gain label follows the sign of the amount in whole cents", () => {
+    for (const [gain, label] of [
+      [-100, "Loss on cost"],
+      [-0.01, "Loss on cost"],
+      [-0.005, "Loss on cost"],
+      [-0.004, "Gain on cost"],
+      [-0, "Gain on cost"],
+      [0, "Gain on cost"],
+      [0.01, "Gain on cost"],
+    ]) {
+      assert.equal(stackGainLabel(gain), label, String(gain));
+    }
   });
 
   test("an unknown or missing preference leads with retail", () => {
