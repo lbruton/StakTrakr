@@ -479,6 +479,10 @@ const _swapStackLead = () => {
     saveDataSync(STACK_HEADLINE_LEAD_KEY, next);
   } catch (error) {
     console.warn("[stack-headline] could not save the lead figure:", error);
+    // saveDataSync shows its own storage-full message for a quota error.
+    if (error?.name !== "QuotaExceededError" && typeof window.showToast === "function") {
+      window.showToast("Could not save the lead figure. Swap it again to retry.");
+    }
   }
   if (typeof scheduleSyncPush === "function") scheduleSyncPush();
   if (_lastMetalTotals) renderStackHeadline(_lastMetalTotals);

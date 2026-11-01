@@ -1106,6 +1106,8 @@
           // The button is redrawn; keep keyboard focus on it, as the app must.
           head.querySelector(".mk-swap")?.focus();
         });
+        // Older versions always lead with retail; the toolbar shows the lead drawn.
+        press("data-lead-btn", lead);
       };
 
       const stage = document.getElementById("stage");

@@ -664,6 +664,20 @@ test.describe("Dashboard stack headline", () => {
     await expect(figures.locator("dt").first()).toHaveText("Retail value");
     await expect(swap).toBeFocused();
     await expect(page.locator("#stackGainSub")).toHaveText(/ at retail$/);
+
+    // A write that fails for a reason other than a full store says so; the lead stays.
+    await page.evaluate(() => {
+      const setItem = Storage.prototype.setItem;
+      Storage.prototype.setItem = function (key, value) {
+        if (key === "stackHeadlineLead") throw new Error("write blocked");
+        return setItem.call(this, key, value);
+      };
+    });
+    await swap.click();
+    await expect(page.locator(".cloud-toast")).toHaveText(
+      "Could not save the lead figure. Swap it again to retry."
+    );
+    await expect(figures.locator("dt").first()).toHaveText("Retail value");
   });
 
   test("the weights list matches the ledger and the 12-month line matches the breakdown modal at 1Y", async ({
