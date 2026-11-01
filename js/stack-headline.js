@@ -86,6 +86,17 @@ const _signedPct = (pct, digits) => `${pct > 0 ? "+" : ""}${pct.toFixed(digits)}
 const _signedCurrency = (value) => `${value > 0 ? "+" : ""}${formatCurrency(value)}`;
 
 /**
+ * Replaces a figure's content. safeGetElement's stand-in for a missing node has no
+ * replaceChildren, so a missing figure is skipped rather than written.
+ * @param {string} id - Element id.
+ * @param {...(Node|string)} nodes - New content.
+ */
+const _fillFigure = (id, ...nodes) => {
+  const el = safeGetElement(id);
+  if (el instanceof HTMLElement) el.replaceChildren(...nodes);
+};
+
+/**
  * Renders the Your stack figures from updateSummary's per-metal totals. With no Items
  * the card shows the Add Item prompt and hides the ledger, which has no row to show.
  * @param {Object<string, object>} metalTotals - Accumulators keyed by metal key.
@@ -101,55 +112,50 @@ const renderStackHeadline = (metalTotals) => {
   };
   const figures = computeStackHeadline(metalTotals, changeFor);
 
-  const retailEl = document.getElementById("stackRetailValue");
-
   // Under an inventory recovery hold the in-memory inventory is empty but the stored one
   // is not, and saving an Item from the Add Item prompt would overwrite it: show neither.
   const recovering = typeof isInventoryRecoveryActive === "function" && isInventoryRecoveryActive();
-  document.getElementById("stackHeadlineFigures").hidden = figures.empty;
-  document.getElementById("totalsLedger").hidden = figures.empty;
-  document.getElementById("stackHeadlineEmpty").hidden = !figures.empty || recovering;
+  safeGetElement("stackHeadlineFigures").hidden = figures.empty;
+  safeGetElement("totalsLedger").hidden = figures.empty;
+  safeGetElement("stackHeadlineEmpty").hidden = !figures.empty || recovering;
   if (figures.empty) return;
 
-  retailEl.textContent = formatCurrency(figures.retail);
-  const todayEl = document.getElementById("stackTodayValue");
+  safeGetElement("stackRetailValue").textContent = formatCurrency(figures.retail);
   if (figures.hasToday) {
     const text = `${_signedCurrency(figures.today)} (${_signedPct(figures.todayPct, 2)})`;
-    todayEl.replaceChildren(_statusSpan(figures.today, text), " today");
+    _fillFigure("stackTodayValue", _statusSpan(figures.today, text), " today");
   } else {
-    todayEl.textContent = "No 24h change yet";
+    _fillFigure("stackTodayValue", "No 24h change yet");
   }
 
-  document.getElementById("stackMeltValue").textContent = formatCurrency(figures.melt);
-  document.getElementById("stackMeltSub").textContent =
-    `${figures.weight.toFixed(2)} oz across ${figures.items} Items`;
+  _fillFigure("stackMeltValue", formatCurrency(figures.melt));
+  _fillFigure("stackMeltSub", `${figures.weight.toFixed(2)} oz across ${figures.items} Items`);
 
-  document
-    .getElementById("stackGainValue")
-    .replaceChildren(_statusSpan(figures.gain, _signedCurrency(figures.gain)));
-  document
-    .getElementById("stackGainSub")
-    .replaceChildren(_statusSpan(figures.gain, _signedPct(figures.gainPct, 1)), " at retail");
+  _fillFigure("stackGainValue", _statusSpan(figures.gain, _signedCurrency(figures.gain)));
+  _fillFigure(
+    "stackGainSub",
+    _statusSpan(figures.gain, _signedPct(figures.gainPct, 1)),
+    " at retail"
+  );
 
-  document.getElementById("stackCostValue").textContent = formatCurrency(figures.purchased);
-  document.getElementById("stackCostSub").textContent =
-    `Avg ${formatCurrency(figures.avgCostPerOz)}/oz`;
+  _fillFigure("stackCostValue", formatCurrency(figures.purchased));
+  _fillFigure("stackCostSub", `Avg ${formatCurrency(figures.avgCostPerOz)}/oz`);
 
   // Matches the ledger's Realized cell: zero shows unsigned, like "$0.00" there.
   const realizedText =
     figures.realized === 0 ? formatCurrency(0) : _signedCurrency(figures.realized);
-  document
-    .getElementById("stackRealizedValue")
-    .replaceChildren(_statusSpan(figures.realized, realizedText));
-  const realizedSub = document.getElementById("stackRealizedSub");
+  _fillFigure("stackRealizedValue", _statusSpan(figures.realized, realizedText));
   if (figures.disposedCost > 0) {
-    realizedSub.replaceChildren(
+    _fillFigure(
+      "stackRealizedSub",
       _statusSpan(figures.realized, _signedPct(figures.realizedPct, 1)),
       ` on ${formatCurrency(figures.disposedCost)} cost`
     );
   } else {
-    realizedSub.textContent =
-      figures.disposedItems > 0 ? `from ${figures.disposedItems} Items` : "No Items sold or traded";
+    _fillFigure(
+      "stackRealizedSub",
+      figures.disposedItems > 0 ? `from ${figures.disposedItems} Items` : "No Items sold or traded"
+    );
   }
 };
 window.renderStackHeadline = renderStackHeadline;
