@@ -109,7 +109,7 @@ For goldback items, when no spot price + weight is available, the reference rate
 
 `providers.json` defines which vendors to scrape for each coin, the URL for each vendor/coin pair, and coin weights for price-per-oz normalization. **As of 2026-02-25, sqld is the single source of truth.** The JSON files are generated snapshots: do not edit them directly.
 
-To update provider URLs: use the dashboard at `http://192.168.1.81:3010/providers` or `provider-db.js` CRUD functions.
+To update provider URLs: use the dashboard at `http://<home-vm>:3010/providers` or `provider-db.js` CRUD functions.
 
 ### Structure
 

@@ -11,6 +11,10 @@ updated: "2026-09-29"
 
 Authoritative reference for all infrastructure components. For deep dives, follow the wikilinks to the source documents.
 
+Home LAN and tailnet addresses in `.context/` are placeholders (`<home-vm>`, `<home-lan>/24`, `<home-tailnet-ip>`,
+`<fly-tailnet-ip>`). The live values are in `Devops/DocVault/Projects/StakTrakr/Address Placeholders.md`
+(find the folder with `vault-path private`).
+
 ---
 
 ## Deployment Topology
@@ -24,12 +28,12 @@ Authoritative reference for all infrastructure components. For deep dives, follo
 │  run-publish.sh (8,23,38,53 * * * *)                     │
 │  export-providers-json.js (*/5 * * * *)                  │
 └──────────────────┬───────────────────────────────────────┘
-                   │ Tailscale subnet route (192.168.1.0/24)
-                   │ sqld reads via http://192.168.1.81:8080
+                   │ Tailscale subnet route (<home-lan>/24)
+                   │ sqld reads via http://<home-vm>:8080
                    ▼
 ┌─────────────────────────────────────────────────────────┐
-│  Home VM — Ubuntu 24.04 LXC (192.168.1.81)              │
-│  Portainer: https://192.168.1.81:9443                    │
+│  Home VM — Ubuntu 24.04 LXC (<home-vm>)                 │
+│  Portainer: https://<home-vm>:9443                       │
 │                                                          │
 │  staktrakr-sqld        → sqld (libSQL, port 8080)        │
 │  staktrakr-home-poller → retail + spot + goldback        │
@@ -180,15 +184,15 @@ Source: .context/deep-dives/home-poller.md
 
 ### Docker Stacks
 
-All stacks run on `staktrakr-net` bridge network. Managed via Portainer at `https://192.168.1.81:9443`.
+All stacks run on `staktrakr-net` bridge network. Managed via Portainer at `https://<home-vm>:9443`.
 
-| Stack       | Container(s)                                  | Purpose                                                                                                                                                                                                                        | Ports                                     | Stack ID |
-| ----------- | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------- | -------- |
-| home-poller | `staktrakr-home-poller`                       | Retail/spot/goldback + dashboard + metrics                                                                                                                                                                                     | 3010 (HTTP), 3011 (HTTPS), 9100 (metrics) | 7        |
-| byparr      | `staktrakr-byparr`                            | CF bypass sidecar (Camoufox Firefox → `cf_clearance` cookie)                                                                                                                                                                   | 8191                                      | —        |
-| firecrawl   | `firecrawl-api` + backing services            | Self-hosted Firecrawl (`devops/firecrawl-docker/`)                                                                                                                                                                             | 3002                                      | 4        |
-| tinyproxy   | `tailscale-staktrakr` + `staktrakr-tinyproxy` | Combined stack (`docker-compose.tinyproxy.yml`): Tailscale exit node + subnet router for `192.168.1.0/24`, plus the residential HTTP proxy that shares its network namespace via `network_mode: container:tailscale-staktrakr` | 8888 (Tailscale IPs only)                 | 5        |
-| sqld        | `staktrakr-sqld`                              | Self-hosted libSQL primary database (port 8080)                                                                                                                                                                                | 8080 (Docker DNS + Tailscale subnet)      | 23       |
+| Stack       | Container(s)                                  | Purpose                                                                                                                                                                                                                       | Ports                                     | Stack ID |
+| ----------- | --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- | -------- |
+| home-poller | `staktrakr-home-poller`                       | Retail/spot/goldback + dashboard + metrics                                                                                                                                                                                    | 3010 (HTTP), 3011 (HTTPS), 9100 (metrics) | 7        |
+| byparr      | `staktrakr-byparr`                            | CF bypass sidecar (Camoufox Firefox → `cf_clearance` cookie)                                                                                                                                                                  | 8191                                      | —        |
+| firecrawl   | `firecrawl-api` + backing services            | Self-hosted Firecrawl (`devops/firecrawl-docker/`)                                                                                                                                                                            | 3002                                      | 4        |
+| tinyproxy   | `tailscale-staktrakr` + `staktrakr-tinyproxy` | Combined stack (`docker-compose.tinyproxy.yml`): Tailscale exit node + subnet router for `<home-lan>/24`, plus the residential HTTP proxy that shares its network namespace via `network_mode: container:tailscale-staktrakr` | 8888 (Tailscale IPs only)                 | 5        |
+| sqld        | `staktrakr-sqld`                              | Self-hosted libSQL primary database (port 8080)                                                                                                                                                                               | 8080 (Docker DNS + Tailscale subnet)      | 23       |
 
 **Docker install:** snap-installed. Volume mountpoint: `/var/snap/docker/common/var-lib-docker/volumes/`
 
@@ -252,7 +256,7 @@ git push origin <branch>
 
 # 2. Redeploy via Portainer API (stack ID 7, endpoint 3)
 curl -sk -X PUT \
-  "https://192.168.1.81:9443/api/stacks/7/git/redeploy?endpointId=3" \
+  "https://<home-vm>:9443/api/stacks/7/git/redeploy?endpointId=3" \
   -H "X-API-Key: $PORTAINER_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"pullImage": true, "prune": true, "env": [...]}'
@@ -262,23 +266,23 @@ curl -sk -X PUT \
 
 ### Tailscale Network Topology
 
-| Node                                | Tailscale IP     | Role                                         |
-| ----------------------------------- | ---------------- | -------------------------------------------- |
-| `stacktrckr-home` (home VM sidecar) | `100.112.198.50` | Exit node + subnet router (`192.168.1.0/24`) |
-| `staktrakr-fly` (Fly.io container)  | `100.90.171.110` | Client (`--accept-routes`)                   |
+| Node                                | Tailscale IP        | Role                                        |
+| ----------------------------------- | ------------------- | ------------------------------------------- |
+| `stacktrckr-home` (home VM sidecar) | `<home-tailnet-ip>` | Exit node + subnet router (`<home-lan>/24`) |
+| `staktrakr-fly` (Fly.io container)  | `<fly-tailnet-ip>`  | Client (`--accept-routes`)                  |
 
-The tinyproxy container shares the Tailscale sidecar's network namespace (`network_mode: container:tailscale-staktrakr`). Fly.io routes outbound scraper traffic through tinyproxy (`http://100.112.198.50:8888`) for residential IP egress.
+The tinyproxy container shares the Tailscale sidecar's network namespace (`network_mode: container:tailscale-staktrakr`). Fly.io routes outbound scraper traffic through tinyproxy (`http://<home-tailnet-ip>:8888`) for residential IP egress.
 
-> Gotcha (mitigated): The upstream Tailscale `containerboot` entrypoint drops `TS_ROUTES` from prefs on restart when the persistent state volume is present, silently breaking Fly.io→sqld reads. The sidecar now uses a wrapper image at `devops/pollers/tailscale/` that backgrounds containerboot and re-applies `tailscale set --advertise-routes=192.168.1.0/24 --advertise-exit-node` on every start (STRK-6). If the route ever disappears again, check the wrapper logs (`[tailscale-wrapper]` lines in `docker logs tailscale-staktrakr`) and confirm Portainer rebuilt the image on the last redeploy.
+> Gotcha (mitigated): The upstream Tailscale `containerboot` entrypoint drops `TS_ROUTES` from prefs on restart when the persistent state volume is present, silently breaking Fly.io→sqld reads. The sidecar uses a wrapper image at `devops/pollers/tailscale/` that backgrounds containerboot and re-applies `tailscale set --advertise-routes=<home-lan>/24 --advertise-exit-node` on every start. If the route disappears, check the wrapper logs (`[tailscale-wrapper]` lines in `docker logs tailscale-staktrakr`) and confirm Portainer rebuilt the image on the last redeploy.
 
 ---
 
 ## Database
 
-| Component                    | Role                                         | Location            | Access                                                                                     |
-| ---------------------------- | -------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------ |
-| `staktrakr-sqld`             | Primary database (libSQL / sqld self-hosted) | Home VM port `8080` | Docker DNS: `http://staktrakr-sqld:8080`; Fly.io via Tailscale: `http://192.168.1.81:8080` |
-| Turso Cloud (`staktrakrapi`) | DR backup only (nightly sync from sqld)      | AWS us-east-2       | libsql://staktrakrapi-lbruton.aws-us-east-2.turso.io                                       |
+| Component                    | Role                                         | Location            | Access                                                                                  |
+| ---------------------------- | -------------------------------------------- | ------------------- | --------------------------------------------------------------------------------------- |
+| `staktrakr-sqld`             | Primary database (libSQL / sqld self-hosted) | Home VM port `8080` | Docker DNS: `http://staktrakr-sqld:8080`; Fly.io via Tailscale: `http://<home-vm>:8080` |
+| Turso Cloud (`staktrakrapi`) | DR backup only (nightly sync from sqld)      | AWS us-east-2       | libsql://staktrakrapi-lbruton.aws-us-east-2.turso.io                                    |
 
 The home-poller container connects to sqld via Docker DNS. Fly.io connects via Tailscale subnet
 routing. Authentication behavior is deployment-specific and belongs in the operator-managed
@@ -416,7 +420,7 @@ EOF
 ### Database Freshness Check
 
 ```bash
-curl -s http://192.168.1.81:8080/v2/pipeline -H 'Content-Type: application/json' -d '{
+curl -s http://<home-vm>:8080/v2/pipeline -H 'Content-Type: application/json' -d '{
   "requests": [{"type":"execute","stmt":{"sql":"SELECT poller_id, COUNT(*) as rows, MAX(scraped_at) as latest FROM price_snapshots WHERE scraped_at > datetime('"'"'now'"'"', '"'"'-2 hours'"'"') GROUP BY poller_id"}}]
 }' | jq '.results[0].response.result.rows'
 ```
@@ -460,7 +464,7 @@ nonexistent `main` branch as an operational control surface.
 | ------------------------------------- | ------------------------------------------------------------------------------------------------------- |
 | Fly.io code change                    | `cd devops/pollers && fly deploy --config remote-poller/fly.toml --dockerfile remote-poller/Dockerfile` |
 | Home poller code change               | Push to git branch + Portainer API redeploy (stack ID 7)                                                |
-| Provider URL fix                      | Dashboard at `http://192.168.1.81:3010/providers`: no redeploy needed                                   |
+| Provider URL fix                      | Dashboard at `http://<home-vm>:3010/providers`: no redeploy needed                                      |
 | New secret-backed cloud configuration | Add it through the operator's Fly.io secret store, then deploy normally.                                |
 | Home poller env var                   | Update the Portainer stack environment and compose allow-list, then recreate the stack.                 |
 | Fly.io deploy during active cron      | Kills in-progress spot poll or publish cycle silently                                                   |
@@ -494,19 +498,19 @@ JM Bullion + Provident sit behind **Webscale Protection Mode** (Google reCAPTCHA
 | Tailscale          | Client (`--accept-routes`)    | Server (exit node + subnet router)                 | N/A              |
 | Node.js            | `node:20-slim` (Docker base)  | `node:20-slim` (Docker base)                       | Local            |
 | Playwright         | Slim image (no Playwright)    | Local Chromium (`npx playwright install chromium`) | N/A              |
-| Dashboard          | None                          | `http://192.168.1.81:3010`                         | N/A              |
-| Prometheus metrics | None                          | `http://192.168.1.81:9100/metrics`                 | N/A              |
+| Dashboard          | None                          | `http://<home-vm>:3010`                            | N/A              |
+| Prometheus metrics | None                          | `http://<home-vm>:9100/metrics`                    | N/A              |
 
 ---
 
 ## Monitoring & Observability
 
-| Tool                  | URL                                                 | Data                                                                               |
-| --------------------- | --------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| Home poller dashboard | `http://192.168.1.81:3010` (HTTP) / `:3011` (HTTPS) | System stats, container status, Fly.io health, spot trend, log tail, failure queue |
-| Prometheus metrics    | `http://192.168.1.81:9100/metrics`                  | Uptime, CPU/mem, service up/down, sqld stats, provider failure counts              |
-| Fly.io logs           | `fly logs --app staktrakr`                          | All supervisord service output                                                     |
-| Portainer             | `https://192.168.1.81:9443`                         | Docker container status, logs, console access                                      |
+| Tool                  | URL                                              | Data                                                                               |
+| --------------------- | ------------------------------------------------ | ---------------------------------------------------------------------------------- |
+| Home poller dashboard | `http://<home-vm>:3010` (HTTP) / `:3011` (HTTPS) | System stats, container status, Fly.io health, spot trend, log tail, failure queue |
+| Prometheus metrics    | `http://<home-vm>:9100/metrics`                  | Uptime, CPU/mem, service up/down, sqld stats, provider failure counts              |
+| Fly.io logs           | `fly logs --app staktrakr`                       | All supervisord service output                                                     |
+| Portainer             | `https://<home-vm>:9443`                         | Docker container status, logs, console access                                      |
 
 Portainer API key: `PORTAINER_TOKEN` from Infisical (all projects, dev env). Endpoint ID: `3`.
 

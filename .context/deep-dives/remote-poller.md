@@ -167,7 +167,7 @@ fly logs --app staktrakr | grep -E 'publish|spot|ERROR'
 fly ssh console --app staktrakr -C "tailscale status"
 ```
 
-**Code changes** require `fly deploy`. **Provider URL changes** do not: pollers read from sqld on each run. Use the dashboard at `http://192.168.1.81:3010/providers` or `provider-db.js` CRUD functions.
+**Code changes** require `fly deploy`. **Provider URL changes** do not: pollers read from sqld on each run. Use the dashboard at `http://<home-vm>:3010/providers` or `provider-db.js` CRUD functions.
 
 > **Migration note (2026-03-07):** Fly.io code was previously deployed from `StakTrakrApi/devops/fly-poller/`. All code has been consolidated into `StakTrakr/devops/pollers/` with shared JS in `shared/` and Fly-specific files in `remote-poller/`.
 

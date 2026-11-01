@@ -38,7 +38,7 @@ Fly.io thin publisher (staktrakr, dfw, 1024 MB)
   └── run-publish.sh   (cron 8,23,38,53)   →  api-export.js  ←──── sqld
                                                                        ▲
                                                     Tailscale mesh     │
-Home VM — Docker/Portainer (192.168.1.81)           (sqld at 8080)   │
+Home VM — Docker/Portainer (<home-vm>)              (sqld at 8080)   │
   ├── staktrakr-sqld   (libSQL/sqld, port 8080)  ───────────────────┘
   ├── staktrakr-home-poller
   │     ├── retail cron  :30  →  price-extract.js + firecrawl + Gemini Vision
@@ -85,10 +85,10 @@ The `api` branch of `StakTrakrApi` is the **only** branch served by GitHub Pages
 | Component                     | Role                                                                 | Location                                  |
 | ----------------------------- | -------------------------------------------------------------------- | ----------------------------------------- |
 | Fly.io `staktrakr` app        | Spot polling + data export; `serve.js` redundancy proxy on port 8080 | cloud, region `dfw`                       |
-| `staktrakr-sqld`              | Primary database: self-hosted sqld/libSQL                            | Home VM `192.168.1.81:8080`               |
+| `staktrakr-sqld`              | Primary database: self-hosted sqld/libSQL                            | Home VM `<home-vm>:8080`                  |
 | Turso Cloud `staktrakrapi`    | DR backup only: nightly sync from sqld                               | cloud                                     |
-| Home VM Docker stacks         | home-poller, firecrawl, tinyproxy, tailscale sidecar                 | `192.168.1.81`                            |
-| Portainer                     | Docker stack manager                                                 | `192.168.1.81:9443`                       |
+| Home VM Docker stacks         | home-poller, firecrawl, tinyproxy, tailscale sidecar                 | `<home-vm>`                               |
+| Portainer                     | Docker stack manager                                                 | `<home-vm>:9443`                          |
 | tinyproxy + Tailscale sidecar | Residential proxy for Fly.io scrape traffic                          | Docker, Tailscale mesh                    |
 | GitHub Pages (`api` branch)   | Static JSON API host                                                 | `api.staktrakr.com`, `api2.staktrakr.com` |
 | Cloudflare Pages              | Frontend host                                                        | `staktrakr.com`                           |
@@ -573,7 +573,7 @@ The item record's `attachments` array carries metadata only (no `blob`). The IDB
 
 ## Database Layer (sqld)
 
-Primary database: **sqld** (self-hosted libSQL) on the Home VM at `http://staktrakr-sqld:8080` (Docker DNS) / `http://192.168.1.81:8080` (external). Turso Cloud is DR backup only: nightly sync via `turso-backup-sync.js`. Client library: `@libsql/client`.
+Primary database: **sqld** (self-hosted libSQL) on the Home VM at `http://staktrakr-sqld:8080` (Docker DNS) / `http://<home-vm>:8080` (external). Turso Cloud is DR backup only: nightly sync via `turso-backup-sync.js`. Client library: `@libsql/client`.
 
 ### Tables
 
@@ -704,7 +704,7 @@ Lives at `devops/pollers/shared/provider-db.js`. Both pollers' Dockerfiles `COPY
 
 ### Dashboard
 
-Home poller dashboard at `http://192.168.1.81:3010/providers` provides full CRUD against sqld provider tables. It supports add/edit/delete for coins and vendors, enabled-state toggles, bulk enable/disable/remove by vendor+metal, and coverage stats. The failure queue is at `/failures`. FBP-backed vendors (`jmbullion`) carry an "FBP-backed" badge and a second editable URL per coin: the `provider_coins.fbp_url` price source (scraped) beside the vendor's own buy-link URL (`POST /providers/coin-fbp-url` → `updateCoinFbpUrl`).
+Home poller dashboard at `http://<home-vm>:3010/providers` provides full CRUD against sqld provider tables. It supports add/edit/delete for coins and vendors, enabled-state toggles, bulk enable/disable/remove by vendor+metal, and coverage stats. The failure queue is at `/failures`. FBP-backed vendors (`jmbullion`) carry an "FBP-backed" badge and a second editable URL per coin: the `provider_coins.fbp_url` price source (scraped) beside the vendor's own buy-link URL (`POST /providers/coin-fbp-url` → `updateCoinFbpUrl`).
 
 ---
 

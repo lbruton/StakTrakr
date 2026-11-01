@@ -9,7 +9,7 @@ updated: "2026-04-11"
 
 # Home Poller (Docker/Portainer)
 
-> **Last verified:** 2026-03-22 — Docker containers on Ubuntu 24.04 LXC at 192.168.1.81, managed by Portainer. Five stacks on `staktrakr-net` bridge network.
+> **Last verified:** 2026-03-22: Docker containers on Ubuntu 24.04 LXC at `<home-vm>`, managed by Portainer. Five stacks on `staktrakr-net` bridge network.
 
 ---
 
@@ -25,18 +25,18 @@ Code lives in `StakTrakr/devops/pollers/` and deploys via Portainer API from git
 
 ## Remote Management (Portainer API)
 
-All container management goes through the **Portainer REST API** at `https://192.168.1.81:9443/api` or the **Portainer web UI** at `https://192.168.1.81:9443`. No SSH, no docker CLI.
+All container management goes through the **Portainer REST API** at `https://<home-vm>:9443/api` or the **Portainer web UI** at `https://<home-vm>:9443`. No SSH, no docker CLI.
 
 **API key:** `PORTAINER_TOKEN` from Infisical (all projects, dev environment). Endpoint ID: `3`.
 
 ```bash
 # List containers
 curl -sk -H "X-API-Key: $PORTAINER_TOKEN" \
-  "https://192.168.1.81:9443/api/endpoints/3/docker/containers/json?all=true"
+  "https://<home-vm>:9443/api/endpoints/3/docker/containers/json?all=true"
 
 # Container logs (replace <id> with container ID)
 curl -sk -H "X-API-Key: $PORTAINER_TOKEN" \
-  "https://192.168.1.81:9443/api/endpoints/3/docker/containers/<id>/logs?stdout=true&stderr=true&tail=50"
+  "https://<home-vm>:9443/api/endpoints/3/docker/containers/<id>/logs?stdout=true&stderr=true&tail=50"
 ```
 
 For interactive commands inside containers (e.g., `supervisorctl status`, running scripts), use the **Portainer web UI Console**: Containers > select container > Console.
@@ -49,15 +49,15 @@ See `portainer` skill for full API reference.
 
 Five Portainer-managed stacks on the `staktrakr-net` bridge network:
 
-| Stack       | Container                 | Purpose                                                                                                         | Ports                                                                              | Stack ID |
-| ----------- | ------------------------- | --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | -------- |
-| home-poller | `staktrakr-home-poller`   | Retail/spot/goldback pollers + dashboard + metrics                                                              | 3010, 3011, 9100                                                                   | 7        |
-| byparr      | `staktrakr-byparr`        | Cloudflare bypass sidecar (Camoufox Firefox, returns `cf_clearance` cookie)                                     | 8191 (host-exposed for debugging and Fly.io → Tailscale → Byparr CF bypass access) | —        |
-| firecrawl   | `firecrawl-api` + backing | Firecrawl self-hosted (`devops/firecrawl-docker/`)                                                              | 3002                                                                               | 4        |
-| tinyproxy   | `tinyproxy-staktrakr`     | HTTP proxy for Cloud - Fly.io residential IP routing                                                            | 8888                                                                               | 5        |
-| tailscale   | `tailscale-staktrakr`     | Tailscale sidecar — exit node + **subnet router** for `192.168.1.0/24` (tinyproxy shares its network namespace) | —                                                                                  | 8        |
+| Stack       | Container                 | Purpose                                                                                                     | Ports                                                                              | Stack ID |
+| ----------- | ------------------------- | ----------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | -------- |
+| home-poller | `staktrakr-home-poller`   | Retail/spot/goldback pollers + dashboard + metrics                                                          | 3010, 3011, 9100                                                                   | 7        |
+| byparr      | `staktrakr-byparr`        | Cloudflare bypass sidecar (Camoufox Firefox, returns `cf_clearance` cookie)                                 | 8191 (host-exposed for debugging and Fly.io → Tailscale → Byparr CF bypass access) | —        |
+| firecrawl   | `firecrawl-api` + backing | Firecrawl self-hosted (`devops/firecrawl-docker/`)                                                          | 3002                                                                               | 4        |
+| tinyproxy   | `tinyproxy-staktrakr`     | HTTP proxy for Cloud - Fly.io residential IP routing                                                        | 8888                                                                               | 5        |
+| tailscale   | `tailscale-staktrakr`     | Tailscale sidecar: exit node and subnet router for `<home-lan>/24` (tinyproxy shares its network namespace) | —                                                                                  | 8        |
 
-**Portainer UI:** `https://192.168.1.81:9443` (HTTPS only, self-signed cert)
+**Portainer UI:** `https://<home-vm>:9443` (HTTPS only, self-signed cert)
 
 **Docker:** snap-installed. Volume mountpoint: `/var/snap/docker/common/var-lib-docker/volumes/`
 
@@ -73,7 +73,7 @@ Five Portainer-managed stacks on the `staktrakr-net` bridge network:
 
 ## Dashboard & Monitoring
 
-### Dashboard (`http://192.168.1.81:3010` / `https://...:3011`)
+### Dashboard (`http://<home-vm>:3010` / `https://...:3011`)
 
 Node.js HTTP/HTTPS server (`/app/dashboard.js` inside container) showing:
 
@@ -88,7 +88,7 @@ Node.js HTTP/HTTPS server (`/app/dashboard.js` inside container) showing:
 
 HTTPS on port 3011 uses a self-signed certificate generated at Docker build time. Used for iframe embedding in the spec-workflow MCP dashboard.
 
-### Metrics Exporter (`http://192.168.1.81:9100/metrics`)
+### Metrics Exporter (`http://<home-vm>:9100/metrics`)
 
 `/app/metrics-exporter.js`: Prometheus text format. Exposes:
 
@@ -102,29 +102,29 @@ HTTPS on port 3011 uses a self-signed certificate generated at Docker build time
 
 Tinyproxy runs in its own container (`tinyproxy-staktrakr`), sharing the Tailscale sidecar's network namespace via `network_mode: container:tailscale-staktrakr`.
 
-| Property                 | Value                                                                                 |
-| ------------------------ | ------------------------------------------------------------------------------------- |
-| Proxy URL                | `http://100.112.198.50:8888` (referenced as `HOME_PROXY_URL` / `PROXY_SERVER` on Fly) |
-| Accepts connections from | Tailscale IPs only                                                                    |
-| Residential egress IP    | Home ISP IP                                                                           |
+| Property                 | Value                                                                                    |
+| ------------------------ | ---------------------------------------------------------------------------------------- |
+| Proxy URL                | `http://<home-tailnet-ip>:8888` (referenced as `HOME_PROXY_URL` / `PROXY_SERVER` on Fly) |
+| Accepts connections from | Tailscale IPs only                                                                       |
+| Residential egress IP    | Home ISP IP                                                                              |
 
 The Cloud - Fly.io container routes scraper traffic through this proxy for residential IP egress. Retail bullion dealers don't block residential IPs.
 
 ### Tailscale Sidecar
 
-| Node                                | Tailscale IP   |
-| ----------------------------------- | -------------- |
-| Home VM sidecar (`stacktrckr-home`) | 100.112.198.50 |
-| Fly.io container (`staktrakr-fly`)  | 100.90.171.110 |
+| Node                                | Tailscale IP        |
+| ----------------------------------- | ------------------- |
+| Home VM sidecar (`stacktrckr-home`) | `<home-tailnet-ip>` |
+| Fly.io container (`staktrakr-fly`)  | `<fly-tailnet-ip>`  |
 
 The Tailscale sidecar (`tailscale-staktrakr`) runs in its own container with two roles:
 
 1. **Exit node**: Fly.io routes outbound traffic through the home residential IP
-2. **Subnet router**: advertises `192.168.1.0/24` via `TS_ROUTES` so Fly.io can reach home-network services (sqld at `192.168.1.81:8080`) without exit-node routing
+2. **Subnet router**: advertises `<home-lan>/24` via `TS_ROUTES` so Fly.io can reach home-network services (sqld at `<home-vm>:8080`) without exit-node routing
 
-The compose file (`docker-compose.tinyproxy.yml`) sets `TS_ROUTES=192.168.1.0/24` and enables `net.ipv4.ip_forward=1` / `net.ipv6.conf.all.forwarding=1` via `sysctls`. The subnet route must be approved in the Tailscale admin console. On the Fly.io side, `--accept-routes` in `supervisord.conf` enables the container to use the advertised routes.
+The compose file (`docker-compose.tinyproxy.yml`) sets `TS_ROUTES=<home-lan>/24` and enables `net.ipv4.ip_forward=1` / `net.ipv6.conf.all.forwarding=1` via `sysctls`. The subnet route must be approved in the Tailscale admin console. On the Fly.io side, `--accept-routes` in `supervisord.conf` enables the container to use the advertised routes.
 
-> **Gotcha:** The `containerboot` entrypoint in the Tailscale Docker image does not re-apply `TS_ROUTES` when existing state exists in the volume. If the route is missing after a redeploy, manually run `tailscale set --advertise-routes=192.168.1.0/24` inside the container.
+> **Gotcha:** The `containerboot` entrypoint in the Tailscale Docker image does not re-apply `TS_ROUTES` when existing state exists in the volume. If the route is missing after a redeploy, manually run `tailscale set --advertise-routes=<home-lan>/24` inside the container.
 
 Tinyproxy shares the sidecar's network namespace. The home-poller container does NOT share the Tailscale network: it uses the standard Docker bridge. Tailscale is needed for the proxy path from Fly.io and for subnet-routed access to home LAN services.
 
@@ -134,15 +134,15 @@ Tinyproxy shares the sidecar's network namespace. The home-poller container does
 
 `staktrakr-byparr` runs Byparr (production: upstream 2.1.0 via `BYPARR_IMAGE`; compose default: upstream 3.0.4). This is a Camoufox (hardened Firefox) sidecar that solves Cloudflare challenges and returns a valid `cf_clearance` cookie.
 
-| Property      | Value                                                                                                                 |
-| ------------- | --------------------------------------------------------------------------------------------------------------------- |
-| Image         | `${BYPARR_IMAGE:-ghcr.io/thephaseless/byparr:3.0.4}` (pinned; bump only after the test below)                         |
-| Init          | `init: true` (Docker's init as PID 1 reaps orphaned browser processes)                                                |
-| Internal URL  | `http://staktrakr-byparr:8191` (Docker DNS via container name)                                                        |
-| Host URL      | `http://192.168.1.81:8191` (host-exposed on port 8191 for debugging and Fly.io → Tailscale → Byparr CF bypass access) |
-| Purpose       | Phase 2 fallback for CF-protected vendors (Bullion Exchanges, JM Bullion)                                             |
-| Network       | `staktrakr-net` bridge, port 8191 exposed to host                                                                     |
-| Shared memory | `shm_size: "1g"` (required by Camoufox Firefox)                                                                       |
+| Property      | Value                                                                                                              |
+| ------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Image         | `${BYPARR_IMAGE:-ghcr.io/thephaseless/byparr:3.0.4}` (pinned; bump only after the test below)                      |
+| Init          | `init: true` (Docker's init as PID 1 reaps orphaned browser processes)                                             |
+| Internal URL  | `http://staktrakr-byparr:8191` (Docker DNS via container name)                                                     |
+| Host URL      | `http://<home-vm>:8191` (host-exposed on port 8191 for debugging and Fly.io → Tailscale → Byparr CF bypass access) |
+| Purpose       | Phase 2 fallback for CF-protected vendors (Bullion Exchanges, JM Bullion)                                          |
+| Network       | `staktrakr-net` bridge, port 8191 exposed to host                                                                  |
+| Shared memory | `shm_size: "1g"` (required by Camoufox Firefox)                                                                    |
 
 **Image source.** The compose default is upstream `ghcr.io/thephaseless/byparr:3.0.4`, so self-hosters need no extra config and get a maintained image with `tini`. Production overrides it: stack 7's env sets `BYPARR_IMAGE` to upstream 2.1.0 (image ID `sha256:ac7e6554…`) in the private homelab Gitea registry. Portainer pulls that with a read-only (`read:package`) registry credential. If the stack env is lost (for example by an API redeploy), prod uses 3.0.4 as its fallback. Byparr keeps running, but Bullion Exchanges degrades to mostly un-hydrated pages; restore `BYPARR_IMAGE` and redeploy. Once an upstream release passes the side-by-side test below, bump the compose default and remove the override.
 
@@ -289,14 +289,14 @@ git push origin <branch>
 
 # 2. Redeploy via Portainer API (direct from Mac)
 curl -sk -X PUT \
-  "https://192.168.1.81:9443/api/stacks/7/git/redeploy?endpointId=3" \
+  "https://<home-vm>:9443/api/stacks/7/git/redeploy?endpointId=3" \
   -H "X-API-Key: $PORTAINER_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"pullImage": true, "prune": true, "env": [...]}'
 
 # 3. Verify via Portainer API or web UI
 curl -sk -H "X-API-Key: $PORTAINER_TOKEN" \
-  "https://192.168.1.81:9443/api/endpoints/3/docker/containers/json" | python3 -c "
+  "https://<home-vm>:9443/api/endpoints/3/docker/containers/json" | python3 -c "
 import sys,json
 for c in json.load(sys.stdin):
   if 'home-poller' in c['Names'][0]: print(c['Names'][0], c['State'])"
@@ -313,7 +313,7 @@ for c in json.load(sys.stdin):
 ```bash
 # List all StakTrakr containers via Portainer API
 curl -sk -H "X-API-Key: $PORTAINER_TOKEN" \
-  "https://192.168.1.81:9443/api/endpoints/3/docker/containers/json?all=true" | \
+  "https://<home-vm>:9443/api/endpoints/3/docker/containers/json?all=true" | \
   python3 -c "import sys,json; [print(c['Names'][0], c['State'], c['Status']) for c in json.load(sys.stdin)]"
 ```
 
@@ -332,7 +332,7 @@ COINS=ase bash /app/run-home.sh
 ```bash
 # Via Portainer API (replace <id> with container ID)
 curl -sk -H "X-API-Key: $PORTAINER_TOKEN" \
-  "https://192.168.1.81:9443/api/endpoints/3/docker/containers/<id>/logs?stdout=true&stderr=true&tail=100"
+  "https://<home-vm>:9443/api/endpoints/3/docker/containers/<id>/logs?stdout=true&stderr=true&tail=100"
 ```
 
 Or use the Portainer web UI: Containers > staktrakr-home-poller > Logs.
@@ -342,7 +342,7 @@ Or use the Portainer web UI: Containers > staktrakr-home-poller > Logs.
 ```bash
 # Via Portainer API (replace <id> with container ID)
 curl -sk -X POST -H "X-API-Key: $PORTAINER_TOKEN" \
-  "https://192.168.1.81:9443/api/endpoints/3/docker/containers/<id>/restart"
+  "https://<home-vm>:9443/api/endpoints/3/docker/containers/<id>/restart"
 ```
 
 ### Clear stuck lockfile
