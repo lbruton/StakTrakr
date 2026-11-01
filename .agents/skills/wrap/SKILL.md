@@ -6,7 +6,7 @@ description: >
   facts to .context/, syncs docs, and reports Session Health. Run at end of any session, optionally after
   /pr-cleanup. Triggers: "wrap", "wrap up", "close session", "end of session",
   "done for the night", "finish up", "closing time".
-library-version: ef6d266e06ec
+library-version: ec8d191d27ee
 ---
 
 # Wrap Session
@@ -247,9 +247,9 @@ Choose the key in this order:
 
 1. When an open record of this session has a key that starts with
    `handoff:<ISSUE or PARENT>:<SESSION_ID>`, reuse that key. The write replaces the record in place.
-2. When only a superseded record has the plain key, append the local time to the key
+2. When only a superseded record has `handoff:<ISSUE or PARENT>:<SESSION_ID>`, append the local time
    (`handoff:<ISSUE or PARENT>:<SESSION_ID>:<YYYYMMDDHHMM>`), so the write creates a new active record.
-3. Otherwise, use the plain key.
+3. Otherwise, use `handoff:<ISSUE or PARENT>:<SESSION_ID>`. Omit `topic_key` when `SESSION_ID` is unknown.
 
 Never write a secret value into a handoff.
 
