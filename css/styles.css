@@ -6242,25 +6242,39 @@ td.totals-col-gain {
 }
 
 .totals-metal-mark {
+  --metal-bar-top: color-mix(in oklch, currentColor 90%, white);
+  --metal-bar-front: currentColor;
+  --metal-bar-side: color-mix(in oklch, currentColor 72%, black);
   flex: none;
-  width: 0.6rem;
-  height: 0.6rem;
-  border-radius: 50%;
+  width: 1.05rem;
+  height: 0.75rem;
+}
+.metal-bar-sprite {
+  display: none;
+}
+.metal-bar-top {
+  fill: var(--metal-bar-top);
+}
+.metal-bar-front {
+  fill: var(--metal-bar-front);
+}
+.metal-bar-side {
+  fill: var(--metal-bar-side);
 }
 .silver .totals-metal-mark {
-  background: var(--silver);
+  color: var(--silver);
 }
 .gold .totals-metal-mark {
-  background: var(--gold);
+  color: var(--gold);
 }
 .platinum .totals-metal-mark {
-  background: var(--platinum);
+  color: var(--platinum);
 }
 .palladium .totals-metal-mark {
-  background: var(--palladium);
+  color: var(--palladium);
 }
 .copper .totals-metal-mark {
-  background: var(--copper);
+  color: var(--copper);
 }
 .totals-row-all .totals-metal-mark {
   display: none;
