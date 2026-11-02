@@ -184,6 +184,31 @@ test.describe("app chrome", () => {
     }
   });
 
+  test("the logo fits its wordmark, so the environment tag sits beside the name", async ({
+    page,
+  }) => {
+    await gotoApp(page);
+    await page.evaluate(() => document.fonts.ready);
+    const fit = await page.evaluate(() => {
+      const svg = document.querySelector(".stackr-logo");
+      const box = svg.getBBox();
+      const viewBoxWidth = svg.viewBox.baseVal.width;
+      const drawnRight = [...svg.querySelectorAll("text")]
+        .map((t) => t.getBoundingClientRect())
+        .filter((r) => r.width > 0)
+        .reduce((max, r) => Math.max(max, r.right), 0);
+      return {
+        clipped: box.x + box.width > viewBoxWidth,
+        trimmed: viewBoxWidth < 480,
+        tagGap: document.getElementById("envBadge").getBoundingClientRect().left - drawnRight,
+      };
+    });
+    expect(fit.clipped).toBe(false);
+    expect(fit.trimmed).toBe(true);
+    expect(fit.tagGap).toBeGreaterThanOrEqual(0);
+    expect(fit.tagGap).toBeLessThanOrEqual(32);
+  });
+
   test("at phone width the footer and the environment tag keep 12px text", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await gotoApp(page);
