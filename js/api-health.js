@@ -224,7 +224,9 @@ const updateHealthBadges = ({ primary, backup }) => {
     ]
       .map(([name, feed]) => `${name} ${feed.error ? failed : (feed.ago ?? "?")}`)
       .join(" · ");
-  _renderFooterStatus(dataOk ? "ok" : "stale", infraOk, ages("unavailable"));
+  // A fetch that failed for both feeds is unreachable, not stale: there is no data to age.
+  const state = dataOk ? "ok" : market.error && spot.error ? "down" : "stale";
+  _renderFooterStatus(state, infraOk, ages("unavailable"));
 
   const aboutBadge = safeGetElement("apiHealthBadgeAbout");
   if (aboutBadge) aboutBadge.textContent = `${infraOk ? "✅" : "⚠️"} ${ages("❌")}`;

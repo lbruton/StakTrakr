@@ -151,4 +151,16 @@ test.describe("footer health status two-signal model", () => {
     await expect(ages).toHaveText(/^Market (?:just now|\S+ ago) · Spot (?:just now|\S+ ago)$/);
     await expectSignals(page, status, "ok", "degraded");
   });
+
+  test("every endpoint fails: data down, API unreachable, infra degraded", async ({ page }) => {
+    // The fixture already fails api2; failing api1 too leaves no feed to serve.
+    const fail = (route) => route.fulfill({ status: 503, body: "" });
+    await page.route(`${API1}/manifest.json*`, fail);
+    await page.route(`${API1}/spot/latest.json*`, fail);
+
+    const { ages, status } = await gotoAppAndReadBadge(page);
+    await expect(ages).toHaveText("Market unavailable · Spot unavailable");
+    await expect(page.locator("#apiHealthLabel")).toHaveText("API unreachable");
+    await expectSignals(page, status, "down", "degraded");
+  });
 });
