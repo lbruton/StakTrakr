@@ -2864,10 +2864,31 @@ const METAL_ORDER_DEFAULTS = [
   { id: "gold", label: "Gold", enabled: true },
   { id: "platinum", label: "Platinum", enabled: true },
   { id: "palladium", label: "Palladium", enabled: true },
-  // Disabled by default per the copper epic decision (STRK-302) — enabling
-  // it shows BOTH the copper spot card and the copper totals card.
+  // Off for returning users and for stored configs that predate copper. A
+  // first-run boot saves it on through seedFirstRunMetalOrder().
   { id: "copper", label: "Copper", enabled: false },
 ];
+
+/**
+ * Saves the default metal order with copper on, for a first-run boot.
+ * Keeps a stored config that reads as an array. A failed write leaves the defaults
+ * in effect and does not stop the boot.
+ */
+const seedFirstRunMetalOrder = () => {
+  try {
+    if (Array.isArray(JSON.parse(localStorage.getItem(METAL_ORDER_KEY)))) return;
+  } catch (e) {
+    /* unreadable: seed over it */
+  }
+  try {
+    saveMetalOrderConfig(
+      METAL_ORDER_DEFAULTS.map((m) => (m.id === "copper" ? { ...m, enabled: true } : { ...m }))
+    );
+  } catch (err) {
+    console.warn("[settings] could not save the first-run metal order:", err);
+  }
+};
+window.seedFirstRunMetalOrder = seedFirstRunMetalOrder;
 
 /**
  * Returns the current metal order config, merging stored data with defaults.

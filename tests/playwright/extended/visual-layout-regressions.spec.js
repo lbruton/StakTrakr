@@ -145,10 +145,11 @@ test.describe("extended/visual-layout-regressions", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await waitForSpotChips(page);
 
-    // The default four visible metal cards reflow to a 2×2 stack below 960px.
+    // The five first-run metal cards reflow below 960px: the first card spans
+    // the row and the other four form a 2×2 stack.
     const cards = page.locator(".spot-card:visible");
     const cardCount = await cards.count();
-    expect(cardCount).toBe(4);
+    expect(cardCount).toBe(5);
 
     for (let i = 0; i < cardCount; i++) {
       const card = cards.nth(i);
@@ -191,7 +192,7 @@ test.describe("extended/visual-layout-regressions", () => {
 
     // The hidden chip's row is reserved (spacer), so every card's timestamp shares a plane.
     const visibleCards = page.locator(".spot-card:visible");
-    await expect(visibleCards).toHaveCount(4);
+    await expect(visibleCards).toHaveCount(5);
     const tops = await page
       .locator(".spot-card:visible .spot-card-timestamp")
       .evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().top)));

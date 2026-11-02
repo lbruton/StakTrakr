@@ -195,9 +195,9 @@ test.describe("core/ratios-panel — chip → modal host", () => {
   test("exactly the four ratio chips are actionable — never the goldback chip", async ({
     page,
   }) => {
-    // Four since STRK-341: Au:Ag, Au:Pt, Au:Pd, plus Ag:Cu on the copper card
-    // (in the DOM but hidden with copper's card until the Metal Order opt-in —
-    // visibility is covered in core/settings.spec.js).
+    // Au:Ag, Au:Pt, Au:Pd, plus Ag:Cu on the copper card (in the DOM even when
+    // Metal Order hides copper's card; visibility is covered in
+    // core/settings.spec.js).
     await expect(page.locator(".spot-ratio-chip.is-actionable")).toHaveCount(4);
     // The gold card's chip (when present) shows a G1 rate, not a ratio — it
     // must never carry the actionable affordance or a pair mapping.

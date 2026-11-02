@@ -842,27 +842,143 @@ test.describe("Dashboard frames", () => {
   test("ticker chips stay out of the outer 8px at each edge in every theme at 1440 and 390", async ({
     page,
   }) => {
-    await injectSeedInventory(page);
-    for (const width of [1440, 390]) {
-      await page.setViewportSize({ width, height: 900 });
-      await page.goto("/index.html");
-      await expect(page.locator("#bestPriceTickerEl .ticker-item .coin").first()).toBeVisible();
-      // The boot toast sits bottom right and can cover the strip's right band when it is at the fold.
-      await page.addStyleTag({
-        content:
-          ".ticker-track { animation: none !important; } .cloud-toast { display: none !important; }",
-      });
-      for (const theme of THEMES) {
-        await test.step(`${theme} at ${width}`, async () => {
-          await applyTheme(page, theme);
-          const { left, right, centre } = await readTickerEdgeInk(page);
-          expect({ left, right }).toEqual({ left: 0, right: 0 });
-          expect(centre).toBeGreaterThan(0);
-        });
-      }
-    }
+    await expectCleanTickerEdges(page, THEMES, "", readTickerEdgeInk);
+  });
+
+  test("the strip clips chips 8px inside its border, with or without the fades", async ({
+    page,
+  }) => {
+    // Without the fades, only a clip keeps a chip out of the border band.
+    await expectCleanTickerEdges(
+      page,
+      ["dark", "light"],
+      ".market-ticker::before, .market-ticker::after { display: none !important; }",
+      readTickerBorderInk
+    );
   });
 });
+
+/**
+ * Boots the Dashboard at 1440 and 390 with the ticker track held still, then expects no ink in
+ * either edge band and some ink in the centre band, in each theme.
+ */
+async function expectCleanTickerEdges(page, themes, extraCss, readInk) {
+  await injectSeedInventory(page);
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/index.html");
+    await expect(page.locator("#bestPriceTickerEl .ticker-item .coin").first()).toBeVisible();
+    // The boot toast sits bottom right and can cover the strip's right band when it is at the fold.
+    await page.addStyleTag({
+      content: `.ticker-track { animation: none !important; } .cloud-toast { display: none !important; } ${extraCss}`,
+    });
+    for (const theme of themes) {
+      await test.step(`${theme} at ${width}`, async () => {
+        await applyTheme(page, theme);
+        const { left, right, centre } = await readInk(page);
+        expect({ left, right }).toEqual({ left: 0, right: 0 });
+        expect(centre).toBeGreaterThan(0);
+      });
+    }
+  }
+}
+
+/** Reads the strip, its frame, both border widths and the first and last matches, track at rest. */
+function readTickerGeometry(page, itemSelector) {
+  return page.evaluate((selector) => {
+    const ticker = document.getElementById("bestPriceTickerEl");
+    ticker.querySelector(".ticker-track").style.transform = "none";
+    const rect = (el) => {
+      const { left, right, top, width, height } = el.getBoundingClientRect();
+      return { left, right, top, width, height };
+    };
+    const border = (el) => parseFloat(getComputedStyle(el).borderLeftWidth);
+    const items = [...ticker.querySelectorAll(selector)];
+    return {
+      box: rect(ticker),
+      outer: rect(ticker.parentElement),
+      stripBorder: border(ticker),
+      frameBorder: border(ticker.parentElement),
+      first: rect(items[0]),
+      last: rect(items[items.length - 1]),
+    };
+  }, itemSelector);
+}
+
+/** Moves the held track and waits two frames, so a screenshot shows the new position. */
+function shiftTickerTrack(page, shift, visibility = "visible") {
+  return page.evaluate(
+    ([px, shown]) => {
+      const track = document.querySelector("#bestPriceTickerEl .ticker-track");
+      track.style.transform = `translateX(${px}px)`;
+      track.style.visibility = shown;
+      return new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    },
+    [shift, visibility]
+  );
+}
+
+/** Screenshots a clip and returns its pixels as a flat RGB array. */
+async function readClipPixels(page, clip) {
+  const png = (await page.screenshot({ clip })).toString("base64");
+  return page.evaluate(async (data) => {
+    const img = new Image();
+    img.src = `data:image/png;base64,${data}`;
+    await img.decode();
+    const canvas = document.createElement("canvas");
+    canvas.width = img.width;
+    canvas.height = img.height;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    ctx.drawImage(img, 0, 0);
+    return [...ctx.getImageData(0, 0, img.width, img.height).data].filter((_, i) => i % 4 !== 3);
+  }, png);
+}
+
+/** Counts the pixels that differ by more than 3 in any channel from referenceAt(index). */
+function countInk(pixels, referenceAt) {
+  let count = 0;
+  for (let i = 0; i < pixels.length; i += 3) {
+    const ref = referenceAt(i);
+    if ([0, 1, 2].some((c) => Math.abs(pixels[i + c] - ref[c]) > 3)) count += 1;
+  }
+  return count;
+}
+
+/**
+ * Holds a chip across each strip edge and counts the pixels that change when the track shows.
+ * Each band covers the border and the next 8px over the full strip height. The centre band is
+ * the control: a chip held there must change pixels.
+ */
+async function readTickerBorderInk(page) {
+  await page.locator("#bestPriceTickerEl").scrollIntoViewIfNeeded();
+  const { box, outer, stripBorder, frameBorder, first, last } = await readTickerGeometry(
+    page,
+    ".ticker-item"
+  );
+  // The frame draws the border when the strip does not, so the band starts at the outer edge.
+  expect(Math.max(stripBorder, frameBorder)).toBeGreaterThan(0);
+  const band = Math.floor(Math.max(stripBorder, frameBorder) + 8);
+  const middle = (box.left + box.right) / 2;
+  const edges = {
+    left: [box.left - first.width / 2 - first.left, Math.floor(Math.min(outer.left, box.left))],
+    right: [
+      box.right + last.width / 2 - last.right,
+      Math.ceil(Math.max(outer.right, box.right)) - band,
+    ],
+    centre: [middle - (first.left + first.right) / 2, Math.round(middle) - band / 2],
+  };
+  const ink = {};
+  for (const [edge, [shift, x]] of Object.entries(edges)) {
+    const clip = { x, y: Math.ceil(box.top), width: band, height: Math.floor(box.height) };
+    await shiftTickerTrack(page, shift);
+    const shown = await readClipPixels(page, clip);
+    await shiftTickerTrack(page, shift, "hidden");
+    const hidden = await readClipPixels(page, clip);
+    await shiftTickerTrack(page, shift);
+    ink[edge] = countInk(shown, (i) => hidden.slice(i, i + 3));
+  }
+  return ink;
+}
 
 /**
  * Holds the ticker track so a chip's coin name crosses each inner edge, then counts the pixels in
@@ -873,62 +989,26 @@ async function readTickerEdgeInk(page) {
   // The ticker follows Your stack and can sit below the fold; a screenshot clip must be on screen.
   await page.locator("#bestPriceTickerEl").scrollIntoViewIfNeeded();
   const bandWidth = 8;
+  const { box, stripBorder, first, last } = await readTickerGeometry(page, ".ticker-item .coin");
+  const innerLeft = box.left + stripBorder;
+  const innerRight = box.right - stripBorder;
+  const middle = (innerLeft + innerRight) / 2;
+  const edges = {
+    left: [innerLeft - 10 - first.left, Math.ceil(innerLeft)],
+    right: [innerRight + 10 - last.right, Math.floor(innerRight) - bandWidth],
+    centre: [middle - (first.left + first.right) / 2, Math.round(middle) - bandWidth / 2],
+  };
+  const bg = await page.evaluate(() => {
+    const ctx = document.createElement("canvas").getContext("2d", { willReadFrequently: true });
+    ctx.fillStyle = getComputedStyle(document.getElementById("bestPriceTickerEl")).backgroundColor;
+    ctx.fillRect(0, 0, 1, 1);
+    return [...ctx.getImageData(0, 0, 1, 1).data];
+  });
   const ink = {};
-  for (const edge of ["left", "right", "centre"]) {
-    const clip = await page.evaluate(
-      ({ edge, bandWidth }) => {
-        const ticker = document.getElementById("bestPriceTickerEl");
-        const track = ticker.querySelector(".ticker-track");
-        track.style.transform = "none";
-        const box = ticker.getBoundingClientRect();
-        const style = getComputedStyle(ticker);
-        const innerLeft = box.left + parseFloat(style.borderLeftWidth);
-        const innerRight = box.right - parseFloat(style.borderRightWidth);
-        const coins = [...ticker.querySelectorAll(".ticker-item .coin")];
-        const coin = edge === "right" ? coins[coins.length - 1] : coins[0];
-        const text = coin.getBoundingClientRect();
-        const middle = (innerLeft + innerRight) / 2;
-        const shifts = {
-          left: innerLeft - 10 - text.left,
-          right: innerRight + 10 - text.right,
-          centre: middle - (text.left + text.right) / 2,
-        };
-        track.style.transform = `translateX(${shifts[edge]}px)`;
-        const xs = {
-          left: Math.ceil(innerLeft),
-          right: Math.floor(innerRight) - bandWidth,
-          centre: Math.round(middle) - bandWidth / 2,
-        };
-        const x = xs[edge];
-        return { x, y: Math.ceil(text.top), width: bandWidth, height: Math.floor(text.height) };
-      },
-      { edge, bandWidth }
-    );
-    await page.evaluate(
-      () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
-    );
-    const png = (await page.screenshot({ clip })).toString("base64");
-    ink[edge] = await page.evaluate(async (data) => {
-      const img = new Image();
-      img.src = `data:image/png;base64,${data}`;
-      await img.decode();
-      const canvas = document.createElement("canvas");
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext("2d", { willReadFrequently: true });
-      ctx.fillStyle = getComputedStyle(
-        document.getElementById("bestPriceTickerEl")
-      ).backgroundColor;
-      ctx.fillRect(0, 0, 1, 1);
-      const bg = ctx.getImageData(0, 0, 1, 1).data;
-      ctx.drawImage(img, 0, 0);
-      const px = ctx.getImageData(0, 0, img.width, img.height).data;
-      let count = 0;
-      for (let i = 0; i < px.length; i += 4) {
-        if (Math.max(...[0, 1, 2].map((c) => Math.abs(px[i + c] - bg[c]))) > 3) count += 1;
-      }
-      return count;
-    }, png);
+  for (const [edge, [shift, x]] of Object.entries(edges)) {
+    const clip = { x, y: Math.ceil(first.top), width: bandWidth, height: Math.floor(first.height) };
+    await shiftTickerTrack(page, shift);
+    ink[edge] = countInk(await readClipPixels(page, clip), () => bg);
   }
   return ink;
 }

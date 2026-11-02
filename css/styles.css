@@ -16837,16 +16837,31 @@ input[type="number"] {
    ============================================================================= */
 
 /* ── Best Price Ticker Strip ── */
+/* The frame draws the strip's border, so the strip can clip its chips 8px inside it. The clip
+   holds wherever the compositor paints the moving track, with or without the fades. */
+.market-ticker-frame:has(> .market-ticker:not([hidden])) {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
 .market-ticker {
   width: 100%;
   overflow: hidden;
   background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
   padding: 12px 0;
   position: relative;
+  clip-path: inset(0 8px);
   /* STAK-513: Clamp to single row height as visual safety net */
   max-height: 72px;
+}
+/* Without :has() the frame draws no border, so the strip draws its own and relies on the fades. */
+@supports not selector(:has(*)) {
+  .market-ticker {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    clip-path: none;
+  }
 }
 .market-ticker::before,
 .market-ticker::after {

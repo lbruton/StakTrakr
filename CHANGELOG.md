@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.99] - 2026-11-01
+
+### Changed — STRK-510: Copper on for first-time users
+
+- **Spot cards**: A first-time user sees copper as the fifth spot card, with its Ag:Cu chip and totals row. Returning users and saved Metal Order settings keep copper off until they enable it (STRK-510).
+
+### Fixed — STRK-509: Ticker chips at the strip border
+
+- **Best-price ticker**: The strip clips its chips 8px inside its border, so no chip text or edge paints on or next to the border while the loop runs, holds or pauses (STRK-509).
+
+---
+
 ## [3.36.98] - 2026-11-01
 
 ### Changed — STRK-498: Bullion bars in the ledger
