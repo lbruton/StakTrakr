@@ -419,12 +419,21 @@ function readBarMarkFaults(page) {
       const token = getComputedStyle(document.documentElement).getPropertyValue(`--${key}`);
       const shown = getComputedStyle(mark).color;
       if (channels(shown).join() !== channels(token).join()) faults.push(`${key}: ${shown}`);
-      for (const face of ["--metal-bar-top", "--metal-bar-front", "--metal-bar-side"]) {
+      // A probe inside the mark inherits its colour, as the symbol's cloned paths do.
+      const fillOf = (setUp) => {
         const probe = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-        probe.style.fill = `var(${face})`;
+        setUp(probe);
         mark.append(probe);
         const fill = getComputedStyle(probe).fill;
         probe.remove();
+        return fill;
+      };
+      for (const face of ["--metal-bar-top", "--metal-bar-front", "--metal-bar-side"]) {
+        const fill = fillOf((probe) => probe.setAttribute("class", face.slice(2)));
+        const expected = fillOf((probe) => (probe.style.fill = `var(${face})`));
+        if (channels(fill).join() !== channels(expected).join()) {
+          faults.push(`${key} ${face}: ${fill}, expected ${expected}`);
+        }
         const ratio = contrast(fill, card);
         if (ratio < 3) faults.push(`${key} ${face}: ${ratio.toFixed(2)}`);
       }
