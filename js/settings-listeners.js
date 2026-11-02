@@ -82,7 +82,7 @@ const bindAppearanceAndHeaderListeners = () => {
   // surfaced because the checkbox was not there to click.
 
   wireStorageToggle("settingsHeaderShowText_hdr", HEADER_BTN_SHOW_TEXT_KEY, {
-    defaultVal: true,
+    defaultVal: false,
     onApply: () => applyHeaderToggleVisibility(),
   });
 

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.100] - 2026-11-01
+
+### Changed — STRK-501: Quiet app chrome
+
+- **Footer**: Text links and a status line replace the shields.io and Codacy badge images, so the footer loads no images and renders offline. A dot and a word name the price state (Prices current, Prices stale, API unreachable), with the per-feed ages, "API degraded" when an endpoint lags, and the version with any newer release (STRK-501).
+- **Environment tag**: BETA, PREVIEW and LOCAL show as an outlined label beside the wordmark, in the secondary text colour, in place of the coloured chip under the logo (STRK-501).
+- **Header buttons**: Theme and Settings are unboxed icons with a 44px hit area. Their labels show only when Settings, Header Buttons, Show text is on (STRK-501).
+
+---
+
 ## [3.36.99] - 2026-11-01
 
 ### Changed — STRK-510: Copper on for first-time users

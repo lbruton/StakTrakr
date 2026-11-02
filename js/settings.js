@@ -2477,8 +2477,8 @@ const applyHeaderToggleVisibility = () => {
     }
   }
 
-  // Show text toggle
-  const showText = localStorage.getItem(HEADER_BTN_SHOW_TEXT_KEY) !== "false";
+  // Labels show only when the user turns them on; the buttons are icons by default.
+  const showText = localStorage.getItem(HEADER_BTN_SHOW_TEXT_KEY) === "true";
   if (container && container.classList) {
     container.classList.toggle("header-buttons--show-text", showText);
   }
