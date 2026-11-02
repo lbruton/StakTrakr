@@ -1,0 +1,497 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>App Chrome</title>
+    <!-- Mockup for STRK-501: a quiet text footer in place of the badges, an outlined environment
+         tag, and unboxed header icon buttons. The app stylesheet supplies the tokens and the four
+         themes; every class here is prefixed mk- so nothing collides with the app. -->
+    <link rel="stylesheet" href="../css/styles.css" />
+    <style>
+      body {
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        font-family: var(--font-body);
+        margin: 0;
+      }
+      .mk-controls {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.6rem 1.5rem;
+        align-items: center;
+        padding: 0.6rem 1rem;
+        background: var(--bg-tertiary);
+        border-bottom: 1px solid var(--border);
+        font-size: var(--font-size-sm);
+      }
+      .mk-controls fieldset {
+        display: flex;
+        gap: 0.25rem;
+        align-items: center;
+        border: 0;
+        margin: 0;
+        padding: 0;
+      }
+      .mk-controls legend {
+        float: left;
+        margin-right: 0.4rem;
+        color: var(--text-muted);
+      }
+      .mk-controls button {
+        font: inherit;
+        padding: 0.2rem 0.6rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-pill, 999px);
+        background: var(--bg-secondary);
+        color: var(--text-secondary);
+        cursor: pointer;
+      }
+      .mk-controls button[aria-pressed="true"] {
+        border-color: var(--primary);
+        color: var(--text-primary);
+      }
+
+      .mk-stage {
+        margin: 1.5rem auto;
+        padding: 0 1rem;
+        max-width: 1440px;
+      }
+      .mk-stage[data-width="390"] {
+        max-width: 390px;
+        padding: 0;
+        outline: 1px dashed var(--border);
+      }
+
+      /* ── Header ───────────────────────────────────────────── */
+      .mk-header {
+        display: flex;
+        align-items: center;
+        gap: 1rem 1.5rem;
+        flex-wrap: wrap;
+        padding: 0.75rem 1.25rem;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg, 12px);
+      }
+      .mk-brand {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        margin-right: auto;
+      }
+      .mk-wordmark {
+        font-weight: 700;
+        font-size: 1.25rem;
+        letter-spacing: 0.06em;
+        color: var(--text-primary);
+      }
+      .mk-wordmark-gold {
+        color: var(--primary);
+      }
+      /* Environment tag: outlined, mono, secondary text. It differs by word, never by colour. */
+      .mk-env {
+        font-family: var(--font-mono);
+        font-size: 0.6875rem;
+        letter-spacing: 0.08em;
+        line-height: 1;
+        padding: 0.3rem 0.45rem;
+        color: var(--text-secondary);
+        border: 1px solid color-mix(in oklch, currentColor 55%, transparent);
+        border-radius: 4px;
+      }
+      .mk-env[hidden] {
+        display: none;
+      }
+      .mk-tabs {
+        display: flex;
+        gap: 0.25rem;
+      }
+      .mk-tab {
+        font: inherit;
+        font-size: var(--font-size-base, 0.875rem);
+        font-weight: 500;
+        min-height: 44px;
+        padding: 0 0.75rem;
+        background: none;
+        border: 0;
+        border-bottom: 2px solid transparent;
+        color: var(--text-secondary);
+        cursor: pointer;
+      }
+      .mk-tab[aria-selected="true"] {
+        color: var(--text-primary);
+        border-bottom-color: var(--primary);
+      }
+      .mk-actions {
+        display: flex;
+        gap: 0.25rem;
+      }
+      /* Unboxed icon button: no border or fill at rest, 44px hit area, tab-weight colour. */
+      .mk-icon-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.4rem;
+        min-width: 44px;
+        min-height: 44px;
+        padding: 0 0.6rem;
+        font: inherit;
+        font-size: var(--font-size-sm);
+        font-weight: 500;
+        color: var(--text-secondary);
+        background: none;
+        border: 0;
+        border-radius: var(--radius-md, 8px);
+        cursor: pointer;
+        transition: var(--transition);
+      }
+      .mk-icon-btn:hover {
+        color: var(--text-primary);
+        background: var(--bg-tertiary);
+      }
+      .mk-icon-btn:focus-visible {
+        outline: 2px solid var(--primary);
+        outline-offset: 2px;
+      }
+      .mk-icon-btn .mk-btn-text {
+        display: none;
+      }
+      [data-show-text="true"] .mk-icon-btn .mk-btn-text {
+        display: inline;
+      }
+
+      .mk-body {
+        margin: 1rem 0;
+        padding: 3rem 1.25rem;
+        text-align: center;
+        color: var(--text-muted);
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg, 12px);
+        font-size: var(--font-size-sm);
+      }
+
+      /* ── Footer ───────────────────────────────────────────── */
+      .mk-footer {
+        padding: 0.9rem 1.25rem;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg, 12px);
+        font-size: var(--font-size-sm);
+        color: var(--text-secondary);
+      }
+      .mk-footer-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem 2rem;
+      }
+      .mk-group {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0 0.25rem;
+      }
+      /* The Product and Project groups sit apart by space, not by a separator, so a wrap never
+         strands a dot at a line end. */
+      .mk-links {
+        gap: 0.25rem 1.5rem;
+      }
+      .mk-group-label {
+        color: var(--text-muted);
+        margin-right: 0.35rem;
+      }
+      .mk-sep {
+        color: var(--text-muted);
+        padding: 0 0.15rem;
+      }
+      .mk-link,
+      .mk-status {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        min-height: 32px;
+        padding: 0 0.15rem;
+        font: inherit;
+        color: var(--text-secondary);
+        background: none;
+        border: 0;
+        text-decoration: none;
+        cursor: pointer;
+        border-radius: 4px;
+      }
+      .mk-link:hover,
+      .mk-status:hover {
+        color: var(--text-primary);
+        text-decoration: underline;
+        text-underline-offset: 3px;
+      }
+      .mk-link:focus-visible,
+      .mk-status:focus-visible {
+        outline: 2px solid var(--primary);
+        outline-offset: 2px;
+      }
+      .mk-figure {
+        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
+      }
+      /* The dot is a non-text indicator: a status fill token at 3:1; the word beside it carries the state. */
+      .mk-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        flex: none;
+        background: var(--text-muted);
+      }
+      /* The *-text tokens, not the fills: only they reach 3:1 on the frame in light and sepia. */
+      [data-api="ok"] .mk-dot {
+        background: var(--success-text);
+      }
+      [data-api="stale"] .mk-dot {
+        background: var(--warning-text);
+      }
+      [data-api="down"] .mk-dot {
+        background: var(--danger-text);
+      }
+      .mk-state {
+        font-weight: 500;
+      }
+      [data-api="ok"] .mk-state {
+        color: var(--success-text);
+      }
+      [data-api="stale"] .mk-state {
+        color: var(--warning-text);
+      }
+      [data-api="down"] .mk-state {
+        color: var(--danger-text);
+      }
+      .mk-update {
+        color: var(--warning-text);
+        font-weight: 500;
+      }
+      .mk-meta {
+        margin-top: 0.5rem;
+        padding-top: 0.5rem;
+        border-top: 1px solid var(--border);
+        color: var(--text-secondary);
+        font-size: max(12px, var(--font-size-xs));
+      }
+      .mk-meta a {
+        color: inherit;
+        text-underline-offset: 3px;
+      }
+
+      @media (max-width: 767px) {
+        .mk-tabs {
+          order: 3;
+          width: 100%;
+          overflow-x: auto;
+        }
+      }
+      .mk-stage[data-width="390"] .mk-tabs {
+        order: 3;
+        width: 100%;
+        overflow-x: auto;
+      }
+      .mk-stage[data-width="390"] .mk-footer-row {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .mk-stage[data-width="390"] .mk-link,
+      .mk-stage[data-width="390"] .mk-status {
+        min-height: 44px;
+      }
+      .mk-stage[data-width="390"] .mk-header,
+      .mk-stage[data-width="390"] .mk-footer,
+      .mk-stage[data-width="390"] .mk-body {
+        border-radius: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="mk-controls" role="toolbar" aria-label="Mockup controls">
+      <fieldset>
+        <legend>Theme</legend>
+        <button type="button" data-set="theme" data-value="light">Light</button>
+        <button type="button" data-set="theme" data-value="dark" aria-pressed="true">Dark</button>
+        <button type="button" data-set="theme" data-value="slate">Slate</button>
+        <button type="button" data-set="theme" data-value="sepia">Sepia</button>
+      </fieldset>
+      <fieldset>
+        <legend>Width</legend>
+        <button type="button" data-set="width" data-value="1440" aria-pressed="true">1440</button>
+        <button type="button" data-set="width" data-value="390">390</button>
+      </fieldset>
+      <fieldset>
+        <legend>Environment</legend>
+        <button type="button" data-set="env" data-value="BETA" aria-pressed="true">Beta</button>
+        <button type="button" data-set="env" data-value="PREVIEW">Preview</button>
+        <button type="button" data-set="env" data-value="LOCAL">Local</button>
+        <button type="button" data-set="env" data-value="">Production</button>
+      </fieldset>
+      <fieldset>
+        <legend>API</legend>
+        <button type="button" data-set="api" data-value="ok" aria-pressed="true">Current</button>
+        <button type="button" data-set="api" data-value="stale">Stale</button>
+        <button type="button" data-set="api" data-value="down">Down</button>
+        <button type="button" data-set="api" data-value="checking">Checking</button>
+      </fieldset>
+      <fieldset>
+        <legend>Version</legend>
+        <button type="button" data-set="version" data-value="current" aria-pressed="true">
+          Current
+        </button>
+        <button type="button" data-set="version" data-value="update">Update</button>
+      </fieldset>
+      <fieldset>
+        <legend>Button text</legend>
+        <button type="button" data-set="text" data-value="false" aria-pressed="true">Off</button>
+        <button type="button" data-set="text" data-value="true">On</button>
+      </fieldset>
+    </div>
+
+    <div class="mk-stage" id="stage" data-width="1440" data-api="ok" data-show-text="false">
+      <header class="mk-header">
+        <div class="mk-brand">
+          <!-- Stand-in for the app's themed inline logo, which this issue leaves unchanged. -->
+          <span class="mk-wordmark" role="img" aria-label="StakTrakr"
+            ><span>STAK</span><span class="mk-wordmark-gold">TRAKR</span></span
+          >
+          <span class="mk-env" id="envTag">BETA</span>
+        </div>
+        <nav class="mk-tabs" role="tablist" aria-label="Primary">
+          <button class="mk-tab" role="tab" aria-selected="true">Dashboard</button>
+          <button class="mk-tab" role="tab" aria-selected="false">Inventory</button>
+          <button class="mk-tab" role="tab" aria-selected="false">Market</button>
+          <button class="mk-tab" role="tab" aria-selected="false">Collections</button>
+        </nav>
+        <div class="mk-actions">
+          <button class="mk-icon-btn" type="button" title="Cycle theme" aria-label="Cycle theme">
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="12" cy="12" r="5" />
+              <line x1="12" y1="1" x2="12" y2="3" />
+              <line x1="12" y1="21" x2="12" y2="23" />
+              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+              <line x1="1" y1="12" x2="3" y2="12" />
+              <line x1="21" y1="12" x2="23" y2="12" />
+              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+              <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+            </svg>
+            <span class="mk-btn-text">Theme</span>
+          </button>
+          <button class="mk-icon-btn" type="button" title="Settings" aria-label="Settings">
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="12" cy="12" r="3" />
+              <path
+                d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.650 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"
+              />
+            </svg>
+            <span class="mk-btn-text">Settings</span>
+          </button>
+        </div>
+      </header>
+
+      <div class="mk-body">Dashboard content: spot cards, Your stack, ticker</div>
+
+      <footer class="mk-footer">
+        <div class="mk-footer-row">
+          <div class="mk-group" aria-label="Status">
+            <button class="mk-status" type="button" title="Open API health">
+              <span class="mk-dot" aria-hidden="true"></span>
+              <span class="mk-state" id="apiState">Prices current</span>
+              <span class="mk-figure" id="apiAgo">Market 13m ago · Spot 14m ago</span>
+            </button>
+            <span class="mk-sep" aria-hidden="true">·</span>
+            <a class="mk-link mk-figure" id="versionLink" href="#">v3.36.99</a>
+            <span class="mk-update" id="versionUpdate" hidden>v3.37.0 available</span>
+          </div>
+          <div class="mk-group mk-links">
+            <nav class="mk-group" aria-label="Product">
+              <a class="mk-link" href="#">FAQ</a>
+              <span class="mk-sep" aria-hidden="true">·</span>
+              <a class="mk-link" href="#">Beta site</a>
+            </nav>
+            <nav class="mk-group" aria-label="Project">
+              <a class="mk-link" href="#">GitHub</a>
+              <span class="mk-sep" aria-hidden="true">·</span>
+              <a class="mk-link" href="#">Issues</a>
+              <span class="mk-sep" aria-hidden="true">·</span>
+              <a class="mk-link" href="#">r/staktrakr</a>
+              <span class="mk-sep" aria-hidden="true">·</span>
+              <a class="mk-link" href="#">MIT License</a>
+              <span class="mk-sep" aria-hidden="true">·</span>
+              <a class="mk-link" href="#">Sponsor</a>
+            </nav>
+          </div>
+        </div>
+        <div class="mk-meta">
+          Thank you for using StakTrakr · © 2025-2026 <a href="#">staktrakr.com</a> · Created by
+          <a href="#">lbruton.cc</a>
+        </div>
+      </footer>
+    </div>
+
+    <script>
+      const stage = document.getElementById("stage");
+      const API = {
+        ok: ["Prices current", "Market 13m ago · Spot 14m ago"],
+        stale: ["Prices stale", "Market 3h ago · Spot 14m ago"],
+        down: ["Feed down", "Market unavailable · Spot 14m ago"],
+        checking: ["Checking prices", ""],
+      };
+      const set = {
+        theme: (v) => document.documentElement.setAttribute("data-theme", v),
+        width: (v) => (stage.dataset.width = v),
+        env: (v) => {
+          const tag = document.getElementById("envTag");
+          tag.textContent = v;
+          tag.hidden = !v;
+        },
+        api: (v) => {
+          stage.dataset.api = v;
+          document.getElementById("apiState").textContent = API[v][0];
+          document.getElementById("apiAgo").textContent = API[v][1];
+        },
+        version: (v) => {
+          document.getElementById("versionUpdate").hidden = v !== "update";
+        },
+        text: (v) => (stage.dataset.showText = v),
+      };
+      document.querySelectorAll("[data-set]").forEach((btn) =>
+        btn.addEventListener("click", () => {
+          const key = btn.dataset.set;
+          document
+            .querySelectorAll(`[data-set="${key}"]`)
+            .forEach((b) => b.setAttribute("aria-pressed", String(b === btn)));
+          set[key](btn.dataset.value);
+        })
+      );
+    </script>
+  </body>
+</html>

@@ -348,6 +348,22 @@ Borders are 1px on surfaces and 2px on form fields.
 
 - **Style:** a header bar with the compact wordmark and tab buttons for the main views. The active tab
   takes the primary token. On mobile the controls wrap and keep 44px targets.
+- **Header buttons:** Theme and Settings are unboxed icons in the secondary text colour, with a 44px
+  hit area and the tertiary surface on hover. Their labels show only when the Show text setting is on.
+- **Environment tag:** BETA, PREVIEW or LOCAL beside the wordmark, as a 1px outlined mono label in the
+  secondary text colour. The tags differ by word, never by colour.
+
+### Footer
+
+One frame with a status group and text links, and no images, so it renders offline and on `file://`.
+The status group shows a dot and a word for the prices on screen (Prices current, Prices stale, API
+unreachable), the per-feed ages in the data face, "API degraded" when an endpoint lags, and the version
+with any newer release. The dot and the state words use the `*-text` tokens. Product links (FAQ, Beta
+site) and Project links (GitHub, Issues, r/staktrakr, MIT License, Sponsor) are text in the secondary
+colour, separated by middle dots within a group and by space between groups. Below 768px the groups
+stack and each link keeps a 44px target. The attribution line sits under a 1px rule.
+
+The approved mockup is `playground/STRK-501-app-chrome.html`.
 
 ### Spot Cards and Ticker
 

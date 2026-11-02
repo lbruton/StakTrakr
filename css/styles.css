@@ -882,135 +882,143 @@ section {
   box-sizing: border-box;
 }
 
+/* Footer: one line of status and text links, no images, so it renders offline. */
 .app-footer {
   margin-top: var(--spacing-xl);
-  text-align: center;
-  font-size: var(--font-size-lg);
+  padding: 0.9rem 1.25rem;
+  font-size: var(--font-size-sm);
   color: var(--text-secondary);
-  padding: var(--spacing);
   background: var(--bg-secondary);
   border-radius: var(--radius-lg);
   border: 1px solid var(--border);
 }
-
-.app-footer a {
-  color: var(--primary);
-}
-
-.footer-meta {
-  font-size: var(--font-size-sm);
-  color: var(--text-secondary);
-  line-height: 1.6;
-}
-
-.footer-badges {
+.footer-row {
   display: flex;
-  justify-content: center;
-  align-items: center;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 8px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 2rem;
 }
-
-.footer-badges img {
-  vertical-align: middle;
+.footer-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 0.25rem;
 }
-
-/* ── Shield badge component ──
-   Two-part badges matching shields.io flat-square style.
-   Structure: <a class="shield-badge"><span class="shield-badge-label">label</span><span class="shield-badge-value shield-badge-value--COLOR">value</span></a>
-   Colors use the shields.io palette with white text on all backgrounds. */
-.shield-badge {
-  display: inline-flex;
-  height: 20px;
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-  font-family: "Verdana", "DejaVu Sans", sans-serif;
-  font-size: var(--font-size-xs);
-  vertical-align: middle;
-  text-decoration: none;
-  line-height: 20px;
-  cursor: pointer;
-  border: none;
-  padding: 0;
-  background: none;
+/* The Product and Project groups sit apart by space, so a wrap never strands a separator. */
+.footer-links {
+  gap: 0.25rem 1.5rem;
 }
-.shield-badge:hover {
-  text-decoration: none;
-  opacity: 0.85;
+.footer-sep {
+  color: var(--text-muted);
+  padding: 0 0.15rem;
 }
-.shield-badge-label {
-  padding: 0 6px;
-  background: #555;
-  color: #fff;
-  white-space: nowrap;
-}
-.shield-badge-value {
-  padding: 0 6px;
-  white-space: nowrap;
-}
-/* shields.io palette — WCAG AA compliant contrast
-   Dark text (#1a1a1a) on bright backgrounds (green/yellow/orange/grey)
-   White text (#fff) on dark backgrounds (red/blue/label grey) */
-.shield-badge-value--brightgreen {
-  background: #4c1;
-  color: #1a1a1a;
-}
-.shield-badge-value--green {
-  background: #97ca00;
-  color: #1a1a1a;
-}
-.shield-badge-value--yellow {
-  background: #dfb317;
-  color: #1a1a1a;
-}
-.shield-badge-value--orange {
-  background: #fe7d37;
-  color: #1a1a1a;
-}
-.shield-badge-value--red {
-  background: #e05d44;
-  color: #fff;
-}
-.shield-badge-value--blue {
-  background: #0969da;
-  color: #fff;
-}
-.shield-badge-value--grey {
-  background: #9f9f9f;
-  color: #1a1a1a;
-}
-
-/* Legacy .version-badge — no longer used in footer, removed in STAK-536 */
-
-/* Environment badge (BETA / PREVIEW / LOCAL) — STAK-376 */
-.env-badge {
-  position: absolute;
-  bottom: -2px;
-  left: 2px;
+.footer-link,
+.footer-status-btn {
   display: inline-flex;
   align-items: center;
-  font-size: var(--font-size-xs);
-  font-weight: 700;
+  gap: 0.4rem;
+  min-height: 32px;
+  padding: 0 0.15rem;
+  font: inherit;
+  color: var(--text-secondary);
+  background: none;
+  border: 0;
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  cursor: pointer;
+}
+.footer-link:hover,
+.footer-status-btn:hover {
+  color: var(--text-primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.footer-link:focus-visible,
+.footer-status-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+.footer-figure {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+/* The dot is a non-text indicator in the *-text tokens, the only status colours at 3:1 on the
+   frame in every theme. The state word beside it carries the meaning. */
+.footer-dot {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+.footer-state {
+  font-weight: 500;
+}
+.footer-status-btn[data-state="ok"] .footer-dot {
+  background: var(--success-text);
+}
+.footer-status-btn[data-state="ok"] .footer-state {
+  color: var(--success-text);
+}
+.footer-status-btn[data-state="stale"] .footer-dot,
+.footer-status-btn[data-state="down"] .footer-dot {
+  background: var(--warning-text);
+}
+.footer-status-btn[data-state="stale"] .footer-state,
+.footer-status-btn[data-state="down"] .footer-state,
+.footer-infra,
+.footer-update {
+  color: var(--warning-text);
+  font-weight: 500;
+}
+.footer-status-btn[data-state="down"] .footer-dot {
+  background: var(--danger-text);
+}
+.footer-status-btn[data-state="down"] .footer-state {
+  color: var(--danger-text);
+}
+.footer-infra[hidden],
+.footer-update[hidden] {
+  display: none;
+}
+.footer-meta {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border);
+  font-size: max(12px, var(--font-size-xs));
+  color: var(--text-secondary);
+}
+.footer-meta a {
+  color: inherit;
+  text-underline-offset: 3px;
+}
+@media (max-width: 767px) {
+  .footer-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .footer-link,
+  .footer-status-btn {
+    min-height: 44px;
+  }
+}
+
+/* Environment tag (BETA / PREVIEW / LOCAL): an outlined label that differs by its word only. */
+.env-badge {
+  flex: none;
+  margin-left: 0.6rem;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
   letter-spacing: 0.08em;
-  padding: 1px 6px;
-  border-radius: var(--radius);
+  line-height: 1;
+  padding: 0.3rem 0.45rem;
+  color: var(--text-secondary);
+  background: none;
+  border: 1px solid color-mix(in oklch, currentColor 55%, transparent);
+  border-radius: var(--radius-sm);
   text-transform: uppercase;
-  line-height: 1.4;
-  z-index: 1;
   pointer-events: none;
-}
-.env-badge--beta {
-  background: var(--warning, #f0ad4e);
-  color: #1a1a1a;
-}
-.env-badge--preview {
-  background: var(--info, #5bc0de);
-  color: #1a1a1a;
-}
-.env-badge--local {
-  background: var(--text-muted, #999);
-  color: #fff;
 }
 
 /* =============================================================================
@@ -3118,16 +3126,43 @@ input[type="submit"] {
   margin-bottom: var(--spacing-md);
 }
 
-/* Header toggle buttons (STACK-54) */
-.header-toggle-btn {
-  width: 56px;
-  height: 56px;
-  padding: 0;
-  flex-direction: column;
+/* Header toggle buttons: unboxed icons at the weight of the tab labels, with a 44px hit area.
+   The id scope outranks the theme-coloured .theme-btn and .btn box rules. */
+#headerBtnContainer .header-toggle-btn {
+  display: inline-flex;
+  flex-direction: row;
   align-items: center;
   justify-content: center;
+  gap: 0.4rem;
+  min-width: 44px;
+  min-height: 44px;
+  width: auto;
+  height: auto;
+  padding: 0 0.6rem;
   flex-shrink: 0;
   position: relative;
+  overflow: visible;
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: none;
+  border: 0;
+  border-radius: var(--radius);
+  box-shadow: none;
+  transform: none;
+}
+#headerBtnContainer .header-toggle-btn::before {
+  content: none;
+}
+#headerBtnContainer .header-toggle-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+  box-shadow: none;
+  transform: none;
+}
+#headerBtnContainer .header-toggle-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 .header-toggle-btn svg {
@@ -3136,24 +3171,13 @@ input[type="submit"] {
   flex-shrink: 0;
 }
 
-/* #headerCloudSyncWrapper sizing rules removed with the button (STRK-287). */
-
-.header-buttons--show-text .header-toggle-btn {
-  height: auto;
-  min-height: 56px;
-  padding: 4px 4px;
-}
-
 .header-btn-text {
   display: none;
-  font-size: var(--font-size-xs);
   line-height: 1;
-  margin-top: 1px;
-  text-align: center;
 }
 
 .header-buttons--show-text .header-btn-text {
-  display: block;
+  display: inline;
 }
 
 /* Settings checkbox labels (STACK-54) */

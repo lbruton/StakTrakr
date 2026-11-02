@@ -47,26 +47,23 @@ const compareVersions = (a, b) => {
 };
 
 /**
- * Renders the version badge in the footer
- * @param {HTMLElement} badge - The badge element
+ * Renders the footer version: the running version, plus the newer release when there is one
+ * @param {HTMLElement} badge - The version link element
  * @param {string} remoteVersion - Latest remote version
  * @param {string} releaseUrl - URL to latest release
  */
 const renderVersionBadge = (badge, remoteVersion, releaseUrl) => {
   if (!badge) return;
   const val = safeGetElement("versionBadgeValue");
+  const update = safeGetElement("versionUpdate");
+  val.textContent = `v${APP_VERSION}`;
   if (compareVersions(remoteVersion, APP_VERSION) <= 0) {
-    if (val) {
-      val.textContent = `v${APP_VERSION} \u2714`;
-      val.className = "shield-badge-value shield-badge-value--green";
-    }
+    update.hidden = true;
     badge.removeAttribute("href");
     badge.removeAttribute("target");
   } else {
-    if (val) {
-      val.textContent = `v${remoteVersion} available`;
-      val.className = "shield-badge-value shield-badge-value--orange";
-    }
+    update.textContent = `v${remoteVersion} available`;
+    update.hidden = false;
     badge.href = releaseUrl;
     badge.target = "_blank";
     badge.rel = "noopener";
@@ -84,11 +81,7 @@ const GITHUB_RELEASES_URL = "https://github.com/lbruton/StakTrakr/releases/lates
 const showStaticVersionBadge = () => {
   const badge = document.getElementById("versionBadge");
   if (!badge) return;
-  const val = safeGetElement("versionBadgeValue");
-  if (val) {
-    val.textContent = `v${APP_VERSION}`;
-    val.className = "shield-badge-value shield-badge-value--grey";
-  }
+  safeGetElement("versionBadgeValue").textContent = `v${APP_VERSION}`;
   badge.href = GITHUB_RELEASES_URL;
   badge.target = "_blank";
   badge.rel = "noopener";

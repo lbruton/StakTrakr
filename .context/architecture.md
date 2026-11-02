@@ -240,9 +240,10 @@ The spot sync (`_fetchFreshestSpotEnvelope`, `js/api.js`) and the retail market 
 one with the newest `generated_at`. Ordered try-each failover (`_staktrakrFetch`) remains
 for single-file fetches (hourly spot backfill, year-history files). Every candidate still
 passes the freshness gate (rejects stale SW/CDN copies; all-stale fails the sync).
-The per-fetch 5 s timeout covers headers _and_ body. The footer health badge reports
-the same freshest-per-feed age with a separate infra icon (✅/⚠️). Do not add manual
-switching logic, and do not reintroduce order-based preference.
+The per-fetch 5 s timeout covers headers _and_ body. The footer status reports the same
+freshest-per-feed age (`data-state`) with a separate infra signal (`data-infra`, shown as
+"API degraded"). Do not add manual switching logic, and do not reintroduce order-based
+preference.
 
 ### v1 vs v2
 

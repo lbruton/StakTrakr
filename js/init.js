@@ -120,6 +120,23 @@ async function migrateSpotPricingSource() {
 }
 
 /**
+ * Trims the logo viewBox to the drawn wordmark so the environment tag sits beside it.
+ * The configured width stays the ceiling; an unmeasurable logo keeps it.
+ * @param {SVGSVGElement} logoSvg - The header logo
+ * @param {number} maxWidth - The configured viewBox width
+ */
+function fitLogoViewBox(logoSvg, maxWidth) {
+  try {
+    const box = logoSvg.getBBox();
+    if (box.width <= 0) return;
+    const width = Math.min(maxWidth, Math.ceil(box.x + box.width) + 12);
+    logoSvg.setAttribute("viewBox", `0 0 ${width} 80`);
+  } catch (err) {
+    debugLog("Logo width not measured: " + err.message, "warn");
+  }
+}
+
+/**
  * Main application initialization function
  *
  * This function coordinates the complete application startup process with proper
@@ -141,10 +158,14 @@ document.addEventListener("DOMContentLoaded", async () => {
       document.querySelectorAll(".logo-gold").forEach((el) => {
         el.textContent = logoSplit[1];
       });
-      // Adjust SVG viewBox for longer brand names
-      if (logoSplit[2]) {
-        const logoSvg = document.querySelector(".stackr-logo");
-        if (logoSvg) logoSvg.setAttribute("viewBox", `0 0 ${logoSplit[2]} 80`);
+      // Size the viewBox to the brand name, and again once the wordmark font is in place
+      const logoSvg = document.querySelector(".stackr-logo");
+      if (logoSplit[2] && logoSvg) {
+        logoSvg.setAttribute("viewBox", `0 0 ${logoSplit[2]} 80`);
+        fitLogoViewBox(logoSvg, logoSplit[2]);
+        if (document.fonts) {
+          document.fonts.ready.then(() => fitLogoViewBox(logoSvg, logoSplit[2]));
+        }
       }
     }
     const appLogo = document.getElementById("appLogo");
