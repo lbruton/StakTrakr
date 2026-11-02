@@ -905,6 +905,13 @@ section {
   align-items: center;
   gap: 0 0.25rem;
 }
+/* The separator and the version link wrap as one unit. */
+.footer-version {
+  display: inline-flex;
+  align-items: center;
+  gap: 0 0.25rem;
+  white-space: nowrap;
+}
 /* The Product and Project groups sit apart by space, so a wrap never strands a separator. */
 .footer-links {
   gap: 0.25rem 1.5rem;
@@ -1001,6 +1008,17 @@ section {
   .footer-row {
     flex-direction: column;
     align-items: flex-start;
+  }
+  /* The status wraps by whole parts (state, ages, infra). A part breaks only when wider than the line. */
+  .footer-status-btn {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    row-gap: 0;
+    text-align: left;
+    max-width: 100%;
+  }
+  .footer-status-btn > span {
+    max-width: 100%;
   }
   .footer-link,
   .footer-status-btn {

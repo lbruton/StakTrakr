@@ -223,4 +223,36 @@ test.describe("app chrome", () => {
     );
     expect(small).toEqual([]);
   });
+
+  test("at phone width the longest footer status wraps by whole parts inside the footer", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoApp(page);
+    const faults = await page.evaluate(() => {
+      _renderFooterStatus("down", false, "Market unavailable · Spot unavailable");
+      const footer = document.querySelector(".app-footer").getBoundingClientRect();
+      return [...document.querySelectorAll("#apiHealthBadge > span:not(.footer-dot)")].flatMap(
+        (el) => {
+          const lines = new Set([...el.getClientRects()].map((r) => Math.round(r.top))).size;
+          const range = document.createRange();
+          range.selectNodeContents(el);
+          const textLines = new Set([...range.getClientRects()].map((r) => Math.round(r.top))).size;
+          const out = [];
+          if (el.getBoundingClientRect().right > footer.right - 1) out.push(`${el.id} overflows`);
+          if (Math.max(lines, textLines) > 1) out.push(`${el.id} breaks across lines`);
+          return out;
+        }
+      );
+    });
+    expect(faults).toEqual([]);
+
+    const versionMiddles = await page.evaluate(() =>
+      [".footer-version .footer-sep", "#versionBadge"].map((s) => {
+        const r = document.querySelector(s).getBoundingClientRect();
+        return Math.round(r.top + r.height / 2);
+      })
+    );
+    expect(versionMiddles[0]).toBe(versionMiddles[1]);
+  });
 });
