@@ -994,6 +994,10 @@ section {
   text-underline-offset: 3px;
 }
 @media (max-width: 767px) {
+  /* 12px floor for chrome text on phones; max() keeps a larger user font size in effect. */
+  .app-footer {
+    font-size: max(12px, var(--font-size-sm));
+  }
   .footer-row {
     flex-direction: column;
     align-items: flex-start;
@@ -1019,6 +1023,11 @@ section {
   border-radius: var(--radius-sm);
   text-transform: uppercase;
   pointer-events: none;
+}
+@media (max-width: 767px) {
+  .env-badge {
+    font-size: max(12px, 0.6875rem);
+  }
 }
 
 /* =============================================================================

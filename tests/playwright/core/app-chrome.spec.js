@@ -183,4 +183,19 @@ test.describe("app chrome", () => {
       });
     }
   });
+
+  test("at phone width the footer and the environment tag keep 12px text", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoApp(page);
+    const small = await page.evaluate(() =>
+      [
+        ...document.querySelectorAll(
+          "#envBadge, .app-footer .footer-link, #apiHealthLabel, #apiHealthValue, .footer-meta"
+        ),
+      ]
+        .filter((el) => el.offsetParent !== null && parseFloat(getComputedStyle(el).fontSize) < 12)
+        .map((el) => `${el.id || el.textContent.trim()}: ${getComputedStyle(el).fontSize}`)
+    );
+    expect(small).toEqual([]);
+  });
 });
