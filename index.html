@@ -1078,9 +1078,9 @@
                 <div class="spot-card-timestamp" id="spotTimestampPalladium">No data</div>
               </div>
             </div>
-            <!-- Copper spot price card (STRK-306) — hidden until enabled in
-                 Settings › Metal Order (copper is opt-in per the epic
-                 decision); applyMetalOrder() shows it when enabled -->
+            <!-- Copper spot price card. Hidden in markup; applyMetalOrder()
+                 shows it when Settings › Metal Order enables copper, which a
+                 first-run boot does through seedFirstRunMetalOrder(). -->
             <div class="spot-input copper" style="display: none">
               <div class="spot-card" data-metal="copper">
                 <div class="spot-card-header">

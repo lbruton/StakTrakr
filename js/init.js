@@ -530,6 +530,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     if (bootState) {
       if (bootState.classification === "first-run") {
+        if (typeof seedFirstRunMetalOrder === "function") {
+          seedFirstRunMetalOrder();
+        }
         if (typeof loadSeedInventory === "function") {
           loadSeedInventory(bootState);
         }
