@@ -245,6 +245,13 @@ async function gotoDashboard(page) {
   await page.waitForFunction(() => window.appListenersReady === true);
 }
 
+/** Expects the copper spot card and totals row hidden, and the four-card spot tier. */
+async function expectCopperHidden(page) {
+  await expect(page.locator(".spot-input.copper")).toBeHidden();
+  await expect(page.locator("#totalsLedger .totals-row.copper")).toBeHidden();
+  await expect(page.locator(".spot-cards-grid")).toHaveAttribute("data-cards", "4");
+}
+
 test.describe("core/settings copper dashboard cards", () => {
   test("a first-run boot shows copper as the fifth spot card", async ({ page }) => {
     await gotoDashboard(page);
@@ -277,9 +284,7 @@ test.describe("core/settings copper dashboard cards", () => {
     });
     await gotoDashboard(page);
 
-    await expect(page.locator(".spot-input.copper")).toBeHidden();
-    await expect(page.locator("#totalsLedger .totals-row.copper")).toBeHidden();
-    await expect(page.locator(".spot-cards-grid")).toHaveAttribute("data-cards", "4");
+    await expectCopperHidden(page);
     expect(await page.evaluate(() => localStorage.getItem("metalOrderConfig"))).toBeNull();
   });
 
@@ -371,9 +376,7 @@ test.describe("core/settings copper dashboard cards", () => {
 
     // getMetalOrderConfig appends copper as disabled: its card and row stay hidden and
     // the stamped spot count keeps the pre-copper CSS tier inert.
-    await expect(page.locator(".spot-input.copper")).toBeHidden();
-    await expect(page.locator("#totalsLedger .totals-row.copper")).toBeHidden();
-    await expect(page.locator(".spot-cards-grid")).toHaveAttribute("data-cards", "4");
+    await expectCopperHidden(page);
 
     // The stored order is preserved, and All Metals stays the footer.
     expect(await ledgerRowOrder(page)).toEqual([
