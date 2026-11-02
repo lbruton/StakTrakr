@@ -231,6 +231,22 @@ const _arrangeStackLead = (lead) => {
 };
 
 /**
+ * Builds a decorative bullion-bar mark from the #metalBarIcon symbol in index.html.
+ * @returns {SVGSVGElement} The mark, coloured by the metal class on its row.
+ */
+const _createMetalBarMark = () => {
+  const ns = "http://www.w3.org/2000/svg";
+  const mark = document.createElementNS(ns, "svg");
+  mark.setAttribute("class", "totals-metal-mark");
+  mark.setAttribute("aria-hidden", "true");
+  mark.setAttribute("focusable", "false");
+  const use = document.createElementNS(ns, "use");
+  use.setAttribute("href", "#metalBarIcon");
+  mark.append(use);
+  return mark;
+};
+
+/**
  * Fills the weights list: one row per held metal with its mark, ounces and 12-month pace.
  * The pace stays blank until the activity series load.
  * @param {Object<string, object>} metalTotals - Accumulators keyed by metal key.
@@ -251,7 +267,7 @@ const _renderStackWeights = (metalTotals, pace) => {
       return span;
     };
     row.append(
-      cell("totals-metal-mark", ""),
+      _createMetalBarMark(),
       cell("stack-weight-name", metal ? metal.name : key),
       cell("stack-weight-oz", `${weight.toFixed(2)} oz`),
       cell("stack-weight-pace", pace ? formatStackPace(pace[key]) : "")

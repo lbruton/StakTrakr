@@ -1191,6 +1191,13 @@
           id="totalsSectionEl"
           aria-labelledby="stackHeadlineTitle"
         >
+          <svg class="metal-bar-sprite" aria-hidden="true">
+            <symbol id="metalBarIcon" viewBox="0 0 20 14">
+              <path class="metal-bar-side" d="M13 5 15 1.5 18.5 9.5 15.5 13Z" />
+              <path class="metal-bar-top" d="M3.5 5 6 1.5H15L13 5Z" />
+              <path class="metal-bar-front" d="M1 13 3.5 5H13L15.5 13Z" />
+            </symbol>
+          </svg>
           <h2 class="stack-headline-title" id="stackHeadlineTitle">Your stack</h2>
           <div class="stack-headline-head" id="stackHeadlineHead">
             <dl class="stack-headline-figures" id="stackHeadlineFigures">
@@ -1282,7 +1289,9 @@
               <tr class="totals-row silver" data-metal-key="silver" data-enabled="true">
                 <th scope="row" class="total-title" data-metal="Silver">
                   <button type="button" class="total-title-btn">
-                    <span class="totals-metal-mark" aria-hidden="true"></span>Silver
+                    <svg class="totals-metal-mark" aria-hidden="true" focusable="false">
+                      <use href="#metalBarIcon"></use></svg
+                    >Silver
                   </button>
                 </th>
                 <td class="total-value totals-col-items" id="totalItemsSilver">0</td>
@@ -1297,7 +1306,9 @@
               <tr class="totals-row gold" data-metal-key="gold" data-enabled="true">
                 <th scope="row" class="total-title" data-metal="Gold">
                   <button type="button" class="total-title-btn">
-                    <span class="totals-metal-mark" aria-hidden="true"></span>Gold
+                    <svg class="totals-metal-mark" aria-hidden="true" focusable="false">
+                      <use href="#metalBarIcon"></use></svg
+                    >Gold
                   </button>
                 </th>
                 <td class="total-value totals-col-items" id="totalItemsGold">0</td>
@@ -1312,7 +1323,9 @@
               <tr class="totals-row platinum" data-metal-key="platinum" data-enabled="true">
                 <th scope="row" class="total-title" data-metal="Platinum">
                   <button type="button" class="total-title-btn">
-                    <span class="totals-metal-mark" aria-hidden="true"></span>Platinum
+                    <svg class="totals-metal-mark" aria-hidden="true" focusable="false">
+                      <use href="#metalBarIcon"></use></svg
+                    >Platinum
                   </button>
                 </th>
                 <td class="total-value totals-col-items" id="totalItemsPlatinum">0</td>
@@ -1327,7 +1340,9 @@
               <tr class="totals-row palladium" data-metal-key="palladium" data-enabled="true">
                 <th scope="row" class="total-title" data-metal="Palladium">
                   <button type="button" class="total-title-btn">
-                    <span class="totals-metal-mark" aria-hidden="true"></span>Palladium
+                    <svg class="totals-metal-mark" aria-hidden="true" focusable="false">
+                      <use href="#metalBarIcon"></use></svg
+                    >Palladium
                   </button>
                 </th>
                 <td class="total-value totals-col-items" id="totalItemsPalladium">0</td>
@@ -1344,7 +1359,9 @@
               <tr class="totals-row copper" data-metal-key="copper" data-enabled="false">
                 <th scope="row" class="total-title" data-metal="Copper">
                   <button type="button" class="total-title-btn">
-                    <span class="totals-metal-mark" aria-hidden="true"></span>Copper
+                    <svg class="totals-metal-mark" aria-hidden="true" focusable="false">
+                      <use href="#metalBarIcon"></use></svg
+                    >Copper
                   </button>
                 </th>
                 <td class="total-value totals-col-items" id="totalItemsCopper">0</td>
@@ -1361,7 +1378,9 @@
               <tr class="totals-row totals-row-all" data-metal-key="all" data-enabled="true">
                 <th scope="row" class="total-title" data-metal="All">
                   <button type="button" class="total-title-btn">
-                    <span class="totals-metal-mark" aria-hidden="true"></span>All Metals
+                    <svg class="totals-metal-mark" aria-hidden="true" focusable="false">
+                      <use href="#metalBarIcon"></use></svg
+                    >All Metals
                   </button>
                 </th>
                 <td class="total-value totals-col-items" id="totalItemsAll">0</td>

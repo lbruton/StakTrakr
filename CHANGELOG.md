@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.98] - 2026-11-01
+
+### Changed — STRK-498: Bullion bars in the ledger
+
+- **Metal marks**: A small 3D bullion bar in each metal's colour replaces the round dot in the Totals table and the Weight held list, in all four themes (STRK-498).
+
+---
+
 ## [3.36.97] - 2026-11-01
 
 ### Changed — STRK-506: Ledger follows the lead

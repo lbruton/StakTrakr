@@ -375,6 +375,64 @@ async function applyTheme(page, theme) {
   await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
 }
 
+/**
+ * Lists what is wrong with each visible bullion-bar mark on the Your stack card: the wrong
+ * element, an empty reference, a colour off its metal token, or a face under 3:1 on the card.
+ */
+function readBarMarkFaults(page) {
+  return page.evaluate(() => {
+    const ctx = document.createElement("canvas").getContext("2d", { willReadFrequently: true });
+    const channels = (css) => {
+      ctx.clearRect(0, 0, 1, 1);
+      ctx.fillStyle = css;
+      ctx.fillRect(0, 0, 1, 1);
+      return [...ctx.getImageData(0, 0, 1, 1).data.slice(0, 3)];
+    };
+    const luminance = (css) => {
+      const [r, g, b] = channels(css).map((v) => {
+        const c = v / 255;
+        return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+      });
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    const contrast = (a, b) => {
+      const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+      return (hi + 0.05) / (lo + 0.05);
+    };
+    const card = getComputedStyle(document.getElementById("totalsSectionEl")).backgroundColor;
+    const marks = [
+      ...document.querySelectorAll(
+        ".totals-row:not(.totals-row-all) .totals-metal-mark, .stack-weight-row .totals-metal-mark"
+      ),
+    ].filter((m) => m.getClientRects().length > 0);
+    const faults = marks.length >= 8 ? [] : [`only ${marks.length} marks`];
+    for (const mark of marks) {
+      const row = mark.closest(".totals-row, .stack-weight-row");
+      const key = ["silver", "gold", "platinum", "palladium", "copper"].find((m) =>
+        row.classList.contains(m)
+      );
+      if (mark.tagName !== "svg" || mark.getAttribute("aria-hidden") !== "true") {
+        faults.push(`${key}: ${mark.tagName} is not a hidden svg`);
+        continue;
+      }
+      if (!(mark.querySelector("use")?.getBBox().width > 0)) faults.push(`${key}: empty bar`);
+      const token = getComputedStyle(document.documentElement).getPropertyValue(`--${key}`);
+      const shown = getComputedStyle(mark).color;
+      if (channels(shown).join() !== channels(token).join()) faults.push(`${key}: ${shown}`);
+      for (const face of ["--metal-bar-top", "--metal-bar-front", "--metal-bar-side"]) {
+        const probe = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        probe.style.fill = `var(${face})`;
+        mark.append(probe);
+        const fill = getComputedStyle(probe).fill;
+        probe.remove();
+        const ratio = contrast(fill, card);
+        if (ratio < 3) faults.push(`${key} ${face}: ${ratio.toFixed(2)}`);
+      }
+    }
+    return faults;
+  });
+}
+
 /** Lists the visible metal rows of the totals ledger by metal key, in rendered order. */
 function visibleLedgerRows(page) {
   return page
@@ -552,6 +610,25 @@ test.describe("Dashboard totals ledger", () => {
         await expect(page.locator("#detailsModal")).toBeHidden();
       });
     }
+  });
+
+  test("each metal row shows a bullion bar in its metal colour at 3:1 on the card in every theme", async ({
+    page,
+  }) => {
+    await gotoDesktopDashboard(page);
+    await expect(page.locator("#stackWeights li")).toHaveCount(4);
+    for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: 900 });
+      for (const theme of THEMES) {
+        await test.step(`${theme} at ${width}`, async () => {
+          await applyTheme(page, theme);
+          await expect.poll(() => readBarMarkFaults(page)).toEqual([]);
+        });
+      }
+    }
+    await expect(page.locator(".totals-row-all .totals-metal-mark")).toBeHidden();
+    // The symbol sheet takes no room above the card title.
+    await expect(page.locator(".metal-bar-sprite")).toBeHidden();
   });
 
   test("ledger rows show a pointer and a hover surface in every theme", async ({ page }) => {

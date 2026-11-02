@@ -394,7 +394,8 @@ The totals are one table inside the Your stack card, with no shadow and no neste
 align with the figures above. Each metal the user holds has a row, in Metal Order; All Metals is the
 footer, set off by a 2px rule and bold figures. Columns are Items, Weight, Avg cost/oz, Paid, Melt, Retail, Gain/Loss and Realized. Figures
 use the data face with tabular numerals, right-aligned, so decimals line up down each column. Gain/Loss is the
-bold column and the only one in the `*-text` status colours. Each metal name carries its colour dot. A
+bold column and the only one in the `*-text` status colours. Each metal name carries a small 3D bullion bar drawn from one
+SVG symbol: the row's metal token sets the front face, with a lighter top and a darker side from `color-mix()`, each at 3:1 on the card. A
 click anywhere on a row, All Metals included, opens the details modal; the row shows a pointer and the
 tertiary surface on hover. The metal name is the row's only keyboard stop. The table ends on the All Metals
 row, with no footnote. Below 768px each metal is a two-line block: name, the lead value and gain or loss,
