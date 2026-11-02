@@ -288,6 +288,20 @@ test.describe("core/settings copper dashboard cards", () => {
     expect(await page.evaluate(() => localStorage.getItem("metalOrderConfig"))).toBeNull();
   });
 
+  test("a first-run boot seeds copper over an unreadable stored Metal Order", async ({ page }) => {
+    await page.addInitScript(() => {
+      if (sessionStorage.getItem("seededBadOrder") === null) {
+        sessionStorage.setItem("seededBadOrder", "1");
+        localStorage.setItem("metalOrderConfig", "{not json");
+      }
+    });
+    await gotoDashboard(page);
+
+    await expect(page.locator(".spot-cards-grid")).toHaveAttribute("data-cards", "5");
+    const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("metalOrderConfig")));
+    expect(saved.find((m) => m.id === "copper").enabled).toBe(true);
+  });
+
   test("a first-run user who turns copper off keeps it off after a reload", async ({ page }) => {
     await gotoDashboard(page);
     await expect(page.locator(".spot-input.copper")).toBeVisible();
@@ -297,6 +311,8 @@ test.describe("core/settings copper dashboard cards", () => {
       .locator('#metalOrderConfigContainer tr[data-section-id="copper"] input[type="checkbox"]')
       .uncheck();
     await expect(page.locator(".spot-input.copper")).toBeHidden();
+    const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("metalOrderConfig")));
+    expect(saved.find((m) => m.id === "copper").enabled).toBe(false);
 
     await page.goto("about:blank");
     await gotoDashboard(page);

@@ -956,6 +956,7 @@ async function readTickerBorderInk(page) {
     ".ticker-item"
   );
   // The frame draws the border when the strip does not, so the band starts at the outer edge.
+  expect(Math.max(stripBorder, frameBorder)).toBeGreaterThan(0);
   const band = Math.floor(Math.max(stripBorder, frameBorder) + 8);
   const middle = (box.left + box.right) / 2;
   const edges = {

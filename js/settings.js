@@ -2871,14 +2871,24 @@ const METAL_ORDER_DEFAULTS = [
 
 /**
  * Saves the default metal order with copper on, for a first-run boot.
- * Does nothing when a metal order config is already stored.
+ * Keeps a stored config that reads as an array. A failed write leaves the defaults
+ * in effect and does not stop the boot.
  */
 const seedFirstRunMetalOrder = () => {
-  if (localStorage.getItem(METAL_ORDER_KEY) !== null) return;
-  saveMetalOrderConfig(
-    METAL_ORDER_DEFAULTS.map((m) => (m.id === "copper" ? { ...m, enabled: true } : { ...m }))
-  );
+  try {
+    if (Array.isArray(JSON.parse(localStorage.getItem(METAL_ORDER_KEY)))) return;
+  } catch (e) {
+    /* unreadable: seed over it */
+  }
+  try {
+    saveMetalOrderConfig(
+      METAL_ORDER_DEFAULTS.map((m) => (m.id === "copper" ? { ...m, enabled: true } : { ...m }))
+    );
+  } catch (err) {
+    console.warn("[settings] could not save the first-run metal order:", err);
+  }
 };
+window.seedFirstRunMetalOrder = seedFirstRunMetalOrder;
 
 /**
  * Returns the current metal order config, merging stored data with defaults.

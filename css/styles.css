@@ -16855,6 +16855,14 @@ input[type="number"] {
   /* STAK-513: Clamp to single row height as visual safety net */
   max-height: 72px;
 }
+/* Without :has() the frame draws no border, so the strip draws its own and relies on the fades. */
+@supports not selector(:has(*)) {
+  .market-ticker {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    clip-path: none;
+  }
+}
 .market-ticker::before,
 .market-ticker::after {
   content: "";
