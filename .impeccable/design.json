@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-26T02:40:00Z",
+  "generatedAt": "2026-11-02T03:40:00Z",
   "title": "Design System: StakTrakr",
   "extensions": {
     "colorMeta": {
@@ -10,6 +10,14 @@
       "info": { "role": "tertiary", "displayName": "Retail Blue", "canonical": "oklch(0.72 0.12 220)" },
       "warning": { "role": "tertiary", "displayName": "Caution Amber", "canonical": "oklch(0.72 0.16 80)" },
       "danger": { "role": "tertiary", "displayName": "Loss Red", "canonical": "oklch(0.58 0.22 25)" },
+      "primary-hover": { "role": "primary", "displayName": "Struck Gold", "canonical": "oklch(0.64 0.18 75)" },
+      "success-text": { "role": "tertiary", "displayName": "Gain Green Text", "canonical": "oklch(0.72 0.16 155)" },
+      "warning-text": { "role": "tertiary", "displayName": "Caution Amber Text", "canonical": "oklch(0.78 0.15 80)" },
+      "danger-text": { "role": "tertiary", "displayName": "Loss Red Text", "canonical": "oklch(0.72 0.17 25)" },
+      "gunmetal-raised": { "role": "neutral", "displayName": "Gunmetal Raised", "canonical": "oklch(0.22 0.008 85)" },
+      "gunmetal-high": { "role": "neutral", "displayName": "Gunmetal High", "canonical": "oklch(0.28 0.007 85)" },
+      "border-hover": { "role": "neutral", "displayName": "Worn Edge", "canonical": "oklch(0.4 0.01 85)" },
+      "text-inverse": { "role": "neutral", "displayName": "Inverse", "canonical": "oklch(0.98 0 0)" },
       "gunmetal-base": { "role": "neutral", "displayName": "Gunmetal Base", "canonical": "oklch(0.18 0.008 85)", "tonalRamp": ["oklch(0.15 0.008 85)", "oklch(0.18 0.008 85)", "oklch(0.22 0.008 85)", "oklch(0.28 0.007 85)", "oklch(0.32 0.008 85)", "oklch(0.4 0.01 85)", "oklch(0.65 0.012 85)", "oklch(0.95 0.005 85)"] },
       "card": { "role": "neutral", "displayName": "Card", "canonical": "oklch(0.22 0.01 85)" },
       "border": { "role": "neutral", "displayName": "Machined Edge", "canonical": "oklch(0.32 0.008 85)" },
@@ -21,7 +29,33 @@
       "metal-platinum": { "role": "tertiary", "displayName": "Platinum", "canonical": "oklch(0.961 0.003 264.5)" },
       "metal-palladium": { "role": "tertiary", "displayName": "Palladium", "canonical": "oklch(0.794 0.119 305.9)" },
       "metal-copper": { "role": "tertiary", "displayName": "Copper", "canonical": "oklch(0.75 0.11 55)" },
-      "brand-gold": { "role": "primary", "displayName": "Wordmark Gold", "canonical": "#d4a017" }
+      "brand-gold": { "role": "primary", "displayName": "Wordmark Gold", "canonical": "#d4a017" },
+      "brand-silver": { "role": "neutral", "displayName": "Wordmark Silver", "canonical": "#e2e8f0" },
+      "brand-navy": { "role": "neutral", "displayName": "Wordmark Navy", "canonical": "#0f1729" },
+      "light-primary": { "role": "primary", "displayName": "Light Primary Blue", "canonical": "oklch(0.623 0.188 259.8)" },
+      "light-primary-hover": { "role": "primary", "displayName": "Light Primary Blue Hover", "canonical": "oklch(0.546 0.215 262.9)" },
+      "light-secondary": { "role": "secondary", "displayName": "Light Slate Grey", "canonical": "oklch(0.663 0.03 267.4)" },
+      "light-success": { "role": "tertiary", "displayName": "Light Gain Green", "canonical": "oklch(0.596 0.127 163.2)" },
+      "light-info": { "role": "tertiary", "displayName": "Light Retail Blue", "canonical": "oklch(0.685 0.148 237.3)" },
+      "light-warning": { "role": "tertiary", "displayName": "Light Caution Amber", "canonical": "oklch(0.666 0.157 58.3)" },
+      "light-danger": { "role": "tertiary", "displayName": "Light Loss Red", "canonical": "oklch(0.577 0.215 27.3)" },
+      "light-success-text": { "role": "tertiary", "displayName": "Light Gain Green Text", "canonical": "oklch(0.48 0.11 163)" },
+      "light-warning-text": { "role": "tertiary", "displayName": "Light Caution Amber Text", "canonical": "oklch(0.49 0.13 55)" },
+      "light-danger-text": { "role": "tertiary", "displayName": "Light Loss Red Text", "canonical": "oklch(0.5 0.19 27)" },
+      "light-bg": { "role": "neutral", "displayName": "Light Page", "canonical": "oklch(0.929 0.013 255.5)" },
+      "light-bg-raised": { "role": "neutral", "displayName": "Light Raised", "canonical": "oklch(0.96 0.008 253.9)" },
+      "light-bg-high": { "role": "neutral", "displayName": "Light High", "canonical": "oklch(0.869 0.02 252.9)" },
+      "light-card": { "role": "neutral", "displayName": "Light Card", "canonical": "oklch(0.984 0.003 247.9)" },
+      "light-surface-alt": { "role": "neutral", "displayName": "Light Surface Alt", "canonical": "oklch(1 0 0)" },
+      "light-border": { "role": "neutral", "displayName": "Light Edge", "canonical": "oklch(0.711 0.035 256.8)" },
+      "light-border-hover": { "role": "neutral", "displayName": "Light Edge Hover", "canonical": "oklch(0.554 0.041 257.4)" },
+      "light-text": { "role": "neutral", "displayName": "Light Ink", "canonical": "oklch(0.252 0.021 251.6)" },
+      "light-text-muted": { "role": "neutral", "displayName": "Light Muted Ink", "canonical": "oklch(0.376 0.031 246.9)" },
+      "light-metal-silver": { "role": "tertiary", "displayName": "Light Silver", "canonical": "oklch(0.509 0.022 262.9)" },
+      "light-metal-gold": { "role": "tertiary", "displayName": "Light Gold", "canonical": "oklch(0.507 0.134 48.2)" },
+      "light-metal-platinum": { "role": "tertiary", "displayName": "Light Platinum", "canonical": "oklch(0.446 0.026 256.8)" },
+      "light-metal-palladium": { "role": "tertiary", "displayName": "Light Palladium", "canonical": "oklch(0.495 0.22 293)" },
+      "light-metal-copper": { "role": "tertiary", "displayName": "Light Copper", "canonical": "oklch(0.52 0.115 50)" }
     },
     "typographyMeta": {
       "display": { "displayName": "Display", "purpose": "h1 only, in the primary colour." },
@@ -94,7 +128,23 @@
       "refersTo": "spot-card",
       "description": "Signature per-metal spot price card: neutral price, status-coloured change line, and a sparkline in its own row below the text.",
       "html": "<div class=\"ds-spot\"><div class=\"ds-spot-metal\">Gold</div><div class=\"ds-spot-price\">$2,412.30</div><div class=\"ds-spot-change\">+18.40 (0.77%)</div></div>",
-      "css": ".ds-spot { width: 12rem; text-align: center; padding: var(--spacing, 0.75rem); background: var(--bg-primary, oklch(0.18 0.008 85)); border: 1px solid var(--border, oklch(0.32 0.008 85)); border-radius: var(--radius-lg, 12px); box-shadow: var(--shadow-sm, 0 1px 2px 0 rgb(0 0 0 / 0.3)); } .ds-spot-metal { color: var(--gold, oklch(0.811 0.157 79)); font-family: var(--font-body, Geist, sans-serif); font-size: var(--font-size-sm, 0.75rem); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; } .ds-spot-price { color: var(--text-primary, oklch(0.95 0.005 85)); font-family: var(--font-mono, 'Geist Mono', monospace); font-variant-numeric: tabular-nums; font-size: var(--font-size-2xl, 1.5rem); } .ds-spot-change { color: var(--success-text, oklch(0.72 0.16 155)); font-family: var(--font-mono, 'Geist Mono', monospace); font-size: var(--font-size-sm, 0.75rem); }"
+      "css": ".ds-spot { width: 12rem; text-align: center; padding: var(--spacing, 0.75rem); background: var(--bg-secondary, oklch(0.22 0.008 85)); border: 1px solid var(--border, oklch(0.32 0.008 85)); border-radius: var(--radius-lg, 12px); box-shadow: var(--shadow-sm, 0 1px 2px 0 rgb(0 0 0 / 0.3)); } .ds-spot-metal { color: var(--gold, oklch(0.811 0.157 79)); font-family: var(--font-body, Geist, sans-serif); font-size: var(--font-size-sm, 0.75rem); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; } .ds-spot-price { color: var(--text-primary, oklch(0.95 0.005 85)); font-family: var(--font-mono, 'Geist Mono', monospace); font-variant-numeric: tabular-nums; font-size: var(--font-size-2xl, 1.5rem); } .ds-spot-change { color: var(--success-text, oklch(0.72 0.16 155)); font-family: var(--font-mono, 'Geist Mono', monospace); font-size: var(--font-size-sm, 0.75rem); }"
+    },
+    {
+      "name": "Your Stack Figures",
+      "kind": "custom",
+      "refersTo": "your-stack",
+      "description": "One flat frame on the secondary background: an Instrument Serif title, the lead value at 2.5rem with today's change, and four figures at 1.25rem in the data face. Only status words carry the *-text colours.",
+      "html": "<section class=\"ds-stack\"><h2 class=\"ds-stack-title\">Your stack</h2><dl class=\"ds-stack-figures\"><div><dt>Retail value</dt><dd class=\"ds-stack-lead\">$48,210.00</dd><dd class=\"ds-stack-change\">+$312.40 today at spot</dd></div><div><dt>Melt value</dt><dd class=\"ds-stack-value\">$44,980.00</dd></div><div><dt>Gain on cost</dt><dd class=\"ds-stack-value\">$9,140.00</dd><dd class=\"ds-stack-change\">+23.4% at retail</dd></div><div><dt>Cost basis</dt><dd class=\"ds-stack-value\">$39,070.00</dd></div><div><dt>Realized</dt><dd class=\"ds-stack-value\">$1,240.00</dd><dd class=\"ds-stack-change\">+18.2% on cost</dd></div></dl></section>",
+      "css": ".ds-stack { background: var(--bg-secondary, oklch(0.22 0.008 85)); border: 1px solid var(--border, oklch(0.32 0.008 85)); border-radius: var(--radius-lg, 12px); padding: var(--spacing-xl, 1.5rem); color: var(--text-primary, oklch(0.95 0.005 85)); } .ds-stack-title { margin: 0 0 0.5rem; font-family: var(--font-heading, 'Instrument Serif', serif); font-size: var(--font-size-xl, 1.25rem); font-weight: 400; } .ds-stack-figures { display: grid; grid-template-columns: minmax(max-content, 1.5fr) repeat(4, minmax(0, 1fr)); align-items: end; gap: 0.75rem 1.25rem; margin: 0; } .ds-stack-figures dt { font-family: var(--font-body, Geist, sans-serif); font-size: var(--font-size-sm, 0.75rem); font-weight: 500; color: var(--text-secondary, oklch(0.8 0.008 85)); } .ds-stack-figures dd { margin: 0; } .ds-stack-lead { font-family: var(--font-mono, 'Geist Mono', monospace); font-variant-numeric: tabular-nums; font-size: 2.5rem; } .ds-stack-value { font-family: var(--font-mono, 'Geist Mono', monospace); font-variant-numeric: tabular-nums; font-size: 1.25rem; } .ds-stack-change { font-family: var(--font-mono, 'Geist Mono', monospace); font-size: var(--font-size-sm, 0.75rem); color: var(--success-text, oklch(0.72 0.16 155)); }"
+    },
+    {
+      "name": "Totals Ledger",
+      "kind": "custom",
+      "refersTo": "totals-ledger",
+      "description": "One table inside the Your stack card: no shadow, no nested cards, right-aligned tabular figures, Gain/Loss as the bold status column, All Metals as a footer over a 2px rule. The whole row is the hover target.",
+      "html": "<table class=\"ds-ledger\"><caption class=\"ds-sr-only\">Totals by metal</caption><thead><tr><th>Metal</th><th>Items</th><th>Weight</th><th>Avg cost/oz</th><th>Paid</th><th>Melt</th><th>Retail</th><th>Gain/Loss</th><th>Realized</th></tr></thead><tbody><tr><td class=\"ds-ledger-name\">Silver</td><td>48</td><td>612.40 oz</td><td>$28.40</td><td>$17,390.00</td><td>$19,840.00</td><td>$22,310.00</td><td class=\"ds-ledger-gain\">+$4,920.00</td><td>$410.00</td></tr><tr><td class=\"ds-ledger-name\">Gold</td><td>9</td><td>6.25 oz</td><td>$3,468.80</td><td>$21,680.00</td><td>$25,140.00</td><td>$25,900.00</td><td class=\"ds-ledger-gain\">+$4,220.00</td><td>$830.00</td></tr></tbody><tfoot><tr><td class=\"ds-ledger-name\">All Metals</td><td>57</td><td>618.65 oz</td><td></td><td>$39,070.00</td><td>$44,980.00</td><td>$48,210.00</td><td class=\"ds-ledger-gain\">+$9,140.00</td><td>$1,240.00</td></tr></tfoot></table>",
+      "css": ".ds-ledger { width: 100%; border-collapse: collapse; color: var(--text-primary, oklch(0.95 0.005 85)); } .ds-ledger th { padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--border, oklch(0.32 0.008 85)); font-family: var(--font-body, Geist, sans-serif); font-size: var(--font-size-sm, 0.75rem); font-weight: 500; color: var(--text-secondary, oklch(0.8 0.008 85)); text-align: right; white-space: nowrap; } .ds-ledger th:first-child { text-align: left; padding-left: 0; } .ds-ledger td { padding: 0.55rem 0.6rem; border-bottom: 1px solid var(--border, oklch(0.32 0.008 85)); font-family: var(--font-mono, 'Geist Mono', monospace); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; } .ds-ledger td.ds-ledger-name { padding-left: 0; font-family: var(--font-body, Geist, sans-serif); font-weight: 600; text-align: left; } .ds-ledger td.ds-ledger-gain { font-weight: 700; color: var(--success-text, oklch(0.72 0.16 155)); } .ds-sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; } .ds-ledger :is(tbody, tfoot) tr { cursor: pointer; } .ds-ledger :is(tbody, tfoot) tr:hover td { background: var(--bg-tertiary, oklch(0.28 0.007 85)); } .ds-ledger tfoot td { border-top: 2px solid var(--border, oklch(0.32 0.008 85)); font-weight: 700; }"
     }
   ],
   "narrative": {
