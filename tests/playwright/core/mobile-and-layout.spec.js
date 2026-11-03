@@ -1344,9 +1344,11 @@ test.describe("Dashboard at phone width", () => {
     });
     expect(small).toEqual([]);
 
-    // Each label sits on one line inside its button, with no clipping.
-    for (const theme of THEMES) {
-      await test.step(`bottom-nav labels in ${theme}`, async () => {
+    // Each label sits on one line inside its button, with no clipping, down to 320px.
+    const cases = [390, 320].flatMap((width) => THEMES.map((theme) => [width, theme]));
+    for (const [width, theme] of cases) {
+      await test.step(`bottom-nav labels at ${width}px in ${theme}`, async () => {
+        await page.setViewportSize({ width, height: 844 });
         await applyTheme(page, theme);
         const faults = await page.evaluate(() =>
           [...document.querySelectorAll("#appBottomNav .bottom-nav-btn:not([hidden])")]
@@ -1368,10 +1370,12 @@ test.describe("Dashboard at phone width", () => {
     }
   });
 
-  test("spot card timestamps are at least 12px and whole at desktop widths", async ({ page }) => {
+  test("spot card timestamps are at least 12px and whole at desktop and phone widths", async ({
+    page,
+  }) => {
     await gotoDesktopDashboard(page);
     await expect(page.locator(".spot-card-timestamp").first()).toBeVisible();
-    for (const width of [1440, 1280, 1024]) {
+    for (const width of [1440, 1280, 1024, 390, 320]) {
       await test.step(`${width}px`, async () => {
         await page.setViewportSize({ width, height: 900 });
         const read = () =>

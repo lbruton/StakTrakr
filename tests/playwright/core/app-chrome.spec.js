@@ -340,12 +340,15 @@ test.describe("app chrome", () => {
     page,
   }) => {
     await gotoApp(page);
-    // No stylesheet paints the legacy theme button colours.
+    // No stylesheet paints the legacy theme button colours, at the top level or inside
+    // @media and @supports blocks.
     const themeBtnRules = await page.evaluate(() =>
       [...document.styleSheets]
         .flatMap((sheet) => {
+          const walk = (rules) =>
+            rules.flatMap((rule) => [rule, ...(rule.cssRules ? walk([...rule.cssRules]) : [])]);
           try {
-            return [...sheet.cssRules];
+            return walk([...sheet.cssRules]);
           } catch {
             return [];
           }
