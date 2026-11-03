@@ -124,6 +124,19 @@ test.describe("app chrome", () => {
       underlined: ["none", "none"],
       thanksText: expect.stringMatching(/^Thank you for using StakTrakr\b.{40,}/),
     });
+
+    // Just under the phone breakpoint, both groups fit one line, yet each takes its own line.
+    await page.setViewportSize({ width: 700, height: 900 });
+    const phone = await page.evaluate(() => {
+      const [product, project] = [...document.querySelectorAll(".footer-links nav")].map((n) =>
+        n.getBoundingClientRect()
+      );
+      return {
+        stacked: project.top >= product.bottom,
+        sepShown: document.querySelector(".footer-groups-sep").getClientRects().length > 0,
+      };
+    });
+    expect(phone).toEqual({ stacked: true, sepShown: false });
   });
 
   test("the footer status names the price state in words and opens API health", async ({

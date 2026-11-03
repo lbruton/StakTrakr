@@ -230,7 +230,7 @@ These elements are defined in `index.html` and are part of the `layoutSectionCon
 
 ## Your Stack DOM Elements
 
-`#totalsSectionEl` is the Your stack card and the `totals` layout section, between the spot cards and the ticker by default. It holds the `#stackHeadlineTitle` heading, the stack figures and the totals ledger. `js/stack-headline.js` fills the figures: `updateSummary()` calls `renderStackHeadline(metalTotals)` with the same per-metal accumulators the totals ledger uses. `updateAllSparklines()` calls `refreshStackHeadline()`, so a spot history or comparison-mode change redraws today's change.
+`#totalsSectionEl` is the Your stack card and the `totals` layout section, below the spot cards and the ticker by default. It holds the `#stackHeadlineTitle` heading, the stack figures and the totals ledger. `js/stack-headline.js` fills the figures: `updateSummary()` calls `renderStackHeadline(metalTotals)` with the same per-metal accumulators the totals ledger uses. `updateAllSparklines()` calls `refreshStackHeadline()`, so a spot history or comparison-mode change redraws today's change.
 
 The `stackHeadlineLead` preference (`"retail"` or `"melt"`, synced) picks the lead. `_arrangeStackLead` moves the lead figure first in the list, with the swap button and today's line, so reading order matches the screen. The activity line and the paces come from `buildPortfolioSeries` and `computeWindowStats` over the last 365 days, as the breakdown modal's 1Y range computes them. `loadPortfolioSpotMaps` (`js/detailsModal.js`) loads the spot maps for both. The result is kept until the inventory fingerprint changes.
 

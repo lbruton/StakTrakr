@@ -1040,7 +1040,11 @@ section {
   .footer-side {
     align-items: flex-start;
   }
-  /* The link groups wrap onto their own lines here, so the separator between them would dangle. */
+  /* Each link group takes its own line here, so the separator between them is hidden. */
+  .footer-links {
+    flex-direction: column;
+    align-items: flex-start;
+  }
   .footer-groups-sep {
     display: none;
   }
