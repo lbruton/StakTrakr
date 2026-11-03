@@ -5045,12 +5045,6 @@ const setupSearch = () => {
 const updateThemeButton = () => {
   const savedTheme = localStorage.getItem(THEME_KEY) || "light";
 
-  // Apply theme classes to all theme buttons (header buttons)
-  document.querySelectorAll(".theme-btn").forEach((btn) => {
-    btn.classList.remove("dark", "light", "sepia", "slate");
-    btn.classList.add(savedTheme);
-  });
-
   // Update settings modal theme picker active state
   document.querySelectorAll(".theme-option").forEach((btn) => {
     btn.classList.toggle("active", btn.dataset.theme === savedTheme);

@@ -19,7 +19,8 @@ async function gotoApp(page) {
 
 /**
  * Returns the WCAG contrast of each selector's colour property (text colour, or a background
- * for a dot) over the footer or header frame it sits in.
+ * for a dot) over the footer or header frame it sits in. An element outside both frames is
+ * measured over its own background.
  */
 function readChromeContrast(page, targets) {
   return page.evaluate((list) => {
@@ -37,7 +38,7 @@ function readChromeContrast(page, targets) {
         .reduce((sum, v, i) => sum + v * [0.2126, 0.7152, 0.0722][i], 0);
     return list.map(([selector, prop]) => {
       const el = document.querySelector(selector);
-      const frame = el.closest(".app-footer, .app-header");
+      const frame = el.closest(".app-footer, .app-header") || el;
       const [hi, lo] = [
         lum(rgb(getComputedStyle(el)[prop])),
         lum(rgb(getComputedStyle(frame).backgroundColor)),
@@ -333,5 +334,53 @@ test.describe("app chrome", () => {
       })
     );
     expect(versionMiddles[0]).toBe(versionMiddles[1]);
+  });
+
+  test("Clear Cache & Reload is a secondary button with AA text in all four themes", async ({
+    page,
+  }) => {
+    await gotoApp(page);
+    // No stylesheet paints the legacy theme button colours, at the top level or inside
+    // @media and @supports blocks.
+    const themeBtnRules = await page.evaluate(() =>
+      [...document.styleSheets]
+        .flatMap((sheet) => {
+          const walk = (rules) =>
+            rules.flatMap((rule) => [rule, ...(rule.cssRules ? walk([...rule.cssRules]) : [])]);
+          try {
+            return walk([...sheet.cssRules]);
+          } catch {
+            return [];
+          }
+        })
+        .filter((rule) => rule.selectorText?.includes(".theme-btn"))
+        .filter((rule) => rule.style.background || rule.style.backgroundColor || rule.style.color)
+        .map((rule) => rule.selectorText)
+    );
+    expect(themeBtnRules).toEqual([]);
+
+    await page.locator("#settingsBtn").click();
+    const button = page.locator("#forceRefreshBtn");
+    await expect(button).toBeVisible();
+    await expect(button).toHaveClass(/\bbtn secondary\b/);
+    await expect(button).not.toHaveClass(/theme-btn/);
+    // A fade on the label over the fill lowers contrast, so the button stays fully opaque.
+    await expect(button).toHaveCSS("opacity", "1");
+    // Read settled colours: mid-transition, the fill still holds the previous theme's value.
+    await page.addStyleTag({ content: "#forceRefreshBtn { transition: none !important; }" });
+    for (const theme of THEMES) {
+      await test.step(theme, async () => {
+        await page.evaluate((name) => window.setTheme(name), theme);
+        await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+        await page.mouse.move(0, 0);
+        const [rest] = await readChromeContrast(page, [["#forceRefreshBtn", "color"]]);
+        await button.hover();
+        const [hover] = await readChromeContrast(page, [["#forceRefreshBtn", "color"]]);
+        expect({ rest: rest.ratio >= 4.5, hover: hover.ratio >= 4.5 }).toEqual({
+          rest: true,
+          hover: true,
+        });
+      });
+    }
   });
 });

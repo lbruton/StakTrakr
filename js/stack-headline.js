@@ -115,13 +115,26 @@ const computeStackWeights = (metalTotals, metalOrder) => {
 };
 
 /**
- * Formats a 12-month pace with the breakdown modal's digits and a leading plus.
+ * Formats a 12-month pace with the breakdown modal's digits and a leading plus, or a dash
+ * for a metal with no buys; stackHasNoBuys decides when the list says why.
  * @param {number|null} pace - Ounces bought per month.
  * @returns {string}
  */
 const formatStackPace = (pace) => {
-  if (!(pace > 0)) return "No buys";
+  if (!(pace > 0)) return "—";
   return `+${pace.toFixed(pace < 0.1 ? 3 : 1)} oz/mo`;
+};
+
+/**
+ * True when the pace has loaded and none of the listed metals has a buy in the window, so
+ * one note under the weights list explains the dashes.
+ * @param {Object<string, number|null>|null} pace - Pace by metal key, or null while loading.
+ * @param {string[]} keys - Metal keys on the weights list.
+ * @returns {boolean}
+ */
+const stackHasNoBuys = (pace, keys) => {
+  if (!pace || keys.length === 0) return false;
+  return keys.every((key) => !(pace[key] > 0));
 };
 
 /**
@@ -256,7 +269,8 @@ const _renderStackWeights = (metalTotals, pace) => {
   const list = document.getElementById("stackWeightsList");
   if (!list) return;
   const order = typeof getMetalOrderConfig === "function" ? getMetalOrderConfig() : [];
-  const rows = computeStackWeights(metalTotals, order).map(({ key, weight }) => {
+  const weights = computeStackWeights(metalTotals, order);
+  const rows = weights.map(({ key, weight }) => {
     const metal = Object.values(METALS).find((m) => m.key === key);
     const row = document.createElement("li");
     row.className = `stack-weight-row ${key}`;
@@ -277,6 +291,10 @@ const _renderStackWeights = (metalTotals, pace) => {
   list.replaceChildren(...rows);
   safeGetElement("stackWeights").hidden = rows.length === 0;
   safeGetElement("stackWeightsRate").hidden = !pace;
+  safeGetElement("stackWeightsNote").hidden = !stackHasNoBuys(
+    pace,
+    weights.map(({ key }) => key)
+  );
 };
 
 /**

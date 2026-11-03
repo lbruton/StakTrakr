@@ -173,8 +173,9 @@ Do not re-add `#detailsModal` canvas-hiding rules or any `.details-grid`/breakdo
 `--warning` (oklch L≈0.666) on `--bg-secondary` produces ≈1.4:1 contrast in light (L≈0.96) and sepia (L≈0.892) themes.
 That fails WCAG level AA for small text.
 Color status words with the text tokens `--success-text`, `--warning-text` and `--danger-text`.
-Each of the four theme blocks in `css/styles.css` sets all three at 4.5:1 or more on `--bg-secondary`.
-Keep the base `--success`, `--warning` and `--danger` tokens for fills, borders and icons.
+Color accent words, such as the collection card count, with `--primary-text`.
+Each of the four theme blocks in `css/styles.css` sets all four at 4.5:1 or more on `--bg-secondary`.
+Keep the base `--primary`, `--success`, `--warning` and `--danger` tokens for fills, borders and icons.
 `tests/unit/js-theme-tokens.test.js` fails when `js/` reads a custom property that no stylesheet defines.
 
 ## `--success` color — non-text contrast fail on sepia icons
