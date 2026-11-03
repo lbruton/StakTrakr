@@ -859,6 +859,149 @@ test.describe("Dashboard frames", () => {
 });
 
 /**
+ * Reads, for each tab panel, whether it matches the header surface and casts no shadow, and
+ * whether the inner surface on it (table header cell or collection card) stands one step off it.
+ * An inset shadow that covers the element, the inventory header's tint, paints over its fill.
+ */
+function readTabPanels(page) {
+  return page.evaluate(() => {
+    const ctx = document.createElement("canvas").getContext("2d", { willReadFrequently: true });
+    const lightness = (el) => {
+      const style = getComputedStyle(el);
+      ctx.clearRect(0, 0, 1, 1);
+      ctx.fillStyle = style.backgroundColor;
+      ctx.fillRect(0, 0, 1, 1);
+      const tint = style.boxShadow.match(/^(rgba?\([^)]*\)) 0px 0px 0px \d{4,}px inset$/);
+      if (tint) {
+        ctx.fillStyle = tint[1];
+        ctx.fillRect(0, 0, 1, 1);
+      }
+      const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    const header = getComputedStyle(document.querySelector(".app-header")).backgroundColor;
+    const panels = {
+      search: ["#searchSectionEl", null],
+      table: ["#tableSectionEl", "#tableSectionEl thead th"],
+      market: ["#vendorPricesSectionEl", ".vendor-prices-table thead th"],
+      collections: ["#collectionsSectionEl", ".collections-card"],
+    };
+    return Object.fromEntries(
+      Object.entries(panels).map(([key, [panelSel, innerSel]]) => {
+        const panel = document.querySelector(panelSel);
+        const inner = innerSel && document.querySelector(innerSel);
+        return [
+          key,
+          {
+            matchesHeader: getComputedStyle(panel).backgroundColor === header,
+            shadow: getComputedStyle(panel).boxShadow,
+            innerStandsOff: inner ? Math.abs(lightness(inner) - lightness(panel)) > 2 : null,
+          },
+        ];
+      })
+    );
+  });
+}
+
+/**
+ * Returns the lowest WCAG contrast of the text in each surface against that surface: any text
+ * in a Market header cell, and the muted labels on a collection card.
+ */
+function readSurfaceContrast(page) {
+  return page.evaluate(() => {
+    const ctx = document.createElement("canvas").getContext("2d", { willReadFrequently: true });
+    const luminance = (css) => {
+      ctx.clearRect(0, 0, 1, 1);
+      ctx.fillStyle = css;
+      ctx.fillRect(0, 0, 1, 1);
+      const [r, g, b] = [...ctx.getImageData(0, 0, 1, 1).data].map((v) => {
+        const c = v / 255;
+        return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+      });
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    const ratio = (a, b) => {
+      const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+      return (hi + 0.05) / (lo + 0.05);
+    };
+    const lowest = (surfaceSel, textSel) =>
+      Math.min(
+        ...[...document.querySelectorAll(surfaceSel)].flatMap((surface) =>
+          [surface, ...surface.querySelectorAll(textSel)]
+            .filter((el) =>
+              [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())
+            )
+            .map((el) =>
+              ratio(getComputedStyle(el).color, getComputedStyle(surface).backgroundColor)
+            )
+        )
+      );
+    return {
+      marketHeader: lowest(".vendor-prices-table thead th", "*"),
+      collectionLabels: lowest(
+        ".collections-card",
+        ".collections-card-sub, .collections-card-foot"
+      ),
+    };
+  });
+}
+
+test.describe("Tab panel frames", () => {
+  test("Inventory, Market and Collections panels share the frame surface in every theme", async ({
+    page,
+  }) => {
+    await gotoDesktopDashboard(page);
+    await page.locator("#tabBtnMarket").click();
+    await expect(page.locator(".vendor-prices-table thead th").first()).toBeVisible();
+    await page.locator("#tabBtnCollections").click();
+    await page.waitForFunction(() => !!window.collectionsStore);
+    await page.evaluate(() => {
+      const made = window.collectionsStore.createCustom({
+        name: "Frame surface fixture",
+        metal: "Silver",
+        slots: [{ label: "One", year: "2024", note: "" }],
+      });
+      if (!made.ok) throw new Error(`Fixture creation failed: ${made.reason}`);
+    });
+    await expect(page.locator(".collections-card").first()).toBeVisible();
+    await expect(page.locator("#tableSectionEl thead th").first()).toBeAttached();
+    const flat = { matchesHeader: true, shadow: "none" };
+    for (const theme of THEMES) {
+      await test.step(theme, async () => {
+        await applyTheme(page, theme);
+        await expect
+          .poll(() => readTabPanels(page))
+          .toEqual({
+            search: { ...flat, innerStandsOff: null },
+            table: { ...flat, innerStandsOff: true },
+            market: { ...flat, innerStandsOff: true },
+            collections: { ...flat, innerStandsOff: true },
+          });
+        const contrast = await readSurfaceContrast(page);
+        expect(contrast.marketHeader).toBeGreaterThanOrEqual(4.5);
+        expect(contrast.collectionLabels).toBeGreaterThanOrEqual(4.5);
+      });
+    }
+    // The global section rule lifts a hovered section; the panels stay flat. Each panel is
+    // hovered on its own tab, since a hidden panel cannot take the pointer.
+    const hovered = [
+      ["inventory", "#searchSectionEl"],
+      ["inventory", "#tableSectionEl"],
+      ["market", "#vendorPricesSectionEl"],
+      ["collections", "#collectionsSectionEl"],
+    ];
+    for (const [tab, selector] of hovered) {
+      await test.step(`${selector} hovered`, async () => {
+        await page.locator(`.app-tab-btn[data-tab="${tab}"]`).click();
+        const panel = page.locator(selector);
+        await panel.hover({ position: { x: 4, y: 4 } });
+        await expect(panel).toHaveCSS("box-shadow", "none");
+      });
+    }
+  });
+});
+
+/**
  * Boots the Dashboard at 1440 and 390 with the ticker track held still, then expects no ink in
  * either edge band and some ink in the centre band, in each theme.
  */

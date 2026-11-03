@@ -134,12 +134,11 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.36.102 &ndash; One surface on every tab</strong>: The Inventory, Market and Collections panels use the same background as the header and the Dashboard cards, with no drop shadow, so every tab reads as one set of frames. Collection cards and the Market table header stand one step off the panel, lighter in the light and sepia themes and darker in the dark and slate themes, so they stay visible and their labels stay easy to read (STRK-523).</li>
     <li><strong>v3.36.101 &ndash; A calmer footer and ticker</strong>: The footer thanks you and shows the copyright on the left, with the links and the price status on the right. The best-price ticker scrolls about a quarter slower. On a new layout it sits under the spot cards and above Your stack; to move it on an existing layout, use Settings, Appearance, Dashboard sections (STRK-522).</li>
     <li><strong>v3.36.100 &ndash; A quieter frame</strong>: The footer shows plain text links and one status line in place of the badge images, so it loads nothing from other sites and works offline. The status line names the price state in words, with the age of each feed and the version you run. The Theme and Settings buttons are plain icons, and test builds show a small outlined BETA, PREVIEW or LOCAL tag beside the logo. Turn on Settings, Header Buttons, Show text to see the button labels (STRK-501).</li>
     <li><strong>v3.36.99 &ndash; Copper on the Dashboard</strong>: A first-time user sees copper as the fifth spot card, with its Ag:Cu ratio chip and its row in the Totals table. If you already use StakTrakr, nothing changes: turn copper on in Settings, Metal Order. The best-price ticker also keeps its dealer prices clear of the strip's border at both ends (STRK-510, STRK-509).</li>
-    <li><strong>v3.36.98 &ndash; Bullion bars in the ledger</strong>: A small 3D bullion bar in each metal's colour replaces the round dot in the Totals table and the Weight held list. The bars follow your theme and stay easy to see in all four (STRK-498).</li>
-    <li><strong>v3.36.97 &ndash; The ledger follows the lead</strong>: The Totals table's Gain/Loss column follows the value that leads in Your stack, so the All Metals row matches the figure above it, and each phone row shows the leading value. The headline reads Loss on cost when the amount is negative, and Weight held has a Rate header. Moving the pointer down the table highlights the whole row at once (STRK-506, STRK-507, STRK-508).</li>
-      `;
+    <li><strong>v3.36.98 &ndash; Bullion bars in the ledger</strong>: A small 3D bullion bar in each metal's colour replaces the round dot in the Totals table and the Weight held list. The bars follow your theme and stay easy to see in all four (STRK-498).</li>      `;
 };
 
 // Expose globally for access from other modules

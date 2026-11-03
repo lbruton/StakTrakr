@@ -403,9 +403,14 @@ lead takes the full width, the other four fill two columns, and the activity lin
 The spot price section draws no panel of its own: each spot card carries the frame.
 
 The header, spot cards, ticker, Your stack card and footer share the secondary background, so the
-Dashboard reads as one set of frames one step off the page. The ratio chips on the spot cards take an
-opaque fill one step lighter than the card: the card token in light and sepia, the tertiary token in dark
-and slate.
+Dashboard reads as one set of frames one step off the page. The tab panels on Inventory, Market and
+Collections (search, table, vendor prices and collections) use the same frame surface, flat at rest and
+on hover. A surface set on a frame takes `--bg-on-frame`, one step off the frame and away from its text:
+the card token in light and sepia, the primary token in dark and slate. On the tertiary token, the muted
+labels and vendor colours fall below 4.5:1 in slate. The collection cards and the Market table header use
+it. The inventory header is darker than the frame through its inset tint. The ratio chips on the spot
+cards take an opaque fill one step lighter than the card: the card token in light and sepia, the tertiary
+token in dark and slate.
 
 ### Totals Ledger
 
