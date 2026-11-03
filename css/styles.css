@@ -78,6 +78,8 @@
   --bg-secondary: var(--bg-elev-1);
   --bg-tertiary: var(--bg-elev-2);
   --bg-card: var(--surface);
+  /* A surface set on a frame (--bg-secondary) sits one step lighter than the frame. */
+  --bg-on-frame: var(--bg-card);
 
   /* Text Tokens */
   --text: oklch(0.252 0.021 251.6);
@@ -296,6 +298,7 @@
   --bg-secondary: oklch(0.22 0.008 85);
   --bg-tertiary: oklch(0.28 0.007 85);
   --bg-card: oklch(0.22 0.01 85);
+  --bg-on-frame: var(--bg-tertiary);
 
   /* Text Colors - Warm neutrals */
   --text-primary: oklch(0.95 0.005 85);
@@ -439,6 +442,7 @@
   --bg-secondary: #1e293b;
   --bg-tertiary: #334155;
   --bg-card: #1e293b;
+  --bg-on-frame: var(--bg-tertiary);
 
   /* Text Colors - Slate */
   --text-primary: #f8fafc;
@@ -1761,6 +1765,20 @@ section {
 
 section:hover {
   box-shadow: var(--shadow-lg);
+}
+
+/* The tab panels share the frame surface of the header, spot cards and Your stack, flat at rest
+   and on hover. */
+.search-section,
+.search-section:hover,
+.table-section,
+.table-section:hover,
+.vendor-prices-section,
+.vendor-prices-section:hover,
+.collections-section,
+.collections-section:hover {
+  background: var(--bg-secondary);
+  box-shadow: none;
 }
 
 .grid {
@@ -6462,9 +6480,6 @@ table {
   /* Visual chrome — wraps portal-scroll + footer controls */
   border: 2px solid var(--border);
   border-radius: var(--radius);
-  box-shadow:
-    0 4px 6px -1px rgba(0, 0, 0, 0.1),
-    0 2px 4px -1px rgba(0, 0, 0, 0.06);
   /* Override base section{overflow:hidden} — portal-scroll handles overflow,
      and hidden here would create an intermediate scroll container that
      breaks position:sticky on thead th in some browsers */
@@ -17155,7 +17170,6 @@ input[type="number"] {
 
 /* ── Vendor Prices Section ── */
 .vendor-prices-section {
-  background: var(--bg-card);
   padding: var(--spacing-lg);
   border-radius: var(--radius-lg);
   border: 1px solid var(--border);
@@ -17214,6 +17228,11 @@ input[type="number"] {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   border-bottom: 1px solid var(--border);
+}
+
+.vendor-prices-table thead th,
+.vendor-prices-table thead th:first-child {
+  background: var(--bg-on-frame);
 }
 
 .vendor-prices-table th:first-child {
@@ -17984,7 +18003,7 @@ input[type="number"] {
   padding: 2px 8px 2px 6px;
   border-radius: var(--radius-pill);
   border: 1px solid var(--border);
-  background: var(--bg-card);
+  background: var(--bg-on-frame);
   font-size: var(--font-size-xs);
   font-weight: 600;
   font-family: var(--font-mono);
@@ -17997,13 +18016,6 @@ input[type="number"] {
   text-overflow: ellipsis;
   position: relative;
   z-index: 2;
-}
-
-/* The chip sits one step lighter than the spot card; in the dark themes the card token
-   equals the card surface, so the step is the tertiary token. */
-[data-theme="dark"] .spot-ratio-chip,
-[data-theme="slate"] .spot-ratio-chip {
-  background: var(--bg-tertiary);
 }
 
 .spot-ratio-chip:focus-visible {
@@ -19166,7 +19178,7 @@ input[type="number"] {
   text-align: left;
   font: inherit;
   color: inherit;
-  background: var(--bg-secondary);
+  background: var(--bg-on-frame);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   transition:
@@ -19178,7 +19190,7 @@ input[type="number"] {
 .collections-card:hover,
 .collections-card:focus-visible {
   border-color: var(--primary);
-  background: color-mix(in oklch, var(--bg-secondary), var(--hover-mix) 4%);
+  background: color-mix(in oklch, var(--bg-on-frame), var(--hover-mix) 4%);
   transform: translateY(-1px);
   outline: none;
 }

@@ -859,6 +859,87 @@ test.describe("Dashboard frames", () => {
 });
 
 /**
+ * Reads, for each tab panel, whether it matches the header surface and casts no shadow, and
+ * whether the inner surface on it (table header cell or collection card) stands one step off it.
+ * An inset shadow that covers the element, the inventory header's tint, paints over its fill.
+ */
+function readTabPanels(page) {
+  return page.evaluate(() => {
+    const ctx = document.createElement("canvas").getContext("2d", { willReadFrequently: true });
+    const lightness = (el) => {
+      const style = getComputedStyle(el);
+      ctx.clearRect(0, 0, 1, 1);
+      ctx.fillStyle = style.backgroundColor;
+      ctx.fillRect(0, 0, 1, 1);
+      const tint = style.boxShadow.match(/^(rgba?\([^)]*\)) 0px 0px 0px \d{4,}px inset$/);
+      if (tint) {
+        ctx.fillStyle = tint[1];
+        ctx.fillRect(0, 0, 1, 1);
+      }
+      const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    const header = getComputedStyle(document.querySelector(".app-header")).backgroundColor;
+    const panels = {
+      search: ["#searchSectionEl", null],
+      table: ["#tableSectionEl", "#tableSectionEl thead th"],
+      market: ["#vendorPricesSectionEl", ".vendor-prices-table thead th"],
+      collections: ["#collectionsSectionEl", ".collections-card"],
+    };
+    return Object.fromEntries(
+      Object.entries(panels).map(([key, [panelSel, innerSel]]) => {
+        const panel = document.querySelector(panelSel);
+        const inner = innerSel && document.querySelector(innerSel);
+        return [
+          key,
+          {
+            matchesHeader: getComputedStyle(panel).backgroundColor === header,
+            shadow: getComputedStyle(panel).boxShadow,
+            innerStandsOff: inner ? Math.abs(lightness(inner) - lightness(panel)) > 2 : null,
+          },
+        ];
+      })
+    );
+  });
+}
+
+test.describe("Tab panel frames", () => {
+  test("Inventory, Market and Collections panels share the frame surface in every theme", async ({
+    page,
+  }) => {
+    await gotoDesktopDashboard(page);
+    await page.locator("#tabBtnMarket").click();
+    await expect(page.locator(".vendor-prices-table thead th").first()).toBeVisible();
+    await page.locator("#tabBtnCollections").click();
+    await page.waitForFunction(() => !!window.collectionsStore);
+    await page.evaluate(() => {
+      const made = window.collectionsStore.createCustom({
+        name: "Frame surface fixture",
+        metal: "Silver",
+        slots: [{ label: "One", year: "2024", note: "" }],
+      });
+      if (!made.ok) throw new Error(`Fixture creation failed: ${made.reason}`);
+    });
+    await expect(page.locator(".collections-card").first()).toBeVisible();
+    await expect(page.locator("#tableSectionEl thead th").first()).toBeAttached();
+    const flat = { matchesHeader: true, shadow: "none" };
+    for (const theme of THEMES) {
+      await test.step(theme, async () => {
+        await applyTheme(page, theme);
+        await expect
+          .poll(() => readTabPanels(page))
+          .toEqual({
+            search: { ...flat, innerStandsOff: null },
+            table: { ...flat, innerStandsOff: true },
+            market: { ...flat, innerStandsOff: true },
+            collections: { ...flat, innerStandsOff: true },
+          });
+      });
+    }
+  });
+});
+
+/**
  * Boots the Dashboard at 1440 and 390 with the ticker track held still, then expects no ink in
  * either edge band and some ink in the centre band, in each theme.
  */
