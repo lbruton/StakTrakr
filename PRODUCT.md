@@ -50,7 +50,9 @@ sees the state of their stack at a glance and can drill into any Item without le
 
 - Vanilla JavaScript with script-tag globals, one HTML page, no framework and no build step.
 - Runs on `file://` and HTTP. Fonts are self-hosted in `fonts/`. No CDN requests and no framework CSS.
-- All styling lives in `css/styles.css` as custom properties. Four themes set by `[data-theme]` on
+- Static styling lives in `css/styles.css` as custom properties. Per-instance runtime values (a measured
+  width, a show or hide toggle, a metal tint) may be set inline; `.context/coding-standards.md` has the
+  rule. Four themes set by `[data-theme]` on
   `<html>`: `dark`, `light`, `slate`, `sepia`. Dark is primary and new components are authored against it
   first. There is no contrast theme.
 - Metals: silver, gold, platinum, palladium and copper, plus Goldbacks.

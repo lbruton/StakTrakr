@@ -216,8 +216,9 @@ theme redefines the same tokens in `css/styles.css`: `:root` (light), then the `
 
 ### Named Rules
 
-**The Fixed Identity Rule.** A metal or vendor never changes hue between views or themes. Users learn the
-mapping, so a remap is a regression.
+**The Fixed Identity Rule.** A metal or vendor keeps its recognisable colour in every view and theme. A theme
+may tune the shade for contrast. Users learn the mapping, so a remap to another metal's or vendor's colour is a
+regression.
 
 **The Rationed Gold Rule.** Gold is the brand accent. It marks the primary action, the active state and
 the wordmark. It does not fill large areas or decorate headings beyond `h1`.
@@ -450,6 +451,6 @@ The approved end state of the Dashboard is `playground/STRK-485-dashboard-end-st
   anti-reference).
 - **Don't** fall back to a bare grid of numbers with no metal colour, hierarchy or brand (spreadsheet
   anti-reference).
-- **Don't** remap a metal or vendor to a different hue.
+- **Don't** give a metal or vendor another metal's or vendor's colour.
 - **Don't** use colour as the only signal of state; pair it with a label or icon.
 - **Don't** add a fifth theme or reference a contrast theme; there are four.

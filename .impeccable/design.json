@@ -158,7 +158,7 @@
       "Four themes (dark, light, slate, sepia) with one identity."
     ],
     "rules": [
-      { "name": "The Fixed Identity Rule", "body": "A metal or vendor never changes hue between views or themes. Users learn the mapping, so a remap is a regression.", "section": "colors" },
+      { "name": "The Fixed Identity Rule", "body": "A metal or vendor keeps its recognisable colour in every view and theme. A theme may tune the shade for contrast. Users learn the mapping, so a remap to another metal's or vendor's colour is a regression.", "section": "colors" },
       { "name": "The Rationed Gold Rule", "body": "Gold is the brand accent. It marks the primary action, the active state and the wordmark. It does not fill large areas or decorate headings beyond h1.", "section": "colors" },
       { "name": "The Function First Rule", "body": "Every colour on screen identifies a metal or vendor, signals gain, loss or status, or marks the primary action. Colour with no job is removed.", "section": "colors" },
       { "name": "The Regular Serif Rule", "body": "Instrument Serif ships at weight 400 only. Never set it bold or synthesise a bold.", "section": "typography" },
@@ -178,7 +178,7 @@
       "Don't add glass blur, neon glows, gradient text or purple-to-blue gradients (crypto and Web3 anti-reference).",
       "Don't use oversized rounded cards or airy startup-dashboard spacing (generic fintech anti-reference).",
       "Don't fall back to a bare grid of numbers with no metal colour, hierarchy or brand (spreadsheet anti-reference).",
-      "Don't remap a metal or vendor to a different hue.",
+      "Don't give a metal or vendor another metal's or vendor's colour.",
       "Don't use colour as the only signal of state; pair it with a label or icon.",
       "Don't add a fifth theme or reference a contrast theme; there are four."
     ]
