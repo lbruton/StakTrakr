@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed — STRK-523: Tab panels match the Dashboard frame surface
 
 - **Tab panels**: The search, inventory table, vendor prices and collections panels use the secondary background with no resting or hover shadow, the same surface as the header and the Dashboard frames. Sepia showed the mismatch most; light differed faintly, dark by chroma only (STRK-523).
-- **Surfaces on a frame**: A new `--bg-on-frame` token sits one step lighter than the frame (card in light and sepia, tertiary in dark and slate). Collection cards, the Market table header and the spot ratio chips use it; collection cards no longer blend into their panel in dark (STRK-523).
+- **Surfaces on a frame**: A new `--bg-on-frame` token sits one step off the frame, away from its text: lighter (card) in light and sepia, darker (primary) in dark and slate, so muted labels and vendor colours keep 4.5:1. Collection cards and the Market table header use it; collection cards no longer blend into their panel in dark (STRK-523).
 
 ---
 

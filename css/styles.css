@@ -78,7 +78,8 @@
   --bg-secondary: var(--bg-elev-1);
   --bg-tertiary: var(--bg-elev-2);
   --bg-card: var(--surface);
-  /* A surface set on a frame (--bg-secondary) sits one step lighter than the frame. */
+  /* A surface set on a frame (--bg-secondary) sits one step off it, away from its text colour:
+     lighter in the light themes, darker in the dark themes, so muted labels keep 4.5:1. */
   --bg-on-frame: var(--bg-card);
 
   /* Text Tokens */
@@ -298,7 +299,7 @@
   --bg-secondary: oklch(0.22 0.008 85);
   --bg-tertiary: oklch(0.28 0.007 85);
   --bg-card: oklch(0.22 0.01 85);
-  --bg-on-frame: var(--bg-tertiary);
+  --bg-on-frame: var(--bg-primary);
 
   /* Text Colors - Warm neutrals */
   --text-primary: oklch(0.95 0.005 85);
@@ -442,7 +443,7 @@
   --bg-secondary: #1e293b;
   --bg-tertiary: #334155;
   --bg-card: #1e293b;
-  --bg-on-frame: var(--bg-tertiary);
+  --bg-on-frame: var(--bg-primary);
 
   /* Text Colors - Slate */
   --text-primary: #f8fafc;
@@ -17235,13 +17236,6 @@ input[type="number"] {
   background: var(--bg-on-frame);
 }
 
-/* The vendor colours and muted labels fall below 4.5:1 on the lighter tertiary surface, so the
-   dark themes set the header off one step darker than the frame. */
-[data-theme="dark"] .vendor-prices-table thead th,
-[data-theme="slate"] .vendor-prices-table thead th {
-  background: var(--bg-primary);
-}
-
 .vendor-prices-table th:first-child {
   text-align: left;
   position: sticky;
@@ -18010,7 +18004,7 @@ input[type="number"] {
   padding: 2px 8px 2px 6px;
   border-radius: var(--radius-pill);
   border: 1px solid var(--border);
-  background: var(--bg-on-frame);
+  background: var(--bg-card);
   font-size: var(--font-size-xs);
   font-weight: 600;
   font-family: var(--font-mono);
@@ -18023,6 +18017,13 @@ input[type="number"] {
   text-overflow: ellipsis;
   position: relative;
   z-index: 2;
+}
+
+/* The chip sits one step lighter than the spot card; in the dark themes the card token
+   equals the card surface, so the step is the tertiary token. */
+[data-theme="dark"] .spot-ratio-chip,
+[data-theme="slate"] .spot-ratio-chip {
+  background: var(--bg-tertiary);
 }
 
 .spot-ratio-chip:focus-visible {

@@ -903,8 +903,11 @@ function readTabPanels(page) {
   });
 }
 
-/** Returns the lowest WCAG contrast of any text in the Market table header against its cell. */
-function readMarketHeaderContrast(page) {
+/**
+ * Returns the lowest WCAG contrast of the text in each surface against that surface: any text
+ * in a Market header cell, and the muted labels on a collection card.
+ */
+function readSurfaceContrast(page) {
   return page.evaluate(() => {
     const ctx = document.createElement("canvas").getContext("2d", { willReadFrequently: true });
     const luminance = (css) => {
@@ -921,12 +924,25 @@ function readMarketHeaderContrast(page) {
       const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
       return (hi + 0.05) / (lo + 0.05);
     };
-    const ratios = [...document.querySelectorAll(".vendor-prices-table thead th")].flatMap((th) =>
-      [th, ...th.querySelectorAll("*")]
-        .filter((el) => [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim()))
-        .map((el) => ratio(getComputedStyle(el).color, getComputedStyle(th).backgroundColor))
-    );
-    return Math.min(...ratios);
+    const lowest = (surfaceSel, textSel) =>
+      Math.min(
+        ...[...document.querySelectorAll(surfaceSel)].flatMap((surface) =>
+          [surface, ...surface.querySelectorAll(textSel)]
+            .filter((el) =>
+              [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())
+            )
+            .map((el) =>
+              ratio(getComputedStyle(el).color, getComputedStyle(surface).backgroundColor)
+            )
+        )
+      );
+    return {
+      marketHeader: lowest(".vendor-prices-table thead th", "*"),
+      collectionLabels: lowest(
+        ".collections-card",
+        ".collections-card-sub, .collections-card-foot"
+      ),
+    };
   });
 }
 
@@ -961,7 +977,9 @@ test.describe("Tab panel frames", () => {
             market: { ...flat, innerStandsOff: true },
             collections: { ...flat, innerStandsOff: true },
           });
-        expect(await readMarketHeaderContrast(page)).toBeGreaterThanOrEqual(4.5);
+        const contrast = await readSurfaceContrast(page);
+        expect(contrast.marketHeader).toBeGreaterThanOrEqual(4.5);
+        expect(contrast.collectionLabels).toBeGreaterThanOrEqual(4.5);
       });
     }
     // The global section rule lifts a hovered section; the panels stay flat. Each panel is
