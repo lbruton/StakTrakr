@@ -909,7 +909,7 @@ section {
 .footer-thanks-line {
   display: block;
 }
-.footer-about p {
+.footer-thanks {
   margin: 0;
 }
 .footer-thanks {
@@ -931,8 +931,9 @@ section {
   align-items: center;
   gap: 0 0.25rem;
 }
-/* The separator and the version link wrap as one unit. */
-.footer-version {
+/* Each separator wraps with the link after it, so no line ends on a dot. */
+.footer-version,
+.footer-item {
   display: inline-flex;
   align-items: center;
   gap: 0 0.25rem;
@@ -1012,7 +1013,7 @@ section {
   display: none;
 }
 .footer-meta {
-  margin-top: 0.25rem;
+  margin: 0.25rem 0 0;
   font-size: max(12px, var(--font-size-xs));
   color: var(--text-secondary);
 }

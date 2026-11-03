@@ -99,7 +99,7 @@ test.describe("app chrome", () => {
       });
       return {
         thanksLeft: thanks.right <= middle,
-        metaUnderThanks: meta.top >= thanks.bottom && meta.right <= middle,
+        metaUnderThanks: meta.top >= thanks.bottom + 3 && meta.right <= middle,
         linksRight: links.left >= middle,
         statusUnderLinks: status.top >= links.bottom && status.left >= middle,
         statusFlushRight:
@@ -137,6 +137,19 @@ test.describe("app chrome", () => {
       };
     });
     expect(phone).toEqual({ stacked: true, sepShown: false });
+
+    // At the narrowest phone the Project links wrap; each dot stays on the line of its link.
+    await page.setViewportSize({ width: 320, height: 800 });
+    const strays = await page.evaluate(() =>
+      [...document.querySelectorAll(".footer-links .footer-sep:not(.footer-groups-sep)")]
+        .filter((sep) => {
+          const link = sep.nextElementSibling.getBoundingClientRect();
+          const dot = sep.getBoundingClientRect();
+          return Math.abs(dot.top + dot.height / 2 - (link.top + link.height / 2)) > 2;
+        })
+        .map((sep) => sep.nextElementSibling.textContent.trim())
+    );
+    expect(strays).toEqual([]);
   });
 
   test("the footer status names the price state in words and opens API health", async ({
