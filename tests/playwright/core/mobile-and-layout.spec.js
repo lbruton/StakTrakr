@@ -452,6 +452,20 @@ function visibleLedgerRows(page) {
 }
 
 test.describe("Dashboard totals ledger", () => {
+  test("Weight held shows a dash per metal and one note when no metal has a buy in 12 months", async ({
+    page,
+  }) => {
+    // Every seed purchase is dated more than 12 months before the spot series ends.
+    await gotoDesktopDashboard(page);
+    const pace = page.locator("#stackWeights .stack-weight-pace");
+    await expect(page.locator("#stackWeightsRate")).toBeVisible();
+    await expect(pace).not.toHaveCount(0);
+    await expect(pace).toHaveText(Array(await pace.count()).fill("—"));
+    const note = page.locator("#stackWeightsNote");
+    await expect(note).toBeVisible();
+    await expect(note).toHaveText("No buys in the last 12 months.");
+  });
+
   test("one table: a row per held metal in Metal Order, All Metals as the footer, aligned figures, one frame", async ({
     page,
   }) => {
@@ -1375,9 +1389,29 @@ test.describe("Dashboard at phone width", () => {
   }) => {
     await gotoDesktopDashboard(page);
     await expect(page.locator(".spot-card-timestamp").first()).toBeVisible();
-    for (const width of [1440, 1280, 1024, 390, 320]) {
-      await test.step(`${width}px`, async () => {
+    // A latest spot entry of each source: the sync label, a manual price and a seed price
+    // dated after the last sync, each written by updateSpotTimestamp.
+    const setSource = (source, label) =>
+      page.evaluate(
+        ([src, text]) => {
+          const names = ["Silver", "Gold", "Platinum", "Palladium", "Copper"];
+          const timestamp = src === "seed" ? "2099-01-01T12:00:00Z" : new Date().toISOString();
+          if (src)
+            names.forEach((metal) => spotHistory.push({ metal, spot: 1, source: src, timestamp }));
+          names.forEach((metal) => updateSpotTimestamp(metal));
+          return document.querySelector(".spot-card-timestamp").textContent.includes(text);
+        },
+        [source, label]
+      );
+    const cases = [
+      [null, "Synced"],
+      ["manual", "Manual"],
+      ["seed", "Seed"],
+    ].flatMap((state) => [1440, 1280, 1024, 390, 320].map((width) => [...state, width]));
+    for (const [source, label, width] of cases) {
+      await test.step(`${label} at ${width}px`, async () => {
         await page.setViewportSize({ width, height: 900 });
+        expect(await setSource(source, label)).toBe(true);
         const read = () =>
           page.locator(".spot-card-timestamp").evaluateAll((els) =>
             els
