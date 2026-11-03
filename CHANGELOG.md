@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Bottom nav**: The phone bottom-nav labels are 12px, up from 9.8px, and the five labels still fit on one line (STRK-521).
 - **Spot timestamps**: The spot card timestamp is 12px at every width. A card narrower than 20rem shows the short "Last Synced" label, so the line no longer ends in an ellipsis on the five-card row (STRK-521).
 - **Weight held**: A metal with no buys in the last 12 months shows a dash in the Rate column. When no metal has a buy, one "No buys in the last 12 months." note sits under the list in place of the same words on every row (STRK-521).
-- **Clear Cache & Reload**: The Settings button is a standard secondary button. The hard-coded `.theme-btn` colour rules and their hover sweep are gone (STRK-521).
+- **Clear Cache & Reload**: The Settings button is a standard secondary button with no fade. In light and sepia it rests on the darker `--secondary-hover` tone, so its label meets 4.5:1 in all four themes. The hard-coded `.theme-btn` colour rules and their hover sweep are gone (STRK-521).
 - **Collection count**: A new `--primary-text` token colours the filled-slot count on collection cards at 4.5:1 or more in all four themes; light and sepia use a darker tone of the primary colour (STRK-521).
 
 ---

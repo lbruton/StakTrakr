@@ -361,6 +361,10 @@ test.describe("app chrome", () => {
     await expect(button).toBeVisible();
     await expect(button).toHaveClass(/\bbtn secondary\b/);
     await expect(button).not.toHaveClass(/theme-btn/);
+    // A fade on the label over the fill lowers contrast, so the button stays fully opaque.
+    await expect(button).toHaveCSS("opacity", "1");
+    // Read settled colours: mid-transition, the fill still holds the previous theme's value.
+    await page.addStyleTag({ content: "#forceRefreshBtn { transition: none !important; }" });
     for (const theme of THEMES) {
       await test.step(theme, async () => {
         await page.evaluate((name) => window.setTheme(name), theme);

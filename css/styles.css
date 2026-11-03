@@ -5897,7 +5897,13 @@ input.spot-lookup-flash {
   margin-top: 8px;
   font-size: var(--font-size-sm);
   padding: 4px 12px;
-  opacity: 0.85;
+}
+/* White on the light and sepia --secondary fill is under 4.5:1; their darker hover tone
+   passes, so the button rests on it there. */
+:root:not([data-theme]) .about-troubleshooting .btn.secondary,
+[data-theme="light"] .about-troubleshooting .btn.secondary,
+[data-theme="sepia"] .about-troubleshooting .btn.secondary {
+  background: var(--secondary-hover);
 }
 
 /* F) Sidebar separator */
