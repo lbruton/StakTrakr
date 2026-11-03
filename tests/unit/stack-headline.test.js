@@ -335,12 +335,12 @@ return {
     );
   const DASHBOARD = ["spotPrices", "totals", "bestPriceTicker"];
 
-  test("Your stack sits between the spot cards and the ticker by default, as one section", () => {
+  test("the ticker sits between the spot cards and Your stack by default, as one section", () => {
     assert.deepEqual(
       defaults.slice(0, 3).map((d) => d.id),
-      DASHBOARD
+      ["spotPrices", "bestPriceTicker", "totals"]
     );
-    assert.deepEqual(defaults[1], { id: "totals", label: "Your stack", enabled: true });
+    assert.deepEqual(defaults[2], { id: "totals", label: "Your stack", enabled: true });
     assert.equal(
       defaults.some((d) => d.id === "stackHeadline"),
       false

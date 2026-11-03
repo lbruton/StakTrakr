@@ -355,13 +355,15 @@ Borders are 1px on surfaces and 2px on form fields.
 
 ### Footer
 
-One frame with a status group and text links, and no images, so it renders offline and on `file://`.
-The status group shows a dot and a word for the prices on screen (Prices current, Prices stale, API
+One frame with no images, so it renders offline and on `file://`. The left side holds a two-sentence
+thanks and, under it, the copyright line, whose links underline only on hover. The right side holds the
+text links and, under them, the status group, both aligned to the right edge. The status group shows a dot and a word for the prices on screen (Prices current, Prices stale, API
 unreachable), the per-feed ages in the data face, "API degraded" when an endpoint lags, and the version
 with any newer release. The dot and the state words use the `*-text` tokens. Product links (FAQ, Beta
 site) and Project links (GitHub, Issues, r/staktrakr, MIT License, Sponsor) are text in the secondary
-colour, separated by middle dots within a group and by space between groups. Below 768px the groups
-stack and each link keeps a 44px target. The attribution line sits under a 1px rule.
+colour, separated by middle dots, with one dot between the groups. Below 768px the sides stack, left
+aligned, the groups wrap onto their own lines without the dot between them, and each link keeps a 44px
+target.
 
 The approved mockup is `playground/STRK-501-app-chrome.html`.
 
@@ -371,13 +373,13 @@ The signature component. Each metal has a card with its spot price, change and a
 below the change line, so no text sits on the chart. The price is in the primary text colour with an arrow
 glyph; only the change line carries gain and loss, in the `*-text` tokens. The ticker repeats the figures
 in one line with neutral prices and status-coloured premiums. Both use the data face and the metal colours.
-The ticker's frame draws the border, and the strip clips its chips 8px inside it, so no chip paints on or
+The ticker's frame draws the border, and the strip clips its chips 9px inside it, so no chip paints on or
 next to the border while the strip runs, holds or pauses. The edge fades start from the frame colour and
 hold it solid for their first 16px.
 
 ### Your Stack
 
-"Your stack" is one card below the spot cards and above the ticker: the stack figures on top, a 1px rule,
+"Your stack" is one card below the spot cards and the ticker: the stack figures on top, a 1px rule,
 then the totals ledger. It is a flat frame on the secondary background with no accent border and one
 Instrument Serif title. The ledger has no heading of its own; a visually hidden caption names it.
 
