@@ -372,8 +372,14 @@ test.describe("app chrome", () => {
       await test.step(theme, async () => {
         await page.evaluate((name) => window.setTheme(name), theme);
         await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
-        const [{ ratio }] = await readChromeContrast(page, [["#forceRefreshBtn", "color"]]);
-        expect(ratio).toBeGreaterThanOrEqual(4.5);
+        await page.mouse.move(0, 0);
+        const [rest] = await readChromeContrast(page, [["#forceRefreshBtn", "color"]]);
+        await button.hover();
+        const [hover] = await readChromeContrast(page, [["#forceRefreshBtn", "color"]]);
+        expect({ rest: rest.ratio >= 4.5, hover: hover.ratio >= 4.5 }).toEqual({
+          rest: true,
+          hover: true,
+        });
       });
     }
   });
