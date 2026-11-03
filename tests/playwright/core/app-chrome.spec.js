@@ -74,6 +74,84 @@ test.describe("app chrome", () => {
     await expect(page.locator("#settingsPanel_faq")).toBeVisible();
   });
 
+  test("the footer puts thanks over copyright on the left, links over status on the right", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await gotoApp(page);
+    const layout = await page.evaluate(() => {
+      const box = (s) => document.querySelector(s).getBoundingClientRect();
+      const footer = box(".app-footer");
+      const middle = footer.left + footer.width / 2;
+      const thanks = box(".footer-thanks");
+      const meta = box(".footer-meta");
+      const links = box(".footer-links");
+      const status = box("#apiHealthBadge");
+      const link = (name) =>
+        [...document.querySelectorAll(".app-footer .footer-link")]
+          .find((el) => el.textContent.trim() === name)
+          .getBoundingClientRect();
+      const beta = link("Beta site");
+      const github = link("GitHub");
+      const sepBetween = [...document.querySelectorAll(".footer-links .footer-sep")].some((el) => {
+        const r = el.getBoundingClientRect();
+        return r.width > 0 && r.left >= beta.right && r.right <= github.left;
+      });
+      return {
+        thanksLeft: thanks.right <= middle,
+        metaUnderThanks: meta.top >= thanks.bottom + 3 && meta.right <= middle,
+        linksRight: links.left >= middle,
+        statusUnderLinks: status.top >= links.bottom && status.left >= middle,
+        statusFlushRight:
+          footer.right - document.querySelector(".footer-side").getBoundingClientRect().right < 32,
+        sepBetween,
+        underlined: [...document.querySelectorAll(".footer-meta a")].map(
+          (a) => getComputedStyle(a).textDecorationLine
+        ),
+        thanksText: document
+          .querySelector(".footer-thanks")
+          .textContent.replace(/\s+/g, " ")
+          .trim(),
+      };
+    });
+    expect(layout).toEqual({
+      thanksLeft: true,
+      metaUnderThanks: true,
+      linksRight: true,
+      statusUnderLinks: true,
+      statusFlushRight: true,
+      sepBetween: true,
+      underlined: ["none", "none"],
+      thanksText: expect.stringMatching(/^Thank you for using StakTrakr\b.{40,}/),
+    });
+
+    // Just under the phone breakpoint, both groups fit one line, yet each takes its own line.
+    await page.setViewportSize({ width: 700, height: 900 });
+    const phone = await page.evaluate(() => {
+      const [product, project] = [...document.querySelectorAll(".footer-links nav")].map((n) =>
+        n.getBoundingClientRect()
+      );
+      return {
+        stacked: project.top >= product.bottom,
+        sepShown: document.querySelector(".footer-groups-sep").getClientRects().length > 0,
+      };
+    });
+    expect(phone).toEqual({ stacked: true, sepShown: false });
+
+    // At the narrowest phone the Project links wrap; each dot stays on the line of its link.
+    await page.setViewportSize({ width: 320, height: 800 });
+    const strays = await page.evaluate(() =>
+      [...document.querySelectorAll(".footer-links .footer-sep:not(.footer-groups-sep)")]
+        .filter((sep) => {
+          const link = sep.nextElementSibling.getBoundingClientRect();
+          const dot = sep.getBoundingClientRect();
+          return Math.abs(dot.top + dot.height / 2 - (link.top + link.height / 2)) > 2;
+        })
+        .map((sep) => sep.nextElementSibling.textContent.trim())
+    );
+    expect(strays).toEqual([]);
+  });
+
   test("the footer status names the price state in words and opens API health", async ({
     page,
   }) => {
@@ -173,6 +251,7 @@ test.describe("app chrome", () => {
           ["#apiHealthValue", "color"],
           [".app-footer .footer-link", "color"],
           [".footer-meta", "color"],
+          [".footer-thanks", "color"],
           ["#envBadge", "color"],
           ["#apiHealthBadge .footer-dot", "backgroundColor"],
         ]);
@@ -215,7 +294,7 @@ test.describe("app chrome", () => {
     const small = await page.evaluate(() =>
       [
         ...document.querySelectorAll(
-          "#envBadge, .app-footer .footer-link, #apiHealthLabel, #apiHealthValue, .footer-meta"
+          "#envBadge, .app-footer .footer-link, #apiHealthLabel, #apiHealthValue, .footer-meta, .footer-thanks"
         ),
       ]
         .filter((el) => el.offsetParent !== null && parseFloat(getComputedStyle(el).fontSize) < 12)

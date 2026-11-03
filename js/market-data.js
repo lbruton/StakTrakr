@@ -325,7 +325,7 @@ const _ensureManifest = async () => {
 // Ticker
 // ---------------------------------------------------------------------------
 
-const TICKER_SPEED_PIXELS_PER_SECOND = 127;
+const TICKER_SPEED_PIXELS_PER_SECOND = 95;
 const MIN_TICKER_DURATION_SECONDS = 20;
 const RETAIL_CURRENCY_DISCLAIMER =
   "Currency conversion is for convenience only — vendors are US-based and may not accept your selected currency at checkout.";
