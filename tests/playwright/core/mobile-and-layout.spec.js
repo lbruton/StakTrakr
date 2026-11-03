@@ -936,6 +936,22 @@ test.describe("Tab panel frames", () => {
           });
       });
     }
+    // The global section rule lifts a hovered section; the panels stay flat. Each panel is
+    // hovered on its own tab, since a hidden panel cannot take the pointer.
+    const hovered = [
+      ["inventory", "#searchSectionEl"],
+      ["inventory", "#tableSectionEl"],
+      ["market", "#vendorPricesSectionEl"],
+      ["collections", "#collectionsSectionEl"],
+    ];
+    for (const [tab, selector] of hovered) {
+      await test.step(`${selector} hovered`, async () => {
+        await page.locator(`.app-tab-btn[data-tab="${tab}"]`).click();
+        const panel = page.locator(selector);
+        await panel.hover({ position: { x: 4, y: 4 } });
+        await expect(panel).toHaveCSS("box-shadow", "none");
+      });
+    }
   });
 });
 
