@@ -12,6 +12,7 @@ colors:
   success-text: "oklch(0.72 0.16 155)"
   warning-text: "oklch(0.78 0.15 80)"
   danger-text: "oklch(0.72 0.17 25)"
+  primary-text: "oklch(0.72 0.16 75)"
   gunmetal-base: "oklch(0.18 0.008 85)"
   gunmetal-raised: "oklch(0.22 0.008 85)"
   gunmetal-high: "oklch(0.28 0.007 85)"
@@ -37,6 +38,7 @@ colors:
   light-success-text: "oklch(0.48 0.11 163)"
   light-warning-text: "oklch(0.49 0.13 55)"
   light-danger-text: "oklch(0.5 0.19 27)"
+  light-primary-text: "oklch(0.52 0.2 262)"
   light-bg: "oklch(0.929 0.013 255.5)"
   light-bg-raised: "oklch(0.96 0.008 253.9)"
   light-bg-high: "oklch(0.869 0.02 252.9)"
@@ -267,8 +269,9 @@ desktop). The code holds other one-off values; new work uses 480px, 768px, 1024p
 
 A control whose visible box is smaller than 44px gets a centred `::after` hit area of at least 44px,
 and neighbouring controls sit far enough apart that the hit areas do not overlap. Values never end in an
-ellipsis: a price, total or label wraps or moves to its own line. Below 768px, Dashboard text is at least
-12px, set with `max()` so a larger user font size still applies.
+ellipsis: a price, total or label wraps or moves to its own line. Below 768px, Dashboard and bottom-nav
+text is at least 12px, set with `max()` so a larger user font size still applies. Spot card timestamps
+keep the same 12px floor at every width; a card narrower than 20rem shows the short "Last Synced" label.
 
 ### Named Rules
 
@@ -394,7 +397,8 @@ cost of the Items that left the stack. Only the change, gain, premium and realiz
 status colours. Realized hides with the Show Realized setting, and the other figures widen to fill the row.
 
 A "Weight held" column to the right, behind a 1px rule, lists each held metal in Metal Order: the ledger's
-metal mark, the name, the ounces and the 12-month pace ("+0.083 oz/mo" or "No buys") under a Rate header.
+metal mark, the name, the ounces and the 12-month pace ("+0.083 oz/mo", or a dash with no buys) under a
+Rate header. When no listed metal has a buy, one "No buys in the last 12 months." note sits under the list.
 Below the figures, a
 line reads the last 12 months: the amount added, the acquisitions and the market change. Below 768px the
 lead takes the full width, the other four fill two columns, and the activity line and the weights list

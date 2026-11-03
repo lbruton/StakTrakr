@@ -942,6 +942,7 @@ function readSurfaceContrast(page) {
         ".collections-card",
         ".collections-card-sub, .collections-card-foot"
       ),
+      collectionCount: lowest(".collections-card", ".collections-count b"),
     };
   });
 }
@@ -980,6 +981,7 @@ test.describe("Tab panel frames", () => {
         const contrast = await readSurfaceContrast(page);
         expect(contrast.marketHeader).toBeGreaterThanOrEqual(4.5);
         expect(contrast.collectionLabels).toBeGreaterThanOrEqual(4.5);
+        expect(contrast.collectionCount).toBeGreaterThanOrEqual(4.5);
       });
     }
     // The global section rule lifts a hovered section; the panels stay flat. Each panel is
@@ -1324,22 +1326,68 @@ test.describe("Dashboard at phone width", () => {
     expect(result.misses).toEqual([]);
   });
 
-  test("Dashboard text is at least 12px at 390px", async ({ page }) => {
+  test("Dashboard and bottom-nav text is at least 12px at 390px", async ({ page }) => {
     await gotoPhoneDashboard(page);
     const small = await page.evaluate(() => {
-      const root = document.getElementById("tabViewDashboard");
-      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
       const found = new Set();
-      while (walker.nextNode()) {
-        const el = walker.currentNode.parentElement;
-        if (!walker.currentNode.textContent.trim() || el.getClientRects().length === 0) continue;
-        if (el.closest("[aria-hidden='true']") || el.closest(".sr-only")) continue;
-        const size = parseFloat(getComputedStyle(el).fontSize);
-        if (size < 12) found.add(`${el.className}: ${size}px`);
+      for (const id of ["tabViewDashboard", "appBottomNav"]) {
+        const walker = document.createTreeWalker(document.getElementById(id), NodeFilter.SHOW_TEXT);
+        while (walker.nextNode()) {
+          const el = walker.currentNode.parentElement;
+          if (!walker.currentNode.textContent.trim() || el.getClientRects().length === 0) continue;
+          if (el.closest("[aria-hidden='true']") || el.closest(".sr-only")) continue;
+          const size = parseFloat(getComputedStyle(el).fontSize);
+          if (size < 12) found.add(`${el.className}: ${size}px`);
+        }
       }
       return [...found];
     });
     expect(small).toEqual([]);
+
+    // Each label sits on one line inside its button, with no clipping.
+    for (const theme of THEMES) {
+      await test.step(`bottom-nav labels in ${theme}`, async () => {
+        await applyTheme(page, theme);
+        const faults = await page.evaluate(() =>
+          [...document.querySelectorAll("#appBottomNav .bottom-nav-btn:not([hidden])")]
+            .map((btn) => {
+              const text = [...btn.childNodes].find(
+                (n) => n.nodeType === 3 && n.textContent.trim()
+              );
+              const range = document.createRange();
+              range.selectNodeContents(text);
+              const lines = new Set([...range.getClientRects()].map((r) => Math.round(r.top)));
+              return lines.size === 1 && btn.scrollWidth <= btn.clientWidth
+                ? null
+                : `${text.textContent.trim()}: ${lines.size} lines`;
+            })
+            .filter(Boolean)
+        );
+        expect(faults).toEqual([]);
+      });
+    }
+  });
+
+  test("spot card timestamps are at least 12px and whole at desktop widths", async ({ page }) => {
+    await gotoDesktopDashboard(page);
+    await expect(page.locator(".spot-card-timestamp").first()).toBeVisible();
+    for (const width of [1440, 1280, 1024]) {
+      await test.step(`${width}px`, async () => {
+        await page.setViewportSize({ width, height: 900 });
+        const read = () =>
+          page.locator(".spot-card-timestamp").evaluateAll((els) =>
+            els
+              .filter((el) => el.getClientRects().length)
+              .map((el) => ({
+                small: parseFloat(getComputedStyle(el).fontSize) < 12,
+                cut: el.scrollWidth > el.clientWidth,
+              }))
+          );
+        const cards = await read();
+        expect(cards.length).toBeGreaterThan(0);
+        await expect.poll(read).toEqual(cards.map(() => ({ small: false, cut: false })));
+      });
+    }
   });
 
   test("the spot long-press listener never blocks page scrolling", async ({ page }) => {

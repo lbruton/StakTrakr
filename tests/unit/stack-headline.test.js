@@ -16,6 +16,7 @@ const HEADLINE_HELPERS = [
   "stackGainLabel",
   "computeStackWeights",
   "formatStackPace",
+  "stackHasNoBuys",
   "stackActivityWindowStart",
 ];
 /** Display currency for the formatCurrency double. */
@@ -29,6 +30,7 @@ const {
   stackGainLabel,
   computeStackWeights,
   formatStackPace,
+  stackHasNoBuys,
   stackActivityWindowStart,
 } = evalSource("js/stack-headline.js", {
   slice: HEADLINE_HELPERS.map((name) =>
@@ -288,8 +290,17 @@ describe("Your stack activity", () => {
     assert.equal(formatStackPace(1 / 12), "+0.083 oz/mo");
   });
 
-  test("a metal with no buys in the window reads No buys", () => {
-    assert.equal(formatStackPace(0), "No buys");
+  test("a metal with no buys in the window shows a dash", () => {
+    assert.equal(formatStackPace(0), "—");
+    assert.equal(formatStackPace(null), "—");
+  });
+
+  test("the no-buys note shows only when no held metal has a buy in the window", () => {
+    assert.equal(stackHasNoBuys({ silver: 0, gold: 0 }, ["silver", "gold"]), true);
+    assert.equal(stackHasNoBuys({ silver: 0.5, gold: 0 }, ["silver", "gold"]), false);
+    assert.equal(stackHasNoBuys({ silver: 0, gold: 2 }, ["silver"]), true);
+    assert.equal(stackHasNoBuys(null, ["silver"]), false);
+    assert.equal(stackHasNoBuys({}, []), false);
   });
 
   test("the window starts 365 days before the series' last day, like the 1Y pill", () => {

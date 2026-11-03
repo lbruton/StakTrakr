@@ -810,14 +810,17 @@ test.describe("Dashboard stack headline", () => {
 
     for (const name of ["Silver", "Gold", "Platinum"]) {
       const { pace } = await modalStrip(name);
-      const expected = pace === "0.000 oz/mo" ? "No buys" : `+${pace}`;
+      const expected = pace === "0.000 oz/mo" ? "—" : `+${pace}`;
       await expect(rows.filter({ hasText: name }).locator(".stack-weight-pace")).toHaveText(
         expected
       );
     }
     await expect(rows.filter({ hasText: "Platinum" }).locator(".stack-weight-pace")).toHaveText(
-      "No buys"
+      "—"
     );
+    // Silver has buys in the window, so the shared no-buys note stays hidden.
+    await expect(page.locator("#stackWeightsNote")).toBeHidden();
+    expect(await page.locator("#stackWeights").innerText()).not.toContain("No buys");
 
     const all = await modalStrip("All");
     expect(all.acquisitions).toBe("2");

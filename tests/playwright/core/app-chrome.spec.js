@@ -19,7 +19,8 @@ async function gotoApp(page) {
 
 /**
  * Returns the WCAG contrast of each selector's colour property (text colour, or a background
- * for a dot) over the footer or header frame it sits in.
+ * for a dot) over the footer or header frame it sits in. An element outside both frames is
+ * measured over its own background.
  */
 function readChromeContrast(page, targets) {
   return page.evaluate((list) => {
@@ -37,7 +38,7 @@ function readChromeContrast(page, targets) {
         .reduce((sum, v, i) => sum + v * [0.2126, 0.7152, 0.0722][i], 0);
     return list.map(([selector, prop]) => {
       const el = document.querySelector(selector);
-      const frame = el.closest(".app-footer, .app-header");
+      const frame = el.closest(".app-footer, .app-header") || el;
       const [hi, lo] = [
         lum(rgb(getComputedStyle(el)[prop])),
         lum(rgb(getComputedStyle(frame).backgroundColor)),
@@ -333,5 +334,40 @@ test.describe("app chrome", () => {
       })
     );
     expect(versionMiddles[0]).toBe(versionMiddles[1]);
+  });
+
+  test("Clear Cache & Reload is a secondary button with AA text in all four themes", async ({
+    page,
+  }) => {
+    await gotoApp(page);
+    // No stylesheet paints the legacy theme button colours.
+    const themeBtnRules = await page.evaluate(() =>
+      [...document.styleSheets]
+        .flatMap((sheet) => {
+          try {
+            return [...sheet.cssRules];
+          } catch {
+            return [];
+          }
+        })
+        .filter((rule) => rule.selectorText?.includes(".theme-btn"))
+        .filter((rule) => rule.style.background || rule.style.backgroundColor || rule.style.color)
+        .map((rule) => rule.selectorText)
+    );
+    expect(themeBtnRules).toEqual([]);
+
+    await page.locator("#settingsBtn").click();
+    const button = page.locator("#forceRefreshBtn");
+    await expect(button).toBeVisible();
+    await expect(button).toHaveClass(/\bbtn secondary\b/);
+    await expect(button).not.toHaveClass(/theme-btn/);
+    for (const theme of THEMES) {
+      await test.step(theme, async () => {
+        await page.evaluate((name) => window.setTheme(name), theme);
+        await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+        const [{ ratio }] = await readChromeContrast(page, [["#forceRefreshBtn", "color"]]);
+        expect(ratio).toBeGreaterThanOrEqual(4.5);
+      });
+    }
   });
 });

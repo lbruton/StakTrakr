@@ -57,11 +57,12 @@
   --danger: oklch(0.577 0.215 27.3);
   --danger-hover: oklch(0.505 0.19 27.5);
 
-  /* Status text: each theme sets all three, at 4.5:1 or more on --bg-secondary.
-     Use these for status words; the base tokens above are for fills and icons. */
+  /* Status and accent text: each theme sets all four, at 4.5:1 or more on --bg-secondary
+     and --bg-on-frame. Use these for words; the base tokens above are for fills and icons. */
   --success-text: oklch(0.48 0.11 163);
   --warning-text: oklch(0.49 0.13 55);
   --danger-text: oklch(0.5 0.19 27);
+  --primary-text: oklch(0.52 0.2 262);
 
   /* Disclaimer warning color */
   --disclaimer-color: var(--warning);
@@ -255,6 +256,7 @@
   --success-text: oklch(0.72 0.16 155);
   --warning-text: oklch(0.78 0.15 80);
   --danger-text: oklch(0.72 0.17 25);
+  --primary-text: var(--primary);
 
   /* Disclaimer warning color */
   --disclaimer-color: var(--danger);
@@ -404,6 +406,7 @@
   --success-text: #34d399;
   --warning-text: #fbbf24;
   --danger-text: #f87171;
+  --primary-text: var(--primary);
 
   /* Disclaimer warning color */
   --disclaimer-color: var(--danger);
@@ -545,6 +548,7 @@
   --success-text: oklch(0.47 0.1 130);
   --warning-text: oklch(0.48 0.12 55);
   --danger-text: oklch(0.48 0.18 27);
+  --primary-text: oklch(0.5 0.12 51);
 
   /* Metal-specific Colors - Sepia tone (darkened for WCAG AA text contrast on warm bg) */
   --silver: oklch(0.531 0.01 67.6);
@@ -2357,6 +2361,12 @@ input[type="submit"] {
 .stack-weight-pace {
   color: var(--text-secondary);
 }
+.stack-weights-note {
+  margin: 0.35rem 0 0;
+  font-size: max(12px, var(--font-size-sm));
+  color: var(--text-secondary);
+  text-align: right;
+}
 
 .stack-figure-lead .stack-figure-value {
   font-size: 2.5rem;
@@ -2488,6 +2498,7 @@ input[type="submit"] {
   box-shadow: var(--shadow-sm);
   overflow: hidden;
   height: 100%;
+  container: spot-card / inline-size;
 }
 
 /* The sparkline has its own row so no card text sits on the chart. Chart.js sizes the
@@ -2744,7 +2755,7 @@ input[type="submit"] {
 .spot-card-timestamp {
   position: relative;
   z-index: 1;
-  font-size: var(--font-size-xs);
+  font-size: max(12px, var(--font-size-xs));
   color: var(--text-muted);
   margin-top: 0.25rem;
   font-weight: 400;
@@ -3313,48 +3324,6 @@ input[type="submit"] {
   min-width: 3rem;
   position: relative;
   overflow: hidden;
-}
-
-.theme-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: var(--shadow);
-  border-color: var(--primary);
-}
-
-/* Theme button colors driven by [data-theme] attribute so they apply immediately
-   when the inline head script sets data-theme — before any JS runs. The class variants
-   (.dark/.light/.sepia/.slate) are kept for backwards compatibility but are now redundant. */
-[data-theme="dark"] .theme-btn,
-.theme-btn.dark {
-  background: #2a2520;
-  color: #f0ebe5;
-  border-color: #3d3530;
-}
-
-:is([data-theme="slate"]) .theme-btn,
-.theme-btn.slate {
-  background: #1e293b;
-  color: #f8fafc;
-  border-color: #334155;
-}
-
-:root:not([data-theme]) .theme-btn,
-[data-theme="light"] .theme-btn,
-.theme-btn.light {
-  background: #f8fafc;
-  color: #1e293b;
-  border-color: #cbd5e1;
-}
-
-[data-theme="sepia"] .theme-btn,
-.theme-btn.sepia {
-  background: #f2e7d5;
-  color: #3e2f1e;
-  border-color: #d1c2a5;
-}
-
-.theme-btn:hover::before {
-  left: 100%;
 }
 
 .theme-display {
@@ -18166,13 +18135,22 @@ input[type="number"] {
   color: var(--primary);
 }
 
-/* D-9: responsive timestamp. Provider + "Last API Sync" on one line at
-   desktop; below the 960px grid breakpoint shed the provider and shorten
-   the label to "Last Synced {time}" so the line never truncates 2-up. */
+/* Responsive timestamp: provider + "Last API Sync" on a wide card; a card too narrow for
+   that line at 12px, or the 2-up grid below 960px, sheds the provider and shows
+   "Last Synced {time}" so the line never truncates. */
 .ts-short {
   display: none;
 }
 @media (max-width: 959px) {
+  .ts-provider,
+  .ts-full {
+    display: none;
+  }
+  .ts-short {
+    display: inline;
+  }
+}
+@container spot-card (max-width: 20rem) {
   .ts-provider,
   .ts-full {
     display: none;
@@ -18687,16 +18665,15 @@ input[type="number"] {
   justify-content: space-around;
 }
 
-/* 0.7rem (~11.2px) rather than the prototype's 0.62rem (~9.9px), and
-   --text-secondary rather than --text-muted: this is primary navigation, and
-   muted at sub-10px was hard to read across the four themes. */
+/* Primary navigation: --text-secondary, not --text-muted, and the 12px floor for phone
+   text; max() keeps a larger user font size in effect. */
 .bottom-nav-btn {
   flex: 1;
   background: none;
   border: none;
   color: var(--text-secondary);
   font-family: inherit;
-  font-size: 0.7rem;
+  font-size: max(12px, 0.7rem);
   font-weight: 600;
   display: flex;
   flex-direction: column;
@@ -19040,7 +19017,7 @@ input[type="number"] {
 
 .collections-count b {
   font-weight: 600;
-  color: var(--primary);
+  color: var(--primary-text);
 }
 
 .collections-pct {
