@@ -125,26 +125,30 @@
       "clip": "viewport"
     },
     {
-      "name": "image-options",
+      "name": "your-stack",
       "set": "release",
       "theme": "dark",
       "viewport": "desktop",
-      "route": "#/inventory",
-      "steps": [
-        { "call": "editItem", "args": [14] },
-        { "wait": "#itemModal" },
-        { "click": "#itemModal button[aria-label=\"Obverse image options\"]" }
-      ],
-      "target": "#itemModal",
+      "route": "#/dashboard",
+      "target": "#totalsSectionEl",
+      "clip": "element"
+    },
+    {
+      "name": "phone-dashboard",
+      "set": "release",
+      "theme": "dark",
+      "viewport": "mobile",
+      "route": "#/dashboard",
+      "target": "#totalsSectionEl",
       "clip": "viewport"
     },
     {
-      "name": "chips-sepia",
+      "name": "your-stack-sepia",
       "set": "release",
       "theme": "sepia",
       "viewport": "desktop",
-      "route": "#/inventory",
-      "target": "#searchSectionEl",
+      "route": "#/dashboard",
+      "target": "#totalsSectionEl",
       "clip": "element"
     }
   ]
