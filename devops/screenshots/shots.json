@@ -125,6 +125,15 @@
       "clip": "viewport"
     },
     {
+      "name": "dashboard",
+      "set": "release",
+      "theme": "dark",
+      "viewport": "desktop",
+      "route": "#/dashboard",
+      "target": "#totalsSectionEl",
+      "clip": "full"
+    },
+    {
       "name": "your-stack",
       "set": "release",
       "theme": "dark",
