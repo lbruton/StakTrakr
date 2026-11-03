@@ -17235,6 +17235,13 @@ input[type="number"] {
   background: var(--bg-on-frame);
 }
 
+/* The vendor colours and muted labels fall below 4.5:1 on the lighter tertiary surface, so the
+   dark themes set the header off one step darker than the frame. */
+[data-theme="dark"] .vendor-prices-table thead th,
+[data-theme="slate"] .vendor-prices-table thead th {
+  background: var(--bg-primary);
+}
+
 .vendor-prices-table th:first-child {
   text-align: left;
   position: sticky;

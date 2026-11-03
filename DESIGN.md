@@ -404,9 +404,10 @@ The header, spot cards, ticker, Your stack card and footer share the secondary b
 Dashboard reads as one set of frames one step off the page. The tab panels on Inventory, Market and
 Collections (search, table, vendor prices and collections) use the same frame surface, flat at rest and
 on hover. A surface set on a frame takes `--bg-on-frame`, one step lighter than the frame: the card
-token in light and sepia, the tertiary token in dark and slate. The ratio chips, the collection cards and
-the Market table header use it. The inventory table header stays darker than the frame through its
-inset tint.
+token in light and sepia, the tertiary token in dark and slate. The ratio chips and the collection cards
+use it. Table headers set off from the frame by tone and keep their labels at 4.5:1. The inventory header
+is darker than the frame through its inset tint. The Market header takes `--bg-on-frame` in light and
+sepia and the primary token in dark and slate, where its vendor colours fall below 4.5:1 on tertiary.
 
 ### Totals Ledger
 
