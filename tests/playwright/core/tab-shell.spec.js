@@ -419,7 +419,7 @@ test.describe("core/tab visibility", () => {
     ).toContainText("Your stack");
   });
 
-  test("a fresh install orders spot cards, Your stack, ticker; hiding Your stack survives a reload", async ({
+  test("a fresh install orders spot cards, ticker, Your stack; hiding Your stack survives a reload", async ({
     page,
   }) => {
     // A plain boot: gotoWithLayout's init script would re-seed the config on reload.
@@ -429,7 +429,7 @@ test.describe("core/tab visibility", () => {
     const order = await page.evaluate(() =>
       [...document.querySelectorAll("#tabViewDashboard > [id]")].map((el) => el.id)
     );
-    const positions = ["spotPricesSection", "totalsSectionEl", "bestPriceTickerFrame"].map((id) =>
+    const positions = ["spotPricesSection", "bestPriceTickerFrame", "totalsSectionEl"].map((id) =>
       order.indexOf(id)
     );
     expect(positions.every((i) => i > -1)).toBe(true);

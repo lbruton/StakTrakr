@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.101] - 2026-11-02
+
+### Changed — STRK-522: Footer layout and ticker defaults
+
+- **Footer**: The thanks and the copyright sit on the left. The links sit on the right, above the price status and the version. A separator joins Beta site and GitHub, and the copyright links show an underline only on hover (STRK-522).
+- **Ticker position**: A new layout puts the best-price ticker under the spot cards and above Your stack. A saved section order stays as it is (STRK-522).
+- **Ticker speed**: The ticker scrolls at 95 pixels per second, down from 127 (STRK-522).
+
+---
+
 ## [3.36.100] - 2026-11-01
 
 ### Changed — STRK-501: Quiet app chrome

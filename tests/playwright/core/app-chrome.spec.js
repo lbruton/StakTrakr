@@ -74,6 +74,58 @@ test.describe("app chrome", () => {
     await expect(page.locator("#settingsPanel_faq")).toBeVisible();
   });
 
+  test("the footer puts thanks over copyright on the left, links over status on the right", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await gotoApp(page);
+    const layout = await page.evaluate(() => {
+      const box = (s) => document.querySelector(s).getBoundingClientRect();
+      const footer = box(".app-footer");
+      const middle = footer.left + footer.width / 2;
+      const thanks = box(".footer-thanks");
+      const meta = box(".footer-meta");
+      const links = box(".footer-links");
+      const status = box("#apiHealthBadge");
+      const link = (name) =>
+        [...document.querySelectorAll(".app-footer .footer-link")]
+          .find((el) => el.textContent.trim() === name)
+          .getBoundingClientRect();
+      const beta = link("Beta site");
+      const github = link("GitHub");
+      const sepBetween = [...document.querySelectorAll(".footer-links .footer-sep")].some((el) => {
+        const r = el.getBoundingClientRect();
+        return r.width > 0 && r.left >= beta.right && r.right <= github.left;
+      });
+      return {
+        thanksLeft: thanks.right <= middle,
+        metaUnderThanks: meta.top >= thanks.bottom && meta.right <= middle,
+        linksRight: links.left >= middle,
+        statusUnderLinks: status.top >= links.bottom && status.left >= middle,
+        statusFlushRight:
+          footer.right - document.querySelector(".footer-side").getBoundingClientRect().right < 32,
+        sepBetween,
+        underlined: [...document.querySelectorAll(".footer-meta a")].map(
+          (a) => getComputedStyle(a).textDecorationLine
+        ),
+        thanksText: document
+          .querySelector(".footer-thanks")
+          .textContent.replace(/\s+/g, " ")
+          .trim(),
+      };
+    });
+    expect(layout).toEqual({
+      thanksLeft: true,
+      metaUnderThanks: true,
+      linksRight: true,
+      statusUnderLinks: true,
+      statusFlushRight: true,
+      sepBetween: true,
+      underlined: ["none", "none"],
+      thanksText: expect.stringMatching(/^Thank you for using StakTrakr\b.{40,}/),
+    });
+  });
+
   test("the footer status names the price state in words and opens API health", async ({
     page,
   }) => {
@@ -173,6 +225,7 @@ test.describe("app chrome", () => {
           ["#apiHealthValue", "color"],
           [".app-footer .footer-link", "color"],
           [".footer-meta", "color"],
+          [".footer-thanks", "color"],
           ["#envBadge", "color"],
           ["#apiHealthBadge .footer-dot", "backgroundColor"],
         ]);
@@ -215,7 +268,7 @@ test.describe("app chrome", () => {
     const small = await page.evaluate(() =>
       [
         ...document.querySelectorAll(
-          "#envBadge, .app-footer .footer-link, #apiHealthLabel, #apiHealthValue, .footer-meta"
+          "#envBadge, .app-footer .footer-link, #apiHealthLabel, #apiHealthValue, .footer-meta, .footer-thanks"
         ),
       ]
         .filter((el) => el.offsetParent !== null && parseFloat(getComputedStyle(el).fontSize) < 12)

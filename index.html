@@ -1180,6 +1180,51 @@
             </div>
           </div>
         </section>
+        <!-- ── Best Price Ticker (STAK-504) ── -->
+        <div class="market-ticker-frame" id="bestPriceTickerFrame">
+          <div
+            id="bestPriceTickerEl"
+            class="market-ticker"
+            role="region"
+            aria-labelledby="bestPriceTickerHeading"
+            hidden
+          >
+            <h2 class="sr-only" id="bestPriceTickerHeading">Best dealer prices</h2>
+          </div>
+          <button
+            type="button"
+            class="ticker-pause-btn"
+            id="bestPriceTickerPause"
+            aria-pressed="false"
+            title="Pause dealer prices"
+            hidden
+          >
+            <span class="sr-only">Pause dealer prices</span>
+            <svg
+              class="ticker-pause-icon"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              aria-hidden="true"
+            >
+              <rect x="6" y="5" width="4" height="14" rx="1" />
+              <rect x="14" y="5" width="4" height="14" rx="1" />
+            </svg>
+            <svg
+              class="ticker-play-icon"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              aria-hidden="true"
+            >
+              <path
+                d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"
+              />
+            </svg>
+          </button>
+        </div>
         <!-- Your stack: the stack figures over the totals ledger, in one frame.
              renderStackHeadline (js/stack-headline.js) fills the figures from the totals
              updateSummary (js/inventory-table.js) builds; updateSummary fills the ledger
@@ -1395,51 +1440,6 @@
             </tfoot>
           </table>
         </section>
-        <!-- ── Best Price Ticker (STAK-504) ── -->
-        <div class="market-ticker-frame" id="bestPriceTickerFrame">
-          <div
-            id="bestPriceTickerEl"
-            class="market-ticker"
-            role="region"
-            aria-labelledby="bestPriceTickerHeading"
-            hidden
-          >
-            <h2 class="sr-only" id="bestPriceTickerHeading">Best dealer prices</h2>
-          </div>
-          <button
-            type="button"
-            class="ticker-pause-btn"
-            id="bestPriceTickerPause"
-            aria-pressed="false"
-            title="Pause dealer prices"
-            hidden
-          >
-            <span class="sr-only">Pause dealer prices</span>
-            <svg
-              class="ticker-pause-icon"
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="currentColor"
-              aria-hidden="true"
-            >
-              <rect x="6" y="5" width="4" height="14" rx="1" />
-              <rect x="14" y="5" width="4" height="14" rx="1" />
-            </svg>
-            <svg
-              class="ticker-play-icon"
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="currentColor"
-              aria-hidden="true"
-            >
-              <path
-                d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"
-              />
-            </svg>
-          </button>
-        </div>
       </div>
       <!-- v2 tab view: Inventory (STRK-282) -->
       <div class="tab-view" id="tabViewInventory" role="tabpanel" aria-labelledby="tabBtnInventory">
@@ -3407,93 +3407,109 @@
     </div>
     <footer class="app-footer">
       <div class="footer-row">
-        <div class="footer-group" role="group" aria-label="Status">
-          <button
-            type="button"
-            class="footer-status-btn"
-            id="apiHealthBadge"
-            data-state="checking"
-            data-infra="ok"
-            title="Open API health"
-            onclick="if (window.showApiHealthModal) window.showApiHealthModal();"
-          >
-            <span class="footer-dot" aria-hidden="true"></span>
-            <span class="footer-state" id="apiHealthLabel">Checking prices</span>
-            <span class="footer-figure" id="apiHealthValue"></span>
-            <span class="footer-infra" id="apiHealthInfra" hidden>API degraded</span>
-          </button>
-          <span class="footer-version">
-            <span class="footer-sep" aria-hidden="true">&middot;</span>
-            <a id="versionBadge" class="footer-link footer-figure" style="display: none"
-              ><span id="versionBadgeValue"></span
-            ></a>
-          </span>
-          <span class="footer-update" id="versionUpdate" hidden></span>
+        <div class="footer-about">
+          <p class="footer-thanks">
+            Thank you for using <span id="footerBrand">StakTrakr</span>, the free and open-source
+            way to track your stack.
+            <span class="footer-thanks-line"
+              >Your inventory lives in your browser, with no account needed.</span
+            >
+          </p>
+          <p class="footer-meta">
+            &copy; 2025-2026
+            <a id="footerDomain" href="https://staktrakr.com" target="_blank" rel="noopener"
+              >staktrakr.com</a
+            >
+            &middot; Created by
+            <a href="https://www.lbruton.cc" target="_blank" rel="noopener">lbruton.cc</a>
+          </p>
         </div>
-        <div class="footer-group footer-links">
-          <nav class="footer-group" aria-label="Product">
+        <div class="footer-side">
+          <div class="footer-group footer-links">
+            <nav class="footer-group" aria-label="Product">
+              <button
+                type="button"
+                class="footer-link"
+                onclick="if (window.showFaqModal) window.showFaqModal();"
+              >
+                FAQ
+              </button>
+              <span class="footer-sep" aria-hidden="true">&middot;</span>
+              <a
+                class="footer-link"
+                href="https://beta.staktrakr.com"
+                target="_blank"
+                rel="noopener"
+                >Beta site</a
+              >
+            </nav>
+            <span class="footer-sep footer-groups-sep" aria-hidden="true">&middot;</span>
+            <nav class="footer-group" aria-label="Project">
+              <a
+                class="footer-link"
+                href="https://github.com/lbruton/StakTrakr"
+                target="_blank"
+                rel="noopener"
+                >GitHub</a
+              >
+              <span class="footer-sep" aria-hidden="true">&middot;</span>
+              <a
+                class="footer-link"
+                href="https://github.com/lbruton/StakTrakr/issues"
+                target="_blank"
+                rel="noopener"
+                >Issues</a
+              >
+              <span class="footer-sep" aria-hidden="true">&middot;</span>
+              <a
+                class="footer-link"
+                href="https://www.reddit.com/r/staktrakr/"
+                target="_blank"
+                rel="noopener"
+                >r/staktrakr</a
+              >
+              <span class="footer-sep" aria-hidden="true">&middot;</span>
+              <a
+                class="footer-link"
+                href="https://github.com/lbruton/StakTrakr/blob/main/LICENSE"
+                target="_blank"
+                rel="noopener"
+                >MIT License</a
+              >
+              <span class="footer-sep" aria-hidden="true">&middot;</span>
+              <a
+                class="footer-link"
+                href="https://github.com/sponsors/lbruton"
+                target="_blank"
+                rel="noopener"
+                >Sponsor</a
+              >
+            </nav>
+          </div>
+          <div class="footer-group footer-status" role="group" aria-label="Status">
             <button
               type="button"
-              class="footer-link"
-              onclick="if (window.showFaqModal) window.showFaqModal();"
+              class="footer-status-btn"
+              id="apiHealthBadge"
+              data-state="checking"
+              data-infra="ok"
+              title="Open API health"
+              onclick="if (window.showApiHealthModal) window.showApiHealthModal();"
             >
-              FAQ
+              <span class="footer-dot" aria-hidden="true"></span>
+              <span class="footer-state" id="apiHealthLabel">Checking prices</span>
+              <span class="footer-figure" id="apiHealthValue"></span>
+              <span class="footer-infra" id="apiHealthInfra" hidden>API degraded</span>
             </button>
-            <span class="footer-sep" aria-hidden="true">&middot;</span>
-            <a class="footer-link" href="https://beta.staktrakr.com" target="_blank" rel="noopener"
-              >Beta site</a
-            >
-          </nav>
-          <nav class="footer-group" aria-label="Project">
-            <a
-              class="footer-link"
-              href="https://github.com/lbruton/StakTrakr"
-              target="_blank"
-              rel="noopener"
-              >GitHub</a
-            >
-            <span class="footer-sep" aria-hidden="true">&middot;</span>
-            <a
-              class="footer-link"
-              href="https://github.com/lbruton/StakTrakr/issues"
-              target="_blank"
-              rel="noopener"
-              >Issues</a
-            >
-            <span class="footer-sep" aria-hidden="true">&middot;</span>
-            <a
-              class="footer-link"
-              href="https://www.reddit.com/r/staktrakr/"
-              target="_blank"
-              rel="noopener"
-              >r/staktrakr</a
-            >
-            <span class="footer-sep" aria-hidden="true">&middot;</span>
-            <a
-              class="footer-link"
-              href="https://github.com/lbruton/StakTrakr/blob/main/LICENSE"
-              target="_blank"
-              rel="noopener"
-              >MIT License</a
-            >
-            <span class="footer-sep" aria-hidden="true">&middot;</span>
-            <a
-              class="footer-link"
-              href="https://github.com/sponsors/lbruton"
-              target="_blank"
-              rel="noopener"
-              >Sponsor</a
-            >
-          </nav>
+            <span class="footer-version">
+              <span class="footer-sep" aria-hidden="true">&middot;</span>
+              <a id="versionBadge" class="footer-link footer-figure" style="display: none"
+                ><span id="versionBadgeValue"></span
+              ></a>
+            </span>
+            <span class="footer-update" id="versionUpdate" hidden></span>
+          </div>
         </div>
-      </div>
-      <div class="footer-meta">
-        Thank you for using <span id="footerBrand">StakTrakr</span> &middot; &copy; 2025-2026
-        <a id="footerDomain" href="https://staktrakr.com" target="_blank" rel="noopener"
-          >staktrakr.com</a
-        >
-        &middot; Created by
-        <a href="https://www.lbruton.cc" target="_blank" rel="noopener">lbruton.cc</a>
       </div>
     </footer>
     <!-- =============================================================================
