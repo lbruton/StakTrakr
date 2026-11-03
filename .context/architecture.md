@@ -38,7 +38,7 @@ Fly.io thin publisher (staktrakr, dfw, 1024 MB)
   └── run-publish.sh   (cron 8,23,38,53)   →  api-export.js  ←──── sqld
                                                                        ▲
                                                     Tailscale mesh     │
-Home VM — Docker/Portainer (192.168.1.81)           (sqld at 8080)   │
+Home VM — Docker/Portainer (<home-vm>)              (sqld at 8080)   │
   ├── staktrakr-sqld   (libSQL/sqld, port 8080)  ───────────────────┘
   ├── staktrakr-home-poller
   │     ├── retail cron  :30  →  price-extract.js + firecrawl + Gemini Vision
@@ -85,10 +85,10 @@ The `api` branch of `StakTrakrApi` is the **only** branch served by GitHub Pages
 | Component                     | Role                                                                 | Location                                  |
 | ----------------------------- | -------------------------------------------------------------------- | ----------------------------------------- |
 | Fly.io `staktrakr` app        | Spot polling + data export; `serve.js` redundancy proxy on port 8080 | cloud, region `dfw`                       |
-| `staktrakr-sqld`              | Primary database: self-hosted sqld/libSQL                            | Home VM `192.168.1.81:8080`               |
+| `staktrakr-sqld`              | Primary database: self-hosted sqld/libSQL                            | Home VM `<home-vm>:8080`                  |
 | Turso Cloud `staktrakrapi`    | DR backup only: nightly sync from sqld                               | cloud                                     |
-| Home VM Docker stacks         | home-poller, firecrawl, tinyproxy, tailscale sidecar                 | `192.168.1.81`                            |
-| Portainer                     | Docker stack manager                                                 | `192.168.1.81:9443`                       |
+| Home VM Docker stacks         | home-poller, firecrawl, tinyproxy, tailscale sidecar                 | `<home-vm>`                               |
+| Portainer                     | Docker stack manager                                                 | `<home-vm>:9443`                          |
 | tinyproxy + Tailscale sidecar | Residential proxy for Fly.io scrape traffic                          | Docker, Tailscale mesh                    |
 | GitHub Pages (`api` branch)   | Static JSON API host                                                 | `api.staktrakr.com`, `api2.staktrakr.com` |
 | Cloudflare Pages              | Frontend host                                                        | `staktrakr.com`                           |
@@ -142,12 +142,12 @@ Full canonical order: `sw.js` `CORE_ASSETS` array.
 
 `init.js` Phase 12 does not unconditionally seed inventory. Before `await loadInventory()` runs, `classifyBootState()` (in `js/seed-data.js`) snapshots `localStorage` and returns one of four classifications plus a `keyPresence` map:
 
-| Classification        | Trigger                                                                                                                                       | Action                                                                                 |
-| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| `first-run`           | No `metalInventory`, no prior-user evidence keys, no `inventorySeedApplied` sentinel                                                          | `loadSeedInventory(stateResult)`: writes 8 sample items + sentinel                     |
-| `returning-with-data` | `metalInventory` parses to a valid array (any length, including empty)                                                                        | `migrateSentinelIfMissing(stateResult)`: back-fills sentinel if absent, never re-seeds |
-| `damaged-key`         | `metalInventory` missing AND any of `inventorySerial` / `cloud_sync_local_modified` / `cloud_sync_device_id` / `inventorySeedApplied` present | `showInventoryRecoveryBanner({cloudConnected})` + `setInventoryRecoveryActive(true)`   |
-| `parse-error`         | `metalInventory` exists but unparseable / non-array (after `__decompressIfNeeded`)                                                            | Same as `damaged-key`; entry recorded with `errorName`                                 |
+| Classification        | Trigger                                                                                                                                       | Action                                                                                                                                                          |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `first-run`           | No `metalInventory`, no prior-user evidence keys, no `inventorySeedApplied` sentinel                                                          | `seedFirstRunMetalOrder()`: saves `metalOrderConfig` with copper on, unless one exists; then `loadSeedInventory(stateResult)`: writes 8 sample items + sentinel |
+| `returning-with-data` | `metalInventory` parses to a valid array (any length, including empty)                                                                        | `migrateSentinelIfMissing(stateResult)`: back-fills sentinel if absent, never re-seeds                                                                          |
+| `damaged-key`         | `metalInventory` missing AND any of `inventorySerial` / `cloud_sync_local_modified` / `cloud_sync_device_id` / `inventorySeedApplied` present | `showInventoryRecoveryBanner({cloudConnected})` + `setInventoryRecoveryActive(true)`                                                                            |
+| `parse-error`         | `metalInventory` exists but unparseable / non-array (after `__decompressIfNeeded`)                                                            | Same as `damaged-key`; entry recorded with `errorName`                                                                                                          |
 
 Every boot also calls `recordBootDiagnostic({classification, keyPresence, errorName?})` regardless of branch: see #Storage Layer.
 
@@ -240,9 +240,10 @@ The spot sync (`_fetchFreshestSpotEnvelope`, `js/api.js`) and the retail market 
 one with the newest `generated_at`. Ordered try-each failover (`_staktrakrFetch`) remains
 for single-file fetches (hourly spot backfill, year-history files). Every candidate still
 passes the freshness gate (rejects stale SW/CDN copies; all-stale fails the sync).
-The per-fetch 5 s timeout covers headers _and_ body. The footer health badge reports
-the same freshest-per-feed age with a separate infra icon (✅/⚠️). Do not add manual
-switching logic, and do not reintroduce order-based preference.
+The per-fetch 5 s timeout covers headers _and_ body. The footer status reports the same
+freshest-per-feed age (`data-state`) with a separate infra signal (`data-infra`, shown as
+"API degraded"). Do not add manual switching logic, and do not reintroduce order-based
+preference.
 
 ### v1 vs v2
 
@@ -573,7 +574,7 @@ The item record's `attachments` array carries metadata only (no `blob`). The IDB
 
 ## Database Layer (sqld)
 
-Primary database: **sqld** (self-hosted libSQL) on the Home VM at `http://staktrakr-sqld:8080` (Docker DNS) / `http://192.168.1.81:8080` (external). Turso Cloud is DR backup only: nightly sync via `turso-backup-sync.js`. Client library: `@libsql/client`.
+Primary database: **sqld** (self-hosted libSQL) on the Home VM at `http://staktrakr-sqld:8080` (Docker DNS) / `http://<home-vm>:8080` (external). Turso Cloud is DR backup only: nightly sync via `turso-backup-sync.js`. Client library: `@libsql/client`.
 
 ### Tables
 
@@ -704,7 +705,7 @@ Lives at `devops/pollers/shared/provider-db.js`. Both pollers' Dockerfiles `COPY
 
 ### Dashboard
 
-Home poller dashboard at `http://192.168.1.81:3010/providers` provides full CRUD against sqld provider tables. It supports add/edit/delete for coins and vendors, enabled-state toggles, bulk enable/disable/remove by vendor+metal, and coverage stats. The failure queue is at `/failures`. FBP-backed vendors (`jmbullion`) carry an "FBP-backed" badge and a second editable URL per coin: the `provider_coins.fbp_url` price source (scraped) beside the vendor's own buy-link URL (`POST /providers/coin-fbp-url` → `updateCoinFbpUrl`).
+Home poller dashboard at `http://<home-vm>:3010/providers` provides full CRUD against sqld provider tables. It supports add/edit/delete for coins and vendors, enabled-state toggles, bulk enable/disable/remove by vendor+metal, and coverage stats. The failure queue is at `/failures`. FBP-backed vendors (`jmbullion`) carry an "FBP-backed" badge and a second editable URL per coin: the `provider_coins.fbp_url` price source (scraped) beside the vendor's own buy-link URL (`POST /providers/coin-fbp-url` → `updateCoinFbpUrl`).
 
 ---
 

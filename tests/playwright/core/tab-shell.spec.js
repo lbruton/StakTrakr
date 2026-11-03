@@ -136,6 +136,16 @@ test.describe("core/tab shell", () => {
 
     // Dashboard is already active on boot.
     await expect(page.locator("#spotPricesSection")).toBeVisible();
+    // The spot cards carry their own frames, so their section draws no panel around them.
+    const spotFrame = await page
+      .locator("#spotPricesSection")
+      .evaluate((el) => getComputedStyle(el))
+      .then((cs) => ({
+        border: cs.borderTopWidth,
+        background: cs.backgroundColor,
+        shadow: cs.boxShadow,
+      }));
+    expect(spotFrame).toEqual({ border: "0px", background: "rgba(0, 0, 0, 0)", shadow: "none" });
     await expect(page.locator("#totalsSectionEl")).toBeVisible();
     // ...and the sections owned by other tabs are not.
     await expect(page.locator("#tableSectionEl")).toBeHidden();
@@ -403,6 +413,73 @@ test.describe("core/tab visibility", () => {
       )
     );
     expect(sectionIds).toEqual(["spotPrices", "bestPriceTicker", "totals"]);
+    // A saved label gives way to the current name.
+    await expect(
+      page.locator("#layoutSectionConfigContainer tr[data-section-id='totals']")
+    ).toContainText("Your stack");
+  });
+
+  test("a fresh install orders spot cards, ticker, Your stack; hiding Your stack survives a reload", async ({
+    page,
+  }) => {
+    // A plain boot: gotoWithLayout's init script would re-seed the config on reload.
+    await gotoApp(page);
+    await expect(page.locator("#totalsSectionEl")).toBeVisible();
+    await expect(page.locator("#stackHeadlineSection")).toHaveCount(0);
+    const order = await page.evaluate(() =>
+      [...document.querySelectorAll("#tabViewDashboard > [id]")].map((el) => el.id)
+    );
+    const positions = ["spotPricesSection", "bestPriceTickerFrame", "totalsSectionEl"].map((id) =>
+      order.indexOf(id)
+    );
+    expect(positions.every((i) => i > -1)).toBe(true);
+    expect(positions).toEqual([...positions].sort((a, b) => a - b));
+    await page.evaluate(() => window.showSettingsModal("site"));
+    await page
+      .locator("#layoutSectionConfigContainer tr[data-section-id='totals'] input")
+      .uncheck();
+    await expect(page.locator("#totalsSectionEl")).toBeHidden();
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() => window.appListenersReady === true);
+    await expect(page.locator("#spotPricesSection")).toBeVisible();
+    await expect(page.locator("#totalsSectionEl")).toBeHidden();
+  });
+
+  test("a saved layout with a separate stack headline and totals loads as one Your stack section", async ({
+    page,
+  }) => {
+    await suppressWhatsNewPopup(page);
+    await page.addInitScript(() => {
+      localStorage.setItem(
+        "layoutSectionConfig",
+        JSON.stringify([
+          { id: "spotPrices", label: "Spot price cards", enabled: true },
+          { id: "stackHeadline", label: "Stack headline", enabled: false },
+          { id: "bestPriceTicker", label: "Best Price Ticker", enabled: true },
+          { id: "totals", label: "Summary totals", enabled: true },
+        ])
+      );
+    });
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() => window.appListenersReady === true);
+
+    // The headline's earlier position wins; either section enabled keeps the card on.
+    await expect(page.locator("#totalsSectionEl")).toBeVisible();
+    const order = await page.evaluate(() =>
+      [...document.querySelectorAll("#tabViewDashboard > [id]")].map((el) => el.id)
+    );
+    expect(order.indexOf("totalsSectionEl")).toBeLessThan(order.indexOf("bestPriceTickerFrame"));
+
+    await page.evaluate(() => window.showSettingsModal("site"));
+    const rows = page.locator("#layoutSectionConfigContainer tbody tr");
+    await expect(rows).toHaveCount(3);
+    expect(await rows.evaluateAll((trs) => trs.map((tr) => tr.dataset.sectionId))).toEqual([
+      "spotPrices",
+      "totals",
+      "bestPriceTicker",
+    ]);
+    await expect(rows.nth(1)).toContainText("Your stack");
   });
 
   test("reordering a Dashboard section leaves other tabs' sections in place", async ({ page }) => {
@@ -432,7 +509,8 @@ test.describe("core/tab visibility", () => {
     const order = await page.evaluate(() =>
       [...document.querySelectorAll("#tabViewDashboard > [id]")].map((el) => el.id)
     );
-    expect(order.indexOf("totalsSectionEl")).toBeLessThan(order.indexOf("bestPriceTickerEl"));
+    expect(order.indexOf("totalsSectionEl")).toBeGreaterThan(-1);
+    expect(order.indexOf("totalsSectionEl")).toBeLessThan(order.indexOf("bestPriceTickerFrame"));
   });
 });
 

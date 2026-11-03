@@ -1,0 +1,38 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [
+      "vendor/**",
+      "playground/**",
+      "data/**",
+      "tests/**",
+      "devops/**",
+      "about/**",
+      ".archive/**",
+      "docs/**",
+      ".context/**",
+      "coverage/**",
+      "test-results/**"
+    ],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "geist",
+        "createdAt": "2026-10-26T02:15:43.418Z",
+        "reason": "User decision (STRK-24, kept in STRK-420): self-hosted brand font"
+      },
+      {
+        "rule": "overused-font",
+        "value": "geist mono",
+        "createdAt": "2026-10-26T02:15:43.433Z",
+        "reason": "User decision (STRK-24, kept in STRK-420): self-hosted brand font"
+      },
+      {
+        "rule": "overused-font",
+        "value": "instrument serif",
+        "createdAt": "2026-10-26T02:15:43.448Z",
+        "reason": "User decision (STRK-24, kept in STRK-420): self-hosted brand font"
+      }
+    ]
+  }
+}

@@ -637,6 +637,16 @@ test.describe("spot-card refresh icon freshness colour", () => {
       const measured = {};
       for (const [state, timestamp] of Object.entries(seeds)) {
         await seedFreshnessAndRefresh(page, { apiSync: { provider: "STAKTRAKR", timestamp } });
+        await page.locator("#syncIconSilver").evaluate(async (el) => {
+          // Restored shared transitions must finish before sampling each freshness colour.
+          getComputedStyle(el).color;
+          await Promise.all(
+            el
+              .getAnimations()
+              .filter((animation) => animation instanceof CSSTransition)
+              .map((animation) => animation.finished)
+          );
+        });
         measured[state] = await page.evaluate(() => {
           const el = document.getElementById("syncIconSilver");
           // Walk up for the first opaque ancestor — the button itself may be

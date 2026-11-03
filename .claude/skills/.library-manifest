@@ -1,6 +1,6 @@
 # Managed by skills-deploy (DEVS-125). Entries here are overwritten or removed by --apply;
 # every other skill or agent in this repo is project-owned and never touched.
-# library-version: 3d109ab6d1d5
+# library-version: f0ca78a2b4c9
 skill start
 skill wrap
 skill issue
@@ -34,5 +34,4 @@ hook worktree-safety
 hook docvault-lint
 hook block-pr-merge
 hook vale-staged
-skill ui-mockup
 vale Prose

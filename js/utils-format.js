@@ -520,10 +520,11 @@ const fetchExchangeRates = async () => {
 };
 
 /**
- * Formats a profit/loss value with color coding
+ * Formats a profit/loss value, coloured by the .gl-gain / .gl-loss text-token classes
  *
  * @param {number} value - Profit/loss value
- * @returns {string} HTML string with appropriate color styling
+ * @param {number} [percent] - Percentage shown as a prefix when non-zero
+ * @returns {string} HTML string
  */
 const formatLossProfit = (value, percent) => {
   const formatted = formatCurrency(value);
@@ -532,9 +533,9 @@ const formatLossProfit = (value, percent) => {
       ? `<span class="gain-loss-pct">${percent > 0 ? "+" : ""}${percent.toFixed(1)}%</span>`
       : "";
   if (value > 0) {
-    return `<span style="color: var(--success);">${pctHtml}${formatted}</span>`;
+    return `<span class="gl-gain">${pctHtml}${formatted}</span>`;
   } else if (value < 0) {
-    return `<span style="color: var(--danger);">${pctHtml}${formatted}</span>`;
+    return `<span class="gl-loss">${pctHtml}${formatted}</span>`;
   }
   return pctHtml + formatted;
 };

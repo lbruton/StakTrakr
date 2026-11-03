@@ -1377,119 +1377,11 @@ const _initSpotControls = () => {
   _applyTrend(localStorage.getItem(SPOT_TREND_KEY) || "90");
 };
 
-// =============================================================================
-// TOTALS CAROUSEL
-// =============================================================================
-
-/**
- * Initialises the totals cards carousel:
- *  - Generates one dot per card inside #totalsDots
- *  - Wires prev/next buttons to scroll by one card width
- *  - Wires the scroll event to update the active dot and button states
- *
- * At ≥1350px the nav buttons and dots are hidden via CSS; the carousel
- * degenerates to a plain flex row with no overflow.
- */
-/**
- * Rebuilds totals carousel dots after metal order/visibility changes.
- * Safe to call multiple times — does not re-wire scroll or nav listeners.
- */
-const refreshTotalsDots = () => {
-  const carousel = document.getElementById("totalsCarousel");
-  const dotsEl = document.getElementById("totalsDots");
-  if (!carousel || !dotsEl) return;
-  const cards = [...carousel.querySelectorAll(".total-card")].filter(
-    (c) => c.style.display !== "none"
-  );
-  dotsEl.innerHTML = "";
-  cards.forEach((card, i) => {
-    const dot = document.createElement("button");
-    dot.className = "totals-dot" + (i === 0 ? " active" : "");
-    dot.setAttribute("aria-label", `Go to card ${i + 1}`);
-    dot.addEventListener("click", () =>
-      carousel.scrollTo({ left: card.offsetLeft, behavior: "smooth" })
-    );
-    dotsEl.appendChild(dot);
-  });
-};
-window.refreshTotalsDots = refreshTotalsDots;
-
-const _initTotalsCarousel = () => {
-  const carousel = document.getElementById("totalsCarousel");
-  const prevBtn = document.getElementById("totalsPrev");
-  const nextBtn = document.getElementById("totalsNext");
-  const dotsEl = document.getElementById("totalsDots");
-
-  if (!carousel || !prevBtn || !nextBtn || !dotsEl) return;
-
-  const cards = Array.from(carousel.querySelectorAll(".total-card"));
-  if (!cards.length) return;
-
-  // Sort by visual (rendered) left offset so CSS `order` is respected.
-  // All Metals has order:-1 so it renders first but is last in DOM order.
-  const sortedCards = [...cards].sort((a, b) => a.offsetLeft - b.offsetLeft);
-
-  // --- Build dots ---
-  dotsEl.innerHTML = "";
-  const dots = sortedCards.map((card, i) => {
-    const dot = document.createElement("button");
-    dot.className = "totals-dot" + (i === 0 ? " active" : "");
-    dot.setAttribute("aria-label", `Go to card ${i + 1}`);
-    dot.addEventListener("click", () => {
-      carousel.scrollTo({ left: card.offsetLeft, behavior: "smooth" });
-    });
-    dotsEl.appendChild(dot);
-    return dot;
-  });
-
-  // --- Helpers ---
-  const getCardWidth = () => {
-    const card = sortedCards[0];
-    const gap = parseFloat(getComputedStyle(carousel).gap) || 0;
-    return card.getBoundingClientRect().width + gap;
-  };
-
-  const updateState = () => {
-    const scrollLeft = carousel.scrollLeft;
-    const maxScroll = carousel.scrollWidth - carousel.clientWidth;
-
-    prevBtn.disabled = scrollLeft < 4;
-    nextBtn.disabled = scrollLeft >= maxScroll - 1;
-
-    // Highlight the dot whose card is most in view
-    const activeIdx = Math.round(scrollLeft / getCardWidth());
-    dots.forEach((d, i) => d.classList.toggle("active", i === activeIdx));
-  };
-
-  // --- Button clicks ---
-  prevBtn.addEventListener("click", () => {
-    carousel.scrollBy({ left: -getCardWidth(), behavior: "smooth" });
-  });
-  nextBtn.addEventListener("click", () => {
-    carousel.scrollBy({ left: getCardWidth(), behavior: "smooth" });
-  });
-
-  // --- Scroll tracking ---
-  let scrollTimer;
-  carousel.addEventListener(
-    "scroll",
-    () => {
-      clearTimeout(scrollTimer);
-      scrollTimer = setTimeout(updateState, 50);
-    },
-    { passive: true }
-  );
-
-  // --- Initial state ---
-  updateState();
-};
-
 // On page load: initialise sort bar event handlers (needed even in D mode where
 // inventory.js never calls initCardSortBar) and fix initial bar visibility.
 document.addEventListener("DOMContentLoaded", () => {
   initCardSortBar();
   _initSpotControls();
-  _initTotalsCarousel();
   // requestAnimationFrame runs after all DOMContentLoaded handlers (including init.js)
   // so the sort bar has already been shown/hidden by inventory.js by this point.
   requestAnimationFrame(_syncSortBar);

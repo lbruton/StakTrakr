@@ -349,7 +349,7 @@ All keys registered in `js/constants.js`. Sync apply and vault import enforce th
 | `tableImagesEnabled`     | Boolean string | Show thumbnail images in table rows                           |
 | `tableImageSides`        | String         | `"both"` \| `"obverse"` \| `"reverse"`: table image sides     |
 | `headerThemeBtnVisible`  | Boolean string | Header theme button visibility                                |
-| `headerBtnShowText`      | Boolean string | Show text labels under header icons                           |
+| `headerBtnShowText`      | Boolean string | Show text labels beside header icons; off unless `"true"`     |
 | `headerBtnOrder`         | JSON array     | Header button card order                                      |
 | `showRealizedGainLoss`   | Boolean string | Show realized G/L in summary cards                            |
 

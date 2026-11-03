@@ -19,9 +19,9 @@ _Files and modules already in the project that this work will touch or build on.
 
 ## Prior Decisions
 
-_Search mem0 and recent sessions for related decisions. Quote the relevant memory or commit, with date._
+_Search SessionFlow memory and recent sessions for related decisions. Quote the relevant memory or commit, with date._
 
-- {{DATE}} — _description of the prior decision_ (mem0 memory id or commit sha)
+- {{DATE}} — _description of the prior decision_ (memory ID or commit sha)
 - _none found — first time touching this surface_
 
 ## External References

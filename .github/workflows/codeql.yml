@@ -28,6 +28,11 @@ jobs:
       matrix:
         include:
           - language: javascript-typescript
+            config: codeql-config.yml
+          - language: python
+            config: codeql-config-python.yml
+          - language: actions
+            config: codeql-config.yml
 
     steps:
       - name: Checkout repository
@@ -37,7 +42,7 @@ jobs:
         uses: github/codeql-action/init@v4
         with:
           languages: ${{ matrix.language }}
-          config-file: ./.github/codeql/codeql-config.yml
+          config-file: ./.github/codeql/${{ matrix.config }}
 
       - name: Perform CodeQL analysis
         uses: github/codeql-action/analyze@v4

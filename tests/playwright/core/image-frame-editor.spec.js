@@ -1644,6 +1644,11 @@ async function openBuilderWithSlots(page) {
     .locator("input[type=file]")
     .setInputFiles("tests/playwright/helpers/test-obverse.png");
   await expect(rows.first().locator(".collections-image-pick img")).toHaveCount(1);
+  // The uploaded photo removes the outline through the restored shared border transition.
+  await expect(rows.first().locator(".collections-image-pick")).toHaveCSS(
+    "border-top-color",
+    "rgba(0, 0, 0, 0)"
+  );
   return builder.locator(".ife");
 }
 

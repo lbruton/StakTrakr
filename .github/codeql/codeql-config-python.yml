@@ -1,0 +1,6 @@
+# The spot poller lives under devops/, so Python keeps devops/ in scope.
+paths-ignore:
+  - tests/**
+  - vendor/**
+  - wiki/**
+  - playground/**

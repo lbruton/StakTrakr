@@ -397,7 +397,7 @@ const CERT_LOOKUP_URLS = {
  * Updated: 2026-05-12 - STRK-66: Add ¼ Goldback denomination (Idaho, g0.25)
  */
 
-const APP_VERSION = "3.36.80";
+const APP_VERSION = "3.36.103";
 
 /**
  * Numista metadata cache TTL: 30 days in milliseconds.
@@ -941,6 +941,9 @@ const DEFAULT_SORT_DIR_KEY = "defaultSortDir"; // nosemgrep: codacy.javascript.s
 /** @constant {string} SHOW_REALIZED_KEY - LocalStorage key for showing realized G/L in summary cards (STAK-72) */
 const SHOW_REALIZED_KEY = "showRealizedGainLoss"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
+/** @constant {string} STACK_HEADLINE_LEAD_KEY - LocalStorage key for the Your stack lead figure ("retail" or "melt") */
+const STACK_HEADLINE_LEAD_KEY = "stackHeadlineLead"; // nosemgrep: codacy.javascript.security.hard-coded-password
+
 /** @constant {string} METAL_ORDER_KEY - LocalStorage key for metal order/visibility config */
 const METAL_ORDER_KEY = "metalOrderConfig"; // nosemgrep: codacy.javascript.security.hard-coded-password
 
@@ -1087,6 +1090,7 @@ const SYNC_SCOPE_KEYS = [
   "defaultSortColumn", // DEFAULT_SORT_COL_KEY
   "defaultSortDir", // DEFAULT_SORT_DIR_KEY
   "showRealizedGainLoss", // SHOW_REALIZED_KEY
+  "stackHeadlineLead", // STACK_HEADLINE_LEAD_KEY
   "metalOrderConfig", // METAL_ORDER_KEY
   "settingsItemsPerPage", // ITEMS_PER_PAGE_KEY
   "appTimeZone", // TIMEZONE_KEY
@@ -1236,6 +1240,7 @@ const ALLOWED_STORAGE_KEYS = [
   DEFAULT_SORT_COL_KEY, // number string: default sort column index
   DEFAULT_SORT_DIR_KEY, // string: "asc"|"desc" — default sort direction
   SHOW_REALIZED_KEY, // boolean string: "true"/"false" — show realized G/L in summary cards (STAK-72)
+  STACK_HEADLINE_LEAD_KEY, // string: "retail"|"melt" — which figure leads Your stack
   METAL_ORDER_KEY, // JSON array: metal order/visibility config
   ITEM_TAGS_KEY, // JSON object: per-item tags keyed by UUID (STAK-126)
   ITEM_REMOVED_TAGS_KEY, // JSON object: per-item removed Numista tags keyed by UUID (STAK-556)
@@ -1481,15 +1486,15 @@ const saveFilterChipCategoryConfig = (config) => {
  * `collections` answers to #collectionsSectionEl, which js/collections-ui.js
  * renders into (STRK-368). It is the Collections tab's only section, so the
  * STRK-326 tab visibility control persists here rather than in a second
- * localStorage key with its own dual registration. Existing users pick it up
- * for free: _loadSectionConfig appends defaults the saved config does not know
- * about.
+ * localStorage key with its own dual registration. Existing users pick up a new
+ * section for free: _loadSectionConfig inserts defaults the saved config does
+ * not know about at their default position.
  * @constant {Array<{id: string, label: string, enabled: boolean}>}
  */
 const LAYOUT_SECTION_DEFAULTS = [
   { id: "spotPrices", label: "Spot price cards", enabled: true },
   { id: "bestPriceTicker", label: "Best Price Ticker", enabled: true },
-  { id: "totals", label: "Summary totals", enabled: true },
+  { id: "totals", label: "Your stack", enabled: true },
   { id: "search", label: "Search & filter bar", enabled: true },
   { id: "table", label: "Inventory table", enabled: true },
   { id: "vendorPrices", label: "Vendor Prices", enabled: true },
@@ -1517,23 +1522,33 @@ const migrateLayoutVisibility = (obj) => {
 
 /**
  * Generic loader for section config arrays from localStorage.
- * Merges saved user config with defaults so new sections are auto-appended.
+ * Merges saved user config with defaults. A default the saved config lacks goes in
+ * before the next default the user already has, so a new section lands where it belongs.
+ * Labels come from the defaults; only order and the enabled flag are user data.
  * @param {string} key - localStorage key
  * @param {Array<{id: string, label: string, enabled: boolean}>} defaults
  * @param {string} [legacyKey] - Optional legacy key to migrate from
  * @param {function} [migrateFn] - Migration function for legacy data
+ * @param {function} [normalizeSaved] - Rewrites the saved array before the merge
  * @returns {Array<{id: string, label: string, enabled: boolean}>}
  */
-const _loadSectionConfig = (key, defaults, legacyKey, migrateFn) => {
+const _loadSectionConfig = (key, defaults, legacyKey, migrateFn, normalizeSaved) => {
   try {
     const raw = localStorage.getItem(key);
     if (raw) {
-      const saved = JSON.parse(raw);
+      const parsed = JSON.parse(raw);
+      const saved = normalizeSaved ? normalizeSaved(parsed) : parsed;
       const savedMap = new Map(saved.map((c) => [c.id, c]));
-      const merged = saved.filter((c) => defaults.some((d) => d.id === c.id));
-      for (const def of defaults) {
-        if (!savedMap.has(def.id)) merged.push({ ...def });
-      }
+      const labels = new Map(defaults.map((d) => [d.id, d.label]));
+      const merged = saved
+        .filter((c) => labels.has(c.id))
+        .map((c) => ({ ...c, label: labels.get(c.id) }));
+      defaults.forEach((def, index) => {
+        if (savedMap.has(def.id)) return;
+        const next = defaults.slice(index + 1).find((d) => savedMap.has(d.id));
+        const at = next ? merged.findIndex((c) => c.id === next.id) : -1;
+        merged.splice(at === -1 ? merged.length : at, 0, { ...def });
+      });
       return merged;
     }
     if (legacyKey && migrateFn) {
@@ -1559,13 +1574,35 @@ const _saveSectionConfig = (key, config) => {
   }
 };
 
+/**
+ * Folds a saved `stackHeadline` entry into `totals`, which is the one Your stack card.
+ * The card keeps the earlier of the two positions and stays on if either entry was on.
+ * Runs at read time, so a config another device writes in the old shape folds too.
+ * @param {Array<{id: string, label: string, enabled: boolean}>} saved
+ * @returns {Array<{id: string, label: string, enabled: boolean}>}
+ */
+const _foldStackHeadlineSection = (saved) => {
+  const headline = saved.findIndex((c) => c.id === "stackHeadline");
+  if (headline === -1) return saved;
+  const totals = saved.findIndex((c) => c.id === "totals");
+  if (totals === -1) {
+    return saved.map((c, i) => (i === headline ? { ...c, id: "totals" } : c));
+  }
+  const keep = Math.min(headline, totals);
+  const enabled = Boolean(saved[headline].enabled || saved[totals].enabled);
+  return saved
+    .filter((_, i) => i !== Math.max(headline, totals))
+    .map((c, i) => (i === keep ? { ...c, id: "totals", enabled } : c));
+};
+
 /** Loads the layout section config, with migration from old layoutVisibility format. */
 const getLayoutSectionConfig = () =>
   _loadSectionConfig(
     "layoutSectionConfig",
     LAYOUT_SECTION_DEFAULTS,
     "layoutVisibility",
-    migrateLayoutVisibility
+    migrateLayoutVisibility,
+    _foldStackHeadlineSection
   );
 
 /** Saves the layout section config to localStorage. */

@@ -1,0 +1,421 @@
+// Every Dashboard action works from the keyboard, and assistive tech gets headings,
+// names and a ticker that lists each dealer price once.
+
+import { test, expect } from "../helpers/mocks/extended-test.js";
+import { injectSeedInventory } from "../helpers/seed.js";
+
+/** Boots the Dashboard with the seed inventory and a settled best-price ticker. */
+async function gotoDashboard(page) {
+  await injectSeedInventory(page);
+  await page.goto("/index.html");
+  await expect(page.locator("#bestPriceTickerEl .ticker-track")).toHaveCount(1);
+}
+
+/**
+ * Copies each retail coin under two extra slugs and re-renders the ticker, so it holds
+ * enough items to animate and build its loop copy.
+ */
+async function renderLoopingTicker(page) {
+  await page.evaluate(() => {
+    const coins = _getRetailCoins();
+    for (const slug of Object.keys(coins)) {
+      coins[`${slug}-a`] = coins[slug];
+      coins[`${slug}-b`] = coins[slug];
+    }
+    window._v2RetailData = { prices: coins };
+    document.getElementById("bestPriceTickerEl").dataset.tickerSignature = "";
+    renderBestPriceTicker();
+  });
+  await expect(page.locator("#bestPriceTickerEl .ticker-track")).toHaveCount(1);
+  await expect(page.locator("#bestPriceTickerEl [data-ticker-block='duplicate']")).toHaveCount(1);
+  // The ticker follows Your stack and can sit below the fold; pointer input needs it on screen.
+  await page.locator("#bestPriceTickerEl").scrollIntoViewIfNeeded();
+}
+
+test.describe("Dashboard keyboard and screen reader access", () => {
+  test.beforeEach(async ({ page }) => {
+    await gotoDashboard(page);
+  });
+
+  test("the tab order reaches the spot edit buttons, totals titles and ticker dealers", async ({
+    page,
+  }) => {
+    const order = [];
+    await page.locator("#tabBtnDashboard").focus();
+    for (let i = 0; i < 120; i++) {
+      await page.keyboard.press("Tab");
+      const stop = await page.evaluate(() => {
+        const el = document.activeElement;
+        if (!el || !el.closest("#tabViewDashboard")) return null;
+        return {
+          id: el.id,
+          tag: el.tagName,
+          inLedger: !!el.closest("#totalsLedger"),
+          ledgerMetal: el.closest("#totalsLedger .totals-row")?.dataset.metalKey ?? null,
+          inTitle: !!el.closest(".total-title"),
+          inTicker: !!el.closest(".ticker-item"),
+          inDuplicate: !!el.closest("[data-ticker-block='duplicate']"),
+        };
+      });
+      if (stop) order.push(stop);
+    }
+    expect(order.map((s) => s.id)).toContain("spotEditSilver");
+    expect(order.filter((s) => s.inTitle && s.tag === "BUTTON").length).toBeGreaterThanOrEqual(4);
+    // One stop per visible ledger row: its metal button, never the row or a cell.
+    const ledgerStops = order.filter((s) => s.inLedger);
+    const visibleRows = await page
+      .locator("#totalsLedger .totals-row")
+      .evaluateAll((rows) =>
+        rows.filter((r) => r.getClientRects().length > 0).map((r) => r.dataset.metalKey)
+      );
+    expect(ledgerStops.filter((s) => !(s.inTitle && s.tag === "BUTTON"))).toEqual([]);
+    expect([...new Set(ledgerStops.map((s) => s.ledgerMetal))].sort()).toEqual(
+      [...visibleRows].sort()
+    );
+    // The Tab loop can pass a row twice, so count each row's focusable elements directly.
+    const focusablePerRow = await page
+      .locator("#totalsLedger .totals-row")
+      .evaluateAll((rows) =>
+        rows
+          .filter((r) => r.getClientRects().length > 0)
+          .map((r) => [r, ...r.querySelectorAll("*")].filter((el) => el.tabIndex >= 0).length)
+      );
+    expect(focusablePerRow).toEqual(visibleRows.map(() => 1));
+    expect(order.some((s) => s.inTicker && s.tag === "BUTTON")).toBe(true);
+    expect(order.filter((s) => s.inDuplicate)).toEqual([]);
+  });
+
+  test("Enter or Space on a totals title opens that metal's details modal", async ({ page }) => {
+    const titles = page.locator("#totalsLedger th.total-title[scope='row'] > button");
+    await expect(titles.first()).toBeVisible();
+    expect(await titles.count()).toBeGreaterThanOrEqual(4);
+    for (const [metal, key] of [
+      ["Silver", "Enter"],
+      ["Gold", "Space"],
+    ]) {
+      await page.locator(`.total-title[data-metal='${metal}'] > button`).focus();
+      await page.keyboard.press(key);
+      await expect(page.locator("#detailsModal")).toBeVisible();
+      await expect(page.locator("#detailsModalTitle")).toContainText(metal);
+      await page.evaluate(() => closeDetailsModal());
+      await expect(page.locator("#detailsModal")).toBeHidden();
+    }
+  });
+
+  test("ticker dealers are buttons in a named region, listed once", async ({ page }) => {
+    await page.evaluate(() => {
+      window.__opened = [];
+      window.open = (url) => {
+        window.__opened.push(url);
+        return null;
+      };
+    });
+    const region = page.getByRole("region", { name: "Best dealer prices" });
+    await expect(region).toBeVisible();
+    await renderLoopingTicker(page);
+    const duplicate = page.locator("#bestPriceTickerEl [data-ticker-block='duplicate']");
+    await expect(duplicate).toHaveAttribute("aria-hidden", "true");
+    expect(
+      await duplicate.locator("button").evaluateAll((buttons) => buttons.map((b) => b.tabIndex))
+    ).not.toContain(0);
+    const dealer = page
+      .locator("#bestPriceTickerEl [data-ticker-block='primary'] button.ticker-item")
+      .first();
+    await dealer.focus();
+    await page.keyboard.press("Enter");
+    expect(await page.evaluate(() => window.__opened.length)).toBe(1);
+  });
+
+  test("a visible dealer in the loop copy still opens on a mouse click", async ({ page }) => {
+    await page.evaluate(() => {
+      window.__opened = [];
+      window.open = (url) => {
+        window.__opened.push(url);
+        return null;
+      };
+    });
+    await renderLoopingTicker(page);
+    // Hold the running animation near the loop point, where the copy fills the strip. Only
+    // the play state and delay are set, so the app's own focus rules still apply.
+    await page.evaluate(() => {
+      const track = document.querySelector("#bestPriceTickerEl .ticker-track");
+      const duration = parseFloat(getComputedStyle(track).animationDuration);
+      track.style.animationDelay = `-${duration * 0.97}s`;
+      track.style.animationPlayState = "paused";
+    });
+    const box = await page
+      .locator("#bestPriceTickerEl [data-ticker-block='duplicate'] button.ticker-item")
+      .evaluateAll((buttons) => {
+        const strip = document.getElementById("bestPriceTickerEl").getBoundingClientRect();
+        const visible = buttons
+          .map((b) => b.getBoundingClientRect())
+          .find((r) => r.left >= strip.left + 80 && r.right <= strip.right - 80);
+        return (
+          visible && { x: visible.x, y: visible.y, width: visible.width, height: visible.height }
+        );
+      });
+    expect(box, "a copy dealer is inside the strip").toBeTruthy();
+    // Press and release separately: a button that moves on pointer focus misses the release.
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.waitForTimeout(50);
+    await page.mouse.up();
+    expect(await page.evaluate(() => window.__opened.length)).toBe(1);
+  });
+
+  test("a focused dealer is scrolled into view, and the strip resets when focus leaves", async ({
+    page,
+  }) => {
+    await renderLoopingTicker(page);
+    const first = page
+      .locator("#bestPriceTickerEl [data-ticker-block='primary'] button.ticker-item")
+      .first();
+    // Jump the loop near its end, so the first dealer sits off the left edge.
+    await page.evaluate(() => {
+      const track = document.querySelector("#bestPriceTickerEl .ticker-track");
+      const duration = parseFloat(getComputedStyle(track).animationDuration);
+      track.style.animationDelay = `-${duration * 0.9}s`;
+    });
+    const inView = () =>
+      first.evaluate((button) => {
+        const strip = document.getElementById("bestPriceTickerEl").getBoundingClientRect();
+        const box = button.getBoundingClientRect();
+        return box.left >= strip.left - 1 && box.right <= strip.right + 1;
+      });
+    await expect.poll(inView).toBe(false);
+    // A key press sets keyboard modality, so the focus below counts as :focus-visible.
+    await page.keyboard.press("Shift");
+    await first.focus();
+    await expect.poll(inView).toBe(true);
+    await page.locator(".total-title[data-metal='Silver'] > button").focus();
+    await expect
+      .poll(() => page.locator("#bestPriceTickerEl").evaluate((strip) => strip.scrollLeft))
+      .toBe(0);
+  });
+
+  test("cancelling an edit shows the price a background refresh saved meanwhile", async ({
+    page,
+  }) => {
+    await page.locator("#spotEditSilver").click();
+    const input = page.locator("#spotPriceDisplaySilver .spot-inline-input");
+    await expect(input).toBeFocused();
+    await page.evaluate(() =>
+      _applyFetchedSpotPrices({ silver: 77.77 }, "STAKTRAKR", new Date().toISOString())
+    );
+    await expect(input).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(page.locator("#spotPriceDisplaySilver")).toContainText("$77.77");
+  });
+
+  test("tabbing out of an open edit restores the price and keeps the next focus", async ({
+    page,
+  }) => {
+    const edit = page.locator("#spotEditSilver");
+    await edit.click();
+    const input = page.locator("#spotPriceDisplaySilver .spot-inline-input");
+    await expect(input).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(input).toHaveCount(0);
+    await expect(edit).not.toBeFocused();
+    await expect(page.locator("#spotPriceDisplaySilver")).toContainText("$25.00");
+  });
+
+  test("a stored-price reload leaves an open edit in place", async ({ page }) => {
+    await page.locator("#spotEditSilver").click();
+    const input = page.locator("#spotPriceDisplaySilver .spot-inline-input");
+    await expect(input).toBeFocused();
+    await page.evaluate(() => window.fetchSpotPrice());
+    await expect(input).toHaveCount(1);
+  });
+
+  test("the edit button sets a manual spot price and returns focus to itself", async ({ page }) => {
+    const edit = page.locator("#spotEditSilver");
+    await expect(edit).toHaveAccessibleName("Edit silver spot price");
+    await edit.focus();
+    await page.keyboard.press("Enter");
+    const input = page.locator("#spotPriceDisplaySilver .spot-inline-input");
+    await expect(input).toBeFocused();
+    await input.fill("99.99");
+    await page.keyboard.press("Enter");
+    await expect(page.locator("#spotPriceDisplaySilver")).toContainText("$99.99");
+    await expect(edit).toBeFocused();
+  });
+
+  test("the Dashboard has a heading for each section and a row header for each totals metal", async ({
+    page,
+  }) => {
+    const panel = page.locator("#tabViewDashboard");
+    for (const name of ["Spot prices", "Your stack", "Best dealer prices"]) {
+      await expect(panel.getByRole("heading", { level: 2, name })).toHaveCount(1);
+    }
+    const ledger = page.getByRole("table", { name: "Totals by metal" });
+    await expect(ledger.getByRole("rowheader", { name: "Silver" })).toHaveCount(1);
+    await expect(ledger.getByRole("columnheader", { name: "Gain" })).toHaveCount(1);
+  });
+
+  test("ratio chips and refresh buttons name their value and freshness", async ({ page }) => {
+    await expect(page.locator(".spot-ratio-chip.metal-silver")).toHaveAccessibleName(
+      /^Gold-to-Silver Ratio \(GSR\): [\d.]+$/
+    );
+    await expect(page.locator("#syncIconSilver")).toHaveAccessibleName(
+      /\. Silver prices are (fresh|stale|expired)\.$/
+    );
+  });
+});
+
+/** Reads the ticker track's horizontal offset; 0 when no transform applies. */
+const trackOffset = (page) =>
+  page.locator("#bestPriceTickerEl .ticker-track").evaluate((track) => {
+    const transform = getComputedStyle(track).transform;
+    return transform === "none" ? 0 : new DOMMatrixReadOnly(transform).m41;
+  });
+
+/** True when the ticker track moves within a short window. */
+async function isTickerMoving(page) {
+  const before = await trackOffset(page);
+  await page.waitForTimeout(300);
+  return (await trackOffset(page)) !== before;
+}
+
+test.describe("best-price ticker motion", () => {
+  test("hover, focus inside and the pause button stop the ticker; play resumes it", async ({
+    page,
+  }) => {
+    await gotoDashboard(page);
+    await renderLoopingTicker(page);
+    const pause = page.getByRole("button", { name: "Pause dealer prices" });
+    await expect(pause).toBeVisible();
+    await expect(pause).toHaveAttribute("aria-pressed", "false");
+    await expect.poll(() => isTickerMoving(page)).toBe(true);
+
+    await page.locator("#bestPriceTickerEl").hover();
+    expect(await isTickerMoving(page)).toBe(false);
+    await page.mouse.move(0, 0);
+    await expect.poll(() => isTickerMoving(page)).toBe(true);
+
+    await page
+      .locator("#bestPriceTickerEl [data-ticker-block='primary'] button.ticker-item")
+      .first()
+      .focus();
+    expect(await isTickerMoving(page)).toBe(false);
+    await page.locator(".total-title[data-metal='Silver'] > button").focus();
+    await expect.poll(() => isTickerMoving(page)).toBe(true);
+
+    // Pause holds the loop where it is, and play continues from that offset.
+    await expect.poll(async () => Math.abs(await trackOffset(page))).toBeGreaterThan(60);
+    const beforePause = await trackOffset(page);
+    await pause.focus();
+    await page.keyboard.press("Enter");
+    await expect(pause).toHaveAttribute("aria-pressed", "true");
+    await page.locator(".total-title[data-metal='Silver'] > button").focus();
+    // A paused animation stops on the next frame, so wait for the track to settle.
+    await expect.poll(() => isTickerMoving(page)).toBe(false);
+    const held = await trackOffset(page);
+    expect(Math.abs(held - beforePause), "pause keeps the offset").toBeLessThan(20);
+    await expect(page.locator("#bestPriceTickerEl [data-ticker-block='duplicate']")).toBeVisible();
+
+    await pause.focus();
+    await page.keyboard.press("Enter");
+    await expect(pause).toHaveAttribute("aria-pressed", "false");
+    const resumed = await trackOffset(page);
+    expect(Math.abs(resumed - held), "play continues from the held offset").toBeLessThan(20);
+    await page.locator(".total-title[data-metal='Silver'] > button").focus();
+    await expect.poll(() => isTickerMoving(page)).toBe(true);
+
+    // Play resumes while the pointer rests on the button and the button keeps focus.
+    await pause.click();
+    await expect(pause).toHaveAttribute("aria-pressed", "true");
+    await pause.click();
+    await expect(pause).toHaveAttribute("aria-pressed", "false");
+    await expect.poll(() => isTickerMoving(page)).toBe(true);
+    await pause.focus();
+    await page.keyboard.press("Enter");
+    await page.keyboard.press("Enter");
+    await expect(pause).toBeFocused();
+    await expect.poll(() => isTickerMoving(page)).toBe(true);
+  });
+
+  test("a pause lasts for the page view; a reload scrolls again", async ({ page }) => {
+    await gotoDashboard(page);
+    await renderLoopingTicker(page);
+    await page.getByRole("button", { name: "Pause dealer prices" }).click();
+    // A value an earlier build stored is swept at boot.
+    await page.evaluate(() => localStorage.setItem("bestPriceTickerPaused", "true"));
+    await page.reload();
+    await expect(page.locator("#bestPriceTickerEl .ticker-track")).toHaveCount(1);
+    await renderLoopingTicker(page);
+    const pause = page.getByRole("button", { name: "Pause dealer prices" });
+    await expect(pause).toHaveAttribute("aria-pressed", "false");
+    await page.mouse.move(0, 0);
+    await expect.poll(() => isTickerMoving(page)).toBe(true);
+    expect(await page.evaluate(() => localStorage.getItem("bestPriceTickerPaused"))).toBeNull();
+  });
+
+  test("with reduced motion every dealer is reachable once by scroll and keyboard", async ({
+    page,
+  }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await gotoDashboard(page);
+    await renderLoopingTicker(page);
+    await expect(page.locator("#bestPriceTickerEl [data-ticker-block='duplicate']")).toBeHidden();
+    await expect(page.getByRole("button", { name: "Pause dealer prices" })).toBeHidden();
+
+    const track = page.locator("#bestPriceTickerEl .ticker-track");
+    expect(await track.evaluate((t) => getComputedStyle(t).overflowX)).toBe("auto");
+    const dealers = page.locator(
+      "#bestPriceTickerEl [data-ticker-block='primary'] button.ticker-item"
+    );
+    const count = await dealers.count();
+    expect(count).toBeGreaterThan(4);
+
+    const last = dealers.last();
+    await track.evaluate((t) => {
+      t.scrollLeft = t.scrollWidth;
+    });
+    expect(
+      await last.evaluate((button) => {
+        const strip = document.getElementById("bestPriceTickerEl").getBoundingClientRect();
+        const box = button.getBoundingClientRect();
+        return box.left >= strip.left && box.right <= strip.right;
+      }),
+      "the last dealer scrolls into the strip"
+    ).toBe(true);
+
+    await track.evaluate((t) => {
+      t.scrollLeft = 0;
+    });
+    // A key press sets keyboard modality, so each focus below counts as :focus-visible.
+    await page.keyboard.press("Shift");
+    await dealers.first().focus();
+    const focusedDealer = () =>
+      page.evaluate(() => {
+        const el = document.activeElement;
+        const strip = document.getElementById("bestPriceTickerEl").getBoundingClientRect();
+        const box = el.getBoundingClientRect();
+        return {
+          primary: !!el.closest("[data-ticker-block='primary']"),
+          inStrip: box.left >= strip.left - 1 && box.right <= strip.right + 1,
+        };
+      });
+    for (let i = 0; i < count; i++) {
+      await expect.poll(focusedDealer, `dealer ${i + 1} of ${count}`).toEqual({
+        primary: true,
+        inStrip: true,
+      });
+      if (i < count - 1) await page.keyboard.press("Tab");
+    }
+  });
+
+  test("spot sparklines draw without animation under reduced motion", async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await gotoDashboard(page);
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const chart = Chart.getChart(document.getElementById("sparklineSilver"));
+          return chart ? chart.options.animation : null;
+        })
+      )
+      .toBe(false);
+  });
+});

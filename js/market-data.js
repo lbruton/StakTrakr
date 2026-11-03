@@ -325,7 +325,7 @@ const _ensureManifest = async () => {
 // Ticker
 // ---------------------------------------------------------------------------
 
-const TICKER_SPEED_PIXELS_PER_SECOND = 127;
+const TICKER_SPEED_PIXELS_PER_SECOND = 95;
 const MIN_TICKER_DURATION_SECONDS = 20;
 const RETAIL_CURRENCY_DISCLAIMER =
   "Currency conversion is for convenience only — vendors are US-based and may not accept your selected currency at checkout.";
@@ -588,15 +588,25 @@ const _buildTickerItem = (slug, coin, coinMetaMap, vendorMeta) => {
 
 /**
  * Build the DOM element for one ticker item (metal dot, coin name, vendor,
- * price, premium badge). Clickable when the vendor URL is safe.
+ * price, premium badge). A safe vendor URL makes it a button that opens the dealer page.
  * @param {Object} item - Ticker item descriptor from _buildTickerItem.
- * @returns {HTMLDivElement} The ".ticker-item" element.
+ * @returns {HTMLElement} The ".ticker-item" element.
  */
 const _buildTickerItemEl = (item) => {
-  const el = document.createElement("div");
+  const isLink = _isSafeUrl(item.vendorUrl);
+  const el = document.createElement(isLink ? "button" : "div");
   el.className = "ticker-item";
-  if (_isSafeUrl(item.vendorUrl)) {
+  if (isLink) {
+    el.type = "button";
     el.classList.add("ticker-item--link");
+    const premium =
+      item.premium != null
+        ? `, premium ${(item.premium >= 0 ? "+" : "") + item.premium.toFixed(1)}%`
+        : "";
+    el.setAttribute(
+      "aria-label",
+      `${item.name} at ${item.vendorName}, ${formatCurrency(item.bestPrice)}${premium}. Opens the dealer page in a new window.`
+    );
     el.addEventListener("click", () => {
       _openVendorPopup(item.vendorUrl, item.bestVid);
     });
@@ -659,10 +669,16 @@ const _renderTickerTrack = (container, items, signature, previousTrack, previous
   const block2 = document.createElement("div");
   block2.className = "ticker-block";
   block2.dataset.tickerBlock = "duplicate";
+  // The copy exists only for the seamless scroll loop: keep it out of the tab order and
+  // the accessibility tree so each dealer price is announced once. It stays clickable
+  // (no `inert`), because the loop scrolls it through the visible strip.
+  block2.setAttribute("aria-hidden", "true");
 
   for (const item of items) {
     block1.appendChild(_buildTickerItemEl(item));
-    block2.appendChild(_buildTickerItemEl(item));
+    const copy = _buildTickerItemEl(item);
+    copy.tabIndex = -1;
+    block2.appendChild(copy);
   }
 
   if (items.length >= 4) {
@@ -689,10 +705,86 @@ const _renderTickerTrack = (container, items, signature, previousTrack, previous
   }
 };
 
+/**
+ * Keeps a keyboard-focused dealer visible. Keyboard focus stops the animation (CSS), which
+ * moves the track back to its start, so the dealer is scrolled into view after that restyle;
+ * the strip's scroll resets when focus leaves. Wires the container once.
+ * @param {HTMLElement} container - The #bestPriceTickerEl element
+ * @returns {void}
+ */
+const _wireTickerFocus = (container) => {
+  if (!(container instanceof HTMLElement) || container.dataset.focusWired) return;
+  container.dataset.focusWired = "1";
+  container.addEventListener("focusin", (e) => {
+    const dealer = e.target.closest(".ticker-item");
+    if (!dealer || !dealer.matches(":focus-visible")) return;
+    requestAnimationFrame(() => dealer.scrollIntoView({ block: "nearest", inline: "nearest" }));
+  });
+  container.addEventListener("focusout", (e) => {
+    if (!container.contains(e.relatedTarget)) container.scrollLeft = 0;
+  });
+};
+
+/** True while the user has paused the strip. Lasts for the page view, so every load scrolls. */
+let _tickerUserPaused = false;
+
+/**
+ * Holds the loop at its offset when the user paused the strip, and applies the static
+ * layout under reduced motion. The pause button shows only beside a looping strip, and
+ * never under reduced motion.
+ * @param {HTMLElement} container - The #bestPriceTickerEl element
+ * @returns {void}
+ */
+const _syncTickerPause = (container) => {
+  if (!(container instanceof HTMLElement)) return;
+  const reduced = prefersReducedMotion();
+  const userPaused = _tickerUserPaused;
+  container.classList.toggle("is-paused", reduced);
+  container.classList.toggle("is-held", userPaused && !reduced);
+  const button = safeGetElement("bestPriceTickerPause");
+  if (!(button instanceof HTMLElement)) return;
+  const looping = !container.hidden && !!container.querySelector('[data-ticker-block="duplicate"]');
+  button.hidden = reduced || !looping;
+  button.setAttribute("aria-pressed", String(userPaused));
+};
+
+/**
+ * Wires the pause button and the reduced-motion listener once.
+ * @param {HTMLElement} container - The #bestPriceTickerEl element
+ * @returns {void}
+ */
+const _wireTickerPause = (container) => {
+  if (!(container instanceof HTMLElement) || container.dataset.pauseWired) return;
+  container.dataset.pauseWired = "1";
+  const button = safeGetElement("bestPriceTickerPause");
+  if (button instanceof HTMLElement) {
+    button.addEventListener("click", () => {
+      _tickerUserPaused = !_tickerUserPaused;
+      _syncTickerPause(container);
+    });
+  }
+  if (typeof window.matchMedia === "function") {
+    window
+      .matchMedia("(prefers-reduced-motion: reduce)")
+      .addEventListener("change", () => _syncTickerPause(container));
+  }
+};
+
 const renderBestPriceTicker = () => {
   const container = safeGetElement("bestPriceTickerEl");
-  if (!container) return;
+  if (!(container instanceof HTMLElement)) return;
+  _wireTickerFocus(container);
+  _wireTickerPause(container);
+  _buildBestPriceTicker(container);
+  _syncTickerPause(container);
+};
 
+/**
+ * Builds the strip from the cheapest in-stock dealer per coin, or hides it when none qualify.
+ * @param {HTMLElement} container - The #bestPriceTickerEl element
+ * @returns {void}
+ */
+const _buildBestPriceTicker = (container) => {
   const coins = _getRetailCoins();
   const coinMetaMap = _getCoinMeta();
   const vendorMeta = _getVendorMeta();
@@ -713,7 +805,8 @@ const renderBestPriceTicker = () => {
   if (items.length === 0) {
     container.dataset.tickerSignature = "";
     container.setAttribute("hidden", "");
-    while (container.firstChild) container.removeChild(container.firstChild);
+    // Remove only the tracks: the region's heading stays for the next render.
+    container.querySelectorAll(".ticker-track").forEach((track) => track.remove());
     return;
   }
 

@@ -6,7 +6,7 @@
 # the persistent state volume already contains a prefs file. The wrapper is
 # idempotent: `tailscale set` with current prefs is a no-op.
 
-ROUTE="${TS_ROUTES:-192.168.1.0/24}"
+ROUTE="${TS_ROUTES:?TS_ROUTES must name the home LAN subnet to advertise}"
 EXIT_NODE="${TS_ADVERTISE_EXIT_NODE:-1}"
 TIMEOUT=120
 

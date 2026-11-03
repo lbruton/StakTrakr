@@ -756,27 +756,35 @@ test.describe("core/disposition", () => {
     await expect(disposedRow).toHaveCount(1);
   });
 
-  test("realized gain/loss visibility toggle hides, shows, and persists summary rows", async ({
+  test("realized gain/loss visibility toggle hides, shows, and persists the totals column", async ({
     page,
   }) => {
     await injectSeedInventory(page);
     await page.goto("/index.html");
     await openAppearanceSettings(page);
 
+    const header = page.locator("#totalsLedger thead .totals-col-realized");
     await expect(page.locator("#settingsShowRealizedToggle")).toBeVisible();
     await page.locator('#settingsShowRealizedToggle .chip-sort-btn[data-val="no"]').click();
-    await expect(page.locator(".total-item:has(#realizedGainLossSilver)")).toBeHidden();
-    await expect(page.locator(".total-item:has(#realizedGainLossAll)")).toBeHidden();
+    await expect(header).toBeHidden();
+    await expect(page.locator("#realizedGainLossSilver")).toBeHidden();
+    await expect(page.locator("#realizedGainLossAll")).toBeHidden();
+    // The metal rows stay; only the column goes.
+    await expect(page.locator("#totalsLedger .totals-row.silver")).toBeAttached();
+    expect(
+      await page.locator("#totalsLedger .totals-row.silver").evaluate((r) => r.style.display)
+    ).toBe("");
 
     await page.reload();
     await openAppearanceSettings(page);
     await expect(
       page.locator('#settingsShowRealizedToggle .chip-sort-btn[data-val="no"]')
     ).toHaveClass(/active/);
-    await expect(page.locator(".total-item:has(#realizedGainLossSilver)")).toBeHidden();
+    await expect(header).toBeHidden();
 
     await page.locator('#settingsShowRealizedToggle .chip-sort-btn[data-val="yes"]').click();
-    await expect(page.locator(".total-item:has(#realizedGainLossSilver)")).toBeVisible();
+    await expect(header).toBeVisible();
+    await expect(page.locator("#realizedGainLossSilver")).toBeVisible();
     await expect(page.getByText("Summary Totals", { exact: true })).toHaveCount(0);
   });
 

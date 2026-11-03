@@ -257,6 +257,16 @@ async function expectAaChipsInEveryTheme(page) {
   for (const theme of THEMES) {
     await page.evaluate((name) => window.setTheme(name), theme);
     await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+    await page.evaluate(async () => {
+      // Ancestor surfaces also transition on theme changes; measure the settled composite.
+      getComputedStyle(document.body).backgroundColor;
+      await Promise.all(
+        document
+          .getAnimations()
+          .filter((animation) => animation instanceof CSSTransition)
+          .map((animation) => animation.finished)
+      );
+    });
     const chips = await measureChips(page);
     expect(chips.length, `${theme}: chip bar rendered`).toBeGreaterThanOrEqual(8);
     for (const chip of chips) expectChipAa(chip, theme);

@@ -130,7 +130,7 @@ Code deploys via Portainer's GitOps stack redeploy: push to the tracked git bran
 
 ```bash
 curl -sk -X PUT \
-  "https://192.168.1.81:9443/api/stacks/7/git/redeploy?endpointId=3" \
+  "https://<home-vm>:9443/api/stacks/7/git/redeploy?endpointId=3" \
   -H "X-API-Key: $PORTAINER_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"pullImage": true, "prune": true, "env": [...]}'
@@ -158,7 +158,7 @@ Dashboard (CRUD)  ──→  sqld provider tables  ←── migrate-providers.j
 
 ## Dashboard CRUD
 
-The Home Poller dashboard at `http://192.168.1.81:3010/providers` provides full CRUD against the sqld provider tables. Rebuilt on 2026-02-26.
+The Home Poller dashboard at `http://<home-vm>:3010/providers` provides full CRUD against the sqld provider tables. Rebuilt on 2026-02-26.
 
 ### Layout
 

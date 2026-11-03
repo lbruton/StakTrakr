@@ -1515,21 +1515,20 @@ const setupHeaderButtonListeners = () => {
   // showSettingsModal("about"), and About is the default settings panel, so
   // opening Settings already lands there.
 
-  // Details modal triggers
-  if (elements.totalTitles && elements.totalTitles.length) {
-    elements.totalTitles.forEach((title) => {
-      safeAttachListener(
-        title,
-        "click",
-        () => {
-          const metal = title.dataset.metal;
-          if (typeof showDetailsModal === "function") {
-            showDetailsModal(metal);
-          }
-        },
-        `Totals title (${title.dataset.metal})`
-      );
-    });
+  // A click anywhere on a totals ledger row opens that row's details modal. The row's
+  // metal button stays its only keyboard stop, and its click bubbles here.
+  const totalsLedger = document.getElementById("totalsLedger");
+  if (totalsLedger) {
+    safeAttachListener(
+      totalsLedger,
+      "click",
+      (e) => {
+        const row = e.target instanceof Element ? e.target.closest("tr.totals-row") : null;
+        const metal = row?.querySelector("th.total-title")?.dataset.metal;
+        if (metal && typeof showDetailsModal === "function") showDetailsModal(metal);
+      },
+      "Totals ledger row"
+    );
   }
 
   if (elements.detailsCloseBtn) {
@@ -4239,12 +4238,27 @@ const setupSpotPriceListeners = () => {
     true
   );
 
+  // Edit button: the keyboard path to the same inline edit; focus returns to the button.
+  document.addEventListener("click", (e) => {
+    const editBtn = e.target.closest(".spot-edit-btn");
+    if (!editBtn) return;
+    const card = editBtn.closest(".spot-card");
+    const valueEl = card && card.querySelector(".spot-card-value");
+    if (!valueEl || !card.dataset.metal) return;
+    if (typeof startSpotInlineEdit === "function") {
+      startSpotInlineEdit(valueEl, card.dataset.metal, editBtn);
+    }
+  });
+
   // Long-press handler for mobile inline spot price editing (STAK-285)
   // Mirrors shift+click behavior: hold 600ms on spot price to open manual input
   let _spotLongPressTimer = null;
   let _spotLongPressFired = false;
+  // Touch events stay on the element the touch started on, so the spot section sees the
+  // whole gesture. touchstart is passive: it never cancels, and page scrolling must not wait.
+  const spotTouchRoot = document.getElementById("spotPricesSection") || document;
 
-  document.addEventListener(
+  spotTouchRoot.addEventListener(
     "touchstart",
     (e) => {
       const valueEl = e.target.closest(".spot-card-value");
@@ -4265,7 +4279,7 @@ const setupSpotPriceListeners = () => {
         }
       }, 600);
     },
-    { passive: false }
+    { passive: true }
   );
 
   // Suppress context menu during long-press (preventDefault inside setTimeout is stale)
@@ -4275,7 +4289,7 @@ const setupSpotPriceListeners = () => {
     }
   });
 
-  document.addEventListener(
+  spotTouchRoot.addEventListener(
     "touchend",
     (e) => {
       if (_spotLongPressTimer) {
@@ -4291,7 +4305,7 @@ const setupSpotPriceListeners = () => {
     { passive: false }
   );
 
-  document.addEventListener(
+  spotTouchRoot.addEventListener(
     "touchmove",
     () => {
       if (_spotLongPressTimer) {
@@ -4303,7 +4317,7 @@ const setupSpotPriceListeners = () => {
   );
 
   // Cancel long-press when browser cancels the gesture (e.g., incoming call, scroll takeover)
-  document.addEventListener(
+  spotTouchRoot.addEventListener(
     "touchcancel",
     () => {
       if (_spotLongPressTimer) {
@@ -5030,12 +5044,6 @@ const setupSearch = () => {
  */
 const updateThemeButton = () => {
   const savedTheme = localStorage.getItem(THEME_KEY) || "light";
-
-  // Apply theme classes to all theme buttons (header buttons)
-  document.querySelectorAll(".theme-btn").forEach((btn) => {
-    btn.classList.remove("dark", "light", "sepia", "slate");
-    btn.classList.add(savedTheme);
-  });
 
   // Update settings modal theme picker active state
   document.querySelectorAll(".theme-option").forEach((btn) => {

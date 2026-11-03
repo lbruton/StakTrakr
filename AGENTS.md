@@ -10,7 +10,7 @@ duplicating its rules here; on any conflict with source code, code wins.
 - `.context/architecture.md` — system design, frontend/API/data model, sqld schema.
 - `.context/infrastructure.md` — deploy topology, Fly.io, home poller, secrets, CI/CD.
 - `.context/coding-standards.md` — JS style, module boundaries, DOM/storage patterns. **Read before writing JavaScript.**
-- `.context/design-philosophy.md` — brand, tokens, four-theme rules, anti-references.
+- `.context/design-philosophy.md` — routes design work to `PRODUCT.md` (users, brand, anti-references) and `DESIGN.md` (tokens, four themes, components).
 - `.context/reusable-patterns.md` — vendor normalization, providers.json, retail modal, chart abstractions.
 - `.context/data-pipelines.md` — spot/retail/goldback/image pipelines, cron, failure modes.
 - `.context/cloud-sync.md` — Dropbox OAuth, AES-GCM encryption, rollback, backup/restore.
@@ -94,8 +94,8 @@ Full rules in `.context/git-topology.md`. Non-negotiables:
 
 For UI work touching `index.html`, `css/styles.css`, modal/view rendering, or interaction flows:
 
-- Read `.context/design-philosophy.md`.
-- Check `.context/style.html` for live component and token patterns.
+- Read `PRODUCT.md` and `DESIGN.md`; `.context/design-philosophy.md` lists the rest.
+- Use the `impeccable` skill for critique, audit, shape and polish passes.
 - Search the issue/spec and `playground/` for approved or referenced mockups.
 - Treat approved mockups as binding even if the file is untracked.
 - Use existing StakTrakr design tokens and components.
@@ -131,7 +131,7 @@ Full detail (routing table, throttle, false positives) in `.context/review-and-c
 - Comment `@codex review` to request another Codex pass.
 - A skipped CodeRabbit run still posts an empty `APPROVED` review, so the reviewers list is not proof a review happened — check the review body.
 - Every one of these gates is configured **outside this repo** (CodeRabbit UI, Codacy dashboard, GitHub Copilot settings, Codex cloud settings). A repo-only audit will wrongly conclude all bots are ungated.
-- Required status checks differ by branch: `dev` requires `Codacy Static Code Analysis`, `Tests` **and** `Vale`; `main` requires `Codacy Static Code Analysis` **and** `CodeRabbit`, plus a CodeQL code-scanning rule. Both branches block merges on unresolved review threads, not on approvals.
+- Required status checks differ by branch: `dev` requires `Codacy Static Code Analysis`, `Tests` **and** `Vale`; `main` requires `Codacy Static Code Analysis`, `CodeRabbit`, `Tests` **and** `Vale`, plus a CodeQL code-scanning rule. Both branches block merges on unresolved review threads, not on approvals.
 - CodeRabbit's 75% docstring-coverage pre-merge check blocks merge invisibly (green checks + 0 threads but `CHANGES_REQUESTED`). Write JSDoc / shell docstrings pre-emptively.
 
 ## Pre-Flight Triggers

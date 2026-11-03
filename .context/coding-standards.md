@@ -947,9 +947,12 @@ historical CSS class names remain, but current modal behavior uses `openModalByI
 
 ## CSS & Design System
 
-### Living reference
+### Visual system
 
-Open `.context/style.html` in a browser to see all components rendered with CSS variable labels. It references the same `css/styles.css` the app uses and is the single source of truth for visual patterns.
+`DESIGN.md` at the repo root is the visual system: tokens, type, shapes, components and the do and don't
+rules. `PRODUCT.md` holds the users, brand and constraints. On any conflict, `css/styles.css` wins and the
+doc is fixed. `.context/style.html` renders components against the live stylesheet; it is a demo, not an
+authority. This section holds the code-level rules only.
 
 ### Token usage (mandatory)
 
@@ -1069,19 +1072,20 @@ Related settings wrap in a `.settings-fieldset` card with a `.settings-fieldset-
 
 ### Modal structure
 
-Standard modal pattern: glass-morphism shell with gradient top accent:
+A modal is a `.modal` overlay holding one `.modal-content` panel. Header, body and footer use the
+`.modal-header`, `.modal-body` and `.modal-footer` classes; each modal styles them under its own id.
+The close control is `.modal-close`. Open and close go through `openModalById()` and
+`closeModalById()`, and a Chart.js instance inside a modal is destroyed on close.
 
 ```html
 <div class="modal" id="myModal">
   <div class="modal-content">
-    <div
-      style="display:flex; justify-content:space-between; align-items:center; margin-bottom:var(--spacing); padding-bottom:var(--spacing-sm); border-bottom:1px solid var(--border);"
+    <div class="modal-header">
       <h2>Title</h2>
       <button class="modal-close" id="myCloseBtn" type="button">&times;</button>
     </div>
-    <div>...</div>
-    <div
-      style="display:flex; justify-content:flex-end; gap:var(--spacing-sm); padding-top:var(--spacing-sm); border-top:1px solid var(--border);"
+    <div class="modal-body">...</div>
+    <div class="modal-footer">
       <button class="btn secondary btn-sm">Cancel</button>
       <button class="btn btn-sm">Save</button>
     </div>
@@ -1089,25 +1093,17 @@ Standard modal pattern: glass-morphism shell with gradient top accent:
 </div>
 ```
 
+The frosted-glass blur on `.modal` and `.modal-content` is recorded as debt in `DESIGN.md`. New modals do
+not add glass or inline layout styles.
+
 ### Theme compatibility
 
 All new CSS **must** work across light, dark, slate, and sepia themes. Use semantic tokens (`--text-primary`, `--bg-card`, etc.) which automatically adapt per theme. Test all four themes when adding new UI.
 
-### Key CSS custom properties
+### Tokens
 
-| Category    | Tokens                                                                                         |
-| ----------- | ---------------------------------------------------------------------------------------------- |
-| Colors      | `--primary`, `--secondary`, `--success`, `--info`, `--warning`, `--danger` + `-hover` variants |
-| Status text | `--success-text`, `--warning-text`, `--danger-text` (4.5:1 or more on `--bg-secondary`)        |
-| Backgrounds | `--bg-primary`, `--bg-secondary`, `--bg-tertiary`, `--bg-card`                                 |
-| Text        | `--text-primary`, `--text-secondary`                                                           |
-| Metals      | `--silver`, `--gold`, `--platinum`, `--palladium`, `--copper`                                  |
-| Types       | `--type-{coin,round,bar,note,set,other}-{bg,text}`                                             |
-| Borders     | `--border`, `--border-hover`                                                                   |
-| Shadows     | `--shadow-sm`, `--shadow`, `--shadow-lg`                                                       |
-| Spacing     | `--spacing-xs`, `--spacing-sm`, `--spacing`, `--spacing-lg`, `--spacing-xl`                    |
-| Radius      | `--radius` (8px), `--radius-lg` (12px)                                                         |
-| Transition  | `--transition`                                                                                 |
+The token set, its values and its roles live in `DESIGN.md`. Each theme defines them in `css/styles.css`
+(`:root` for light, then the `dark`, `slate` and `sepia` blocks).
 
 ---
 

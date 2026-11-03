@@ -1,318 +1,40 @@
 ---
-title: "StakTrakr — Design Philosophy"
+title: "StakTrakr: Design Philosophy"
 project: StakTrakr
 audience: agent
 canonical: .context/design-philosophy.md
-migration_source: "DocVault/Projects/StakTrakr/Foundation/design-philosophy.md" # historical provenance; migrated 2026-08-12
-updated: "2026-08-28"
+updated: "2026-10-25"
 ---
 
-# StakTrakr — Design Philosophy
-
-Design system and brand identity reference for StakTrakr. Source of truth for all UI and redesign work. See `.context/style.html` for live component demos.
-
----
-
-## Brand Identity
-
-### Name and Wordmark
-
-`STAKTRAKR` rendered in two-tone split:
-
-- **STAK**: `#e2e8f0` (near-white)
-- **TRAKR**: `#d4a017` (deep gold brand accent)
-- Weight: 700 bold in header contexts; 300 light on the About page
-- Letter-spacing: 3–4px
-- Body/prose references use Title Case: `StakTrakr`
-
-### Logo — Centered S-Stack (Concept G)
-
-Five horizontal bars forming an "S" shape. Silver bars at varying opacity with a wide gold center bar. Dark navy rounded-square background (`#0f1729`). No shield.
-
-| Asset          | File                            | Use                              |
-| -------------- | ------------------------------- | -------------------------------- |
-| Icon (with bg) | `final/icon-logo.svg`           | PWA, favicon, app stores         |
-| Icon (bare)    | `final/icon-bare.svg`           | Compositing on any background    |
-| Full lockup    | `final/banner-logo.svg`         | About page, splash, social cards |
-| Horizontal     | `final/banner-logo-compact.svg` | Header bar, navbar               |
-
-Brand assets live at `/Users/lbruton/CoWork/StakTrakr-Branding/final/`.
-
-### Tagline
-
-- **Primary:** "Track Your Stack"
-- **Descriptive:** "Precious Metals Portfolio Tracker"
-- **Tone:** Casual, community-driven: not corporate fintech
-
----
-
-## Theme System
-
-Four themes via `[data-theme]` attribute on `<html>`. Dark is primary; light, slate, and sepia are secondary. The theme toggle cycles: **dark → light → slate → sepia**.
-
-| Theme | `data-theme` | Maturity              | Palette                                                                                                                |
-| ----- | ------------ | --------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| Dark  | `dark`       | Primary, fully styled | oklch color space with warm gunmetal tinting; ~161 `color-mix()` expressions across all themes for hover/active states |
-| Light | `light`      | Fully styled          | oklch color space                                                                                                      |
-| Slate | `slate`      | Fully styled          | Original Tailwind Slate hex palette (original dark theme)                                                              |
-| Sepia | `sepia`      | Fully styled          | oklch color space                                                                                                      |
-
-All new components must be authored against the dark theme first.
-
----
-
-## Color System
-
-**Rule:** Always use CSS custom properties (`var(--token)`) over hardcoded hex values. Hardcoded values still exist in `.btn.filters` and retail badge/trend styles: these are tech debt, not patterns to follow.
-
-> **Note:** The dark, light, and sepia themes now use oklch tokens (not hex). The hex values in the tables below are the Slate theme's Tailwind Slate palette — they remain accurate for the `[data-theme="slate"]` theme and serve as a reference for the token names and semantic roles used across all themes.
-
-### Semantic Colors (Slate Theme — reference hex)
-
-| Token             | Hex       | Usage                                |
-| ----------------- | --------- | ------------------------------------ |
-| `--primary`       | `#3b82f6` | Buttons, links, active states        |
-| `--primary-hover` | `#2563eb` | Button hover state                   |
-| `--success`       | `#10b981` | Positive values, in-stock indicators |
-| `--warning`       | `#f59e0b` | Caution states, disclaimers          |
-| `--danger`        | `#ef4444` | Destructive actions, negative values |
-| `--info`          | `#38bdf8` | Informational badges                 |
-| `--success-text`  | `#34d399` | Positive status words (Synced)       |
-| `--warning-text`  | `#fbbf24` | Caution status words (Needs sync)    |
-| `--danger-text`   | `#f87171` | Failure status words (Failed)        |
-
-Use the `-text` tokens for status words. Every theme sets them at 4.5:1 or more on `--bg-secondary`.
-The base `--success`, `--warning` and `--danger` tokens are for fills, borders and icons.
-
-### Background Tokens (Slate Theme — reference hex)
-
-| Token            | Hex       | Usage                        |
-| ---------------- | --------- | ---------------------------- |
-| `--bg-primary`   | `#0f172a` | Page background              |
-| `--bg-secondary` | `#1e293b` | Elevated surfaces, cards     |
-| `--bg-tertiary`  | `#334155` | Tertiary surfaces, dropdowns |
-| `--bg-card`      | `#1e293b` | Card backgrounds             |
-
-### Text Tokens (Slate Theme — reference hex)
-
-| Token              | Hex       | Usage                            |
-| ------------------ | --------- | -------------------------------- |
-| `--text-primary`   | `#f8fafc` | Headings, primary content        |
-| `--text-secondary` | `#cbd5e1` | Labels, descriptions             |
-| `--text-muted`     | `#94a3b8` | Hints, disabled states, metadata |
-
-### Metal Colors (Slate Theme — reference hex)
-
-| Token         | Hex       | Usage                                                                                   |
-| ------------- | --------- | --------------------------------------------------------------------------------------- |
-| `--silver`    | `#d1d5db` | Silver badge background                                                                 |
-| `--gold`      | `#fbbf24` | Gold badge background                                                                   |
-| `--platinum`  | `#f3f4f6` | Platinum badge background                                                               |
-| `--palladium` | `#d8b4fe` | Palladium badge background                                                              |
-| `--copper`    | `#d99668` | Copper badge background (STRK-305; per-theme tuned like its siblings — slate hex shown) |
-
-### Brand Colors (Theme-Invariant)
-
-These do not shift across themes.
-
-| Name         | Hex       | Usage                                           |
-| ------------ | --------- | ----------------------------------------------- |
-| Gold Primary | `#d4a017` | Brand accent, wordmark "TRAKR", Goldback vendor |
-| Gold Light   | `#fbbf24` | Gradient highlights                             |
-| Silver       | `#94a3b8` | Monogram bars, secondary elements               |
-| Dark Navy    | `#0f1729` | Logo background                                 |
-| Blue Accent  | `#60a5fa` | Chart highlights (UI, not brand identity)       |
-
-### Vendor Chart Colors
-
-Each vendor keeps a stable hue identity across market tables, labels, and chart contexts. Each theme uses a shade tuned for at least 4.5:1 text contrast on rendered vendor-label surfaces. Never remap a vendor to a different hue association: users develop visual associations. The per-theme values are `--vendor-*` tokens in `css/styles.css`.
-
-| Vendor       | Light / sepia | Dark / slate | Hue       |
-| ------------ | ------------- | ------------ | --------- |
-| APMEX        | `#1d4ed8`     | `#60a5fa`    | Blue      |
-| JM Bullion   | `#854d0e`     | `#fbbf24`    | Amber     |
-| SD Bullion   | `#065f46`     | `#34d399`    | Emerald   |
-| Monument     | `#6d28d9`     | `#c4b5fd`    | Violet    |
-| Hero Bullion | `#b91c1c`     | `#f87171`    | Red       |
-| BullionX     | `#9d174d`     | `#f472b6`    | Pink      |
-| Summit       | `#155e75`     | `#22d3ee`    | Cyan      |
-| Goldback     | `#713f12`     | `#d4a017`    | Deep gold |
-| Provident    | `#3f6212`     | `#a3e635`    | Lime      |
-| Gainesville  | `#9a3412`     | `#fb923c`    | Orange    |
-| MintBuilder  | `#4338ca`     | `#818cf8`    | Indigo    |
-
-The dark and slate shades preserve the palette brightened in v3.33.06 for contrast on dark backgrounds.
-
----
-
-## Typography
-
-Three self-hosted faces (PR #1065 replaced the original Inter / system-ui stack). Declared via `@font-face` at the top of `css/styles.css` with `font-display: swap`; the `.woff2` files live in `fonts/` alongside their `LICENSE`. Self-hosting keeps typography intact on `file://` and offline: no CDN requests. All sizes in `rem`; monospace for prices and data.
-
-### Font Family Tokens
-
-| Token            | Face             | File                                   | Weights            | Fallback stack                                                      |
-| ---------------- | ---------------- | -------------------------------------- | ------------------ | ------------------------------------------------------------------- |
-| `--font-body`    | Geist            | `fonts/geist-variable.woff2`           | 100–900 (variable) | `-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif` |
-| `--font-heading` | Instrument Serif | `fonts/instrument-serif-regular.woff2` | 400 only           | `Georgia, "Times New Roman", serif`                                 |
-| `--font-mono`    | Geist Mono       | `fonts/geist-mono-variable.woff2`      | 100–900 (variable) | `ui-monospace, "SF Mono", "Cascadia Code", "Menlo", monospace`      |
-
-- `--font-body` is the global default, set once on `html` (line-height 1.6).
-- `--font-heading` is reserved for `h1`, `h2`, and `.section-title`. Headings render at weight 400: Instrument Serif ships regular only, so never fake bold on it.
-- `--font-mono` is for prices and numeric data.
-
-### Type Scale Tokens
-
-Fixed `rem` values: size text with `var(--font-size-*)`, not literals:
-
-| Token              | Value       | Typical usage                            |
-| ------------------ | ----------- | ---------------------------------------- |
-| `--font-size-xs`   | `0.6875rem` | Badges, metadata, hints                  |
-| `--font-size-sm`   | `0.75rem`   | Small labels                             |
-| `--font-size-base` | `0.8125rem` | Default component text (the workhorse)   |
-| `--font-size-md`   | `0.875rem`  | Form labels, emphasized body text        |
-| `--font-size-lg`   | `1rem`      | Inputs/selects, prominent secondary text |
-| `--font-size-xl`   | `1.25rem`   | `h2`                                     |
-| `--font-size-2xl`  | `1.5rem`    | Large stat values (spot cards)           |
-| `--font-size-3xl`  | `1.875rem`  | `h1`                                     |
-
-### Element Defaults
-
-| Element          | Face             | Size                         | Weight | Notes                                       |
-| ---------------- | ---------------- | ---------------------------- | ------ | ------------------------------------------- |
-| `h1`             | `--font-heading` | `--font-size-3xl` (1.875rem) | 400    | `var(--primary)` color, `-0.025em` tracking |
-| `h2`             | `--font-heading` | `--font-size-xl` (1.25rem)   | 400    | `var(--text-primary)`                       |
-| `.section-title` | `--font-heading` | inherited                    | 400    | Centered; reused in modal headers           |
-| `label`          | `--font-body`    | `--font-size-md` (0.875rem)  | 500    | —                                           |
-
-There is no global `h3` rule: `h3` is styled per component (`.settings-section-panel h3`, `.empty-state h3`, …).
-
----
-
-## Spacing and Layout
-
-### Spacing Tokens
-
-| Token          | Value   | Usage                      |
-| -------------- | ------- | -------------------------- |
-| `--spacing-xs` | 0.2rem  | Tight gaps                 |
-| `--spacing-sm` | 0.4rem  | Chip padding, compact gaps |
-| `--spacing`    | 0.75rem | Standard padding/margin    |
-| `--spacing-lg` | 1.25rem | Section padding            |
-| `--spacing-xl` | 1.5rem  | Card padding, large gaps   |
-
-### Border Radius Tokens
-
-| Token         | Value | Usage                  |
-| ------------- | ----- | ---------------------- |
-| `--radius`    | 8px   | Buttons, inputs, cards |
-| `--radius-lg` | 12px  | Modals, large cards    |
-
-### Breakpoints
-
-Not yet standardized in the codebase (59 `@media` rules spanning 15 distinct breakpoint values in `css/styles.css`). Recommended canonical set for all new work:
-
-| Name      | Value  | Target                   |
-| --------- | ------ | ------------------------ |
-| `--bp-sm` | 480px  | Small phone              |
-| `--bp-md` | 768px  | Tablet / landscape phone |
-| `--bp-lg` | 1024px | Desktop                  |
-| `--bp-xl` | 1350px | Wide desktop             |
-
-All settings redesign work uses mobile-first ordering against this set.
-
----
-
-## Component Patterns
-
-### Buttons
-
-| Class                           | Style                 | Usage              |
-| ------------------------------- | --------------------- | ------------------ |
-| `.btn`                          | Blue fill, white text | Primary action     |
-| `.btn.success`                  | Green fill            | Confirm / positive |
-| `.btn.warning`                  | Amber fill            | Caution action     |
-| `.btn.danger`                   | Red fill              | Destructive action |
-| `.btn.secondary`                | Filled with border    | Secondary/neutral  |
-| `.btn` + `border-radius: 999px` | Pill shape            | Filter toggles     |
-
-The glass/transparent button treatment exists only in narrow modal-footer overrides, not on the base class. Do not apply it broadly.
-
-### Cards
-
-Standard card construction:
-
-```css
-background: var(--bg-card);
-border: 1px solid var(--border);
-border-radius: var(--radius-lg);
-padding: var(--spacing-xl);
-```
-
-Market list cards expand/collapse per coin. Cards always stack vertically on mobile.
-
-### Modals
-
-- Close selector is `.modal-close`: **not** `.close-btn`, and **not** `[data-bs-dismiss]`. The Bootstrap JS library is not loaded in this project (verified 2026-08-13: zero `data-bs-*` attributes in `index.html` and `js/`), so a `data-bs-dismiss` handle is inert.
-- FIFO dialog queue managed via `showDialog()` / `presentDialog()` in `js/dialogs.js`
-- All modal open/close goes through `openModalById()` / `closeModalById()`
-- Settings sections use config objects: `{ id, title, icon, contentBuilder }`
-- Chart.js instances inside modals **must** be destroyed on close. Skipping this leaks canvas contexts and causes "Canvas is already in use" on the next open
-
-### Toggles
-
-Standard HTML `<input type="checkbox">` with custom switch styling. Minimum 44px touch target for mobile compliance.
-
-### Metal Filter Pills
-
-Chip-style filter buttons for metal type (`all`, `silver`, `gold`, `goldback`, `platinum`, `palladium`, `copper`). Pill variant (`.btn` + `border-radius: 999px`). Active state uses `--primary` fill.
-
----
-
-## Accessibility Baseline
-
-- Minimum 44px touch targets for all interactive controls on mobile
-- Color is not the sole indicator of state: labels and icons accompany color cues
-- Vendor colors keep stable hues and meet at least 4.5:1 text contrast in all four themes
-- `--text-muted` is used for non-essential metadata and unknown vendor labels: not for known vendor labels
-
----
-
-## Design System Demo
-
-Interactive reference: `.context/style.html` (references `../css/styles.css` for live token resolution).
-
-Covers: color swatches, typography scale, spacing demos, button states, form inputs, toggles and chips, cards and tables. It also covers modal headers, collapsible sections, image uploads, badges and indicators, and a migration checklist.
-
-Design-system catalog: `.context/preview.html`: a self-contained page with its own copy of the theme tokens (extracted from `css/styles.css`, so it can drift; `css/styles.css` wins on any conflict).
-
----
-
-## Settings Redesign
-
-12 open issues. Key decisions:
-
-- **About page** moves into Settings as landing tab; "What's New" thin popup stays
-- **Mobile-first**: all cards stack vertically, 44px touch targets, no horizontal scroll
-- **Execution order:** Style Guide → About/What's New → API tab → remaining tabs
-
-### API Tab Sectioned Card Layout (v3.34.24)
-
-Replaced 1075-line monolithic API settings panel with three sectioned `.settings-fieldset` cards following the established section pattern:
-
-1. **Market Prices**: beacon endpoint (read-only, no controls)
-2. **Spot Price Source**: 6-option pill-radio single-select (STAKTRAKR, METALS_DEV, METALS_API, METAL_PRICE_API, CUSTOM, MANUAL)
-3. **Catalog**: Numista + PCGS configuration rows, with "Bulk Sync & Advanced" modal for detailed settings
-
-All action buttons use pill shape (`.btn` + `border-radius: 999px`); History buttons use violet `.btn-history` variant. The modal replaces inline Numista bulk-sync, reducing Settings page scrolling and cognitive load.
-
----
-
-## Related
-
-- Style Guide (deprecated DocVault page): living source file (this doc was derived from it)
-- Frontend Overview (deprecated DocVault page)
-- .context/deep-dives/dom-patterns.md
-- Brand assets: `/Users/lbruton/CoWork/StakTrakr-Branding/final/`
-- Demo: `.context/style.html`
-- Catalog: `.context/preview.html`
+# StakTrakr: Design Philosophy
+
+This page routes design work to the files that hold it. It restates none of their content.
+
+| Need                                                   | File                                                   |
+| ------------------------------------------------------ | ------------------------------------------------------ |
+| Users, positioning, brand personality, anti-references | `PRODUCT.md`                                           |
+| Tokens, type, layout, shapes, components, do and don't | `DESIGN.md`                                            |
+| Generated token metadata and live-panel components     | `.impeccable/design.json` (written by Impeccable)      |
+| Per-surface decisions (mode, layout, states)           | `.impeccable/surfaces/<surface>.md`                    |
+| Critique and audit reports                             | `.impeccable/critique/`                                |
+| Code-level CSS and modal rules                         | `.context/coding-standards.md` ("CSS & Design System") |
+| Prose rules for UI copy                                | `.context/voice.md`                                    |
+| Rendered component demo against the live stylesheet    | `.context/style.html` (demo, not an authority)         |
+
+On any conflict, `css/styles.css` wins. Fix the doc.
+
+## Working with Impeccable
+
+Impeccable (`/impeccable`) is the design tool for this repo. It loads `PRODUCT.md` and `DESIGN.md`
+itself.
+
+- Before a surface changes, run `/impeccable critique <surface>` and `/impeccable audit <surface>`.
+  Turn the findings into scoped Plane issues.
+- Run `/impeccable shape <surface>` for structural work. For a UI spec, link the surface brief from the
+  UI Contract in `approach.md`.
+- Run `/impeccable polish <surface>` before the PR.
+- The detector hook reports findings after edits to UI files. A finding in untouched legacy CSS does not
+  require a fix in the same PR.
+- Changes to `css/`, `index.html` and `js/` still follow `.context/git-topology.md` and
+  `.context/testing.md`, with browser checks in all four themes.
+- Update the vendored skill only with `npx impeccable update` in a chore PR.

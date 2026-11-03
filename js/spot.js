@@ -357,11 +357,16 @@ const SPOT_FRESHNESS_CLASSES = [
  * @returns {void}
  */
 const applySpotFreshnessClasses = () => {
-  const next = `spot-sync-icon--${getSpotFreshnessStatus()}`;
+  const status = getSpotFreshnessStatus();
+  const next = `spot-sync-icon--${status}`;
   const stale = SPOT_FRESHNESS_CLASSES.filter((cls) => cls !== next);
   Object.values(METALS).forEach((metalConfig) => {
     const icon = document.getElementById(`syncIcon${metalConfig.name}`);
     if (!icon) return;
+    // The colour alone carries the state, so the accessible name repeats it in words.
+    // The title prefix stays owned by updateSyncButtonStates.
+    const action = (icon.title || "Sync from API").replace(/\.$/, "");
+    icon.setAttribute("aria-label", `${action}. ${metalConfig.name} prices are ${status}.`);
     icon.classList.remove(...stale);
     icon.classList.add(next);
   });
@@ -466,6 +471,15 @@ const formatSpotCardValue = (metalKey, price) => {
 };
 
 /**
+ * True while a spot card price holds the inline edit input. Price writers skip the card
+ * then: a background refresh rewriting the text would remove the input mid-edit.
+ * @param {HTMLElement} el - A .spot-card-value element
+ * @returns {boolean}
+ */
+const isSpotInlineEditOpen = (el) =>
+  el instanceof HTMLElement && el.querySelector(".spot-inline-input") !== null;
+
+/**
  * Updates spot card color based on price movement compared to last history entry
  *
  * @param {string} metalKey - Metal key ('silver', 'gold', etc.)
@@ -476,7 +490,7 @@ const updateSpotCardColor = (metalKey, newPrice) => {
   if (!metalConfig) return;
 
   const el = elements.spotPriceDisplay[metalKey];
-  if (!el) return;
+  if (!el || isSpotInlineEditOpen(el)) return;
 
   // Find the most recent API/manual entry with a DIFFERENT price.
   // This ensures the direction indicator persists across page refreshes —
@@ -569,29 +583,11 @@ const fetchSpotPrice = () => {
   // Load spot prices for all metals
   Object.values(METALS).forEach((metalConfig) => {
     const storedSpot = localStorage.getItem(metalConfig.localStorageKey);
-    if (storedSpot) {
-      spotPrices[metalConfig.key] = parseFloat(storedSpot);
-      if (
-        elements.spotPriceDisplay[metalConfig.key] &&
-        elements.spotPriceDisplay[metalConfig.key].textContent !== undefined
-      ) {
-        elements.spotPriceDisplay[metalConfig.key].textContent = formatCurrency(
-          spotPrices[metalConfig.key]
-        );
-      }
-    } else {
-      // Use default price if no stored price
-      const defaultPrice = metalConfig.defaultPrice;
-      spotPrices[metalConfig.key] = defaultPrice;
-      if (
-        elements.spotPriceDisplay[metalConfig.key] &&
-        elements.spotPriceDisplay[metalConfig.key].textContent !== undefined
-      ) {
-        elements.spotPriceDisplay[metalConfig.key].textContent = formatCurrency(
-          spotPrices[metalConfig.key]
-        );
-      }
-      // Don't record default prices in history automatically
+    // Use the default price when none is stored; defaults are not recorded in history.
+    spotPrices[metalConfig.key] = storedSpot ? parseFloat(storedSpot) : metalConfig.defaultPrice;
+    const display = elements.spotPriceDisplay[metalConfig.key];
+    if (display && display.textContent !== undefined && !isSpotInlineEditOpen(display)) {
+      display.textContent = formatCurrency(spotPrices[metalConfig.key]);
     }
 
     // Update timestamp display
@@ -1177,6 +1173,13 @@ const updateSparkline = async (metalKey) => {
   gradient.addColorStop(0, color);
   gradient.addColorStop(1, "transparent");
 
+  // Fixed bounds stop Chart.js rounding the axis to tick-friendly values, which in a short
+  // band can double the range and flatten the line.
+  const finite = data.filter(Number.isFinite);
+  const lo = Math.min(...finite);
+  const hi = Math.max(...finite);
+  const pad = (hi - lo) * 0.05 || Math.abs(hi) * 0.01 || 1;
+
   const sparklineConfig = {
     type: "line",
     data: {
@@ -1196,7 +1199,7 @@ const updateSparkline = async (metalKey) => {
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      layout: { padding: { top: 6, right: 0, bottom: 0, left: 0 } },
+      layout: { padding: { top: 2, right: 0, bottom: 0, left: 0 } },
       plugins: {
         legend: { display: false },
         tooltip: { enabled: false },
@@ -1211,11 +1214,11 @@ const updateSparkline = async (metalKey) => {
         y: {
           display: false,
           beginAtZero: false,
-          suggestedMin: data.length ? Math.min(...data) * 0.99 : undefined,
-          suggestedMax: data.length ? Math.max(...data) * 1.01 : undefined,
+          min: lo - pad,
+          max: hi + pad,
         },
       },
-      animation: { duration: 400 },
+      animation: prefersReducedMotion() ? false : { duration: 400 },
       interaction: { enabled: false },
     },
   };
@@ -1229,7 +1232,8 @@ const updateSparkline = async (metalKey) => {
  * Modes: close-close (default), open-open, open-close.
  * Graceful degradation: when only 1 entry/day exists, first === last so all modes match.
  * @param {string} metalName - 'Silver', 'Gold', etc.
- * @returns {{ pct: number, valid: boolean }}
+ * @returns {{ pct: number, valid: boolean, oldPrice?: number, newPrice?: number }} The
+ *   percentage and, when valid, the two prices it compares.
  */
 const get24hChange = (metalName) => {
   const mode = localStorage.getItem(SPOT_COMPARE_MODE_KEY) || "close-close";
@@ -1257,7 +1261,7 @@ const get24hChange = (metalName) => {
   }
 
   if (!oldPrice || oldPrice === 0) return { pct: 0, valid: false };
-  return { pct: ((newPrice - oldPrice) / oldPrice) * 100, valid: true };
+  return { pct: ((newPrice - oldPrice) / oldPrice) * 100, valid: true, oldPrice, newPrice };
 };
 
 /**
@@ -1350,7 +1354,7 @@ const updateSpotChangePercent = (metalKey, precomputedData = null) => {
   // trend. updateSpotCardColor() compares against the last different price in ALL
   // history, but the user expects the arrow to reflect the selected period.
   const priceEl = elements.spotPriceDisplay[metalKey];
-  if (priceEl) {
+  if (priceEl && !isSpotInlineEditOpen(priceEl)) {
     const currentPrice = spotPrices[metalKey];
     // Same display seam as updateSpotCardColor — copper renders $/lb here too.
     const formatted = formatSpotCardValue(metalKey, currentPrice);
@@ -1374,9 +1378,11 @@ const updateSpotChangePercent = (metalKey, precomputedData = null) => {
 };
 
 /**
- * Refreshes sparklines on all 4 metal cards concurrently
+ * Refreshes sparklines on all 4 metal cards concurrently, and the stack headline's
+ * Today figure, which reads the same spot history and 24h comparison mode.
  */
 const updateAllSparklines = async () => {
+  if (typeof refreshStackHeadline === "function") refreshStackHeadline();
   await Promise.all(Object.values(METALS).map((mc) => updateSparkline(mc.key)));
 };
 
@@ -1393,11 +1399,13 @@ const destroySparklines = () => {
 };
 
 /**
- * Opens an inline input on a spot card price for manual editing (shift+click)
- * @param {HTMLElement} valueEl - The .spot-card-value element that was clicked
+ * Opens an inline input on a spot card price for manual editing (edit button, shift+click
+ * or long-press)
+ * @param {HTMLElement} valueEl - The .spot-card-value element to edit
  * @param {string} metalKey - Metal key ('silver', 'gold', etc.)
+ * @param {HTMLElement} [returnFocusEl] - Element that takes focus when the edit closes
  */
-const startSpotInlineEdit = (valueEl, metalKey) => {
+const startSpotInlineEdit = (valueEl, metalKey, returnFocusEl) => {
   if (valueEl.querySelector(".spot-inline-input")) return; // already editing
 
   const metalConfig = Object.values(METALS).find((m) => m.key === metalKey);
@@ -1423,12 +1431,35 @@ const startSpotInlineEdit = (valueEl, metalKey) => {
   input.focus();
   input.select();
 
-  const cancel = () => {
+  // The edit closes once: Enter or Escape removes the input, and a late blur must not
+  // restore the old price over a saved one.
+  let closed = false;
+  const close = () => {
+    closed = true;
+    if (returnFocusEl) returnFocusEl.focus();
+  };
+
+  // Restores the price without moving focus, so Tab or a click elsewhere keeps its target.
+  const restore = () => {
+    if (closed) return;
+    closed = true;
     // nosemgrep: javascript.browser.security.insecure-innerhtml.insecure-innerhtml, javascript.browser.security.insecure-document-method.insecure-document-method
     valueEl.innerHTML = originalHTML;
+    // A background refresh may have saved a new price while the edit was open; the
+    // writers skipped this card then, so repaint it from the current model.
+    if (spotPrices[metalKey] !== currentPrice) {
+      updateSpotCardColor(metalKey, spotPrices[metalKey]);
+    }
+  };
+
+  const cancel = () => {
+    if (closed) return;
+    restore();
+    close();
   };
 
   const save = () => {
+    if (closed) return;
     const entered = parseFloat(input.value);
     if (isNaN(entered) || entered <= 0) {
       cancel();
@@ -1440,6 +1471,7 @@ const startSpotInlineEdit = (valueEl, metalKey) => {
 
     localStorage.setItem(metalConfig.localStorageKey, num);
     spotPrices[metalKey] = num;
+    closed = true;
     valueEl.textContent = formatSpotCardValue(metalKey, num);
     updateSpotCardColor(metalKey, num);
     recordSpot(num, "manual", metalConfig.name);
@@ -1457,6 +1489,7 @@ const startSpotInlineEdit = (valueEl, metalKey) => {
     if (typeof renderRatioChips === "function") renderRatioChips();
 
     notifySpotUpdated();
+    close();
   };
 
   input.addEventListener("keydown", (e) => {
@@ -1469,7 +1502,7 @@ const startSpotInlineEdit = (valueEl, metalKey) => {
     }
   });
 
-  input.addEventListener("blur", cancel);
+  input.addEventListener("blur", restore);
 };
 
 // =============================================================================

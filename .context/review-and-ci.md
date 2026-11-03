@@ -88,7 +88,7 @@ configured for Copilot beyond GitHub's defaults (GitHub + Playwright); Plane is 
 | Branch | Required status checks                                                                | Other enforced rules                                                                                                          |
 | ------ | ------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | `dev`  | `Codacy Static Code Analysis` (56611), **`Tests` and `Vale`** (GitHub Actions, 15368) | thread resolution required, **0 approvals required**, `allowed_merge_methods: ["merge"]`, signed commits, no bypass actors    |
-| `main` | `Codacy Static Code Analysis` **and `CodeRabbit`** (347564)                           | plus a **CodeQL `code_scanning` rule** (`alerts_threshold: errors`, `security_alerts_threshold: critical`), thread resolution |
+| `main` | `Codacy Static Code Analysis`, `CodeRabbit` (347564), **`Tests` and `Vale`**          | plus a **CodeQL `code_scanning` rule** (`alerts_threshold: errors`, `security_alerts_threshold: critical`), thread resolution |
 
 `Tests` is the report job of `.github/workflows/tests.yml`. On a PR it runs the
 `test:changed` selection; `.context/testing.md` describes the selection and the `dev` push run.
@@ -100,6 +100,12 @@ always reports. A PR that changes no `README.md`, `.context/**/*.md` or Vale con
 without running Vale. Otherwise the check fails on any Prose alert on a line the PR adds;
 existing alerts never fail it. A second, informational check named `vale` (reviewdog) carries
 the annotations.
+
+A `dev → main` ship PR adds every line changed since the last release, so its `Vale` check can
+fail on alerts that no single `dev` PR reported. Before you open the ship PR, run Vale on the
+changed docs. Keep the alerts on lines that `git diff -U0 origin/main...origin/dev` adds, and
+fix them in a chore PR to `dev`. Vale does not end a sentence at a period that follows a code
+span at the end of a line. It then reports the long sentence where the earlier sentence starts.
 
 **CodeQL is not a required status check on `dev`.** On `main` it is enforced as a
 code-scanning rule rather than a status check. That distinction is why a `dev` PR can
@@ -241,6 +247,9 @@ Codacy runs agentlint policies on instruction files (CLAUDE.md, AGENTS.md, skill
 - When they conflict, project instructions win; note the tension.
 - Do not reflexively dismiss every finding as a false positive.
 - If a policy catches a genuine gap, fix it.
+- Accepted deduction: `consistency/referenced-files-exist` reports `PRODUCT.md` and `DESIGN.md` as missing
+  from `CLAUDE.md` and `AGENTS.md`. The rule checks only the files agentlinter scans (`CLAUDE.md`,
+  `AGENTS.md`, `SECURITY.md`); both files exist at the repo root, where Impeccable reads them.
 - Add the `coderabbit-review` label when you want a full CodeRabbit review. It is the one reviewer that skips unlabelled PRs. Codacy AI and Copilot run automatically, so budget for their threads on every PR including docs-only chores. Codex reviews once when the PR is opened or marked ready; after a substantial fix, comment `@codex review` if you want a second pass. (See "Review routing" above.)
 
 ## Known Reviewer False Positives

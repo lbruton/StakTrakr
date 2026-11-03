@@ -57,11 +57,12 @@
   --danger: oklch(0.577 0.215 27.3);
   --danger-hover: oklch(0.505 0.19 27.5);
 
-  /* Status text: each theme sets all three, at 4.5:1 or more on --bg-secondary.
-     Use these for status words; the base tokens above are for fills and icons. */
+  /* Status and accent text: each theme sets all four, at 4.5:1 or more on --bg-secondary
+     and --bg-on-frame. Use these for words; the base tokens above are for fills and icons. */
   --success-text: oklch(0.48 0.11 163);
   --warning-text: oklch(0.49 0.13 55);
   --danger-text: oklch(0.5 0.19 27);
+  --primary-text: oklch(0.52 0.2 262);
 
   /* Disclaimer warning color */
   --disclaimer-color: var(--warning);
@@ -78,6 +79,9 @@
   --bg-secondary: var(--bg-elev-1);
   --bg-tertiary: var(--bg-elev-2);
   --bg-card: var(--surface);
+  /* A surface set on a frame (--bg-secondary) sits one step off it, away from its text colour:
+     lighter in the light themes, darker in the dark themes, so muted labels keep 4.5:1. */
+  --bg-on-frame: var(--bg-card);
 
   /* Text Tokens */
   --text: oklch(0.252 0.021 251.6);
@@ -176,7 +180,11 @@
   --font-mono: "Geist Mono", ui-monospace, "SF Mono", "Cascadia Code", "Menlo", monospace;
 
   /* Transitions */
-  --transition: var(--transition);
+  --transition-timing: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition:
+    background-color var(--transition-timing), color var(--transition-timing),
+    border-color var(--transition-timing), box-shadow var(--transition-timing),
+    opacity var(--transition-timing), transform var(--transition-timing);
 
   /* STRK-25 — Semantic text on colored backgrounds */
   --text-inverse: oklch(1 0 0);
@@ -248,6 +256,7 @@
   --success-text: oklch(0.72 0.16 155);
   --warning-text: oklch(0.78 0.15 80);
   --danger-text: oklch(0.72 0.17 25);
+  --primary-text: var(--primary);
 
   /* Disclaimer warning color */
   --disclaimer-color: var(--danger);
@@ -292,6 +301,7 @@
   --bg-secondary: oklch(0.22 0.008 85);
   --bg-tertiary: oklch(0.28 0.007 85);
   --bg-card: oklch(0.22 0.01 85);
+  --bg-on-frame: var(--bg-primary);
 
   /* Text Colors - Warm neutrals */
   --text-primary: oklch(0.95 0.005 85);
@@ -396,6 +406,7 @@
   --success-text: #34d399;
   --warning-text: #fbbf24;
   --danger-text: #f87171;
+  --primary-text: var(--primary);
 
   /* Disclaimer warning color */
   --disclaimer-color: var(--danger);
@@ -435,6 +446,7 @@
   --bg-secondary: #1e293b;
   --bg-tertiary: #334155;
   --bg-card: #1e293b;
+  --bg-on-frame: var(--bg-primary);
 
   /* Text Colors - Slate */
   --text-primary: #f8fafc;
@@ -536,6 +548,7 @@
   --success-text: oklch(0.47 0.1 130);
   --warning-text: oklch(0.48 0.12 55);
   --danger-text: oklch(0.48 0.18 27);
+  --primary-text: oklch(0.5 0.12 51);
 
   /* Metal-specific Colors - Sepia tone (darkened for WCAG AA text contrast on warm bg) */
   --silver: oklch(0.531 0.01 67.6);
@@ -732,10 +745,9 @@ label {
   margin-bottom: var(--spacing-xl);
   width: 100%;
   padding: var(--spacing);
-  background: var(--bg-card);
+  background: var(--bg-secondary);
   border-radius: var(--radius-lg);
   border: 1px solid var(--border);
-  box-shadow: var(--shadow-sm);
   /* min-height removed — let content determine header height (STAK-514) */
 }
 
@@ -879,136 +891,214 @@ section {
   box-sizing: border-box;
 }
 
+/* Footer: thanks and copyright on the left, text links over the price status on the right.
+   It holds no images, so it renders offline. */
 .app-footer {
   margin-top: var(--spacing-xl);
-  text-align: center;
-  font-size: var(--font-size-lg);
-  color: var(--text-secondary);
-  padding: var(--spacing);
-  background: var(--bg-card);
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow-sm);
-}
-
-.app-footer a {
-  color: var(--primary);
-}
-
-.footer-meta {
+  padding: 0.9rem 1.25rem;
   font-size: var(--font-size-sm);
   color: var(--text-secondary);
-  line-height: 1.6;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
 }
-
-.footer-badges {
+.footer-row {
   display: flex;
-  justify-content: center;
-  align-items: center;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 8px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 2rem;
 }
-
-.footer-badges img {
-  vertical-align: middle;
+.footer-about {
+  flex: 1 1 24rem;
+  max-width: 40rem;
+  min-width: 0;
 }
-
-/* ── Shield badge component ──
-   Two-part badges matching shields.io flat-square style.
-   Structure: <a class="shield-badge"><span class="shield-badge-label">label</span><span class="shield-badge-value shield-badge-value--COLOR">value</span></a>
-   Colors use the shields.io palette with white text on all backgrounds. */
-.shield-badge {
-  display: inline-flex;
-  height: 20px;
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-  font-family: "Verdana", "DejaVu Sans", sans-serif;
-  font-size: var(--font-size-xs);
-  vertical-align: middle;
-  text-decoration: none;
-  line-height: 20px;
-  cursor: pointer;
-  border: none;
-  padding: 0;
-  background: none;
+/* Each sentence of the thanks starts its own line, so a wide footer never splits one mid-phrase. */
+.footer-thanks-line {
+  display: block;
 }
-.shield-badge:hover {
-  text-decoration: none;
-  opacity: 0.85;
+.footer-thanks {
+  margin: 0;
 }
-.shield-badge-label {
-  padding: 0 6px;
-  background: #555;
-  color: #fff;
-  white-space: nowrap;
+.footer-thanks {
+  line-height: 1.5;
 }
-.shield-badge-value {
-  padding: 0 6px;
-  white-space: nowrap;
+.footer-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.15rem;
 }
-/* shields.io palette — WCAG AA compliant contrast
-   Dark text (#1a1a1a) on bright backgrounds (green/yellow/orange/grey)
-   White text (#fff) on dark backgrounds (red/blue/label grey) */
-.shield-badge-value--brightgreen {
-  background: #4c1;
-  color: #1a1a1a;
+.footer-links,
+.footer-status {
+  justify-content: flex-end;
 }
-.shield-badge-value--green {
-  background: #97ca00;
-  color: #1a1a1a;
+.footer-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 0.25rem;
 }
-.shield-badge-value--yellow {
-  background: #dfb317;
-  color: #1a1a1a;
-}
-.shield-badge-value--orange {
-  background: #fe7d37;
-  color: #1a1a1a;
-}
-.shield-badge-value--red {
-  background: #e05d44;
-  color: #fff;
-}
-.shield-badge-value--blue {
-  background: #0969da;
-  color: #fff;
-}
-.shield-badge-value--grey {
-  background: #9f9f9f;
-  color: #1a1a1a;
-}
-
-/* Legacy .version-badge — no longer used in footer, removed in STAK-536 */
-
-/* Environment badge (BETA / PREVIEW / LOCAL) — STAK-376 */
-.env-badge {
-  position: absolute;
-  bottom: -2px;
-  left: 2px;
+/* Each separator wraps with the link after it, so no line ends on a dot. */
+.footer-version,
+.footer-item {
   display: inline-flex;
   align-items: center;
-  font-size: var(--font-size-xs);
-  font-weight: 700;
+  gap: 0 0.25rem;
+  white-space: nowrap;
+}
+.footer-sep {
+  color: var(--text-muted);
+  padding: 0 0.15rem;
+}
+.footer-link,
+.footer-status-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 32px;
+  padding: 0 0.15rem;
+  font: inherit;
+  color: var(--text-secondary);
+  background: none;
+  border: 0;
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  cursor: pointer;
+}
+.footer-link:hover,
+.footer-status-btn:hover {
+  color: var(--text-primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.footer-link:focus-visible,
+.footer-status-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+.footer-figure {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+/* The dot is a non-text indicator in the *-text tokens, the only status colours at 3:1 on the
+   frame in every theme. The state word beside it carries the meaning. */
+.footer-dot {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+.footer-state {
+  font-weight: 500;
+}
+.footer-status-btn[data-state="ok"] .footer-dot {
+  background: var(--success-text);
+}
+.footer-status-btn[data-state="ok"] .footer-state {
+  color: var(--success-text);
+}
+.footer-status-btn[data-state="stale"] .footer-dot,
+.footer-status-btn[data-state="down"] .footer-dot {
+  background: var(--warning-text);
+}
+.footer-status-btn[data-state="stale"] .footer-state,
+.footer-status-btn[data-state="down"] .footer-state,
+.footer-infra,
+.footer-update {
+  color: var(--warning-text);
+  font-weight: 500;
+}
+.footer-status-btn[data-state="down"] .footer-dot {
+  background: var(--danger-text);
+}
+.footer-status-btn[data-state="down"] .footer-state {
+  color: var(--danger-text);
+}
+.footer-infra[hidden],
+.footer-update[hidden] {
+  display: none;
+}
+.footer-meta {
+  margin: 0.25rem 0 0;
+  font-size: max(12px, var(--font-size-xs));
+  color: var(--text-secondary);
+}
+.footer-meta a {
+  color: inherit;
+  text-decoration: none;
+}
+.footer-meta a:hover {
+  color: var(--text-primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+@media (max-width: 767px) {
+  /* 12px floor for chrome text on phones; max() keeps a larger user font size in effect. */
+  .app-footer {
+    font-size: max(12px, var(--font-size-sm));
+  }
+  .footer-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .footer-about {
+    flex: none;
+  }
+  .footer-side {
+    align-items: flex-start;
+  }
+  /* Each link group takes its own line here, so the separator between them is hidden. */
+  .footer-links {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .footer-groups-sep {
+    display: none;
+  }
+  .footer-links,
+  .footer-status {
+    justify-content: flex-start;
+  }
+  /* The status wraps by whole parts (state, ages, infra). A part breaks only when wider than the line. */
+  .footer-status-btn {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    row-gap: 0;
+    text-align: left;
+    max-width: 100%;
+  }
+  .footer-status-btn > span {
+    max-width: 100%;
+  }
+  .footer-link,
+  .footer-status-btn {
+    min-height: 44px;
+  }
+}
+
+/* Environment tag (BETA / PREVIEW / LOCAL): an outlined label that differs by its word only. */
+.env-badge {
+  flex: none;
+  margin-left: 0.6rem;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
   letter-spacing: 0.08em;
-  padding: 1px 6px;
-  border-radius: var(--radius);
+  line-height: 1;
+  padding: 0.3rem 0.45rem;
+  color: var(--text-secondary);
+  background: none;
+  border: 1px solid color-mix(in oklch, currentColor 55%, transparent);
+  border-radius: var(--radius-sm);
   text-transform: uppercase;
-  line-height: 1.4;
-  z-index: 1;
   pointer-events: none;
 }
-.env-badge--beta {
-  background: var(--warning, #f0ad4e);
-  color: #1a1a1a;
-}
-.env-badge--preview {
-  background: var(--info, #5bc0de);
-  color: #1a1a1a;
-}
-.env-badge--local {
-  background: var(--text-muted, #999);
-  color: #fff;
+@media (max-width: 767px) {
+  .env-badge {
+    font-size: max(12px, 0.6875rem);
+  }
 }
 
 /* =============================================================================
@@ -1726,6 +1816,20 @@ section:hover {
   box-shadow: var(--shadow-lg);
 }
 
+/* The tab panels share the frame surface of the header, spot cards and Your stack, flat at rest
+   and on hover. */
+.search-section,
+.search-section:hover,
+.table-section,
+.table-section:hover,
+.vendor-prices-section,
+.vendor-prices-section:hover,
+.collections-section,
+.collections-section:hover {
+  background: var(--bg-secondary);
+  box-shadow: none;
+}
+
 .grid {
   display: grid;
   gap: var(--spacing);
@@ -1839,7 +1943,7 @@ textarea:focus {
   color: var(--text-primary);
   user-select: none;
   -webkit-user-select: none;
-  transition: background var(--transition);
+  transition: background-color var(--transition-timing);
   min-height: 36px;
   box-sizing: border-box;
 }
@@ -1900,7 +2004,7 @@ details.form-section > summary.form-section-header::after {
   transform: rotate(-45deg);
   margin-left: auto;
   flex-shrink: 0;
-  transition: transform var(--transition);
+  transition: transform var(--transition-timing);
 }
 
 details.form-section[open] > summary.form-section-header::after {
@@ -2087,8 +2191,264 @@ input[type="submit"] {
 }
 
 /* =============================================================================
+   YOUR STACK FIGURES — the stack's value and today's change, melt value, gain on
+   cost, cost basis and realized, over the totals ledger in the same frame
+   ============================================================================= */
+
+.stack-headline-title {
+  font-family: var(--font-heading);
+  font-size: var(--font-size-xl);
+  font-weight: 400;
+  color: var(--text-primary);
+  margin: 0 0 var(--spacing-sm);
+}
+
+/* The figures and the activity line on the left, the weights on the right. A rule
+   separates the head from the ledger below. The explicit display beats the UA's
+   [hidden] rule, so restate it. */
+.stack-headline-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) fit-content(18rem);
+  grid-template-areas: "figures weights" "activity weights";
+  gap: var(--spacing) var(--spacing-xl);
+  padding-bottom: var(--spacing);
+  border-bottom: 1px solid var(--border);
+}
+.stack-headline-head[hidden],
+.stack-activity[hidden],
+.stack-weights[hidden],
+.hide-realized .stack-figure-realized {
+  display: none;
+}
+
+/* The lead takes the first track and never truncates; every other figure gets an equal
+   auto column, so a hidden Realized closes its column. */
+.stack-headline-figures {
+  grid-area: figures;
+  display: grid;
+  grid-template-columns: minmax(max-content, 1.5fr);
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  align-items: end;
+  gap: var(--spacing) var(--spacing-lg);
+  margin: 0;
+}
+
+.stack-figure {
+  min-width: 0;
+}
+
+.stack-figure-label {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.stack-figure dd {
+  margin: 0;
+}
+
+/* The weights column takes width from the four figures after the lead, so they step
+   down from 1.375rem to fit a 1280px page. */
+.stack-figure-value {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 1.25rem;
+  color: var(--text-primary);
+  overflow-wrap: break-word;
+}
+
+/* A 26px round button in the lead's label, with a 44px hit area at any root size. The
+   ring is an inset shadow: a control, not a bordered frame inside the card. */
+.stack-lead-swap {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 1.625rem;
+  height: 1.625rem;
+  margin-left: 0.35rem;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px var(--border);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  vertical-align: middle;
+  cursor: pointer;
+}
+.stack-lead-swap::after {
+  content: "";
+  position: absolute;
+  inset: calc(50% - 22px);
+}
+.stack-lead-swap:hover {
+  color: var(--text-primary);
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
+.stack-lead-swap:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+.stack-lead-swap svg {
+  width: 0.9rem;
+  height: 0.9rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.stack-activity {
+  grid-area: activity;
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+.stack-activity > span {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.stack-activity-figure {
+  color: var(--text-primary);
+}
+
+.stack-weights {
+  grid-area: weights;
+  align-self: end;
+  padding-left: var(--spacing-lg);
+  border-left: 1px solid var(--border);
+}
+.stack-weights-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.6rem;
+  margin: 0 0 0.35rem;
+}
+.stack-weights h3 {
+  margin: 0;
+}
+.stack-weights-rate {
+  white-space: nowrap;
+}
+.stack-weights-rate[hidden] {
+  display: none;
+}
+.stack-weights-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.stack-weight-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto minmax(5.75rem, auto);
+  align-items: baseline;
+  gap: 0 0.6rem;
+  padding: 0.2rem 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+}
+.stack-weight-row .totals-metal-mark {
+  align-self: center;
+}
+.stack-weight-oz,
+.stack-weight-pace {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.stack-weight-pace {
+  color: var(--text-secondary);
+}
+.stack-weights-note {
+  margin: 0.35rem 0 0;
+  font-size: max(12px, var(--font-size-sm));
+  color: var(--text-secondary);
+  text-align: right;
+}
+
+.stack-figure-lead .stack-figure-value {
+  font-size: 2.5rem;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.stack-figure-sub {
+  margin-top: 0.15rem;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  overflow-wrap: break-word;
+}
+
+.stack-figure-today {
+  margin-top: 0.35rem;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-md);
+}
+
+/* Phones: the lead takes the full width; the other figures fill two columns below it.
+   The activity line and the weights list, under a rule, follow the figures. */
+@media (max-width: 767px) {
+  .stack-headline-head {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "figures" "activity" "weights";
+  }
+  .stack-headline-figures {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-auto-flow: row;
+    gap: var(--spacing) var(--spacing);
+  }
+  .stack-weights {
+    padding: var(--spacing-sm) 0 0;
+    border-left: 0;
+    border-top: 1px solid var(--border);
+  }
+  .stack-weight-row,
+  .stack-activity {
+    font-size: max(12px, var(--font-size-sm));
+  }
+  .stack-weight-row {
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+  }
+  .stack-figure-lead {
+    grid-column: 1 / -1;
+  }
+  .stack-figure-lead .stack-figure-value {
+    font-size: 2rem;
+  }
+  .stack-figure-value {
+    font-size: 1.125rem;
+  }
+}
+
+.stack-headline-empty {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing);
+  padding-bottom: var(--spacing-sm);
+}
+.stack-headline-empty[hidden] {
+  display: none;
+}
+.stack-headline-empty p {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+/* =============================================================================
    SPOT PRICE CARDS — Sparkline Redesign
    ============================================================================= */
+
+/* Each spot card draws its own frame, so the section around them draws none. */
+#spotPricesSection,
+#spotPricesSection:hover {
+  background: none;
+  border: 0;
+  padding: 0;
+  box-shadow: none;
+}
 
 .spot-input {
   background: var(--bg-secondary);
@@ -2130,7 +2490,7 @@ input[type="submit"] {
 
 .spot-card {
   position: relative;
-  background: var(--bg-primary);
+  background: var(--bg-secondary);
   border-radius: var(--radius-lg);
   padding: 0;
   text-align: center;
@@ -2138,16 +2498,22 @@ input[type="submit"] {
   box-shadow: var(--shadow-sm);
   overflow: hidden;
   height: 100%;
+  container: spot-card / inline-size;
 }
 
-/* Sparkline canvas — positioned behind card content */
+/* The sparkline has its own row so no card text sits on the chart. Chart.js sizes the
+   canvas to its parent, so the band sets the height. */
+.spot-sparkline-band {
+  position: relative;
+  height: 3.5rem;
+  margin: 0.25rem 0 0.125rem;
+}
+
 .spot-sparkline {
-  position: absolute;
-  inset: 0;
+  display: block;
   width: 100%;
   height: 100%;
-  z-index: 0;
-  opacity: 0.35;
+  opacity: 0.7;
   pointer-events: none;
 }
 
@@ -2238,7 +2604,8 @@ input[type="submit"] {
    steal taps from the shift-click-to-edit price. A genuine 44px target needs
    the card header re-laid out — that belongs to the Phase 4 dashboard redesign,
    which is already scoped to rebuild these cards. */
-.spot-sync-icon {
+.spot-sync-icon,
+.spot-edit-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2255,12 +2622,14 @@ input[type="submit"] {
   transition: var(--transition);
 }
 
-.spot-sync-icon:hover:not(:disabled) {
+.spot-sync-icon:hover:not(:disabled),
+.spot-edit-btn:hover {
   color: var(--primary);
   border-color: var(--primary);
 }
 
-.spot-sync-icon:focus-visible {
+.spot-sync-icon:focus-visible,
+.spot-edit-btn:focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 1px;
 }
@@ -2333,29 +2702,19 @@ input[type="submit"] {
   }
 }
 
-/* Card value — above sparkline */
+/* The price stays neutral: the arrow glyph shows the direction and only the change
+   line below carries the gain and loss colours. */
 .spot-card-value {
   position: relative;
   z-index: 1;
   font-size: var(--font-size-2xl);
   font-weight: 700;
-  color: var(--primary);
+  color: var(--text-primary);
   cursor: default;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   padding: 0 var(--spacing);
-}
-
-/* Spot price change indicators */
-.spot-up {
-  color: var(--success);
-}
-.spot-down {
-  color: var(--danger);
-}
-.spot-unchanged {
-  color: var(--warning);
 }
 
 .spot-card-change {
@@ -2368,24 +2727,35 @@ input[type="submit"] {
   min-height: 1.1em;
 }
 .spot-change-up {
-  color: var(--success);
+  color: var(--success-text);
 }
 .spot-change-down {
-  color: var(--danger);
+  color: var(--danger-text);
 }
 
-/* Portfolio card gain/loss percentage — subtle prefix left of value */
+/* Gain/loss percentage prefix: size and weight de-emphasise it, never opacity, which would
+   push the status colour under 4.5:1. */
 .gain-loss-pct {
   font-size: var(--font-size-xs);
   font-weight: 400;
-  opacity: 0.7;
   margin-right: 0.35em;
+}
+
+/* Gain and loss text set by formatLossProfit and the totals and table gain/loss writers.
+   The compound selectors outrank the later .gainloss-estimated colour. */
+.gl-gain,
+.gainloss-estimated.gl-gain {
+  color: var(--success-text);
+}
+.gl-loss,
+.gainloss-estimated.gl-loss {
+  color: var(--danger-text);
 }
 
 .spot-card-timestamp {
   position: relative;
   z-index: 1;
-  font-size: var(--font-size-xs);
+  font-size: max(12px, var(--font-size-xs));
   color: var(--text-muted);
   margin-top: 0.25rem;
   font-weight: 400;
@@ -2857,16 +3227,43 @@ input[type="submit"] {
   margin-bottom: var(--spacing-md);
 }
 
-/* Header toggle buttons (STACK-54) */
-.header-toggle-btn {
-  width: 56px;
-  height: 56px;
-  padding: 0;
-  flex-direction: column;
+/* Header toggle buttons: unboxed icons at the weight of the tab labels, with a 44px hit area.
+   The id scope outranks the theme-coloured .theme-btn and .btn box rules. */
+#headerBtnContainer .header-toggle-btn {
+  display: inline-flex;
+  flex-direction: row;
   align-items: center;
   justify-content: center;
+  gap: 0.4rem;
+  min-width: 44px;
+  min-height: 44px;
+  width: auto;
+  height: auto;
+  padding: 0 0.6rem;
   flex-shrink: 0;
   position: relative;
+  overflow: visible;
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: none;
+  border: 0;
+  border-radius: var(--radius);
+  box-shadow: none;
+  transform: none;
+}
+#headerBtnContainer .header-toggle-btn::before {
+  content: none;
+}
+#headerBtnContainer .header-toggle-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+  box-shadow: none;
+  transform: none;
+}
+#headerBtnContainer .header-toggle-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 .header-toggle-btn svg {
@@ -2875,24 +3272,13 @@ input[type="submit"] {
   flex-shrink: 0;
 }
 
-/* #headerCloudSyncWrapper sizing rules removed with the button (STRK-287). */
-
-.header-buttons--show-text .header-toggle-btn {
-  height: auto;
-  min-height: 56px;
-  padding: 4px 4px;
-}
-
 .header-btn-text {
   display: none;
-  font-size: var(--font-size-xs);
   line-height: 1;
-  margin-top: 1px;
-  text-align: center;
 }
 
 .header-buttons--show-text .header-btn-text {
-  display: block;
+  display: inline;
 }
 
 /* Settings checkbox labels (STACK-54) */
@@ -2938,48 +3324,6 @@ input[type="submit"] {
   min-width: 3rem;
   position: relative;
   overflow: hidden;
-}
-
-.theme-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: var(--shadow);
-  border-color: var(--primary);
-}
-
-/* Theme button colors driven by [data-theme] attribute so they apply immediately
-   when the inline head script sets data-theme — before any JS runs. The class variants
-   (.dark/.light/.sepia/.slate) are kept for backwards compatibility but are now redundant. */
-[data-theme="dark"] .theme-btn,
-.theme-btn.dark {
-  background: #2a2520;
-  color: #f0ebe5;
-  border-color: #3d3530;
-}
-
-:is([data-theme="slate"]) .theme-btn,
-.theme-btn.slate {
-  background: #1e293b;
-  color: #f8fafc;
-  border-color: #334155;
-}
-
-:root:not([data-theme]) .theme-btn,
-[data-theme="light"] .theme-btn,
-.theme-btn.light {
-  background: #f8fafc;
-  color: #1e293b;
-  border-color: #cbd5e1;
-}
-
-[data-theme="sepia"] .theme-btn,
-.theme-btn.sepia {
-  background: #f2e7d5;
-  color: #3e2f1e;
-  border-color: #d1c2a5;
-}
-
-.theme-btn:hover::before {
-  left: 100%;
 }
 
 .theme-display {
@@ -5553,7 +5897,18 @@ input.spot-lookup-flash {
   margin-top: 8px;
   font-size: var(--font-size-sm);
   padding: 4px 12px;
-  opacity: 0.85;
+}
+/* The fill holds one tone at rest and on hover. Dark and slate keep --secondary, since their
+   lighter hover tone is under 4.5:1. White on the light and sepia --secondary is under 4.5:1;
+   their darker hover tone passes, so the button uses it there. The theme rule follows the
+   hover rule so it wins the tie. */
+.about-troubleshooting .btn.secondary:hover {
+  background: var(--secondary);
+}
+:root:not([data-theme]) .about-troubleshooting .btn.secondary,
+[data-theme="light"] .about-troubleshooting .btn.secondary,
+[data-theme="sepia"] .about-troubleshooting .btn.secondary {
+  background: var(--secondary-hover);
 }
 
 /* F) Sidebar separator */
@@ -5840,311 +6195,283 @@ input.spot-lookup-flash {
 }
 
 /* =============================================================================
-   TOTALS CARDS — CAROUSEL
-   Five summary cards in a snap-scroll row. All Metals shows first on mobile.
-   At ≥1350px all five are visible at once (no carousel chrome needed).
+   TOTALS LEDGER
+   One table under the Your stack figures: a row per held metal in Metal Order, with
+   All Metals as the footer. Figures are mono with tabular numerals, right-aligned,
+   so decimals line up.
    ============================================================================= */
 
-/* Wrapper provides positioning context for the prev/next arrow buttons */
-.totals-wrapper {
-  position: relative;
+/* One flat frame for the figures and the ledger: the global section rule adds a card
+   surface and a shadow. */
+#totalsSectionEl,
+#totalsSectionEl:hover {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: none;
+  padding: var(--spacing) var(--spacing-lg) var(--spacing-sm);
+  overflow-x: auto;
 }
 
-/* Carousel row: horizontal flex, snap-scroll, hidden scrollbar */
-.totals {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: var(--spacing);
-  overflow-x: auto;
-  scroll-snap-type: x mandatory;
-  scroll-behavior: smooth;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-  padding: 0 2px var(--spacing-sm); /* 2px side padding so box-shadow isn't clipped */
+/* The global table, row and cell rules add a surface, stripes and column borders;
+   the ledger draws only its row rules. */
+.totals-ledger {
+  width: 100%;
+  border-collapse: collapse;
+  background: none;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: visible;
 }
-.totals::-webkit-scrollbar {
+/* With no Items the ledger has no row to show; the phone block display beats [hidden]. */
+.totals-ledger[hidden] {
   display: none;
 }
-
-/* Cards: snap to start, sized per viewport */
-.total-card {
-  background: var(--bg-secondary);
-  border-radius: var(--radius-lg);
-  padding: var(--spacing-lg);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow);
-  transition: var(--transition);
-  flex: 0 0 calc(100% - 1.5rem); /* mobile: nearly full width, next card peeks */
-  scroll-snap-align: start;
-  min-width: 0;
+.totals-ledger tr,
+.totals-ledger tr:nth-child(even),
+.totals-ledger tr:hover {
+  background: none;
+  filter: none;
+  box-shadow: none;
 }
-.total-card:hover {
-  box-shadow: var(--shadow-lg);
-}
-
-@media (min-width: 580px) {
-  .total-card {
-    flex: 0 0 calc(50% - var(--spacing) * 0.5);
-  }
-}
-@media (min-width: 960px) {
-  .total-card {
-    flex: 0 0 calc(33.333% - var(--spacing) * 0.667);
-  }
-}
-@media (min-width: 1350px) {
-  /* All cards (5, or 6 with copper) in one row — disable carousel scrolling */
-  .totals {
-    overflow-x: visible;
-    scroll-snap-type: none;
-  }
-  .total-card {
-    flex: 1;
-  }
+.totals-ledger :is(th, td) {
+  background: none;
+  border-right: 0;
+  cursor: inherit;
+  max-width: none;
+  overflow: visible;
+  font-size: var(--font-size-base);
+  line-height: 1.3;
+  transition: none; /* The row hover reaches every cell on one frame. */
 }
 
-/* Six-card tier (STRK-306/341) — every row is a uniform two-line block:
-   label left on the first line, value RIGHT-ALIGNED on the second, so
-   $123,456.78 never truncates AND row separators stay height-aligned
-   across all six cards. (The earlier per-row conditional wrap fixed
-   truncation but let long-value cards grow taller than their neighbors —
-   STRK-341 live review chose all-lines-drop over misaligned rows.)
-   Keyed on the data-cards count applyMetalOrder() stamps, so five-card
-   layouts stay pixel-identical to the pre-copper dashboard. */
-@media (min-width: 1350px) {
-  .totals[data-cards="6"] .total-item {
-    display: block;
-    padding: 0.3rem 0;
-  }
-  .totals[data-cards="6"] .total-label {
-    display: block;
-    font-size: var(--font-size-sm);
-    line-height: 1.2;
-  }
-  .totals[data-cards="6"] .total-value {
-    display: block;
-    overflow: visible;
-    text-overflow: clip;
-    text-align: right;
-    line-height: 1.35;
-  }
-}
-
-/* All Metals is pinned first in the carousel below 1350px (pre-existing
-   behavior, unchanged). At ≥1350px the pin resets and the user's
-   Settings › Metal Order config governs; the DEFAULT config now leads
-   with All Metals (STRK-306 review decision), so new users see the
-   aggregate card first at every width, while a stored custom order still
-   controls the ≥1350px row exactly as before. */
-.total-card-all {
-  order: -1;
-}
-@media (min-width: 1350px) {
-  .total-card-all {
-    order: 0;
-  } /* config/DOM order at full desktop */
-}
-
-/* ── Carousel navigation arrows ─────────────────────────────────────────── */
-.totals-nav-btn {
-  position: absolute;
-  top: calc(50% - 16px); /* 16px = half button height, above the dots row */
-  transform: translateY(-50%);
-  z-index: 10;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: 1px solid var(--border);
-  background: var(--bg-card);
-  color: var(--text-primary);
-  font-size: var(--font-size-xl);
-  line-height: 1;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: var(--shadow);
-  transition:
-    background 0.15s,
-    opacity 0.15s;
-  opacity: 0.85;
-  padding: 0;
-}
-.totals-nav-btn:hover {
-  background: var(--bg-secondary);
-  opacity: 1;
-}
-.totals-nav-btn:disabled {
-  opacity: 0.3;
-  cursor: default;
-}
-.totals-prev {
-  left: -14px;
-}
-.totals-next {
-  right: -14px;
-}
-
-@media (min-width: 1350px) {
-  .totals-prev,
-  .totals-next {
-    display: none;
-  }
-}
-
-/* ── Carousel dot indicators ─────────────────────────────────────────────── */
-.totals-dots {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 6px;
-  padding: 0.5rem 0 0;
-}
-.totals-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--border);
-  border: none;
-  cursor: pointer;
-  padding: 0;
-  transition:
-    background 0.2s,
-    transform 0.2s;
-}
-.totals-dot.active {
-  background: var(--primary);
-  transform: scale(1.3);
-}
-@media (min-width: 1350px) {
-  .totals-dots {
-    display: none;
-  }
-}
-
-.total-card {
-  background: var(--bg-secondary);
-  border-radius: var(--radius-lg);
-  padding: var(--spacing-lg);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow);
-  transition: var(--transition);
-  /* Prevent grid item from overflowing its cell (min-width:auto default causes overflow) */
-  min-width: 0;
-  overflow: hidden;
-}
-
-.total-card:hover {
-  box-shadow: var(--shadow-lg);
-}
-
-.total-title {
-  font-size: var(--font-size-xl);
-  font-weight: 700;
-  margin-bottom: var(--spacing);
-  color: var(--primary);
-  text-align: center;
-  padding-bottom: var(--spacing-sm);
-  border-bottom: 2px solid var(--border);
-}
-
-.total-group {
-  background: var(--bg-primary);
-  border-radius: var(--radius);
-  padding: var(--spacing);
-  margin: var(--spacing-sm) 0;
-  border: 1px solid var(--border);
-}
-
-.total-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.375rem 0;
-  border-bottom: 1px dashed var(--border);
-}
-
-.total-item:last-child {
-  border-bottom: none;
-}
-
-.total-label {
+.totals-ledger thead th {
+  font-size: var(--font-size-sm);
   font-weight: 500;
   color: var(--text-secondary);
-  font-size: var(--font-size-base);
+  text-align: right;
   white-space: nowrap;
-  flex-shrink: 0;
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.totals-ledger thead .totals-col-metal,
+.totals-ledger .total-title {
+  text-align: left;
+}
+
+.totals-ledger .total-title,
+.total-value {
+  padding: 0.55rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.totals-ledger .total-title {
+  font-weight: 600;
+  color: var(--text-primary);
 }
 
 .total-value {
-  font-weight: 600;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
   color: var(--text-primary);
-  font-size: var(--font-size-lg);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
 }
 
-.total-title {
-  font-size: var(--font-size-xl);
+td.totals-col-gain {
   font-weight: 700;
-  margin-bottom: var(--spacing);
-  color: var(--text-primary);
-  text-align: center;
-  padding-bottom: var(--spacing-sm);
-  border-bottom: 4px solid var(--border); /* fallback, will be overridden below */
-  transition:
-    border-color 0.2s,
-    color 0.2s;
-  cursor: pointer;
-  user-select: none;
 }
 
-.total-title:hover {
+/* The outer columns align with the figures above. Realized is the last column unless
+   Show Realized is off, when Gain is. */
+.totals-ledger :is(th, td):first-child {
+  padding-left: 0;
+}
+.totals-ledger :is(.totals-col-realized, .hide-realized .totals-col-gain) {
+  padding-right: 0;
+}
+
+.totals-ledger tfoot :is(.total-title, .total-value) {
+  border-top: 2px solid var(--text-secondary);
+  border-bottom: 0;
+  font-weight: 700;
+  padding-top: 0.7rem;
+}
+
+/* A click anywhere on a row opens that metal's details modal. */
+.totals-ledger .totals-row {
+  cursor: pointer;
+}
+.totals-ledger .totals-row:hover > * {
+  background: var(--bg-tertiary);
+}
+
+/* A metal that is off in Metal Order, or has no active or sold Items, has no row. */
+.totals-ledger .totals-row:is([data-enabled="false"], [data-held="false"]),
+.hide-realized .totals-col-realized {
+  display: none;
+}
+
+/* The metal name is the button that opens that metal's details modal. */
+.total-title-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  border-radius: var(--radius-sm, 4px);
+}
+.total-title-btn:hover {
   color: var(--primary);
 }
-
-/* Metal-specific underline accent */
-.silver .total-title {
-  border-bottom: 4px solid var(--silver);
-}
-.gold .total-title {
-  border-bottom: 4px solid var(--gold);
-}
-.platinum .total-title {
-  border-bottom: 4px solid var(--platinum);
-}
-.palladium .total-title {
-  border-bottom: 4px solid var(--palladium);
-}
-.copper .total-title {
-  border-bottom: 4px solid var(--copper);
+.total-title-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
-/* All Metals combined card — uses primary accent */
-.total-card-all .total-title {
-  border-bottom: 4px solid var(--primary);
+.totals-metal-mark {
+  --metal-bar-top: color-mix(in oklch, currentColor 90%, white);
+  --metal-bar-front: currentColor;
+  --metal-bar-side: color-mix(in oklch, currentColor 72%, black);
+  flex: none;
+  width: 1.05rem;
+  height: 0.75rem;
+}
+.metal-bar-sprite {
+  display: none;
+}
+.metal-bar-top {
+  fill: var(--metal-bar-top);
+}
+.metal-bar-front {
+  fill: var(--metal-bar-front);
+}
+.metal-bar-side {
+  fill: var(--metal-bar-side);
+}
+.silver .totals-metal-mark {
+  color: var(--silver);
+}
+.gold .totals-metal-mark {
+  color: var(--gold);
+}
+.platinum .totals-metal-mark {
+  color: var(--platinum);
+}
+.palladium .totals-metal-mark {
+  color: var(--palladium);
+}
+.copper .totals-metal-mark {
+  color: var(--copper);
+}
+.totals-row-all .totals-metal-mark {
+  display: none;
 }
 
-/* Gain/Loss bottom-line emphasis — the "bottom line" of each card */
-.total-item-bottom-line {
-  border-bottom: none;
-  border-top: 2px solid var(--border);
-  margin-top: 0.25rem;
-  padding-top: 0.5rem;
+/* Phones: each metal is one block. Name, the lead value and gain on the first line; Items,
+   ounces and the amount paid on the second. The ::after item is the line break. */
+@media (max-width: 767px) {
+  #totalsSectionEl,
+  #totalsSectionEl:hover {
+    padding: var(--spacing-sm) var(--spacing);
+  }
+  .totals-ledger,
+  .totals-ledger tbody,
+  .totals-ledger tfoot {
+    display: block;
+  }
+  .totals-ledger thead {
+    display: none;
+  }
+  .totals-ledger .totals-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    column-gap: var(--spacing-sm);
+    padding: 0.6rem 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .totals-ledger tfoot .totals-row {
+    border-bottom: 0;
+    border-top: 2px solid var(--text-secondary);
+  }
+  .totals-ledger .totals-row > *,
+  .totals-ledger tfoot .totals-row > * {
+    padding: 0;
+    border: 0;
+    font-size: max(13px, var(--font-size-base));
+  }
+  .totals-ledger .totals-row::after {
+    content: "";
+    order: 4;
+    flex-basis: 100%;
+    height: 0;
+  }
+  .totals-ledger .total-title {
+    order: 1;
+    flex: 1 1 auto;
+  }
+  .totals-ledger :is(.totals-col-melt, .totals-col-retail) {
+    order: 2;
+  }
+  /* When name, value and gain do not fit on one line, gain wraps alone, right-aligned. */
+  .totals-ledger .totals-col-gain {
+    order: 3;
+    margin-left: auto;
+  }
+  .totals-ledger .totals-row :is(.totals-col-items, .totals-col-weight, .totals-col-paid) {
+    font-family: var(--font-body);
+    font-weight: 400;
+    font-size: max(12px, var(--font-size-sm));
+    color: var(--text-secondary);
+  }
+  .totals-ledger .totals-col-items {
+    order: 5;
+  }
+  .totals-ledger .totals-col-weight {
+    order: 6;
+  }
+  .totals-ledger .totals-col-paid {
+    order: 7;
+  }
+  /* The header row is hidden, so the value and Gain/Loss carry their names as alt text only. */
+  .totals-ledger .totals-col-melt::before {
+    content: "" / "Melt ";
+  }
+  .totals-ledger .totals-col-retail::before {
+    content: "" / "Retail ";
+  }
+  .totals-ledger .totals-col-gain::before {
+    content: "" / "Gain/Loss ";
+  }
+  .totals-ledger .totals-col-items::before {
+    content: "Items ";
+  }
+  .totals-ledger .totals-col-weight::before {
+    content: "· ";
+  }
+  .totals-ledger .totals-col-weight::after {
+    content: " oz";
+  }
+  .totals-ledger .totals-col-paid::before {
+    content: "· paid ";
+  }
+  /* The block, gaps included, carries the hover surface on phones. */
+  .totals-ledger .totals-row:hover {
+    background: var(--bg-tertiary);
+  }
+  .totals-ledger :is(.totals-col-avg, .totals-col-realized),
+  .totals-ledger[data-lead="retail"] .totals-col-melt,
+  .totals-ledger[data-lead="melt"] .totals-col-retail {
+    display: none;
+  }
 }
-.total-item-bottom-line .total-label {
-  font-weight: 700;
-  font-size: var(--font-size-md);
-}
-.total-item-bottom-line .total-value {
-  font-weight: 700;
-  font-size: var(--font-size-lg);
-}
-
-/* In carousel mode cards can be full-width or near-full, so standard sizes work fine.
-   No per-column-count overrides needed. */
 
 /* =============================================================================
    TABLES - Main inventory table with interactive features
@@ -6178,9 +6505,6 @@ table {
   /* Visual chrome — wraps portal-scroll + footer controls */
   border: 2px solid var(--border);
   border-radius: var(--radius);
-  box-shadow:
-    0 4px 6px -1px rgba(0, 0, 0, 0.1),
-    0 2px 4px -1px rgba(0, 0, 0, 0.06);
   /* Override base section{overflow:hidden} — portal-scroll handles overflow,
      and hidden here would create an intermediate scroll container that
      breaks position:sticky on thead th in some browsers */
@@ -8525,13 +8849,14 @@ a.about-badge:hover {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* Same text tokens as the Dashboard .gl-gain / .gl-loss, so the two read alike. */
 .dm-kpi--gain .dm-kpi-value,
 .dm-pos {
-  color: var(--success);
+  color: var(--success-text);
 }
 .dm-kpi--loss .dm-kpi-value,
 .dm-neg {
-  color: var(--danger);
+  color: var(--danger-text);
 }
 
 /* 3 ── Hero chart card */
@@ -10161,46 +10486,6 @@ input:disabled + .slider {
     justify-content: center;
   }
 
-  .totals {
-    gap: var(--spacing-sm);
-  }
-
-  .total-card {
-    padding: var(--spacing-sm);
-  }
-
-  .total-group {
-    padding: var(--spacing-xs);
-    margin: var(--spacing-xs) 0;
-  }
-
-  .total-item {
-    padding: 0.2rem 0;
-  }
-
-  .total-label {
-    font-size: var(--font-size-xs);
-  }
-
-  .total-value {
-    font-size: var(--font-size-base);
-  }
-
-  .total-title {
-    font-size: var(--font-size-md);
-    margin-bottom: var(--spacing-xs);
-    padding-bottom: var(--spacing-xs);
-    border-bottom-width: 3px;
-  }
-
-  .total-item-bottom-line .total-label {
-    font-size: var(--font-size-sm);
-  }
-
-  .total-item-bottom-line .total-value {
-    font-size: var(--font-size-md);
-  }
-
   .import-export-grid {
     grid-template-columns: 1fr;
   }
@@ -10234,26 +10519,6 @@ input:disabled + .slider {
   .modal-content {
     margin: 0.25rem;
     padding: 0.6rem;
-  }
-
-  .total-card {
-    padding: var(--spacing-xs);
-  }
-
-  .total-label {
-    font-size: var(--font-size-xs);
-  }
-
-  .total-value {
-    font-size: var(--font-size-sm);
-  }
-
-  .total-title {
-    font-size: var(--font-size-base);
-  }
-
-  .total-item-bottom-line .total-value {
-    font-size: var(--font-size-base);
   }
 
   .spot-input {
@@ -16663,16 +16928,33 @@ input[type="number"] {
    ============================================================================= */
 
 /* ── Best Price Ticker Strip ── */
+/* The frame draws the strip's border, so the strip can clip its chips 8px inside it. The clip
+   holds wherever the compositor paints the moving track, with or without the fades. It sits 1px
+   past the 8px band, so the clip's part-covered edge pixel stays out of the band at a fractional
+   strip position. */
+.market-ticker-frame:has(> .market-ticker:not([hidden])) {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
 .market-ticker {
   width: 100%;
   overflow: hidden;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
   padding: 12px 0;
   position: relative;
+  clip-path: inset(0 9px);
   /* STAK-513: Clamp to single row height as visual safety net */
   max-height: 72px;
+}
+/* Without :has() the frame draws no border, so the strip draws its own and relies on the fades. */
+@supports not selector(:has(*)) {
+  .market-ticker {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    clip-path: none;
+  }
 }
 .market-ticker::before,
 .market-ticker::after {
@@ -16684,15 +16966,15 @@ input[type="number"] {
   z-index: 2;
   pointer-events: none;
 }
+/* Each fade stays solid for its first 16px, so a held chip never shows next to the border.
+   The strip's overflow clip rounds the fades' outer corners. */
 .market-ticker::before {
   left: 0;
-  background: linear-gradient(to right, var(--bg-card), transparent);
-  border-radius: var(--radius-lg) 0 0 var(--radius-lg);
+  background: linear-gradient(to right, var(--bg-secondary) 16px, transparent);
 }
 .market-ticker::after {
   right: 0;
-  background: linear-gradient(to left, var(--bg-card), transparent);
-  border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+  background: linear-gradient(to left, var(--bg-secondary) 16px, transparent);
 }
 
 .ticker-track {
@@ -16716,6 +16998,72 @@ input[type="number"] {
   justify-content: center;
   justify-content: safe center;
   overflow-x: auto;
+}
+
+.market-ticker-frame {
+  position: relative;
+}
+
+/* Hover or focus on the strip holds the loop where it is. The pause button sits outside
+   the strip, so a focused or hovered button does not hold a loop the user just resumed. */
+.market-ticker:hover .ticker-track,
+.market-ticker:focus-within .ticker-track,
+.market-ticker.is-held .ticker-track {
+  animation-play-state: paused;
+}
+
+/* Reduced motion (_syncTickerPause): one block that scrolls, with room at the end so the
+   last dealer clears the pause button. */
+.market-ticker.is-paused .ticker-track {
+  animation: none;
+  width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  padding-right: 44px;
+}
+.market-ticker.is-paused [data-ticker-block="duplicate"] {
+  display: none;
+}
+
+.ticker-pause-btn {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transform: translateY(-50%);
+  transition: var(--transition);
+}
+/* A 44px hit area around the 32px circle. */
+.ticker-pause-btn::before {
+  content: "";
+  position: absolute;
+  inset: -6px;
+}
+.ticker-pause-btn[hidden] {
+  display: none;
+}
+.ticker-pause-btn:hover {
+  color: var(--primary);
+  border-color: var(--primary);
+}
+.ticker-pause-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+.ticker-pause-btn[aria-pressed="true"] .ticker-pause-icon,
+.ticker-pause-btn:not([aria-pressed="true"]) .ticker-play-icon {
+  display: none;
 }
 
 .ticker-block {
@@ -16774,9 +17122,23 @@ input[type="number"] {
   font-size: var(--font-size-sm);
   white-space: nowrap;
   transition: background 0.2s;
+  /* Linked items are buttons; keep the pill's text styles instead of the UA button font. */
+  font-family: inherit;
+  color: inherit;
+  text-align: left;
 }
 .ticker-item:hover {
   background: var(--border);
+}
+.ticker-item--link:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+/* A keyboard-focused dealer stops the strip at its start; _wireTickerFocus scrolls the
+   dealer into view. Pointer focus does not match :focus-visible, so a pressed button
+   stays put until the release. */
+.market-ticker:has(.ticker-item:focus-visible) .ticker-track {
+  animation: none;
 }
 
 .ticker-item .coin {
@@ -16794,24 +17156,22 @@ input[type="number"] {
   font-weight: 700;
   font-size: var(--font-size-base);
   font-family: var(--font-mono);
-  color: var(--success);
+  color: var(--text-primary);
 }
 
+/* Premium tiers use the text-role status tokens, which meet 4.5:1 at this size. */
 .ticker-item .premium {
   font-size: var(--font-size-xs);
   color: var(--text-muted);
 }
 .ticker-item .premium.low {
-  color: var(--success);
-  opacity: 0.8;
+  color: var(--success-text);
 }
 .ticker-item .premium.mid {
-  color: oklch(0.55 0.15 60);
-  opacity: 0.8;
+  color: var(--warning-text);
 }
 .ticker-item .premium.high {
-  color: var(--danger);
-  opacity: 0.8;
+  color: var(--danger-text);
 }
 
 /* ── Metal Dot Helper ── */
@@ -16837,7 +17197,6 @@ input[type="number"] {
 
 /* ── Vendor Prices Section ── */
 .vendor-prices-section {
-  background: var(--bg-card);
   padding: var(--spacing-lg);
   border-radius: var(--radius-lg);
   border: 1px solid var(--border);
@@ -16896,6 +17255,11 @@ input[type="number"] {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   border-bottom: 1px solid var(--border);
+}
+
+.vendor-prices-table thead th,
+.vendor-prices-table thead th:first-child {
+  background: var(--bg-on-frame);
 }
 
 .vendor-prices-table th:first-child {
@@ -17312,8 +17676,8 @@ input[type="number"] {
   background: var(--glass-input-bg);
   cursor: pointer;
   transition:
-    border-color var(--transition),
-    background var(--transition);
+    border-color var(--transition-timing),
+    background-color var(--transition-timing);
   flex-wrap: wrap;
   row-gap: 0.4rem;
   column-gap: 0.6rem;
@@ -17349,8 +17713,8 @@ input[type="number"] {
   cursor: pointer;
   font-weight: 500;
   transition:
-    background var(--transition),
-    border-color var(--transition);
+    background-color var(--transition-timing),
+    border-color var(--transition-timing);
   white-space: nowrap;
 }
 .attachment-browse-btn:hover {
@@ -17472,8 +17836,8 @@ input[type="number"] {
   cursor: pointer;
   color: var(--text-muted);
   transition:
-    background var(--transition),
-    color var(--transition);
+    background-color var(--transition-timing),
+    color var(--transition-timing);
   font-size: 13px;
 }
 .attach-btn:hover {
@@ -17666,7 +18030,7 @@ input[type="number"] {
   padding: 2px 8px 2px 6px;
   border-radius: var(--radius-pill);
   border: 1px solid var(--border);
-  background: color-mix(in oklch, var(--bg-secondary) 80%, transparent);
+  background: var(--bg-card);
   font-size: var(--font-size-xs);
   font-weight: 600;
   font-family: var(--font-mono);
@@ -17679,6 +18043,13 @@ input[type="number"] {
   text-overflow: ellipsis;
   position: relative;
   z-index: 2;
+}
+
+/* The chip sits one step lighter than the spot card; in the dark themes the card token
+   equals the card surface, so the step is the tertiary token. */
+[data-theme="dark"] .spot-ratio-chip,
+[data-theme="slate"] .spot-ratio-chip {
+  background: var(--bg-tertiary);
 }
 
 .spot-ratio-chip:focus-visible {
@@ -17741,8 +18112,9 @@ input[type="number"] {
 .spot-ratio-chip.metal-copper {
   --metal: var(--copper);
 }
+/* --type-goldback-bg is a fill colour and fails 4.5:1 as text in light and sepia. */
 .spot-ratio-chip.metal-gold {
-  --metal: var(--type-goldback-bg);
+  --metal: var(--gold);
 }
 
 /* JS-positioned fixed tooltip singleton (D-4): appended to <body> so it
@@ -17774,13 +18146,22 @@ input[type="number"] {
   color: var(--primary);
 }
 
-/* D-9: responsive timestamp. Provider + "Last API Sync" on one line at
-   desktop; below the 960px grid breakpoint shed the provider and shorten
-   the label to "Last Synced {time}" so the line never truncates 2-up. */
+/* Responsive timestamp: provider + "Last API Sync" on a wide card; a card too narrow for
+   that line at 12px, or the 2-up grid below 960px, sheds the provider and shows
+   "Last Synced {time}" so the line never truncates. */
 .ts-short {
   display: none;
 }
 @media (max-width: 959px) {
+  .ts-provider,
+  .ts-full {
+    display: none;
+  }
+  .ts-short {
+    display: inline;
+  }
+}
+@container spot-card (max-width: 20rem) {
   .ts-provider,
   .ts-full {
     display: none;
@@ -18295,16 +18676,15 @@ input[type="number"] {
   justify-content: space-around;
 }
 
-/* 0.7rem (~11.2px) rather than the prototype's 0.62rem (~9.9px), and
-   --text-secondary rather than --text-muted: this is primary navigation, and
-   muted at sub-10px was hard to read across the four themes. */
+/* Primary navigation: --text-secondary, not --text-muted, and the 12px floor for phone
+   text; max() keeps a larger user font size in effect. */
 .bottom-nav-btn {
   flex: 1;
   background: none;
   border: none;
   color: var(--text-secondary);
   font-family: inherit;
-  font-size: 0.7rem;
+  font-size: max(12px, 0.7rem);
   font-weight: 600;
   display: flex;
   flex-direction: column;
@@ -18648,7 +19028,7 @@ input[type="number"] {
 
 .collections-count b {
   font-weight: 600;
-  color: var(--primary);
+  color: var(--primary-text);
 }
 
 .collections-pct {
@@ -18840,7 +19220,7 @@ input[type="number"] {
   text-align: left;
   font: inherit;
   color: inherit;
-  background: var(--bg-secondary);
+  background: var(--bg-on-frame);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   transition:
@@ -18852,7 +19232,7 @@ input[type="number"] {
 .collections-card:hover,
 .collections-card:focus-visible {
   border-color: var(--primary);
-  background: color-mix(in oklch, var(--bg-secondary), var(--hover-mix) 4%);
+  background: color-mix(in oklch, var(--bg-on-frame), var(--hover-mix) 4%);
   transform: translateY(-1px);
   outline: none;
 }
@@ -21265,5 +21645,170 @@ input[type="number"] {
   .view-image-slot[data-shape]:not([data-shape="round"])[data-side] {
     --frame-box-w: 100%;
     --frame-box-h: 200px;
+  }
+}
+
+/* =============================================================================
+   DASHBOARD AT PHONE WIDTH
+   Values wrap instead of ending in an ellipsis, Dashboard text stays at 12px or
+   more, and every control has a 44px hit area. Kept last so it outranks the
+   base spot, ticker, ratio chip and totals rules of equal specificity.
+   ============================================================================= */
+@media (max-width: 768px) {
+  .spot-cards-grid,
+  .spot-cards-grid[data-cards="5"] {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--spacing-sm);
+  }
+  .spot-cards-grid[data-cards="5"] .spot-input:first-child {
+    grid-column: auto;
+  }
+  /* The card carries the frame; a padded wrapper around it costs the price its width. */
+  .spot-input {
+    padding: 0;
+    border: 0;
+    background: none;
+  }
+
+  /* One row per metal: the price and change on the left, the sparkline on the right.
+     The left column never shrinks below its longest word, so the sparkline gives way. */
+  .spot-card {
+    display: grid;
+    grid-template-columns: minmax(min-content, 1fr) minmax(0, 40%);
+    grid-template-areas:
+      "head head"
+      "value spark"
+      "change spark"
+      "chip spark"
+      "ts ts";
+    /* No column gap: the value's own padding separates it, and a gap would stay when
+       the sparkline column collapses at large text sizes. */
+    column-gap: 0;
+    align-items: center;
+    text-align: left;
+  }
+  /* The extra right padding keeps the last hit area clear of the rounded corner. */
+  .spot-card-header {
+    grid-area: head;
+    flex-wrap: wrap;
+    min-height: calc(44px + 0.25rem);
+    padding: 0.25rem calc(var(--spacing) + 6px) 0 var(--spacing);
+    margin-bottom: 0;
+  }
+  .spot-card-value {
+    grid-area: value;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    overflow-wrap: break-word;
+    line-height: 1.2;
+  }
+  .spot-card-change {
+    grid-area: change;
+    text-align: left;
+    padding: 2px var(--spacing);
+  }
+  /* Chart.js sizes the canvas to this band, so the band holds a fixed height. */
+  .spot-sparkline-band {
+    grid-area: spark;
+    height: 4rem;
+    margin: 0 var(--spacing) 0 0;
+  }
+  .spot-ratio-chip,
+  .spot-ratio-chip-spacer {
+    grid-area: chip;
+    justify-self: start;
+    margin: 0.25rem var(--spacing) 0;
+  }
+  .spot-ratio-chip {
+    max-width: none;
+    overflow: visible;
+    white-space: normal;
+  }
+  .spot-card-timestamp {
+    grid-area: ts;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  /* The section heading names the prices, so each card shows the metal alone. */
+  .spot-card-label-suffix {
+    display: none;
+  }
+  .spot-card-label {
+    white-space: normal;
+    overflow: visible;
+  }
+
+  /* Neighbouring hit areas must not overlap, so the controls sit 44px apart. */
+  .spot-card-period {
+    margin-right: 20px;
+  }
+  .spot-card-controls {
+    gap: 20px;
+    margin-left: 0;
+  }
+
+  /* A 44px hit area centred on each control whose visible box is smaller. */
+  #tabViewDashboard
+    :is(
+      .spot-card-period,
+      .spot-edit-btn,
+      .spot-sync-icon,
+      .spot-ratio-chip,
+      .total-title-btn,
+      .ticker-item
+    ) {
+    position: relative;
+  }
+  #tabViewDashboard
+    :is(
+      .spot-card-period,
+      .spot-edit-btn,
+      .spot-sync-icon,
+      .spot-ratio-chip,
+      .total-title-btn,
+      .ticker-item
+    )::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: max(100%, 44px);
+    height: max(100%, 44px);
+    transform: translate(-50%, -50%);
+  }
+
+  /* The scrolling strip clips at its padding edge, so the padding holds the hit areas. */
+  .market-ticker {
+    padding: 0;
+    max-height: none;
+  }
+  .ticker-track {
+    padding-block: 10px;
+  }
+  .ticker-item {
+    font-size: max(12px, var(--font-size-xs));
+  }
+
+  /* 12px floor for Dashboard text; max() keeps a larger user font size in effect. */
+  .spot-card-label,
+  .spot-card-period,
+  .spot-card-timestamp,
+  .spot-ratio-chip,
+  .spot-ratio-chip-spacer,
+  .spot-ratio-chip .est,
+  .ticker-item .vendor,
+  .ticker-item .premium,
+  .gain-loss-pct,
+  .stack-figure-label,
+  .stack-figure-sub {
+    font-size: max(12px, var(--font-size-xs));
+  }
+  .spot-card-change,
+  .ticker-item .coin,
+  .ticker-item .price {
+    font-size: max(13px, var(--font-size-base));
   }
 }

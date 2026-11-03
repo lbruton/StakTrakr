@@ -581,8 +581,7 @@
     const retailDisplay = hasRetailSignal ? formatCurrency(retailTotal) : "—";
     const gainLossDisplay =
       gainLoss !== null && hasRetailSignal ? formatCurrency(Math.abs(gainLoss)) : "—";
-    const gainLossColor =
-      gainLoss > 0 ? "var(--success)" : gainLoss < 0 ? "var(--danger)" : "var(--text-primary)";
+    const gainLossToneClass = gainLoss > 0 ? "gl-gain" : gainLoss < 0 ? "gl-loss" : "";
     const gainLossPrefix = gainLoss > 0 ? "+" : gainLoss < 0 ? "-" : "";
     const retailCellClass =
       gbDenomPrice || isManualRetail ? "retail-confirmed" : "retail-estimated";
@@ -591,7 +590,12 @@
       : gbDenomPrice
         ? "Goldback denomination price"
         : "Estimated — defaults to melt value";
-    const gainLossCellClass = !isManualRetail && gainLoss !== null ? "gainloss-estimated" : "";
+    const gainLossCellClass = [
+      !isManualRetail && gainLoss !== null ? "gainloss-estimated" : "",
+      gainLossToneClass,
+    ]
+      .filter(Boolean)
+      .join(" ");
     const gainLossCellTitle = isManualRetail
       ? "Gain/Loss (confirmed retail)"
       : "Gain/Loss (estimated — based on melt value)";
@@ -602,7 +606,6 @@
     return {
       meltDisplay,
       retailDisplay,
-      gainLossColor,
       retailCellClass,
       retailCellTitle,
       gainLossCellClass,
@@ -865,7 +868,6 @@
     const {
       meltDisplay,
       retailDisplay,
-      gainLossColor,
       retailCellClass,
       retailCellTitle,
       gainLossCellClass,
@@ -960,7 +962,7 @@
           ${retailDisplay} <svg class="ebay-search-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6" fill="none" stroke="currentColor" stroke-width="2.5"/><line x1="15" y1="15" x2="21" y2="21" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
         </a>
       </td>
-      <td class="shrink ${gainLossCellClass}" data-column="gainLoss" data-label="Gain/Loss" title="${gainLossCellTitle}" style="color: ${gainLossColor}; font-weight: ${gainLossCellWeight};">${gainLossCellContent}</td>
+      <td class="shrink ${gainLossCellClass}" data-column="gainLoss" data-label="Gain/Loss" title="${gainLossCellTitle}" style="font-weight: ${gainLossCellWeight};">${gainLossCellContent}</td>
       <td class="shrink" data-column="purchaseLocation" data-label="Source">
         ${formatPurchaseLocation(item.purchaseLocation)}
       </td>
@@ -1191,6 +1193,7 @@
         totalPurchased: 0,
         totalRetailValue: 0,
         totalGainLoss: 0,
+        activeRows: 0,
         disposedItems: 0,
         realizedGainLoss: 0,
         totalDisposedCost: 0,
@@ -1255,6 +1258,7 @@
 
       const retailTotal = valuation ? valuation.retailTotal : meltValue;
       totals.totalRetailValue += retailTotal;
+      totals.activeRows += 1;
 
       totals.totalGainLoss += retailTotal - purchaseTotal;
     }
@@ -1276,25 +1280,24 @@
   }
 
   /**
-   * Write the gain/loss cell (value + colored label) into a totals card.
-   * Shared by per-metal and "All" cards.
+   * Write the gain/loss cell (signed, coloured value with its percent on cost) at the
+   * basis of the Your stack lead. Shared by per-metal and "All" rows.
    * @param {object} els - Element bag with a `lossProfit` node.
-   * @param {object} totals - Totals accumulator for that card.
+   * @param {object} totals - Totals accumulator for that row.
    * @returns {void}
    */
   function _writeGainLossCell(els, totals) {
     if (!els.lossProfit) return;
-    const gl = totals.totalGainLoss || 0;
-    const gainLossPct = totals.totalPurchased > 0 ? (gl / totals.totalPurchased) * 100 : 0;
+    const { gain, gainPct } = pickStackLead(
+      {
+        gain: totals.totalGainLoss || 0,
+        melt: totals.totalMeltValue || 0,
+        purchased: totals.totalPurchased || 0,
+      },
+      readStackLead()
+    );
     // nosemgrep: javascript.browser.security.insecure-innerhtml.insecure-innerhtml, javascript.browser.security.insecure-document-method.insecure-document-method
-    els.lossProfit.innerHTML = formatLossProfit(gl, gainLossPct);
-    const glLabel =
-      els.lossProfit.parentElement && els.lossProfit.parentElement.querySelector(".total-label");
-    if (glLabel) {
-      glLabel.textContent = gl > 0 ? "Gain:" : gl < 0 ? "Loss:" : "Gain/Loss:";
-      glLabel.style.color = gl > 0 ? "var(--success)" : gl < 0 ? "var(--danger)" : "";
-      glLabel.style.fontWeight = gl !== 0 ? "600" : "";
-    }
+    els.lossProfit.innerHTML = formatLossProfit(gain, gainPct);
   }
 
   /**
@@ -1356,7 +1359,9 @@
   }
 
   /**
-   * Write one per-metal summary card (basics, gain/loss, avg cost, realized).
+   * Write one per-metal totals row (basics, gain/loss, avg cost, realized). A metal with
+   * no active Items and no realized gain or loss is marked not held, and the ledger hides
+   * its row; a gifted, lost or returned Item alone does not keep it.
    * @param {object} metalConfig - METALS entry (has key + name).
    * @param {object} metalTotals - Per-metal totals accumulator.
    * @returns {void}
@@ -1367,8 +1372,11 @@
     _writeTotalsCardBasics(els, totals);
     _writeGainLossCell(els, totals);
     _writeAvgCost(els, totals);
-    // Realized G/L -- always visible on every card (STAK-72)
     _writeRealizedCell(safeGetElement(`realizedGainLoss${metalConfig.name}`), totals);
+    const row = document.querySelector(
+      `#totalsLedger .totals-row[data-metal-key="${metalConfig.key}"]`
+    );
+    if (row) row.dataset.held = String(totals.totalItems > 0 || totals.realizedGainLoss !== 0);
   }
 
   /**
@@ -1382,7 +1390,6 @@
       _writeGainLossCell(elements.totals.all, allTotals);
       _writeAvgCost(elements.totals.all, allTotals);
     }
-    // Realized G/L -- always visible on "All" card (STAK-72)
     _writeRealizedCell(safeGetElement("realizedGainLossAll"), allTotals);
   }
 
@@ -1396,6 +1403,7 @@
     Object.values(METALS).forEach((metalConfig) => _writeMetalCard(metalConfig, metalTotals));
     const allTotals = _aggregateAllTotals(metalTotals);
     _writeAllCard(allTotals);
+    if (typeof renderStackHeadline === "function") renderStackHeadline(metalTotals);
 
     const showRealized = loadDataSync(SHOW_REALIZED_KEY, "true") !== "false";
     applyRealizedVisibility(showRealized);

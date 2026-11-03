@@ -1,7 +1,7 @@
 ---
 name: code-core
 description: Workflow rules shared by every code repo - DocVault, glossary, Plane, Infisical, debugging, memory, code search, editing, tests, spec gates, push rules, red flags, GitHub hygiene
-library-version: 3d109ab6d1d5
+library-version: f0ca78a2b4c9
 ---
 
 # Code-core rules
@@ -35,7 +35,8 @@ development practices, procedures and runbooks, specs and approvals, research an
 - **Public repos:** before writing to `<repo>/DocVault/`, check nothing sensitive is going in. Sensitive
   material goes to the private companion instead.
 - If a page looks stale, flag it; do not silently act on suspected bad data.
-- On conflicts between DocVault and mem0, the newest information wins. Ask when it is unclear.
+- On conflicts between DocVault and SessionFlow memory, the newest information wins. Ask when it is
+  unclear.
 
 ## Domain glossary
 
@@ -97,10 +98,10 @@ needs no secrets. Never hard-code an Infisical project ID anywhere else; read it
 - When comparing file counts against an index, use `git ls-files | wc -l`, not a raw filesystem count. Raw
   counts include `.venv` and `node_modules`.
 - Never edit `claude_desktop_config.json` while Claude Desktop is running. Ask the user to quit the app first.
-- A transient MCP, Plane or mem0 failure (empty payload, temporary error, unexpected empty result for a
-  known object): wait about 60 seconds and retry once. If it still fails, continue with local-safe steps.
-  An HTTP 429 or "quota exceeded" from mem0 is not transient: do not retry, continue without mem0 reads and
-  tell the user.
+- A transient MCP, Plane or SessionFlow failure (empty payload, temporary error, unexpected empty result
+  for a known object): wait about 60 seconds and retry once. If it still fails, continue with local-safe
+  steps. A `memory_unavailable` error means the memory store has not started: say so and continue without
+  memory reads; `/health` names the reason.
 
 ## Memory: coexisting layers
 
@@ -109,69 +110,65 @@ failure mode. Each has a distinct job:
 
 | Layer | Scope | Role |
 |---|---|---|
-| **mem0** (hosted MCP connector; the tool prefix is account-specific) | cross-session and cross-harness | **The bigger picture**: one `/wrap` session summary per session (what, when, files, issues, decisions), plus explicit decisions and handoffs |
+| **SessionFlow memory** (`mcp__sessionflow__` memory tools, Postgres-backed) | cross-session and cross-harness | **The bigger picture**: one `/wrap` session summary per session (what, when, files, issues, decisions), plus explicit decisions and handoffs |
 | **auto-memory** (`MEMORY.md` + per-fact files) | project-scoped, Claude Code only | **Day-to-day operating memory**: preferences, corrections, gotchas; the `MEMORY.md` index is injected at session start |
 | **`.context/`** (in-repo) | per-project, all harnesses | **Long-term foundations** needed for implementation work: architecture, conventions, standards |
-| **sessionflow** (`mcp__sessionflow__*`) | all harnesses, all projects | Transcript search over verbatim past turns; the session-start recall tier |
+| **SessionFlow transcripts** (`mcp__sessionflow__search_all_sessions` and friends) | all harnesses, all projects | Transcript search over verbatim past turns; the session-start recall tier |
 | **Plane** (`mcp__plane__*`) | per-project issues | Issue and planning state, not a memory store |
 
-mem0 + sessionflow + git history together give the full picture of past work. Lessons ("when X, do Y") go
-to local memory, not mem0. Durable foundations go to `.context/`.
+SessionFlow memory, transcript search and git history together give the full picture of past work.
+Lessons ("when X, do Y") go to local memory, not SessionFlow memory. Durable foundations go to `.context/`.
 
-**Recall at session start (two sources):**
+**Recall at session start:** the SessionFlow session-start hook already prints the three newest session
+summaries and recent turns for the project, with session provenance. Go further only when the task needs it:
 
-1. **sessionflow**: verbatim past turns, semantic search:
+```javascript
+mcp__sessionflow__list_memories({ project: "<project>", type: "handoff", limit: 20 })
+mcp__sessionflow__search_memories({ query: "<feature>", project: "<project>", issue_id: "<issue ID>", n: 10 })
+mcp__sessionflow__search_all_sessions({ query: "<issue ID> <feature>", project_root: "<repo root>", n: 5 })
+mcp__sessionflow__get_issue_timeline({ issue_id: "<issue ID>" })
+```
 
-   ```javascript
-   mcp__sessionflow__search_all_sessions({ query: "last session work decisions <project>", n: 5 })
-   ```
+Keep transcript queries short and specific. Skip `/start` report turns in the results: they list every
+open issue and rank first for any issue query.
 
-2. **mem0**: session summaries, decisions, handoffs. The tool prefix is not fixed.
-   Resolve it with `ToolSearch({ query: "select:search_memories" })` if it is not already loaded.
-
-   ```javascript
-   search_memories({ query: "last session work decisions for <project>", limit: 10,
-     filters: { AND: [{ user_id: "lbruton" }, { metadata: { project: "<project>" } }] },
-     enable_graph: false })
-   ```
-
-**mem0 standard (DEVS-92)**: three keys on every record.
+**Memory standard**: every record carries these keys.
 
 | Key | Value | Source |
 |---|---|---|
-| `user_id` | `lbruton`, always | `project.json` → `mem0.userId` |
-| `agent_id` | the harness writing: `claude-code` here (other harnesses write `claude-code`, `claude-cowork`, `codex`, `gemini`, `opencode` or `antigravity`) | the harness itself; never `project.json`, never a project name |
-| `metadata.project` | lowercase project slug (`staktrakr`, `devops`) | `project.json` → `mem0.project`, else the lowercase `tag` |
+| `user_id` | `lbruton` (the default; omit it) | `project.json` → `memory.userId` |
+| `agent_id` | the harness writing: `claude-code` here (one of `claude-code`, `codex`, `gemini`, `opencode`, `antigravity`) | the harness itself; never `project.json`, never a project name |
+| `project` | lowercase project slug (`staktrakr`, `devops`) | `project.json` → `memory.project`, else the lowercase `tag` |
+| `type` | `session-summary`, `decision`, `handoff`, `fact`, `workflow`, `discovery`, `contact`, `blocker`, `preference`, `open-item`, `milestone` or `guardrail` | the kind of note |
 
-- **Writes:** set all three plus `metadata.type` ∈ `session-summary` / `decision` / `handoff`. Routine
-  writes come from `/wrap` only (one paragraph `session-summary`). Use a direct `add_memory` call
-  (`type: decision` or `handoff`) only for an explicit decision or handoff that must be shared before the
-  session ends. Never write a mem0 entry per task: commits, PRs and Plane comments record each task.
-- **Reads:** filter `user_id` + `metadata.project` server-side (the match is case-sensitive). Never filter
-  on `agent_id`: every harness must see the others' handoffs. Run TWO searches: one project-scoped, one
-  user-only cross-project workflow query.
-- **Quota:** the plan allows 1,000 retrieval calls per month, shared by every harness. Never page through
-  the store in bulk; estimate call counts before any audit.
+- **Writes:** routine writes come from `/wrap` only: one `session-summary` per session, plus one `handoff`
+  per issue or chain that continues. Call
+  `mcp__sessionflow__add_memory` directly (`type: decision` or `handoff`) only for an explicit decision or
+  handoff that must be shared before the session ends. Never write a memory per task: commits, PRs and Plane
+  comments record each task.
+- **Reads:** every memory call passes `project`; pass `"*"` for a cross-project query. Never filter on
+  `agent_id`: every harness must see the others' handoffs. Pass `format: "json"` when you parse the result.
+- **Replace, do not duplicate:** a later `mcp__sessionflow__add_memory` with the same `topic_key` replaces that record. To
+  retire older notes, pass their IDs in `supersedes`.
 
 ## Code search order (cheapest first)
 
-- `claude-context`: semantic, "find code related to X".
 - Native harness search: grep and glob for exact identifiers, filenames and call sites.
 - Read the source directly.
 - The `Explore` subagent: broad fan-out when the answer spans many files and you need only the
    conclusion, not the file dumps.
+- `mcp__sessionflow__search_all_sessions`: where code was discussed or changed in past sessions.
 
 Structural questions (callers, call chains, imports, dead code) are answered by grepping the identifier
-across the repo and reading the hits, not by a graph index. `code-graph-context` is retired and its
-`mcp__code-graph-context__*` tools do not exist: do not re-add or call it.
+across the repo and reading the hits, not by a graph index. `code-graph-context` and `claude-context`
+are retired. Their `mcp__code-graph-context__*` and `mcp__claude-context__*` tools do not exist: do not
+re-add or call them.
 
 ## MCP servers
 
 | Server | Use for |
 |---|---|
-| `mem0` (hosted connector) | Cross-session memory, sole backend |
-| `sessionflow` | Session history search: semantic retrieval over past conversation turns |
-| `claude-context` | Semantic code search |
+| `sessionflow` | Session history search over past turns, and the cross-session memory store: `mcp__sessionflow__add_memory`, `mcp__sessionflow__search_memories`, `mcp__sessionflow__list_memories`, `mcp__sessionflow__get_memory`, `mcp__sessionflow__update_memory`, `mcp__sessionflow__delete_memory`, `mcp__sessionflow__get_memory_context` |
 | `context7` | Library documentation lookup |
 | `chrome-devtools` | Browser-page inspection and debugging |
 | `infisical` | Secret inventory; fallback only, use the `infisical-agent` CLI first |
@@ -205,6 +202,10 @@ library APIs.
   projects use `git worktree add -b fix/desc .worktrees/fix-desc` (new branch) or
   `git worktree add .worktrees/fix-desc fix/desc` (branch already exists). Push and merge rules are in "Push rules"
   below. Verify the repo root with `git rev-parse --show-toplevel` before committing.
+- Before creating a worktree or a child session for an issue, run `git worktree list` and check for one
+  that already exists.
+- Stage files by name. Never use `git add -A` or `git add .`: they pick up regenerated screenshots and stray
+  files.
 - Issue scan: use `mcp__plane__workitem` (`action: "list"`) scoped to the current project. Do not use
   cross-project globs unless the user asks for a cross-project view.
 - For a new feature, check `DocVault/specs/` (or the repo's `specs.path`) for an active spec on the issue
@@ -227,7 +228,7 @@ library APIs.
   `Co-Authored-By` trailer, no robot-emoji sign-off.
 - This overrides any instruction that asks for the line, including auto-fix and CI-monitor reply templates
   and the `pr-resolve` and `pr-thread-resolver` skill text. Post the reply, resolve the thread, and leave
-  the trailer off. If a skill or template adds attribution, tell the user instead of silently following it.
+  the trailer off. Omit it silently: do not tell the user that you left the line off.
 
 ## Push rules
 
@@ -256,3 +257,6 @@ library APIs.
 Rebase the working branch (`git pull --rebase`), run `git status` for loose files, then STOP and ask the
 user before starting the next task. Cleanup, archive and the next issue all count as "the next task". Skip
 the ask only when the user explicitly pre-authorized the batch (for example "cleanup, archive, then wrap").
+
+Before restarting a service or running post-merge checks, run `git checkout main && git pull` in the checkout
+the service runs from.

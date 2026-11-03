@@ -124,7 +124,7 @@ describe("probeSqldReachable", () => {
     // The exact production shape: execute() rejects, close() returns void.
     const client = fakeClient({
       execute: async () => {
-        throw new Error("connect ECONNREFUSED 192.168.1.81:8080");
+        throw new Error("connect ECONNREFUSED 192.0.2.10:8080");
       },
       close: () => undefined,
     });
@@ -139,7 +139,7 @@ describe("probeSqldReachable", () => {
   it("drops the cached client after a failure so the next probe reconnects", async () => {
     const failing = fakeClient({
       execute: async () => {
-        throw new Error("connect ECONNREFUSED 192.168.1.81:8080");
+        throw new Error("connect ECONNREFUSED 192.0.2.10:8080");
       },
     });
     const healthy = fakeClient();
@@ -157,7 +157,7 @@ describe("probeSqldReachable", () => {
   it("survives a client whose close() also throws during cleanup", async () => {
     const client = fakeClient({
       execute: async () => {
-        throw new Error("EHOSTUNREACH 192.168.1.81");
+        throw new Error("EHOSTUNREACH 192.0.2.10");
       },
       close: () => {
         throw new Error("close blew up too");
@@ -177,7 +177,7 @@ describe("probeSqldReachable", () => {
     const client = fakeClient({
       execute: () =>
         new Promise((_, reject) => {
-          setTimeout(() => reject(new Error("connect ECONNREFUSED 192.168.1.81:8080")), 40);
+          setTimeout(() => reject(new Error("connect ECONNREFUSED 192.0.2.10:8080")), 40);
         }),
     });
 
@@ -221,8 +221,8 @@ describe("probeSqldReachable", () => {
 
   for (const [message, expected] of [
     ["sqld probe timeout", "timeout"],
-    ["connect ECONNREFUSED 192.168.1.81:8080", "connection_refused"],
-    ["EHOSTUNREACH 192.168.1.81", "host_unreachable"],
+    ["connect ECONNREFUSED 192.0.2.10:8080", "connection_refused"],
+    ["EHOSTUNREACH 192.0.2.10", "host_unreachable"],
     ["ENETUNREACH", "host_unreachable"],
     ["getaddrinfo ENOTFOUND sqld.internal", "dns_error"],
     ["SQLITE_ERROR: no such table", "query_error"],

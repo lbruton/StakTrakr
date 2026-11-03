@@ -198,7 +198,7 @@ The FBP fallback no longer exists: nothing reads `PATCH_GAPS`, `extractFbpPrices
 
 ## Database (sqld)
 
-**Provider:** sqld (self-hosted libSQL server on home VM at `192.168.1.81:8080`). Both pollers connect via Docker DNS (`http://staktrakr-sqld:8080`) or Tailscale subnet routing (`http://192.168.1.81:8080` from Fly.io). Turso Cloud is retained as DR backup only (nightly sync). Credentials in Infisical + Fly secrets (`TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`).
+**Provider:** sqld (self-hosted libSQL server on home VM at `<home-vm>:8080`). Both pollers connect via Docker DNS (`http://staktrakr-sqld:8080`) or Tailscale subnet routing (`http://<home-vm>:8080` from Fly.io). Turso Cloud is retained as DR backup only (nightly sync). Credentials in Infisical + Fly secrets (`TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`).
 
 **Dual-poller write-through:** Both Fly.io (`POLLER_ID=api`) and Portainer VM (`POLLER_ID=home`) write to the same sqld database. `api-export.js` uses `readLatestPerVendor()` to merge — most recent row per vendor within last 2h wins. Check home poller logs via Portainer API — see `home-infrastructure` skill.
 

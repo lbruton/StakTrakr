@@ -212,11 +212,13 @@ If the same known asset-global failure persists after the first reload, `init.js
 
 ## Market Data DOM Elements
 
-The market data module (`js/market-data.js`) introduces six new DOM elements, all looked up via `safeGetElement()`:
+The market data module (`js/market-data.js`) uses eight DOM elements, all looked up via `safeGetElement()`:
 
 | Element ID              | Type        | Purpose                                                                                                                                                                                                                         |
 | ----------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `bestPriceTickerFrame`  | `<div>`     | Layout section for the ticker: holds the ribbon and the pause button, so both move together                                                                                                                                     |
 | `bestPriceTickerEl`     | `<div>`     | Best Price Ticker ribbon: horizontal scrolling lowest-per-coin prices                                                                                                                                                           |
+| `bestPriceTickerPause`  | `<button>`  | Pause/play toggle (`aria-pressed`); the pause lasts for the page view and the button hides under reduced motion                                                                                                                 |
 | `vendorPricesSectionEl` | `<section>` | Vendor Prices comparison table container                                                                                                                                                                                        |
 | `vendorPricesContainer` | `<div>`     | Inner container for the tabbed vendor price tables                                                                                                                                                                              |
 | `marketDetailModal`     | `<div>`     | Full-screen overlay for per-coin detail charts                                                                                                                                                                                  |
@@ -224,7 +226,48 @@ The market data module (`js/market-data.js`) introduces six new DOM elements, al
 | `marketDetailCloseBtn`  | `<button>`  | Close button for the market detail modal                                                                                                                                                                                        |
 | `marketSettingsBtn`     | `<button>`  | Gear icon in the Market block (vendor prices section): opens the Market Settings panel. Added alongside the header Market button behavior change (header button now triggers `syncRetailPrices()` instead of opening Settings). |
 
-These elements are defined in `index.html` and are part of the `layoutSectionConfig` system (`bestPriceTicker` section). The ticker is inserted in the main page flow; the modal is a top-level overlay with `hidden` attribute toggled by JS.
+These elements are defined in `index.html` and are part of the `layoutSectionConfig` system. The `bestPriceTicker` section moves `bestPriceTickerFrame`, not the ribbon. The ticker is inserted in the main page flow; the modal is a top-level overlay with `hidden` attribute toggled by JS.
+
+## Your Stack DOM Elements
+
+`#totalsSectionEl` is the Your stack card and the `totals` layout section, below the spot cards and the ticker by default. It holds the `#stackHeadlineTitle` heading, the stack figures and the totals ledger. `js/stack-headline.js` fills the figures: `updateSummary()` calls `renderStackHeadline(metalTotals)` with the same per-metal accumulators the totals ledger uses. `updateAllSparklines()` calls `refreshStackHeadline()`, so a spot history or comparison-mode change redraws today's change.
+
+The `stackHeadlineLead` preference (`"retail"` or `"melt"`, synced) picks the lead. `_arrangeStackLead` moves the lead figure first in the list, with the swap button and today's line, so reading order matches the screen. The activity line and the paces come from `buildPortfolioSeries` and `computeWindowStats` over the last 365 days, as the breakdown modal's 1Y range computes them. `loadPortfolioSpotMaps` (`js/detailsModal.js`) loads the spot maps for both. The result is kept until the inventory fingerprint changes.
+
+| Element ID                                   | Purpose                                                                        |
+| -------------------------------------------- | ------------------------------------------------------------------------------ |
+| `stackHeadlineHead`                          | Figures, activity line and weights; hidden when the inventory holds no Items   |
+| `stackHeadlineFigures`                       | Figure list, in reading order                                                  |
+| `stackRetailFigure`, `stackMeltFigure`       | Retail and melt figures; the lead one comes first                              |
+| `stackLeadSwap`                              | Swap button in the lead's label; its name names the action                     |
+| `stackTodayValue`                            | Today's change, under the lead; "today at spot" under the retail lead          |
+| `stackRetailValue`, `stackRetailSub`         | Retail value and, when it does not lead, its premium over melt                 |
+| `stackMeltValue`, `stackMeltSub`             | Melt value and, when it does not lead, the Items it covers                     |
+| `stackGainLabel`                             | "Gain on cost", or "Loss on cost" below zero at the lead's basis               |
+| `stackGainValue`, `stackGainSub`             | Gain on cost at the lead's basis and its percentage                            |
+| `stackCostValue`, `stackCostSub`             | Cost basis (the All Metals Paid) and the average cost per ounce                |
+| `stackRealizedFigure`                        | Realized figure; `.hide-realized` on `#totalsSectionEl` hides it               |
+| `stackRealizedValue`, `stackRealizedSub`     | Realized gain or loss and its percentage of the disposed cost                  |
+| `stackActivity`                              | Last 12 months: invested, acquisitions and market; hidden until loaded         |
+| `stackWeights`, `stackWeightsList`           | Weight held per enabled metal with active Items, in Metal Order, with pace     |
+| `stackWeightsRate`                           | Rate header over the pace column; hidden until the pace loads                  |
+| `stackHeadlineEmpty`, `stackHeadlineAddItem` | "No Items yet." and the Add Item button, which opens the add form on Inventory |
+
+`_loadSectionConfig` gives a saved config each default section it lacks. The new section goes before the next default the user already has. Labels always come from the defaults. `_foldStackHeadlineSection` folds a saved `stackHeadline` entry into `totals` at the earlier position, enabled if either entry was.
+
+## Totals Ledger DOM Elements
+
+`#totalsLedger` sits in the Your stack card under the figures. It has a visually hidden caption, "Totals by metal", and hides when the inventory holds no Items. Each metal row in `#totalsLedgerBody` is a `.totals-row` with `data-metal-key`; the All Metals row is the only row in `tfoot`. Each value cell keeps the id `elements.totals` reads in `js/init.js` (`totalItems<Metal>`, `currentValue<Metal>`, `lossProfit<Metal>` and the rest), so `updateSummary()` writes cells by id.
+
+| Hook                                   | Writer                         | Effect                                                               |
+| -------------------------------------- | ------------------------------ | -------------------------------------------------------------------- |
+| `data-enabled` on `.totals-row`        | `applyMetalOrder()`            | `false` hides the row; the writer also reorders the `tbody` rows     |
+| `data-held` on `.totals-row`           | `updateSummary()`              | `false` (no active Items and no realized gain or loss) hides the row |
+| `.hide-realized` on `#totalsSectionEl` | `applyRealizedVisibility()`    | Hides every `.totals-col-realized` cell                              |
+| `th.total-title[data-metal]`           | `setupHeaderButtonListeners()` | A click anywhere on the row opens `showDetailsModal(metal)`          |
+| `data-lead` on `#totalsLedger`         | `renderStackHeadline()`        | Below 768px, shows the lead's value column and hides the other       |
+
+Below 768px the table, `tbody` and `tfoot` render as blocks and each row is a two-line flex block. CSS `order` and a `::after` line break place the cells. The lead value and Gain/Loss carry their names as CSS alt text, since the header row is hidden.
 
 ### Market Filter Matrix Settings Panel
 

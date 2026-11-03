@@ -15,7 +15,7 @@ truth and the doc is the defect.
 | Changed path                                    | Read first                                                                |
 | ----------------------------------------------- | ------------------------------------------------------------------------- |
 | `js/**`, `sw.js`, `index.html`                  | `.context/coding-standards.md`, `.context/implementation-gotchas.md`      |
-| `css/**`, modal or view rendering               | `.context/design-philosophy.md`                                           |
+| `css/**`, modal or view rendering               | `DESIGN.md`, `PRODUCT.md`, `.context/coding-standards.md`                 |
 | Cloud sync, vault, backup, diff or merge code   | `.context/cloud-sync.md`, `.context/cloud-sync-convergence.md`            |
 | Spot, retail, goldback, image pipelines         | `.context/data-pipelines.md`, `.context/reusable-patterns.md`             |
 | `devops/**`, pollers, Fly.io, Cloudflare        | `.context/infrastructure.md`, the matching file in `.context/deep-dives/` |

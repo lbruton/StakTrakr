@@ -186,13 +186,26 @@ const _freshestFeed = (primaryFeed, backupFeed) => {
 };
 
 /**
- * Updates both health badge elements with a compact per-feed summary.
- * Two independent signals (STRK-331):
- *   - time + color describe the DATA ON SCREEN — age of whichever endpoint the
- *     fetch path is actually serving (green fresh / orange stale);
- *   - the leading icon describes the INFRASTRUCTURE — ✅ all endpoints healthy,
- *     ⚠️ any endpoint stale or unreachable (details live in the health modal).
- * Goldback is informational and excluded from both signals.
+ * Writes the footer status: the state word, a status dot and the per-feed ages.
+ * @param {"ok"|"stale"|"down"} state - The data signal
+ * @param {boolean} infraOk - False when any endpoint is stale or unreachable
+ * @param {string} ages - The per-feed age line, empty when the API was unreachable
+ */
+const _renderFooterStatus = (state, infraOk, ages) => {
+  const words = { ok: "Prices current", stale: "Prices stale", down: "API unreachable" };
+  const status = safeGetElement("apiHealthBadge");
+  status.dataset.state = state;
+  status.dataset.infra = infraOk ? "ok" : "degraded";
+  safeGetElement("apiHealthLabel").textContent = words[state];
+  safeGetElement("apiHealthValue").textContent = ages;
+  safeGetElement("apiHealthInfra").hidden = infraOk;
+};
+
+/**
+ * Updates the footer status and the About tab badge with a compact per-feed summary.
+ * Two independent signals: the ages and data-state describe the data on screen (the
+ * endpoint each fetch path serves); data-infra flags any endpoint that is stale or
+ * unreachable. Goldback is informational and excluded from both signals.
  * @param {{primary: object, backup: object|null}} health
  */
 const updateHealthBadges = ({ primary, backup }) => {
@@ -202,22 +215,21 @@ const updateHealthBadges = ({ primary, backup }) => {
 
   const primaryOk = primary.market.ok && primary.spot.ok;
   const backupOk = !backup || (backup.market.ok && backup.spot.ok);
-  const icon = primaryOk && backupOk ? "✅" : "⚠️";
+  const infraOk = primaryOk && backupOk;
 
-  const marketPart = market.error ? "Market ❌" : `Market ${market.ago ?? "?"}`;
-  const spotPart = spot.error ? "Spot ❌" : `Spot ${spot.ago ?? "?"}`;
+  const ages = (failed) =>
+    [
+      ["Market", market],
+      ["Spot", spot],
+    ]
+      .map(([name, feed]) => `${name} ${feed.error ? failed : (feed.ago ?? "?")}`)
+      .join(" · ");
+  // A fetch that failed for both feeds is unreachable, not stale: there is no data to age.
+  const state = dataOk ? "ok" : market.error && spot.error ? "down" : "stale";
+  _renderFooterStatus(state, infraOk, ages("unavailable"));
 
-  const label = `${icon} ${marketPart} · ${spotPart}`;
-  // Footer badge uses shield-badge structure (label + value spans)
-  const footerVal = safeGetElement("apiHealthValue");
-  if (footerVal) {
-    footerVal.textContent = label;
-    footerVal.className =
-      "shield-badge-value " + (dataOk ? "shield-badge-value--green" : "shield-badge-value--orange");
-  }
-  // About tab badge uses legacy single-element structure
   const aboutBadge = safeGetElement("apiHealthBadgeAbout");
-  if (aboutBadge) aboutBadge.textContent = label;
+  if (aboutBadge) aboutBadge.textContent = `${infraOk ? "✅" : "⚠️"} ${ages("❌")}`;
 };
 
 /**
@@ -355,12 +367,7 @@ const populateApiHealthModalError = (err) => {
     const el = safeGetElement(id);
     if (el) el.textContent = "—";
   });
-  // Footer badge: update value span only (preserve label/value structure)
-  const errVal = safeGetElement("apiHealthValue");
-  if (errVal) {
-    errVal.textContent = "API ?";
-    errVal.className = "shield-badge-value shield-badge-value--red";
-  }
+  _renderFooterStatus("down", false, "");
   // About tab badge: legacy single-element structure
   const aboutErr = safeGetElement("apiHealthBadgeAbout");
   if (aboutErr) aboutErr.textContent = "\u274c API ?";

@@ -1563,6 +1563,18 @@ function getHealthStatusClass(timestamp) {
 window.getHealthStatusClass = getHealthStatusClass;
 
 /**
+ * Reports the operating system's reduced-motion setting, for motion that CSS media
+ * queries cannot reach (Chart.js animations, script-driven loops).
+ * @returns {boolean} True when the user asks for reduced motion.
+ */
+function prefersReducedMotion() {
+  return typeof window.matchMedia === "function"
+    ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    : false;
+}
+window.prefersReducedMotion = prefersReducedMotion;
+
+/**
  * Comparator ordering two ISO publication timestamps newest-first, with
  * unparseable values sinking to the end.
  *

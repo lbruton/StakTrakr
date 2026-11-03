@@ -3,9 +3,8 @@ name: spec-reconcile
 description: "Spec process step — classify /spec-review marks for one phase, apply them with human approval, archive the originals. ISSUE PHASE first."
 user-invocable: true
 allowed-tools: >-
-  Bash, Read, Write, Edit, Glob, Grep, AskUserQuestion,
-  mcp__claude-context__search_code
-library-version: 3d109ab6d1d5
+  Bash, Read, Write, Edit, Glob, Grep, AskUserQuestion
+library-version: f0ca78a2b4c9
 ---
 
 # /spec-reconcile ISSUE PHASE

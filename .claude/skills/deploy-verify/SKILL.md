@@ -29,7 +29,7 @@ Ask the user (or infer from context):
 
 | Question              | Portainer (Home)                                  | Fly.io (Cloud)            |
 | --------------------- | ------------------------------------------------- | ------------------------- |
-| Where did you deploy? | Portainer stack on 192.168.1.81                   | `fly deploy --app <name>` |
+| Where did you deploy? | Portainer stack on <home-vm>                      | `fly deploy --app <name>` |
 | Which project?        | Any (see Stack Registry in `home-infrastructure`) | StakTrakr pollers         |
 | How was it deployed?  | GitOps auto-pull or manual redeploy               | Manual `fly deploy` CLI   |
 
@@ -44,7 +44,7 @@ These checks apply to BOTH environments. Run them in order.
 ```bash
 # Get Portainer token from Infisical first
 curl -sk -H "X-API-Key: $PORTAINER_TOKEN" \
-  "https://192.168.1.81:9443/api/endpoints/3/docker/containers/json?all=true" | \
+  "https://<home-vm>:9443/api/endpoints/3/docker/containers/json?all=true" | \
   jq '.[] | select(.Names[] | contains("<stack-name>")) | {name: .Names[0], state: .State, status: .Status}'
 ```
 
@@ -63,7 +63,7 @@ Expected: container state is "running", not "restarting" or "exited".
 ```bash
 # Get container ID from step 2a, then:
 curl -sk -H "X-API-Key: $PORTAINER_TOKEN" \
-  "https://192.168.1.81:9443/api/endpoints/3/docker/containers/<id>/logs?stdout=true&stderr=true&tail=50" | \
+  "https://<home-vm>:9443/api/endpoints/3/docker/containers/<id>/logs?stdout=true&stderr=true&tail=50" | \
   strings
 ```
 
@@ -115,7 +115,7 @@ Past regression: Docker entrypoint overwrote Dockerfile cron entries.
 
 ```bash
 # SSH into Portainer VM, exec into container:
-ssh lbruton@192.168.1.81 "docker exec <container-name> crontab -l"
+ssh lbruton@<home-vm> "docker exec <container-name> crontab -l"
 ```
 
 **Fly.io:**
@@ -136,7 +136,7 @@ Hit the actual production endpoint and verify a real response.
 # Use the NPM domain (e.g., hextrackr.lbruton.cc, mymelo.lbruton.cc)
 curl -s -o /dev/null -w "%{http_code}" https://<app>.lbruton.cc/
 # Or hit the direct port:
-curl -s -o /dev/null -w "%{http_code}" http://192.168.1.81:<port>/
+curl -s -o /dev/null -w "%{http_code}" http://<home-vm>:<port>/
 ```
 
 **Fly.io (StakTrakr API):**
@@ -179,7 +179,7 @@ Past regression: MetalPriceAPI format change poisoned spot data.
 | ------------------------- | --------------------------------------------------------------------------------------------- |
 | Correct release deployed  | `fly releases --app staktrakr` — latest matches your deploy                                   |
 | Resource limits unchanged | `fly scale show --app staktrakr` — 1024MB RAM, 1 shared CPU (thin publisher since STAK-478)   |
-| Tailscale mesh connected  | Home-poller can reach Fly.io via `100.90.171.110`                                             |
+| Tailscale mesh connected  | Home-poller can reach Fly.io via `<fly-tailnet-ip>`                                           |
 | Home-poller synced        | Portainer home-poller picks up shared code via GitOps (5 min poll) — verify it redeployed too |
 
 ## Step 4 — Report
@@ -210,7 +210,7 @@ If any check fails, provide the specific remediation step before moving on.
 | Container runtime | Docker via snap on Ubuntu VM                | Fly.io Machines (Firecracker)         |
 | Secrets source    | Infisical → stack env vars or compose       | Infisical → `fly secrets set`         |
 | Logs              | Portainer API or `docker logs`              | `fly logs`                            |
-| SSH access        | `ssh lbruton@192.168.1.81` + `docker exec`  | `fly ssh console`                     |
+| SSH access        | `ssh lbruton@<home-vm>` + `docker exec`     | `fly ssh console`                     |
 | Rollback          | Portainer re-pulls previous commit          | `fly deploy --image <previous>`       |
 | Networking        | NPM reverse proxy → container port          | Fly.io edge → internal port           |
 | Volumes           | Named Docker volumes (see inventory)        | Fly.io volumes (ephemeral by default) |

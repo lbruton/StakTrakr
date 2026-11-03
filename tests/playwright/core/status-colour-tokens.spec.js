@@ -26,6 +26,7 @@ async function gotoApp(page) {
 /**
  * Returns { color, ratio } for each selector match: the computed text colour and its WCAG
  * 2.x contrast over the element's background composited onto the nearest opaque ancestor.
+ * The text colour is faded by the element's own opacity; ancestors of hidden panels read 0.
  */
 function measureText(page, selector) {
   return page.evaluate((sel) => {
@@ -56,7 +57,9 @@ function measureText(page, selector) {
     return Array.from(document.querySelectorAll(sel)).map((el) => {
       const cs = getComputedStyle(el);
       const back = over(toRgba(cs.backgroundColor), opaqueBehind(el));
-      const fore = over(toRgba(cs.color), back);
+      const text = toRgba(cs.color);
+      text[3] *= Number(cs.opacity);
+      const fore = over(text, back);
       const [hi, lo] = [luminance(back), luminance(fore)].sort((a, b) => b - a);
       return {
         text: el.textContent.trim(),
@@ -319,6 +322,344 @@ test.describe("theme colours with reduced motion", () => {
     expect(new Set(reads.map((r) => r.settled)).size, "each theme has its own colours").toBe(
       THEMES.length
     );
+  });
+});
+
+// Shared motion must work both as a complete transition and after a property name.
+test.describe("shared control transitions", () => {
+  for (const reducedMotion of ["no-preference", "reduce"]) {
+    test(`controls complete hover, focus and disclosure feedback with ${reducedMotion} motion`, async ({
+      page,
+    }, testInfo) => {
+      test.setTimeout(120000);
+      await page.emulateMedia({ reducedMotion });
+      await suppressWhatsNewPopup(page);
+      await page.goto("/index.html#/inventory");
+      await page.locator("#newItemBtn").click();
+      await expect(page.locator("#itemModal")).toBeVisible();
+      const summary = page.locator("#attachmentsSection > summary");
+      await summary.click();
+      await page
+        .locator("#attachmentFileInput")
+        .setInputFiles("tests/playwright/helpers/test-obverse.png");
+      const action = page.locator("#attachmentQueuedList .attach-btn").first();
+      await expect(action).toBeVisible();
+
+      const sharedProperties = [
+        "background-color",
+        "color",
+        "border-color",
+        "box-shadow",
+        "opacity",
+        "transform",
+      ];
+      const settle = async (locator) => {
+        await locator.evaluate(async (el) => {
+          // Flush styles before collecting the running CSS transitions, including pseudos.
+          getComputedStyle(el).transform;
+          await Promise.all(
+            el.getAnimations({ subtree: true }).map((animation) => animation.finished)
+          );
+        });
+      };
+      const read = (locator, property, pseudo = null) =>
+        locator.evaluate(
+          (el, args) => getComputedStyle(el, args.pseudo).getPropertyValue(args.property),
+          {
+            property,
+            pseudo,
+          }
+        );
+      const expectTiming = async (
+        locator,
+        properties,
+        pseudo = null,
+        easing = "cubic-bezier(0.4, 0, 0.2, 1)"
+      ) => {
+        const style = await locator.evaluate((el, pseudo) => {
+          const cs = getComputedStyle(el, pseudo);
+          return {
+            properties: cs.transitionProperty.split(", "),
+            durations: cs.transitionDuration.split(", "),
+            delays: cs.transitionDelay.split(", "),
+            easings: cs.transitionTimingFunction,
+          };
+        }, pseudo);
+        expect(style.properties).toEqual(properties);
+        expect(
+          style.durations.every((value) => value === (reducedMotion === "reduce" ? "0s" : "0.2s"))
+        ).toBe(true);
+        expect(style.delays.every((value) => value === "0s")).toBe(true);
+        expect(style.easings).toContain(easing);
+      };
+
+      for (const theme of THEMES) {
+        await test.step(theme, async () => {
+          await page.evaluate((theme) => window.setTheme(theme), theme);
+          await settle(page.locator("#itemModal"));
+          const button = page.locator("#itemModalSubmit");
+          const input = page.locator("#itemName");
+          const drop = page.locator("#attachmentDropZone");
+          const browse = page.locator("#attachmentBrowseBtn");
+          await expectTiming(button, sharedProperties);
+          // The existing form-specific override is part of the acceptance contract.
+          await expectTiming(input, ["background", "border-color", "box-shadow"], null, "ease");
+          await expectTiming(summary, ["background-color"]);
+          await expectTiming(summary, ["transform"], "::after");
+          await expectTiming(drop, ["border-color", "background-color"]);
+          await expectTiming(browse, ["background-color", "border-color"]);
+          await expectTiming(action, ["background-color", "color"]);
+
+          // Focus changes the real form field's border, then blur restores its resting state.
+          await button.focus();
+          await settle(input);
+          const border = await read(input, "border-color");
+          await input.focus();
+          await settle(input);
+          expect(await read(input, "border-color")).not.toBe(border);
+          await button.focus();
+          await settle(input);
+          expect(await read(input, "border-color")).toBe(border);
+
+          const openTransform = await read(summary, "transform", "::after");
+          await summary.click();
+          await settle(summary);
+          expect(await read(summary, "transform", "::after")).not.toBe(openTransform);
+          await summary.click();
+          await settle(summary);
+          expect(await read(summary, "transform", "::after")).toBe(openTransform);
+
+          for (const [target, property] of [
+            [button, "transform"],
+            [drop, "background-color"],
+            // Transition events report the longhand for the border-color shorthand.
+            [browse, "border-top-color"],
+            [action, "background-color"],
+          ]) {
+            // Moving to the input also exits the drop zone before recording its resting state.
+            await input.hover();
+            await settle(target);
+            const rest = await read(target, property);
+            let hovered;
+            for (let repeat = 0; repeat < 2; repeat++) {
+              if (reducedMotion === "no-preference") {
+                await target.evaluate((el, property) => {
+                  el.dataset.observedTransition = "";
+                  // Record before hovering: CI may resume after the 200ms effect has finished.
+                  const record = (event) => {
+                    if (
+                      event.target !== el ||
+                      event.pseudoElement ||
+                      event.propertyName !== property
+                    )
+                      return;
+                    el.dataset.observedTransition = event.propertyName;
+                    el.removeEventListener("transitionrun", record);
+                  };
+                  el.addEventListener("transitionrun", record);
+                }, property);
+              }
+              await target.hover();
+              await settle(target);
+              if (reducedMotion === "no-preference") {
+                await expect(target).toHaveAttribute("data-observed-transition", property);
+              }
+              const actual = await read(target, property);
+              expect(actual).not.toBe(rest);
+              if (repeat) expect(actual).toBe(hovered);
+              hovered = actual;
+              await input.hover();
+              await settle(target);
+              expect(await read(target, property)).toBe(rest);
+            }
+          }
+          if (process.env.MOTION_EVIDENCE) {
+            for (const [name, width, height] of [
+              ["desktop", 1440, 1000],
+              ["phone", 390, 844],
+            ]) {
+              await page.setViewportSize({ width, height });
+              await browse.scrollIntoViewIfNeeded();
+              await page.screenshot({
+                path: testInfo.outputPath(`controls-${theme}-${name}-${reducedMotion}.png`),
+              });
+            }
+            await page.setViewportSize({ width: 1440, height: 1000 });
+          }
+        });
+      }
+    });
+  }
+});
+
+/** Seeds a silver Item bought far below spot and a gold Item bought far above it. */
+async function gotoDashboardWithGainAndLoss(page) {
+  const base = { qty: 1, weightUnit: "oz", purity: 0.999, type: "Round", date: "2026-04-01" };
+  const items = [
+    { ...base, uuid: "dash-gain", serial: 1, name: "Silver Gain Round", metal: "Silver" },
+    { ...base, uuid: "dash-loss", serial: 2, name: "Gold Loss Round", metal: "Gold" },
+  ];
+  Object.assign(items[0], { composition: "Silver", weight: 10, price: 1 });
+  Object.assign(items[1], { composition: "Gold", weight: 1, price: 100000 });
+  await page.addInitScript((inv) => {
+    localStorage.setItem("metalInventory", JSON.stringify(inv));
+  }, items);
+  await suppressWhatsNewPopup(page);
+  await page.goto("/index.html");
+  await expect(page.locator("#lossProfitSilver")).toContainText("$");
+  await expect(page.locator("#lossProfitGold")).toContainText("-");
+  await expect(page.locator("#bestPriceTickerEl .ticker-track")).toHaveCount(1);
+  await expect(page.locator(".spot-ratio-chip.metal-gold .lab")).toHaveText("GB");
+}
+
+// Each selector names Dashboard text whose colour carries a status or a metal mark, plus
+// the stack headline, whose figures sit on their own surface.
+const DASHBOARD_STATUS_TEXT = {
+  "stack headline title": "#totalsSectionEl h2",
+  "stack headline label": "#stackHeadlineFigures .stack-figure-label",
+  "stack headline value": "#stackHeadlineFigures .stack-figure-value",
+  "stack headline status": "#stackHeadlineFigures dd > span",
+  "stack headline context": "#stackHeadlineFigures .stack-figure-sub",
+  "stack weights": "#stackWeights li > span:not(.totals-metal-mark)",
+  "stack activity": "#stackActivity, #stackActivity > span",
+  "totals header": "#totalsLedger thead th",
+  "totals metal": "#totalsLedger .total-title-btn",
+  "totals figure": "#totalsLedger .total-value",
+  "gain/loss value": "#totalsLedger .totals-col-gain > span",
+  "gain/loss percent": "#tabViewDashboard .gain-loss-pct",
+  "spot change": "#tabViewDashboard .spot-card-change span",
+  "ticker price": ".ticker-block[data-ticker-block='primary'] .ticker-item .price",
+  "ticker premium": ".ticker-block[data-ticker-block='primary'] .ticker-item .premium",
+  "goldback chip": ".spot-ratio-chip.metal-gold .lab",
+  "inventory gain/loss": "#inventoryTable td[data-column='gainLoss']",
+};
+
+/** Lists every Dashboard status text below AA or carrying an inline colour. */
+async function dashboardStatusFailures(page) {
+  const failures = [];
+  for (const [what, selector] of Object.entries(DASHBOARD_STATUS_TEXT)) {
+    // An empty node (a ticker item with no premium) has no text to read.
+    const records = (await measureText(page, selector)).filter((r) => r.text !== "");
+    if (!records.length) failures.push(`${what}: nothing rendered`);
+    for (const r of records) {
+      if (r.ratio < AA_NORMAL_TEXT) failures.push(`${what} "${r.text}" ${r.ratio}:1`);
+      if (r.inlineColor) failures.push(`${what} "${r.text}" inline ${r.inlineColor}`);
+    }
+  }
+  return failures;
+}
+
+/** Waits until at least four spot cards have a drawn sparkline chart. */
+async function expectDrawnSparklines(page) {
+  await expect
+    .poll(() =>
+      page
+        .locator("#tabViewDashboard .spot-sparkline")
+        .evaluateAll(
+          (canvases) => canvases.filter((c) => c.width > 0 && window.Chart?.getChart(c)).length
+        )
+    )
+    .toBeGreaterThanOrEqual(4);
+}
+
+test.describe("Dashboard status text from theme tokens", () => {
+  test.beforeEach(async ({ page }) => {
+    await gotoDashboardWithGainAndLoss(page);
+  });
+
+  test("gain, loss, change, ticker and chip text meet AA with no inline colour in all four themes", async ({
+    page,
+  }) => {
+    await expect(page.locator("#totalsLedger .totals-col-gain > .gl-gain").first()).toBeVisible();
+    await expect(page.locator("#totalsLedger .totals-col-gain > .gl-loss").first()).toBeVisible();
+    for (const theme of THEMES) {
+      await page.evaluate((name) => window.setTheme(name), theme);
+      await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+      await expect
+        .poll(() => dashboardStatusFailures(page), { message: `${theme} Dashboard status text` })
+        .toEqual([]);
+    }
+  });
+
+  test("spot prices use the primary text colour and the change line carries the trend", async ({
+    page,
+  }) => {
+    const values = "#tabViewDashboard .spot-card-value";
+    await expect(page.locator(values).first()).toContainText(/[▲▼=] \$/);
+    for (const theme of THEMES) {
+      await page.evaluate((name) => window.setTheme(name), theme);
+      await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+      const textPrimary = await page.evaluate(() => {
+        const probe = document.createElement("span");
+        probe.style.color = "var(--text-primary)";
+        document.body.appendChild(probe);
+        const colour = getComputedStyle(probe).color;
+        probe.remove();
+        return colour;
+      });
+      await expect
+        .poll(
+          async () =>
+            (await measureText(page, values))
+              .filter((r) => r.color !== textPrimary)
+              .map((r) => `${r.text} ${r.color}`),
+          { message: `${theme} spot prices are ${textPrimary}` }
+        )
+        .toEqual([]);
+    }
+  });
+
+  test("each sparkline spends its plot height on the data range", async ({ page }) => {
+    await expectDrawnSparklines(page);
+    const charts = await page.evaluate(() =>
+      Array.from(document.querySelectorAll("#tabViewDashboard .spot-sparkline"))
+        .filter((canvas) => canvas.clientHeight > 0)
+        .map((canvas) => window.Chart?.getChart(canvas))
+        .filter(Boolean)
+        .map((chart) => {
+          const ys = chart.data.datasets[0].data.map((p) => p.y);
+          const { min, max } = chart.scales.y;
+          return {
+            id: chart.canvas.id,
+            plotHeight: chart.chartArea.height,
+            spread: (max - min) / (Math.max(...ys) - Math.min(...ys)),
+            inside: min <= Math.min(...ys) && max >= Math.max(...ys),
+          };
+        })
+    );
+    // A spread near 1 means the axis hugs the data; Chart.js tick rounding can double it.
+    const failures = charts
+      .filter((c) => c.plotHeight < 40 || c.spread > 1.15 || !c.inside)
+      .map(
+        (c) => `${c.id} plot ${c.plotHeight}px spread ${c.spread.toFixed(2)} inside ${c.inside}`
+      );
+    expect(failures).toEqual([]);
+  });
+
+  test("no spot card text sits over its sparkline", async ({ page }) => {
+    await expectDrawnSparklines(page);
+    const overlaps = await page.evaluate(() => {
+      const found = [];
+      const textSelector =
+        ".spot-card-label, .spot-card-period, .spot-card-value, .spot-card-change, .spot-ratio-chip, .spot-card-timestamp";
+      for (const card of document.querySelectorAll("#tabViewDashboard .spot-card")) {
+        const canvas = card.querySelector(".spot-sparkline");
+        const c = canvas.getBoundingClientRect();
+        if (!c.width || !c.height) continue;
+        for (const el of card.querySelectorAll(textSelector)) {
+          const t = el.getBoundingClientRect();
+          const overlapX = Math.min(c.right, t.right) - Math.max(c.left, t.left);
+          const overlapY = Math.min(c.bottom, t.bottom) - Math.max(c.top, t.top);
+          if (overlapX > 0.5 && overlapY > 0.5) {
+            found.push(
+              `${card.dataset.metal} ${el.className} overlaps by ${Math.round(overlapY)}px`
+            );
+          }
+        }
+      }
+      return found;
+    });
+    expect(overlaps).toEqual([]);
   });
 });
 

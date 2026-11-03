@@ -52,7 +52,7 @@ Loaded on demand by `/release`, `/start-patch`, `/finishing-a-development-branch
 - **Run `/update-spot-bundle` before every version-bump PR** whether it targets `dev` or `main`.
 - The command queries sqld, merges new days into the `data/spot-history-<year>.json` files, and rebuilds `data/spot-history-bundle.js`.
 - Copilot's reminder is correct, not a false positive.
-- **Worktree note:** the script resolves its paths relative to itself. Run the **worktree's own copy** (`SQLD_URL=http://192.168.1.81:8080 /usr/bin/python3 .claude/skills/update-spot-bundle/update-spot-bundle.py` from the worktree root). It writes into that worktree. Running the main checkout's copy writes to the main checkout instead (see `.claude/rules/worktree-cwd.md`).
+- **Worktree note:** the script resolves its paths relative to itself. Run the **worktree's own copy** (`SQLD_URL=http://<home-vm>:8080 /usr/bin/python3 .claude/skills/update-spot-bundle/update-spot-bundle.py` from the worktree root). It writes into that worktree. Running the main checkout's copy writes to the main checkout instead (see `.claude/rules/worktree-cwd.md`).
 - The script updates two kinds of file: `data/spot-history-bundle.js` and the `data/spot-history-<year>.json` files it merged new days into. Both must ship in the PR.
 - Stage the results from the worktree root: `git add data/spot-history-bundle.js data/spot-history-*.json`. When sqld has no new complete UTC day since the last run, the script leaves both unchanged and there is nothing to commit. The check still has to be run.
 

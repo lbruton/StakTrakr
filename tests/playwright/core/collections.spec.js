@@ -998,6 +998,16 @@ test.describe("core/collections — link picker, builder, item view", () => {
       await page.evaluate((value) => window.setTheme(value), theme);
       // Resolve both computed colors through a canvas so oklch() and rgb() compare alike,
       // then measure the WCAG contrast between the × glyph and the badge it sits on.
+      await remove.evaluate(async (node) => {
+        // Sample the target theme after the shared colour transitions complete.
+        getComputedStyle(node).color;
+        await Promise.all(
+          node
+            .getAnimations()
+            .filter((animation) => animation instanceof CSSTransition)
+            .map((animation) => animation.finished)
+        );
+      });
       const ratio = await remove.evaluate((node) => {
         const style = getComputedStyle(node);
         const ctx = document.createElement("canvas").getContext("2d", {

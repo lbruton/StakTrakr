@@ -1,12 +1,12 @@
-// STRK-331 — footer API health badge: two independent signals.
+// STRK-331 — footer API health status: two independent signals.
 //
 // The badge previously reported endpoint[0] (api1) only, so during a failover
 // it advertised stale data while the dashboard above it rendered fresh api2
 // prices. The fix splits the signals:
-//   - time + color describe the DATA ON SCREEN — the age of whichever endpoint
-//     the fetch path is actually serving (green fresh / orange stale);
-//   - the leading icon describes the INFRASTRUCTURE — ✅ all endpoints healthy,
-//     ⚠️ any endpoint stale or unreachable.
+//   - the ages and data-state describe the DATA ON SCREEN — the age of whichever
+//     endpoint the fetch path is actually serving (ok fresh / stale);
+//   - data-infra and the "API degraded" words describe the INFRASTRUCTURE — ok
+//     when all endpoints are healthy, degraded when any is stale or unreachable.
 // Selection is freshest-per-feed (STRK-331 follow-up): the data paths serve
 // the freshest acceptable payload (_fetchFreshestSpotEnvelope in js/api.js,
 // _pickFreshestV2Endpoint in js/retail.js), and the badge reports the same
@@ -75,77 +75,92 @@ async function routeHealthEndpoints(page, base, generatedAt) {
  */
 async function gotoAppAndReadBadge(page) {
   await page.goto("/index.html", { waitUntil: "domcontentloaded" });
-  const badge = page.locator("#apiHealthValue");
-  await expect(badge).toContainText("Market", { timeout: 15000 });
-  return badge;
+  const ages = page.locator("#apiHealthValue");
+  await expect(ages).toContainText("Market", { timeout: 15000 });
+  return { ages, status: page.locator("#apiHealthBadge") };
 }
 
-test.describe("footer health badge two-signal model", () => {
+/** Expects the data signal, the infra signal and the visible infra words to agree. */
+async function expectSignals(page, status, data, infra) {
+  await expect(status).toHaveAttribute("data-state", data);
+  await expect(status).toHaveAttribute("data-infra", infra);
+  const words = page.locator("#apiHealthInfra");
+  if (infra === "degraded") await expect(words).toHaveText("API degraded");
+  else await expect(words).toBeHidden();
+}
+
+test.describe("footer health status two-signal model", () => {
   test.beforeEach(async ({ page }) => {
     await injectSeedInventory(page);
   });
 
-  test("both endpoints fresh: green, ✅ icon, fresh ages", async ({ page }) => {
+  test("both endpoints fresh: data ok, infra ok, fresh ages", async ({ page }) => {
     const fresh = minutesAgoIso(5);
     await routeHealthEndpoints(page, API1, fresh);
     await routeHealthEndpoints(page, API2, fresh);
 
-    const badge = await gotoAppAndReadBadge(page);
-    await expect(badge).toHaveText(/^✅ Market \S+ ago · Spot \S+ ago$/);
-    await expect(badge).toHaveClass(/shield-badge-value--green/);
+    const { ages, status } = await gotoAppAndReadBadge(page);
+    await expect(ages).toHaveText(/^Market \S+ ago · Spot \S+ ago$/);
+    await expectSignals(page, status, "ok", "ok");
   });
 
-  test("api1 stale-but-200, api2 fresh: fresh age, green, ⚠️ icon (today's incident)", async ({
-    page,
-  }) => {
+  test("api1 stale-but-200, api2 fresh: fresh age, data ok, infra degraded", async ({ page }) => {
     // 3h is outside both the strict market budget (30m) and the lenient spot
     // gate max(20m × 6, 2h), so the serving endpoint for both feeds is api2.
     await routeHealthEndpoints(page, API1, hoursAgoIso(3));
     await routeHealthEndpoints(page, API2, minutesAgoIso(10));
 
-    const badge = await gotoAppAndReadBadge(page);
+    const { ages, status } = await gotoAppAndReadBadge(page);
     // Data signal reports the SERVING endpoint (api2): minutes, not hours
-    await expect(badge).toHaveText(/^⚠️ Market \d+m ago · Spot \d+m ago$/);
-    // Data on screen is fresh → green, even though api1 is degraded
-    await expect(badge).toHaveClass(/shield-badge-value--green/);
-    // Infra signal flags the degradation the modal explains
-    await expect(badge).toContainText("⚠️");
+    await expect(ages).toHaveText(/^Market \d+m ago · Spot \d+m ago$/);
+    // Data on screen is fresh, even though api1 is degraded; the infra signal flags it
+    await expectSignals(page, status, "ok", "degraded");
   });
 
-  test("api1 in the 20m–2h window, api2 fresh: both feeds report api2, green, ⚠️ icon", async ({
+  test("api1 in the 20m–2h window, api2 fresh: both feeds report api2, infra degraded", async ({
     page,
   }) => {
-    // The live regression seen after v3.35.96 shipped: api1 25m old passes the
-    // LENIENT spot gate, so serve-the-first-acceptable selection kept serving
-    // it and the badge honestly read orange "25m ago" — the cry-wolf window.
-    // v3.35.97 switches selection to freshest-per-feed (data paths AND badge):
-    // api2's 10m envelope wins for both feeds, so the badge reads green fresh
-    // ages while the icon still flags that api1 is lagging its spot budget.
+    // api1 25m old passes the LENIENT spot gate. Freshest-per-feed selection
+    // (data paths AND status) picks api2's 10m envelope for both feeds, so the
+    // ages read fresh while the infra signal flags that api1 lags its budget.
     await routeHealthEndpoints(page, API1, minutesAgoIso(25));
     await routeHealthEndpoints(page, API2, minutesAgoIso(10));
 
-    const badge = await gotoAppAndReadBadge(page);
-    await expect(badge).toHaveText(/^⚠️ Market 1[012]m ago · Spot 1[012]m ago$/);
-    await expect(badge).toHaveClass(/shield-badge-value--green/);
+    const { ages, status } = await gotoAppAndReadBadge(page);
+    await expect(ages).toHaveText(/^Market 1[012]m ago · Spot 1[012]m ago$/);
+    await expectSignals(page, status, "ok", "degraded");
   });
 
-  test("both endpoints stale: orange, ⚠️ icon, honest stale age", async ({ page }) => {
+  test("both endpoints stale: data stale, infra degraded, honest stale age", async ({ page }) => {
     const stale = hoursAgoIso(3);
     await routeHealthEndpoints(page, API1, stale);
     await routeHealthEndpoints(page, API2, stale);
 
-    const badge = await gotoAppAndReadBadge(page);
-    await expect(badge).toHaveText(/^⚠️ Market 3h ago · Spot 3h ago$/);
-    await expect(badge).toHaveClass(/shield-badge-value--orange/);
+    const { ages, status } = await gotoAppAndReadBadge(page);
+    await expect(ages).toHaveText(/^Market 3h ago · Spot 3h ago$/);
+    await expect(page.locator("#apiHealthLabel")).toHaveText("Prices stale");
+    await expectSignals(page, status, "stale", "degraded");
   });
 
-  test("backup unreachable while primary fresh: green data, ⚠️ infra icon", async ({ page }) => {
+  test("backup unreachable while primary fresh: data ok, infra degraded", async ({ page }) => {
     // The extended-test fixture already serves api1 fresh and api2 as 503 —
     // the default boot state. A dead backup is an infra warning, not a data
-    // problem: the age and color stay green while the icon flags it.
-    const badge = await gotoAppAndReadBadge(page);
+    // problem: the data signal stays ok while the infra signal flags it.
+    const { ages, status } = await gotoAppAndReadBadge(page);
     // The fixture publishes envelopes at boot time, so the age reads "just now"
-    await expect(badge).toHaveText(/^⚠️ Market (?:just now|\S+ ago) · Spot (?:just now|\S+ ago)$/);
-    await expect(badge).toHaveClass(/shield-badge-value--green/);
+    await expect(ages).toHaveText(/^Market (?:just now|\S+ ago) · Spot (?:just now|\S+ ago)$/);
+    await expectSignals(page, status, "ok", "degraded");
+  });
+
+  test("every endpoint fails: data down, API unreachable, infra degraded", async ({ page }) => {
+    // The fixture already fails api2; failing api1 too leaves no feed to serve.
+    const fail = (route) => route.fulfill({ status: 503, body: "" });
+    await page.route(`${API1}/manifest.json*`, fail);
+    await page.route(`${API1}/spot/latest.json*`, fail);
+
+    const { ages, status } = await gotoAppAndReadBadge(page);
+    await expect(ages).toHaveText("Market unavailable · Spot unavailable");
+    await expect(page.locator("#apiHealthLabel")).toHaveText("API unreachable");
+    await expectSignals(page, status, "down", "degraded");
   });
 });

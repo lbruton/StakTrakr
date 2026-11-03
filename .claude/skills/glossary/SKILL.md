@@ -85,7 +85,7 @@ Also read high-value project docs when they exist:
 - `README.md`
 - `.context/GLOSSARY.md`
 - `.context/coding-standards.md`
-- `.context/design-philosophy.md`
+- `PRODUCT.md`
 
 Group proposals by natural clusters such as Inventory & Items, Disposition &
 Lifecycle, Market Data & Pricing, Catalog & Enrichment, Cloud & Storage, UI, or

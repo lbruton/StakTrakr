@@ -116,6 +116,41 @@ test.describe("core/ratios-panel — shared Layout C component", () => {
     expect(pageErrors).toEqual([]);
   });
 
+  test("y-axis tick labels are rounded and distinct for every pair and range", async ({ page }) => {
+    // Chart.js steps tick values by float addition; a label printed from the raw
+    // value reads "2.5500000000000003:1".
+    const pairs = ["au-ag", "au-pt", "au-pd", "pt-pd", "ag-cu"];
+    const ranges = ["30", "90", "365", "1305", "max"];
+    const present = await page.evaluate(() =>
+      Array.from(document.querySelectorAll("#ratiosPanelTestMount .gsr-tf button")).map(
+        (b) => b.dataset.r
+      )
+    );
+    expect(present).toEqual(ranges);
+
+    const bad = [];
+    for (const pair of pairs) {
+      await page.locator(`${MOUNT} [data-pair="${pair}"]`).click();
+      for (const range of ranges) {
+        await page.locator(`${MOUNT} .gsr-tf button[data-r="${range}"]`).click();
+        const labels = await page.evaluate(() => {
+          const canvas = document.querySelector("#ratiosPanelTestMount .gsr-canvas canvas");
+          return window.Chart.getChart(canvas).scales.y.ticks.map((t) => String(t.label));
+        });
+        const malformed = labels.filter((l) => {
+          const [whole, fraction = "0"] = l.replace(/:1$/, "").split(".");
+          return !l.endsWith(":1") || !/^[\d,]+$/.test(whole) || !/^\d{1,4}$/.test(fraction);
+        });
+        const duplicates = labels.filter((l, i) => i > 0 && l === labels[i - 1]);
+        if (labels.length === 0 || malformed.length || duplicates.length) {
+          bad.push({ pair, range, labels });
+        }
+      }
+    }
+    expect(bad).toEqual([]);
+    expect(pageErrors).toEqual([]);
+  });
+
   test("theme switch repaints the chart via the data-theme observer", async ({ page }) => {
     // The redraw destroys and recreates the Chart.js instance, so a changed
     // instance id is the deterministic signal that the observer actually
@@ -160,9 +195,9 @@ test.describe("core/ratios-panel — chip → modal host", () => {
   test("exactly the four ratio chips are actionable — never the goldback chip", async ({
     page,
   }) => {
-    // Four since STRK-341: Au:Ag, Au:Pt, Au:Pd, plus Ag:Cu on the copper card
-    // (in the DOM but hidden with copper's card until the Metal Order opt-in —
-    // visibility is covered in core/settings.spec.js).
+    // Au:Ag, Au:Pt, Au:Pd, plus Ag:Cu on the copper card (in the DOM even when
+    // Metal Order hides copper's card; visibility is covered in
+    // core/settings.spec.js).
     await expect(page.locator(".spot-ratio-chip.is-actionable")).toHaveCount(4);
     // The gold card's chip (when present) shows a G1 rate, not a ratio — it
     // must never carry the actionable affordance or a pair mapping.

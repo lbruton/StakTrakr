@@ -7,6 +7,251 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.103] - 2026-11-03
+
+### Changed — STRK-521: Dashboard audit follow-ups
+
+- **Bottom nav**: The phone bottom-nav labels are 12px, up from 9.8px, and the five labels still fit on one line (STRK-521).
+- **Spot timestamps**: The spot card timestamp is 12px at every width. A card narrower than 20rem shows the short "Last Synced" label, so the line no longer ends in an ellipsis on the five-card row (STRK-521).
+- **Weight held**: A metal with no buys in the last 12 months shows a dash in the Rate column. When no metal has a buy, one "No buys in the last 12 months." note sits under the list in place of the same words on every row (STRK-521).
+- **Clear Cache & Reload**: The Settings button is a standard secondary button with no fade. In light and sepia it rests on the darker `--secondary-hover` tone, so its label meets 4.5:1 in all four themes. The hard-coded `.theme-btn` colour rules and their hover sweep are gone (STRK-521).
+- **Collection count**: A new `--primary-text` token colours the filled-slot count on collection cards at 4.5:1 or more in all four themes; light and sepia use a darker tone of the primary colour (STRK-521).
+
+---
+
+## [3.36.102] - 2026-11-02
+
+### Changed — STRK-523: Tab panels match the Dashboard frame surface
+
+- **Tab panels**: The search, inventory table, vendor prices and collections panels use the secondary background with no resting or hover shadow, the same surface as the header and the Dashboard frames. Sepia showed the mismatch most; light differed faintly, dark by chroma only (STRK-523).
+- **Surfaces on a frame**: A new `--bg-on-frame` token sits one step off the frame, away from its text: lighter (card) in light and sepia, darker (primary) in dark and slate, so muted labels and vendor colours keep 4.5:1. Collection cards and the Market table header use it; collection cards no longer blend into their panel in dark (STRK-523).
+
+---
+
+## [3.36.101] - 2026-11-02
+
+### Changed — STRK-522: Footer layout and ticker defaults
+
+- **Footer**: The thanks and the copyright sit on the left. The links sit on the right, above the price status and the version. A separator joins Beta site and GitHub, and the copyright links show an underline only on hover (STRK-522).
+- **Ticker position**: A new layout puts the best-price ticker under the spot cards and above Your stack. A saved section order stays as it is (STRK-522).
+- **Ticker speed**: The ticker scrolls at up to 95 pixels per second, down from 127. A loop narrower than 1900 pixels takes the 20-second minimum (STRK-522).
+
+---
+
+## [3.36.100] - 2026-11-01
+
+### Changed — STRK-501: Quiet app chrome
+
+- **Footer**: Text links and a status line replace the shields.io and Codacy badge images, so the footer loads no images and renders offline. A dot and a word name the price state (Prices current, Prices stale, API unreachable), with the per-feed ages, "API degraded" when an endpoint lags, and the version with any newer release (STRK-501).
+- **Environment tag**: BETA, PREVIEW and LOCAL show as an outlined label beside the wordmark, in the secondary text colour, in place of the coloured chip under the logo (STRK-501).
+- **Header buttons**: Theme and Settings are unboxed icons with a 44px hit area. Their labels show only when Settings, Header Buttons, Show text is on (STRK-501).
+
+---
+
+## [3.36.99] - 2026-11-01
+
+### Changed — STRK-510: Copper on for first-time users
+
+- **Spot cards**: A first-time user sees copper as the fifth spot card, with its Ag:Cu chip and totals row. Returning users and saved Metal Order settings keep copper off until they enable it (STRK-510).
+
+### Fixed — STRK-509: Ticker chips at the strip border
+
+- **Best-price ticker**: The strip clips its chips 8px inside its border, so no chip text or edge paints on or next to the border while the loop runs, holds or pauses (STRK-509).
+
+---
+
+## [3.36.98] - 2026-11-01
+
+### Changed — STRK-498: Bullion bars in the ledger
+
+- **Metal marks**: A small 3D bullion bar in each metal's colour replaces the round dot in the Totals table and the Weight held list, in all four themes (STRK-498).
+
+---
+
+## [3.36.97] - 2026-11-01
+
+### Changed — STRK-506: Ledger follows the lead
+
+- **Gain/Loss column**: Follows the Your stack lead for each metal and All Metals, so the All Metals figure matches the headline. The PDF export names the basis in its label (STRK-506).
+- **Phone rows**: Each metal shows the value that leads beside its gain (STRK-506).
+
+### Fixed — STRK-507: Ledger row hover
+
+- **Row hover**: The metal name cell changes with the rest of the row, with no fade (STRK-507).
+
+### Changed — STRK-508: Your stack labels
+
+- **Labels**: The headline reads Loss on cost below zero, the ledger column reads Gain/Loss, and Weight held has a Rate header over the 12-month buying rate (STRK-508).
+
+---
+
+## [3.36.96] - 2026-11-01
+
+### Changed — STRK-505: Your stack lead swap, weights and activity
+
+- **Lead swap**: A swap button in the lead figure's label makes Retail value or Melt value lead. The lead moves first in reading order with today's change, which reads "today at spot" under the retail lead. The choice is saved as `stackHeadlineLead` and syncs (STRK-505).
+- **Gain on cost**: Follows the lead: retail minus cost basis, or melt minus cost basis. The ledger's Gain column stays at retail (STRK-505).
+- **Weight held**: A column lists the ounces of each enabled metal with active Items, in Metal Order, with its 12-month pace, the breakdown modal's 1Y figure (STRK-505).
+- **Activity**: A line under the figures shows the last 12 months: amount added, acquisitions and market change, matching the All Metals breakdown at 1Y (STRK-505).
+- **Melt sub-line**: Drops the ounces summed across metals (STRK-505).
+
+---
+
+## [3.36.95] - 2026-10-31
+
+### Changed — STRK-500: Your stack in one card
+
+- **One card**: Your stack and the totals ledger share one frame with one heading, the figures over the ledger. The ledger keeps an accessible name through a hidden caption, "Totals by metal" (STRK-500).
+- **Figures**: Retail value, Melt value, Gain on cost, Cost basis and Realized, in reading and visual order. Cost basis shows the average cost per ounce; Realized shows its percentage of the disposed cost and hides with Show Realized (STRK-500).
+- **Layout**: The `stackHeadline` and `totals` layout sections fold into one `totals` entry named "Your stack", at the earlier saved position and enabled if either was. Fresh installs order spot cards, Your stack, then the ticker. Saved labels follow the defaults (STRK-500).
+- **No Items**: The card shows the Add Item prompt and hides the ledger (STRK-500).
+
+---
+
+## [3.36.94] - 2026-10-31
+
+### Changed — STRK-499: Dashboard declutter
+
+- **Footnotes**: Your stack drops the note and rule under its figures, and the totals ledger drops its footnote, at every width (STRK-499).
+- **Whole-row click**: A click on any cell of a totals ledger row, All Metals included, opens that row's details modal once. One delegated listener on `#totalsLedger` replaces the per-title listeners (STRK-499).
+- **Row affordance**: Every ledger row shows a pointer and the tertiary surface on hover; on phones the whole two-line block highlights. The metal button stays the row's only keyboard stop (STRK-499).
+
+---
+
+## [3.36.93] - 2026-10-31
+
+### Fixed — STRK-504: Ticker edge inset
+
+- **Edge fades**: Each best-price ticker fade stays solid for its first 16px, so a dealer chip held by hover, focus or pause never shows next to the frame border (STRK-504).
+- **Fade corners**: The fades drop their own corner radius and take the strip's rounded clip, which closes a gap at each corner (STRK-504).
+
+---
+
+## [3.36.92] - 2026-10-30
+
+### Changed — STRK-503: Dashboard frame surfaces
+
+- **One surface**: The header, spot cards, best-price ticker and footer use the same background as Your stack and Totals in every theme. The spot cards stand off the page background in light and sepia (STRK-503).
+- **Shadows**: The header and footer lose their drop shadow, to match the flat ticker and Totals frames (STRK-503).
+- **Ticker fades**: The ticker's edge fades start from the new background (STRK-503).
+- **Ratio chips**: The ratio and goldback chips on the spot cards have an opaque, lighter fill, so they stand out from the card and the gold chip label keeps AA contrast in sepia (STRK-503).
+
+---
+
+## [3.36.91] - 2026-10-29
+
+### Changed — STRK-491: Dashboard totals ledger
+
+- **Totals ledger**: The six totals cards are one table with a row per metal you hold, in Metal Order, and All Metals as the footer. Figures are mono with tabular numerals and line up on the decimal point; Gain is the bold column (STRK-491).
+- **Rows**: A metal that is off in Metal Order, or has no active Items and no realized gain or loss, has no row. All Metals stays the footer wherever Metal Order places it (STRK-491).
+- **Details**: Each metal name is the button that opens its details modal, as the card titles were (STRK-491).
+- **Realized**: The Show Realized Gain/Loss setting hides the Realized column (STRK-491).
+- **Phones**: Each metal is a two-line block: name, melt and gain, then Items, ounces and the amount paid. The carousel, its arrows and its dots are gone (STRK-491).
+- **Frame**: The totals draw one flat frame with no shadow and no nested cards (STRK-491).
+
+---
+
+## [3.36.90] - 2026-10-29
+
+### Added — STRK-490: Dashboard stack headline
+
+- **Stack headline**: A "Your stack" strip between the best-price ticker and the totals shows retail value with today's change under it, gain on cost with the amount paid, and melt value with the ounces and Items it covers. Retail, melt and gain match the All Metals totals card (STRK-490).
+- **Today's change**: Each metal's pure ounces priced at the two prices its spot card's 24h change compares, so it follows the comparison mode. It updates when spot history or the comparison mode changes (STRK-490).
+- **Partial retail**: When some Items have no retail price, a note under the figures says how many count at melt value (STRK-490).
+- **Empty stack**: With no Items, the strip reads "No Items yet." and an Add Item button opens the add form on Inventory (STRK-490).
+- **Spot cards**: The spot price section no longer draws a panel around the four cards; each card keeps its own frame (STRK-490).
+- **Layout**: The strip is a Dashboard section in Settings, so it can be hidden or moved. A saved layout gains a new Dashboard section at its default place instead of at the end (STRK-490).
+
+---
+
+## [3.36.89] - 2026-10-28
+
+### Changed — STRK-496: Ticker pause lasts for the page view
+
+- **Pause button**: The best-price ticker scrolls on every page load unless reduced motion is on. A pause lasts until play or a reload and is no longer stored, so it does not carry over to the next visit or another tab (STRK-496).
+
+---
+
+## [3.36.88] - 2026-10-27
+
+### Changed — STRK-495: Ticker pause holds in place
+
+- **Pause button**: Pressing pause stops the best-price ticker where it is, and play continues from that point. Reduced motion still shows one scrollable row of dealers (STRK-495).
+
+---
+
+## [3.36.87] - 2026-10-27
+
+### Changed — STRK-494: Ticker play button resumes the loop
+
+- **Play button**: Pressing play restarts the best-price ticker at once, while the pointer and focus stay on the button. Hover and focus on the strip itself still hold the loop (STRK-494).
+
+---
+
+## [3.36.86] - 2026-10-27
+
+### Changed — STRK-489: Dashboard at phone width
+
+- **Spot cards**: At 768px and below, each metal has one card row with the price and change beside the sparkline. Prices, labels and timestamps wrap instead of ending in an ellipsis, and the label shows the metal name alone (STRK-489).
+- **Touch targets**: Every Dashboard control has a 44px hit area at phone width: the trend period, edit and refresh buttons, ratio chips, ticker dealers, totals titles, carousel arrows and dots (STRK-489).
+- **Text size**: Dashboard labels and values are at least 12px at phone width, and totals values wrap to their own line at large text sizes instead of truncating (STRK-489).
+- **Scrolling**: The spot long-press listener is passive and listens on the spot section only, so a touch elsewhere scrolls without waiting for it (STRK-489).
+
+---
+
+## [3.36.85] - 2026-10-27
+
+### Changed — STRK-488: Best-price ticker pause and reduced motion
+
+- **Pause**: The best-price ticker holds still under the pointer or keyboard focus, and a pause button beside it stops the loop. The choice persists on the device (STRK-488).
+- **Paused layout**: A paused ticker shows each dealer once in a row that scrolls sideways, so every price is reachable by scroll and by Tab (STRK-488).
+- **Reduced motion**: With the system reduced-motion setting, the ticker starts in the paused layout without a pause button, and the spot sparklines draw without animation (STRK-488).
+
+---
+
+## [3.36.84] - 2026-10-25
+
+### Changed — STRK-492: Metal Ratios chart axis labels
+
+- **Axis labels**: The Metal Ratios chart rounds its vertical-axis labels to the tick step with the Chart.js numeric formatter, so labels read 2.55:1 instead of 2.5500000000000003:1 (STRK-492).
+
+---
+
+## [3.36.83] - 2026-10-25
+
+### Changed — STRK-487: Dashboard keyboard and screen reader access
+
+- **Spot edit button**: Each spot card has an "Edit spot price" button that opens the inline price input. Focus returns to the button when the edit closes. Shift+click and long-press still work (STRK-487).
+- **Totals titles**: Each totals card title is a heading that holds a button, so Enter opens the metal's details modal. The card no longer lifts on hover (STRK-487).
+- **Ticker**: Dealer items are buttons with a spoken name, inside a region named "Best dealer prices". The loop copy is hidden from assistive tech and the tab order, and the strip stops and brings a focused dealer into view (STRK-487).
+- **Headings and names**: The Dashboard has hidden section headings (Spot prices, Best dealer prices, Totals). Ratio chips name their measure, and refresh buttons say whether prices are fresh, stale or expired (STRK-487).
+- **Carousel dots**: The phone totals dot follows the scroll position after a metal order change, and the active dot sets `aria-current` (STRK-487).
+- **Open edits survive refreshes**: A background spot refresh no longer closes an open inline price edit (STRK-487).
+- **Card labels**: Spot card labels read "Silver Spot" and so on, so they fit beside the edit and refresh buttons (STRK-487).
+
+---
+
+## [3.36.82] - 2026-10-25
+
+### Changed — STRK-486: Dashboard status text contrast
+
+- **Status text tokens**: Gain/loss labels and values, the spot change line, ticker premiums and inventory gain/loss cells use the `--success-text`, `--warning-text` and `--danger-text` tokens through classes instead of inline fill colours. They meet 4.5:1 in all four themes (STRK-486).
+- **Details modal**: Gain and loss figures in the per-metal details modal use the same text tokens, so they match the Dashboard (STRK-486).
+- **No opacity fades**: The gain/loss percentage and ticker premiums drop their 0.7 and 0.8 opacity, and the mid premium tier drops its colour literal (STRK-486).
+- **Neutral prices**: Spot prices and ticker prices use the primary text colour. Only the change line carries the trend colour (STRK-486).
+- **Goldback chip**: The "GB" label uses the `--gold` text colour instead of the Goldback fill token (STRK-486).
+- **Sparkline row**: Each spot card's sparkline has its own row below the change line, so no card text sits on the chart. Its axis fits the data range, so long periods keep their shape in the shorter row (STRK-486).
+
+---
+
+## [3.36.81] - 2026-10-25
+
+### Changed — STRK-484: Restore shared control transitions
+
+- **Control feedback**: Restore 200ms colour, border, shadow, opacity and transform transitions without animating layout. Reduced motion keeps state and theme changes immediate (STRK-484).
+
+---
+
 ## [3.36.80] - 2026-10-25
 
 ### Changed — STRK-476: Name tests by behavior and enforce test naming
@@ -4161,8 +4406,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added — Home Poller SSH Skill + Skill Updates
 
-- **Added**: `homepoller-ssh` skill — SSH reference for direct access to the home poller VM (192.168.1.81) via `stakpoller` user with NOPASSWD sudo
-- **Changed**: `repo-boundaries` skill — fixed IP (192.168.1.48 → 192.168.1.81), replaced stakscrapr Claude delegation with SSH commands, corrected tinyproxy port (8889 → 8888)
+- **Added**: `homepoller-ssh` skill — SSH reference for direct access to the home poller VM (<home-vm>) via `stakpoller` user with NOPASSWD sudo
+- **Changed**: `repo-boundaries` skill — fixed IP (<old-home-vm> → <home-vm>), replaced stakscrapr Claude delegation with SSH commands, corrected tinyproxy port (8889 → 8888)
 - **Changed**: `retail-poller` and `api-infrastructure` skills — added SSH diagnostic references for home VM
 - **Changed**: CLAUDE.md — added home poller SSH quick reference and `homepoller-ssh` to skills list
 

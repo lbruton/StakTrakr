@@ -17,7 +17,7 @@ Authoritative reference for all four data pipelines. Each section covers data so
 
 ## Cron Schedule Summary
 
-### Home Poller (sole retail + goldback scraper, 192.168.1.81)
+### Home Poller (sole retail + goldback scraper, `<home-vm>`)
 
 | Script                     | Cron            | Verified | Purpose                                 |
 | -------------------------- | --------------- | -------- | --------------------------------------- |
@@ -270,7 +270,7 @@ Home VM run-home.sh  (30 * * * *)
 
 ### Data Source
 
-Provider configuration lives in **sqld** (`provider_coins` + `provider_vendors` tables), with file fallback to `data/retail/providers.json`. URL corrections go directly to the database via `provider-db.js` or the dashboard at `http://192.168.1.81:3010/providers`: no redeploy needed.
+Provider configuration lives in **sqld** (`provider_coins` + `provider_vendors` tables), with file fallback to `data/retail/providers.json`. URL corrections go directly to the database via `provider-db.js` or the dashboard at `http://<home-vm>:3010/providers`: no redeploy needed.
 
 **URL strategy:** Prefer random-year SKUs when in stock. At year-start, Monument Metals random-year SKUs go pre-order: switch to year-specific (e.g., `2026-american-silver-eagle.html`) until bulk stock arrives.
 
