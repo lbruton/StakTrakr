@@ -1955,6 +1955,30 @@ test.describe("core/retail-market", () => {
       })
     ).toHaveCount(1);
 
+    // A price with no URL or an unsafe one stays plain text; a safe URL (control) is a button.
+    const plainPrices = await page.evaluate(() =>
+      [null, "javascript:alert(1)", "https://plain.example/coin"].map((url) => {
+        const cell = _buildVendorPriceCell(
+          "core-plain-price",
+          "plainvendor",
+          { plainvendor: { price: 40, in_stock: true, inStock: true } },
+          40,
+          null,
+          0,
+          "xag",
+          { plainvendor: { name: "Plain", url } },
+          "Plain Coin"
+        );
+        const price = cell.querySelector(".vp-price");
+        return { tag: price.tagName, labelled: price.hasAttribute("aria-label") };
+      })
+    );
+    expect(plainPrices).toEqual([
+      { tag: "SPAN", labelled: false },
+      { tag: "SPAN", labelled: false },
+      { tag: "BUTTON", labelled: true },
+    ]);
+
     // Tab from the Silver toggle reaches the item name without a pointer.
     await metals.getByRole("button", { name: "Silver" }).focus();
     const itemName = row.getByRole("button", { name: "Alpha Silver Bar", exact: true });
