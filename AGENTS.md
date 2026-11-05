@@ -140,8 +140,7 @@ Full detail (routing table, throttle, false positives) in `.context/review-and-c
 - Patch session for a specific Plane issue: run `start-patch` — it picks the issue, then hands off to `release patch` for the version lock + worktree.
 - Feed, poller, API, or data-path diagnosis: invoke `/api-infrastructure` and `/retail-poller`.
 - Individual dealer scraping failures: invoke `/retail-provider-fix`.
-- Version-bump PRs: run `/update-spot-bundle`.
-- Version-bump PRs: ensure Tailscale is active.
+- Version-bump PRs: run `/update-spot-bundle` (it reaches sqld on the home LAN; Tailscale is not needed).
 - `dev → main` shipping: invoke `/ship` only on explicit user approval.
 - Cloud or infrastructure claims: read the matching `.context/` doc before speculating.
 - Fly.io or home poller secret claims: verify with `infisical-agent secrets get <KEY> --plain | shasum -a 256` (compare by hash, never print values); the wrapper itself always reads `projectId`/env from `.claude/project.json` → `infisical`, whichever harness runs it (the same block is mirrored in `.codex/project.json`). Fallback: the Infisical MCP with that `projectId`, the UUID, not the slug `stak-trakr-94m4` (slug → `404 "bot lookup"`).
