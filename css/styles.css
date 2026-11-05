@@ -406,7 +406,7 @@
   --success-text: #34d399;
   --warning-text: #fbbf24;
   --danger-text: #f87171;
-  --primary-text: var(--primary);
+  --primary-text: #60a5fa;
 
   /* Disclaimer warning color */
   --disclaimer-color: var(--danger);
@@ -17287,7 +17287,7 @@ input[type="number"] {
 }
 
 .vendor-prices-table .vp-muted {
-  color: var(--text-muted, #6c757d);
+  color: var(--text-muted);
 }
 .vendor-prices-table tr:hover td {
   background: var(--bg-secondary);
@@ -17313,31 +17313,45 @@ input[type="number"] {
   margin-top: 2px;
 }
 .vp-premium.low {
-  color: var(--success);
+  color: var(--success-text);
 }
 .vp-premium.mid {
-  color: oklch(0.55 0.15 60);
+  color: var(--warning-text);
 }
 .vp-premium.high {
-  color: var(--danger);
+  color: var(--danger-text);
 }
 
 /* ── Best Price Highlight ── */
 .vp-best {
-  background: color-mix(in srgb, var(--success) 15%, transparent);
+  background: color-mix(in srgb, var(--success) 12%, transparent);
   font-weight: 700;
 }
 
 /* ── Carried Price ── */
-.vp-carried {
-  opacity: 0.5;
+.vp-carried-mark,
+.vp-carried-date {
+  display: block;
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+  font-style: italic;
 }
 
 /* ── Out of Stock ── */
 .vp-oos {
   color: var(--text-muted);
   font-style: italic;
-  opacity: 0.6;
+}
+
+/* ── Detail Modal Stock Words ── */
+.market-stock--in {
+  color: var(--success-text);
+}
+.market-stock--carried {
+  color: var(--warning-text);
+}
+.market-stock--out {
+  color: var(--danger-text);
 }
 
 /* ── Coin Name Link ── */
@@ -17369,6 +17383,10 @@ input[type="number"] {
   font-size: 10px;
   color: var(--text-muted);
   text-align: center;
+}
+
+.market-disclaimer a {
+  color: var(--primary-text);
 }
 
 /* ── Market Block Header ── */
@@ -17519,7 +17537,7 @@ input[type="number"] {
 }
 
 .market-detail-buy {
-  color: var(--primary);
+  color: var(--primary-text);
   text-decoration: none;
   font-weight: 600;
   font-size: 12px;
@@ -17572,8 +17590,9 @@ input[type="number"] {
 .market-detail-periods .market-detail-period-btn.active,
 .market-detail-periods .market-detail-period-btn[aria-pressed="true"] {
   border-color: var(--primary);
-  background: var(--primary);
-  color: var(--text-inverse);
+  background: color-mix(in srgb, var(--primary) 14%, transparent);
+  color: var(--primary-text);
+  font-weight: 600;
 }
 
 /* ── Modal Chart Container ── */
@@ -17616,18 +17635,14 @@ input[type="number"] {
   background: color-mix(in srgb, var(--success) 18%, transparent);
 }
 
-[data-theme="light"] .vp-best,
-:root .vp-best {
-  background: rgba(5, 150, 105, 0.12);
+/* Sepia muted ink falls below 4.5:1 on the striped --bg-secondary rows. */
+[data-theme="sepia"] .vendor-prices-table {
+  --text-muted: var(--text-secondary);
 }
 
 [data-theme="light"] .market-detail-modal,
 :root .market-detail-modal {
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-}
-
-[data-theme="sepia"] .vp-best {
-  background: rgba(5, 150, 105, 0.12);
 }
 
 [data-theme="sepia"] .market-detail-modal {

@@ -176,6 +176,8 @@ Color status words with the text tokens `--success-text`, `--warning-text` and `
 Color accent words, such as the collection card count, with `--primary-text`.
 Each of the four theme blocks in `css/styles.css` sets all four at 4.5:1 or more on `--bg-secondary`.
 Keep the base `--primary`, `--success`, `--warning` and `--danger` tokens for fills, borders and icons.
+Sepia `--text-muted` measures 4.1:1 on the `--bg-secondary` zebra rows that every `<table>` inherits.
+The vendor price table maps `--text-muted` to `--text-secondary` in sepia; a new striped table needs the same.
 `tests/unit/js-theme-tokens.test.js` fails when `js/` reads a custom property that no stylesheet defines.
 
 ## `--success` color — non-text contrast fail on sepia icons

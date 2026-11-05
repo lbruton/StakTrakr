@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.104] - 2026-11-04
+
+### Changed — STRK-514: Market tab status text contrast
+
+- **Premium tiers**: The low, mid and high premium percentages use the `--success-text`, `--warning-text` and `--danger-text` tokens, so they meet 4.5:1 in all four themes. The mid tier no longer uses one fixed orange in every theme (STRK-514).
+- **OOS and carried prices**: Out-of-stock and carried cells are no longer faded with opacity. A carried price shows a "Carried" label under it, and its tooltip gives the date it was last seen (STRK-514).
+- **Detail modal**: The stock words use classes on the status text tokens in place of inline colours. The active period chip is a tinted outline with primary text, and the Buy links use `--primary-text` (STRK-514).
+- **Links and tokens**: The Market disclaimer link uses `--primary-text` in place of the browser's default blue. Slate `--primary-text` is a lighter blue that meets 4.5:1 on slate cards. In sepia, muted text in the vendor table uses the secondary ink so it passes on striped rows. The best-price tint and the muted fallback use tokens (STRK-514).
+
+---
+
 ## [3.36.103] - 2026-11-03
 
 ### Changed — STRK-521: Dashboard audit follow-ups

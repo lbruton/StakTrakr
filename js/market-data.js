@@ -136,6 +136,25 @@ const _premiumTierClass = (pct) => {
 };
 
 /**
+ * Tooltip text for a carried price: the feed's UTC carried_from timestamp as a local
+ * en-CA date and time, or null when the timestamp is missing or unparseable.
+ * @param {string} carriedFrom - ISO timestamp of the last scrape that saw the price.
+ * @returns {(string|null)} "Last seen YYYY-MM-DD, hh:mm" text, or null.
+ */
+const _carriedTitle = (carriedFrom) => {
+  const seen = carriedFrom ? new Date(carriedFrom) : null;
+  if (!seen || Number.isNaN(seen.getTime())) return null;
+  const local = seen.toLocaleString("en-CA", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  return `Last seen ${local}`;
+};
+
+/**
  * Open a vendor URL in a standardized detached popup window. Mirrors the
  * window name and feature string used by the ticker, vendor matrix, and detail
  * modal so all three open identical popups. Caller validates url via _isSafeUrl.
@@ -1454,14 +1473,15 @@ const _buildModalVendorRow = (entry, vendorMeta, slug, metalCode, weightOz, spot
   // Stock
   const tdStock = document.createElement("td");
   if (entry.carried) {
-    tdStock.style.color = "var(--warning)";
+    tdStock.className = "market-stock market-stock--carried";
     tdStock.textContent = "Carried";
-    if (entry.carried_from) tdStock.title = `Last scraped: ${entry.carried_from}`;
+    const title = _carriedTitle(entry.carried_from);
+    if (title) tdStock.title = title;
   } else if (entry.in_stock) {
-    tdStock.style.color = "var(--success)";
+    tdStock.className = "market-stock market-stock--in";
     tdStock.textContent = "In Stock";
   } else {
-    tdStock.style.color = "var(--danger)";
+    tdStock.className = "market-stock market-stock--out";
     tdStock.textContent = "Out of Stock";
   }
   tr.appendChild(tdStock);
@@ -1864,7 +1884,7 @@ const _computeInStockPrices = (vData, slug) => {
 /**
  * Build one vendor price cell for the matrix: a muted dash for disabled vendors
  * or missing data, an OOS marker when out of stock, otherwise the price (with a
- * best-price highlight, carried dimming, click-to-vendor link, and premium badge).
+ * best-price highlight, carried label and date, click-to-vendor link, and premium badge).
  * @param {string} slug - Retail coin slug.
  * @param {string} vid - Vendor id.
  * @param {Object} vData - Per-vendor data map for the coin.
@@ -1935,6 +1955,23 @@ const _buildVendorPriceCell = (
     premBadge.className = "vp-premium " + _premiumTierClass(premium);
     premBadge.textContent = (premium >= 0 ? "+" : "") + premium.toFixed(1) + "%";
     td.appendChild(premBadge);
+  }
+
+  // A carried price is the last one seen, so a label and its local date name it.
+  if (vInfo.carried && vInfo.price != null) {
+    const mark = document.createElement("span");
+    mark.className = "vp-carried-mark";
+    mark.textContent = "Carried";
+    td.appendChild(mark);
+    const title = _carriedTitle(vInfo.carried_from);
+    if (title) {
+      td.title = title;
+      // Title tooltips never show on touch or keyboard focus, so the date stays visible.
+      const date = document.createElement("span");
+      date.className = "vp-carried-date";
+      date.textContent = new Date(vInfo.carried_from).toLocaleDateString("en-CA");
+      td.appendChild(date);
+    }
   }
 
   return td;
