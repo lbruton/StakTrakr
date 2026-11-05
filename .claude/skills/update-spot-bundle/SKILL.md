@@ -18,7 +18,8 @@ Fills the gap between the committed year JSON files and today's sqld data, then 
 
 ## Prerequisites
 
-`SQLD_URL` must be set and Tailscale must be connected:
+`SQLD_URL` must point at the home sqld host on the LAN. Tailscale is not needed.
+On macOS, run the script with `/usr/bin/python3`: Local Network Privacy blocks Homebrew Python from LAN hosts.
 
 ```bash
 export SQLD_URL=http://<home-vm>:8080
