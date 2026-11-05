@@ -2241,6 +2241,17 @@ test.describe("core/retail-market", () => {
       await expect(failureLine).toHaveText(FAILURE_TEXT);
     });
 
+    await test.step("a refresh while offline names the cause", async () => {
+      await page.context().setOffline(true);
+      await page.locator("#marketRefreshBtn").click();
+      await expect(failureLine).toHaveText(
+        "Refresh failed: you are offline. The last prices stay shown."
+      );
+      await expect(page.locator(".vendor-prices-table")).toBeVisible();
+      await expect(page.locator("#marketRefreshBtn")).toBeEnabled();
+      await page.context().setOffline(false);
+    });
+
     await test.step("the new status text meets AA in all four themes", async () => {
       const STATUS_TEXT = {
         heading: "#vendorPricesContainer .market-block-title",
