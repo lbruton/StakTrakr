@@ -2130,7 +2130,10 @@ test.describe("core/retail-market", () => {
         "All dealers are hidden by your Market filter."
       );
       await expect(container).not.toContainText("No coins tracked");
-      await container.getByRole("button", { name: "Open Market settings" }).click();
+      const openSettings = container.getByRole("button", { name: "Open Market settings" });
+      const actionBox = await openSettings.boundingBox();
+      expect(actionBox.height).toBeGreaterThanOrEqual(44);
+      await openSettings.click();
       await expect(page.locator("#settingsPanel_market")).toBeVisible();
       await page.evaluate((key) => {
         localStorage.removeItem(key);

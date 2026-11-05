@@ -1817,7 +1817,7 @@ const _renderVendorTableMessage = (tableWrap, text, action) => {
   if (action) {
     const btn = document.createElement("button");
     btn.type = "button";
-    btn.className = "market-block-btn";
+    btn.className = "market-block-btn vp-message-action";
     btn.textContent = action.label;
     btn.addEventListener("click", action.onClick);
     msg.appendChild(btn);

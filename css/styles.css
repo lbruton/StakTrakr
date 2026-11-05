@@ -17413,6 +17413,13 @@ button.vp-price:hover {
   margin-bottom: 0;
 }
 
+/* The only recovery action in an empty state: a full 44px touch target. */
+.vp-message-action {
+  min-height: 44px;
+  padding: 0 16px;
+  font-size: 13px;
+}
+
 .market-disclaimer {
   padding: 8px 0 0;
   font-size: 10px;
