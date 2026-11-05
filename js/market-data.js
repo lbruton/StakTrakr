@@ -880,6 +880,7 @@ let _activeModalSlug = null;
 let _activeModalPeriodId = MARKET_DETAIL_DEFAULT_PERIOD_ID;
 let _activeModalRenderGeneration = 0;
 let _activeModalOpener = null;
+let _pendingMarketFocusSlug = null;
 
 const _modalEscHandler = (e) => {
   if (e.key === "Escape") closeMarketDetailModal();
@@ -907,6 +908,21 @@ const _restoreMarketDetailFocus = (opener, slug) => {
   if (!slug) return;
   const stand = document.querySelector(`.vp-coin-link[data-slug="${CSS.escape(slug)}"]`);
   if (stand instanceof HTMLElement) stand.focus();
+  // The matrix may still be rebuilding; _applyPendingMarketFocus finishes the restore.
+  else _pendingMarketFocusSlug = slug;
+};
+
+/**
+ * Focus the item button a closed detail modal could not reach while the matrix
+ * rebuilt. Runs once per render and only while focus still sits on the body.
+ * @returns {void}
+ */
+const _applyPendingMarketFocus = () => {
+  const slug = _pendingMarketFocusSlug;
+  _pendingMarketFocusSlug = null;
+  if (!slug || (document.activeElement && document.activeElement !== document.body)) return;
+  const btn = document.querySelector(`.vp-coin-link[data-slug="${CSS.escape(slug)}"]`);
+  if (btn instanceof HTMLElement) btn.focus();
 };
 
 const closeMarketDetailModal = () => {
@@ -2184,6 +2200,7 @@ const _renderVendorTable = async (metalCode) => {
   table.appendChild(tbody);
   scrollWrap.appendChild(table);
   tableWrap.appendChild(scrollWrap);
+  _applyPendingMarketFocus();
 
   // STAK-513: Removed redundant renderBestPriceTicker() call here.
   // Both initMarketData and refreshMarketData already call it — re-calling

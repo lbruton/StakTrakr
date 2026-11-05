@@ -1984,6 +1984,13 @@ test.describe("core/retail-market", () => {
     const closeBox = await page.locator("#marketDetailCloseBtn").boundingBox();
     expect(closeBox.width).toBeGreaterThanOrEqual(44);
     expect(closeBox.height).toBeGreaterThanOrEqual(44);
+    // The header's content box ends left of the close button, so a wrapped title stays clear of it.
+    const headerTextRight = await page
+      .locator(".market-detail-header")
+      .evaluate(
+        (el) => el.getBoundingClientRect().right - parseFloat(getComputedStyle(el).paddingRight)
+      );
+    expect(headerTextRight).toBeLessThanOrEqual(closeBox.x);
     const buyBox = await buy.first().boundingBox();
     expect(buyBox.width).toBeGreaterThanOrEqual(24);
     expect(buyBox.height).toBeGreaterThanOrEqual(24);
@@ -1998,6 +2005,16 @@ test.describe("core/retail-market", () => {
     }
 
     await page.keyboard.press("Escape");
+    await expect(modal).toBeHidden();
+    await expect(itemName).toBeFocused();
+
+    // A close during a matrix re-render focuses the rebuilt item button once it exists.
+    await page.keyboard.press("Enter");
+    await expect(page.locator("#marketDetailTitle")).toBeFocused();
+    await page.evaluate(() => {
+      window.renderVendorPrices();
+      window.closeMarketDetailModal();
+    });
     await expect(modal).toBeHidden();
     await expect(itemName).toBeFocused();
   });

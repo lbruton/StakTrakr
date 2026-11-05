@@ -17529,8 +17529,10 @@ button.vp-price:hover {
 }
 
 /* ── Modal Header ── */
+/* Clears the 44px close button, which sits 12px inside the modal's 24px padding. */
 .market-detail-header {
   margin-bottom: 1rem;
+  padding-right: 2.5rem;
 }
 
 .market-detail-header h2 {
