@@ -1454,14 +1454,14 @@ const _buildModalVendorRow = (entry, vendorMeta, slug, metalCode, weightOz, spot
   // Stock
   const tdStock = document.createElement("td");
   if (entry.carried) {
-    tdStock.style.color = "var(--warning)";
+    tdStock.className = "market-stock market-stock--carried";
     tdStock.textContent = "Carried";
-    if (entry.carried_from) tdStock.title = `Last scraped: ${entry.carried_from}`;
+    if (entry.carried_from) tdStock.title = `Last seen ${entry.carried_from}`;
   } else if (entry.in_stock) {
-    tdStock.style.color = "var(--success)";
+    tdStock.className = "market-stock market-stock--in";
     tdStock.textContent = "In Stock";
   } else {
-    tdStock.style.color = "var(--danger)";
+    tdStock.className = "market-stock market-stock--out";
     tdStock.textContent = "Out of Stock";
   }
   tr.appendChild(tdStock);
@@ -1935,6 +1935,15 @@ const _buildVendorPriceCell = (
     premBadge.className = "vp-premium " + _premiumTierClass(premium);
     premBadge.textContent = (premium >= 0 ? "+" : "") + premium.toFixed(1) + "%";
     td.appendChild(premBadge);
+  }
+
+  // A carried price is the last one seen, so it is named in words, not only dimmed.
+  if (vInfo.carried && vInfo.price != null) {
+    const mark = document.createElement("span");
+    mark.className = "vp-carried-mark";
+    mark.textContent = "Carried";
+    td.appendChild(mark);
+    if (vInfo.carried_from) td.title = `Last seen ${vInfo.carried_from}`;
   }
 
   return td;

@@ -8,9 +8,7 @@
 
 import { test, expect } from "../helpers/mocks/extended-test.js";
 import { suppressWhatsNewPopup } from "../helpers/seed.js";
-
-const THEMES = ["light", "dark", "slate", "sepia"];
-const AA_NORMAL_TEXT = 4.5;
+import { THEMES, AA_NORMAL_TEXT, measureText, contrastFailures } from "../helpers/contrast.js";
 
 async function gotoApp(page) {
   await suppressWhatsNewPopup(page);
@@ -21,55 +19,6 @@ async function gotoApp(page) {
       typeof window.setTheme === "function" &&
       typeof flashSpotLookupTarget === "function"
   );
-}
-
-/**
- * Returns { color, ratio } for each selector match: the computed text colour and its WCAG
- * 2.x contrast over the element's background composited onto the nearest opaque ancestor.
- * The text colour is faded by the element's own opacity; ancestors of hidden panels read 0.
- */
-function measureText(page, selector) {
-  return page.evaluate((sel) => {
-    const canvas = document.createElement("canvas");
-    canvas.width = canvas.height = 1;
-    const ctx = canvas.getContext("2d", { willReadFrequently: true });
-    const toRgba = (css) => {
-      ctx.clearRect(0, 0, 1, 1);
-      ctx.fillStyle = "#000";
-      ctx.fillStyle = css;
-      ctx.fillRect(0, 0, 1, 1);
-      return Array.from(ctx.getImageData(0, 0, 1, 1).data);
-    };
-    const over = (top, base) => {
-      const a = top[3] / 255;
-      return [0, 1, 2].map((i) => a * top[i] + (1 - a) * base[i]);
-    };
-    const channel = (v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
-    const luminance = ([r, g, b]) =>
-      0.2126 * channel(r / 255) + 0.7152 * channel(g / 255) + 0.0722 * channel(b / 255);
-    const opaqueBehind = (el) => {
-      for (let node = el.parentElement; node; node = node.parentElement) {
-        const c = toRgba(getComputedStyle(node).backgroundColor);
-        if (c[3] === 255) return c;
-      }
-      return [255, 255, 255, 255];
-    };
-    return Array.from(document.querySelectorAll(sel)).map((el) => {
-      const cs = getComputedStyle(el);
-      const back = over(toRgba(cs.backgroundColor), opaqueBehind(el));
-      const text = toRgba(cs.color);
-      text[3] *= Number(cs.opacity);
-      const fore = over(text, back);
-      const [hi, lo] = [luminance(back), luminance(fore)].sort((a, b) => b - a);
-      return {
-        text: el.textContent.trim(),
-        color: cs.color,
-        background: `rgb(${back.map(Math.round).join(", ")})`,
-        inlineColor: el.style.color,
-        ratio: Math.round(((hi + 0.05) / (lo + 0.05)) * 100) / 100,
-      };
-    });
-  }, selector);
 }
 
 /** Asserts each record meets AA and that the records use pairwise-distinct colours. */
@@ -534,21 +483,6 @@ const DASHBOARD_STATUS_TEXT = {
   "inventory gain/loss": "#inventoryTable td[data-column='gainLoss']",
 };
 
-/** Lists every Dashboard status text below AA or carrying an inline colour. */
-async function dashboardStatusFailures(page) {
-  const failures = [];
-  for (const [what, selector] of Object.entries(DASHBOARD_STATUS_TEXT)) {
-    // An empty node (a ticker item with no premium) has no text to read.
-    const records = (await measureText(page, selector)).filter((r) => r.text !== "");
-    if (!records.length) failures.push(`${what}: nothing rendered`);
-    for (const r of records) {
-      if (r.ratio < AA_NORMAL_TEXT) failures.push(`${what} "${r.text}" ${r.ratio}:1`);
-      if (r.inlineColor) failures.push(`${what} "${r.text}" inline ${r.inlineColor}`);
-    }
-  }
-  return failures;
-}
-
 /** Waits until at least four spot cards have a drawn sparkline chart. */
 async function expectDrawnSparklines(page) {
   await expect
@@ -576,7 +510,9 @@ test.describe("Dashboard status text from theme tokens", () => {
       await page.evaluate((name) => window.setTheme(name), theme);
       await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
       await expect
-        .poll(() => dashboardStatusFailures(page), { message: `${theme} Dashboard status text` })
+        .poll(() => contrastFailures(page, DASHBOARD_STATUS_TEXT), {
+          message: `${theme} Dashboard status text`,
+        })
         .toEqual([]);
     }
   });

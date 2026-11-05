@@ -1,6 +1,7 @@
 import { test, expect } from "../helpers/mocks/extended-test.js";
 import { injectSeedInventory } from "../helpers/seed.js";
 import { collectInlineStyleOffenders } from "../helpers/inline-styles.js";
+import { THEMES, contrastFailures } from "../helpers/contrast.js";
 
 const MARKET_FILTER_KEY = "staktrakr.market_filter";
 const GOLDBACK_G1_RATE = 4.25;
@@ -812,8 +813,10 @@ async function setupRetailFixture(page, options = {}) {
     freshSecondaryRate, // g1_usd carried by the api2 FRESH 200 envelope
     retailFeeds = {},
     retailHistory = {},
+    retailPriceRows = {},
     failedRetailFeeds = [],
   } = options;
+  const seededPrices = { ...prices, prices: { ...prices.prices, ...retailPriceRows } };
 
   await injectSeedInventory(page);
   await routeExchangeAndCharts(page, exchangeRates);
@@ -842,7 +845,7 @@ async function setupRetailFixture(page, options = {}) {
     },
     {
       seeded: {
-        prices,
+        prices: seededPrices,
         history: { ...historyRows, ...retailHistory },
         intraday: intradayRows,
         generatedAt: GENERATED_AT,
@@ -1823,6 +1826,77 @@ test.describe("core/retail-market", () => {
       expect(report.unknownColor).toBe("var(--text-muted)");
     }
     expect(contrastFailures).toEqual([]);
+  });
+
+  test("Market status text meets AA in all four themes and carried prices are labelled", async ({
+    page,
+  }) => {
+    // Silver spot is 36: one vendor per premium tier, plus one out of stock and one carried.
+    const vendors = {
+      apmex: { price: 36.5, in_stock: true, inStock: true },
+      jmbullion: { price: 37, in_stock: true, inStock: true },
+      herobullion: { price: 40, in_stock: true, inStock: true },
+      bullionexchanges: { price: 41, in_stock: false, inStock: false },
+      goldback: {
+        price: 38,
+        in_stock: true,
+        inStock: true,
+        carried: true,
+        carried_from: RECENT_DATE,
+      },
+    };
+    const row = { median_price: 38, lowest_price: 36.5, highest_price: 41, vendors };
+    await setupRetailFixture(page, {
+      retailPriceRows: { [SLUG_SILVER_A]: row },
+      retailFeeds: {
+        [SLUG_SILVER_A]: { latest: { weight_oz: 1, window_start: GENERATED_AT, ...row } },
+      },
+    });
+    const matrixRow = page
+      .locator(".vendor-prices-table tbody tr")
+      .filter({ has: page.getByText("Alpha Silver Bar", { exact: true }) });
+    for (const tier of ["low", "mid", "high"]) {
+      await expect(matrixRow.locator(`.vp-premium.${tier}`).first()).toBeVisible();
+    }
+    await expect(matrixRow.locator(".vp-oos")).toHaveText("OOS");
+    const carried = matrixRow.locator(".vp-carried");
+    await expect(carried).toContainText("$38.00");
+    await expect(carried.locator(".vp-carried-mark")).toHaveText("Carried");
+    await expect(carried).toHaveAttribute("title", `Last seen ${RECENT_DATE}`);
+
+    await page.evaluate((slug) => window.openMarketDetailModal(slug), SLUG_SILVER_A);
+    await expect(page.locator("#marketDetailModal")).toBeVisible();
+    const stock = page.locator("#marketDetailContent .market-stock");
+    await expect(stock).toHaveText(["In Stock", "In Stock", "Carried", "In Stock", "Out of Stock"]);
+    await expect(page.locator("#marketDetailContent .market-detail-period-btn.active")).toHaveCount(
+      1
+    );
+
+    const MARKET_STATUS_TEXT = {
+      "item name (control)": ".vendor-prices-table tbody .vp-coin-link",
+      // Vendor column headers carry their per-vendor colour inline; the vendor label test covers them.
+      "matrix header": "#vendorPricesContainer .vendor-prices-table thead th:not([style])",
+      "best price": ".vendor-prices-table .vp-best .vp-price",
+      "premium tier": "#vendorPricesContainer .vp-premium",
+      "out of stock": "#vendorPricesContainer .vp-oos span",
+      "carried price": "#vendorPricesContainer .vp-carried .vp-price",
+      "carried mark": "#vendorPricesContainer .vp-carried-mark",
+      "muted dash": "#vendorPricesContainer .vp-muted",
+      "disclaimer link": "#vendorPricesContainer .market-disclaimer a",
+      "modal premium": "#marketDetailContent .vp-premium",
+      "modal stock word": "#marketDetailContent .market-stock",
+      "modal period chip": "#marketDetailContent .market-detail-period-btn.active",
+      "modal buy link": "#marketDetailContent .market-detail-buy",
+    };
+    for (const theme of THEMES) {
+      await page.evaluate((name) => window.setTheme(name), theme);
+      await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+      await expect
+        .poll(() => contrastFailures(page, MARKET_STATUS_TEXT, { ancestorOpacity: true }), {
+          message: `${theme} Market status text`,
+        })
+        .toEqual([]);
+    }
   });
 
   // STRK-317 review round 1 (Codex): the test above seeds window meta directly,
