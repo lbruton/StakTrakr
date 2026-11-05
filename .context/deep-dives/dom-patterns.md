@@ -228,6 +228,14 @@ The market data module (`js/market-data.js`) uses eight DOM elements, all looked
 
 These elements are defined in `index.html` and are part of the `layoutSectionConfig` system. The `bestPriceTicker` section moves `bestPriceTickerFrame`, not the ribbon. The ticker is inserted in the main page flow; the modal is a top-level overlay with `hidden` attribute toggled by JS.
 
+The detail modal keeps this focus contract:
+
+- `openMarketDetailModal` records the opener and calls `trapFocus(overlay)` only when the overlay was hidden. A re-render of an open modal keeps the first opener and trap.
+- Focus goes to `.market-detail-modal` (`tabindex="-1"`) and then to `#marketDetailTitle` (`tabindex="-1"`) once the title renders.
+- The overlay carries `aria-label="Loading market details"`. It names the dialog until `#marketDetailTitle` exists for `aria-labelledby`.
+- `closeMarketDetailModal` calls `releaseFocus(overlay)`. `_restoreMarketDetailFocus` then focuses the opener, or the `.vp-coin-link[data-slug]` button when a matrix re-render replaced the opener.
+- Item names (`.vp-coin-link`) are buttons. A price (`.vp-price`) is a button only when its dealer URL passes `_isSafeUrl`; otherwise it is a span.
+
 ## Your Stack DOM Elements
 
 `#totalsSectionEl` is the Your stack card and the `totals` layout section, below the spot cards and the ticker by default. It holds the `#stackHeadlineTitle` heading, the stack figures and the totals ledger. `js/stack-headline.js` fills the figures: `updateSummary()` calls `renderStackHeadline(metalTotals)` with the same per-metal accumulators the totals ledger uses. `updateAllSparklines()` calls `refreshStackHeadline()`, so a spot history or comparison-mode change redraws today's change.

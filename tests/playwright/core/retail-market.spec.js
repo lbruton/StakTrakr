@@ -1909,6 +1909,149 @@ test.describe("core/retail-market", () => {
     }
   });
 
+  test("Market tab works by keyboard and names its controls for screen readers", async ({
+    page,
+  }) => {
+    await setupRetailFixture(page);
+    const container = page.locator("#vendorPricesContainer");
+
+    await expect(container.getByRole("heading", { name: "Market prices" })).toBeAttached();
+    await expect(page.locator("#marketSettingsBtn")).toHaveAttribute("type", "button");
+
+    // Metal tabs are a pressed-state toggle group, like the modal period group.
+    const metals = container.getByRole("group", { name: "Metal" });
+    await expect(metals.getByRole("button", { name: "All" })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+    await metals.getByRole("button", { name: "Silver" }).click();
+    await expect(metals.getByRole("button", { name: "Silver" })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+    await expect(metals.getByRole("button", { name: "All" })).toHaveAttribute(
+      "aria-pressed",
+      "false"
+    );
+    for (const btn of await metals.getByRole("button").all()) {
+      await expect(btn).toHaveAttribute("type", "button");
+    }
+
+    const table = page.locator(".vendor-prices-table");
+    await expect(table.locator("caption")).toHaveText("Silver dealer prices");
+    const headScopes = await table
+      .locator("thead th")
+      .evaluateAll((ths) => ths.map((th) => th.getAttribute("scope")));
+    expect(headScopes.length).toBeGreaterThan(0);
+    expect(headScopes.every((scope) => scope === "col")).toBe(true);
+
+    // Each price is a button whose name carries item, dealer, price and premium.
+    const row = table
+      .locator("tbody tr")
+      .filter({ has: page.getByText("Alpha Silver Bar", { exact: true }) });
+    await expect(
+      row.getByRole("button", {
+        name: /^Alpha Silver Bar at APMEX, \$[\d,.]+, premium [+-]\d+\.\d%\. Opens the dealer page in a new window\.$/,
+      })
+    ).toHaveCount(1);
+
+    // A price with no URL or an unsafe one stays plain text; a safe URL (control) is a button.
+    const plainPrices = await page.evaluate(() =>
+      [null, "javascript:alert(1)", "https://plain.example/coin"].map((url) => {
+        const cell = _buildVendorPriceCell(
+          "core-plain-price",
+          "plainvendor",
+          { plainvendor: { price: 40, in_stock: true, inStock: true } },
+          40,
+          null,
+          0,
+          "xag",
+          { plainvendor: { name: "Plain", url } },
+          "Plain Coin"
+        );
+        const price = cell.querySelector(".vp-price");
+        return { tag: price.tagName, labelled: price.hasAttribute("aria-label") };
+      })
+    );
+    expect(plainPrices).toEqual([
+      { tag: "SPAN", labelled: false },
+      { tag: "SPAN", labelled: false },
+      { tag: "BUTTON", labelled: true },
+    ]);
+
+    // Tab from the Silver toggle reaches the item name without a pointer.
+    await metals.getByRole("button", { name: "Silver" }).focus();
+    const itemName = row.getByRole("button", { name: "Alpha Silver Bar", exact: true });
+    let reached = false;
+    for (let i = 0; i < 10 && !reached; i++) {
+      await page.keyboard.press("Tab");
+      reached = await itemName.evaluate((el) => el === document.activeElement);
+    }
+    expect(reached).toBe(true);
+
+    await page.keyboard.press("Enter");
+    const modal = page.locator("#marketDetailModal");
+    await expect(modal).toBeVisible();
+    // The fallback name covers the load; the rendered title then names the dialog.
+    await expect(modal).toHaveAttribute("aria-label", "Loading market details");
+    await expect(page.locator("#marketDetailTitle")).toBeFocused();
+    await expect(page.getByRole("dialog", { name: "Alpha Silver Bar" })).toBeVisible();
+    await expect(page.locator("#marketDetailChartArea")).toHaveAttribute(
+      "aria-label",
+      "Vendor price history chart"
+    );
+
+    const buy = modal.getByRole("button", {
+      name: /^Buy at .+, \$[\d,.]+\. Opens the dealer page in a new window\.$/,
+    });
+    expect(await buy.count()).toBeGreaterThan(0);
+    const closeBox = await page.locator("#marketDetailCloseBtn").boundingBox();
+    expect(closeBox.width).toBeGreaterThanOrEqual(44);
+    expect(closeBox.height).toBeGreaterThanOrEqual(44);
+    // The header's content box ends left of the close button, so a wrapped title stays clear of it.
+    const headerTextRight = await page
+      .locator(".market-detail-header")
+      .evaluate(
+        (el) => el.getBoundingClientRect().right - parseFloat(getComputedStyle(el).paddingRight)
+      );
+    expect(headerTextRight).toBeLessThanOrEqual(closeBox.x);
+    const buyBox = await buy.first().boundingBox();
+    expect(buyBox.width).toBeGreaterThanOrEqual(24);
+    expect(buyBox.height).toBeGreaterThanOrEqual(24);
+
+    // A reload of the open modal keeps focus inside the dialog while it fetches.
+    await page.locator("#marketDetailContent .market-detail-period-btn").first().focus();
+    const focusInsideDuringReload = await page.evaluate((slug) => {
+      void window.openMarketDetailModal(slug, { preservePeriod: true });
+      return document.getElementById("marketDetailModal").contains(document.activeElement);
+    }, SLUG_SILVER_A);
+    expect(focusInsideDuringReload).toBe(true);
+    await expect(page.locator("#marketDetailTitle")).toBeFocused();
+
+    // Tab and Shift+Tab stay inside the dialog.
+    for (const key of ["Tab", "Shift+Tab"]) {
+      for (let i = 0; i < 25; i++) {
+        await page.keyboard.press(key);
+        const inside = await modal.evaluate((el) => el.contains(document.activeElement));
+        expect(inside, `${key} press ${i + 1} left the dialog`).toBe(true);
+      }
+    }
+
+    await page.keyboard.press("Escape");
+    await expect(modal).toBeHidden();
+    await expect(itemName).toBeFocused();
+
+    // A close during a matrix re-render focuses the rebuilt item button once it exists.
+    await page.keyboard.press("Enter");
+    await expect(page.locator("#marketDetailTitle")).toBeFocused();
+    await page.evaluate(() => {
+      window.renderVendorPrices();
+      window.closeMarketDetailModal();
+    });
+    await expect(modal).toBeHidden();
+    await expect(itemName).toBeFocused();
+  });
+
   // STRK-317 review round 1 (Codex): the test above seeds window meta directly,
   // which cannot catch the dual-store gap — retail.js's _populateManifestState
   // (the REAL mid-session manifest sync path) updates its lexical

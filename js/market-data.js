@@ -879,6 +879,8 @@ let _activeModalChart = null;
 let _activeModalSlug = null;
 let _activeModalPeriodId = MARKET_DETAIL_DEFAULT_PERIOD_ID;
 let _activeModalRenderGeneration = 0;
+let _activeModalOpener = null;
+let _pendingMarketFocusSlug = null;
 
 const _modalEscHandler = (e) => {
   if (e.key === "Escape") closeMarketDetailModal();
@@ -891,7 +893,40 @@ const _destroyActiveMarketDetailChart = () => {
   _activeModalChart = null;
 };
 
+/**
+ * Return focus to the control that opened the detail modal. A matrix re-render
+ * replaces the opener, so the item button with the same slug stands in for it.
+ * @param {(HTMLElement|null)} opener - Element focused when the modal opened.
+ * @param {(string|null)} slug - Slug of the coin the modal showed.
+ * @returns {void}
+ */
+const _restoreMarketDetailFocus = (opener, slug) => {
+  if (opener && opener.isConnected) {
+    opener.focus();
+    return;
+  }
+  if (!slug) return;
+  const stand = document.querySelector(`.vp-coin-link[data-slug="${CSS.escape(slug)}"]`);
+  if (stand instanceof HTMLElement) stand.focus();
+  // The matrix may still be rebuilding; _applyPendingMarketFocus finishes the restore.
+  else _pendingMarketFocusSlug = slug;
+};
+
+/**
+ * Focus the item button a closed detail modal could not reach while the matrix
+ * rebuilt. Runs once per render and only while focus still sits on the body.
+ * @returns {void}
+ */
+const _applyPendingMarketFocus = () => {
+  const slug = _pendingMarketFocusSlug;
+  _pendingMarketFocusSlug = null;
+  if (!slug || (document.activeElement && document.activeElement !== document.body)) return;
+  const btn = document.querySelector(`.vp-coin-link[data-slug="${CSS.escape(slug)}"]`);
+  if (btn instanceof HTMLElement) btn.focus();
+};
+
 const closeMarketDetailModal = () => {
+  const closedSlug = _activeModalSlug;
   _activeModalRenderGeneration += 1;
   _destroyActiveMarketDetailChart();
   _activeModalSlug = null;
@@ -901,7 +936,15 @@ const closeMarketDetailModal = () => {
   if (content instanceof HTMLElement) content.textContent = "";
 
   const overlay = safeGetElement("marketDetailModal");
-  if (overlay instanceof HTMLElement) overlay.setAttribute("hidden", "");
+  if (overlay instanceof HTMLElement) {
+    const wasOpen = !overlay.hasAttribute("hidden");
+    overlay.setAttribute("hidden", "");
+    if (wasOpen) {
+      if (typeof releaseFocus === "function") releaseFocus(overlay);
+      _restoreMarketDetailFocus(_activeModalOpener, closedSlug);
+    }
+  }
+  _activeModalOpener = null;
 
   document.removeEventListener("keydown", _modalEscHandler);
 };
@@ -1215,6 +1258,7 @@ const _buildModalHeader = (content, coinMeta, slug, metalCode, metalLower, weigh
 
   const h2 = document.createElement("h2");
   h2.id = "marketDetailTitle";
+  h2.tabIndex = -1;
   const dot = document.createElement("span");
   dot.className = "metal-dot" + (metalCode ? " " + metalCode : "");
   h2.appendChild(dot);
@@ -1301,6 +1345,8 @@ const _buildModalChartSection = (
   const chartWrap = document.createElement("div");
   chartWrap.className = "market-detail-chart";
   chartWrap.id = "marketDetailChartArea";
+  chartWrap.setAttribute("role", "group");
+  chartWrap.setAttribute("aria-label", "Vendor price history chart");
   const rangeEndMs = Date.now();
   const rangeModels = new Map(
     MARKET_DETAIL_PERIODS.map((period) => [
@@ -1406,12 +1452,16 @@ const _buildModalBuyCell = (entry, slug, vendorMeta) => {
   const tdBuy = document.createElement("td");
   const url = _resolveVendorUrl(slug, entry.vid, vendorMeta, entry.url);
   if (_isSafeUrl(url)) {
-    const buyBtn = document.createElement("a");
+    const buyBtn = document.createElement("button");
+    buyBtn.type = "button";
     buyBtn.textContent = "Buy";
-    buyBtn.href = "#";
     buyBtn.className = "market-detail-buy";
-    buyBtn.addEventListener("click", (e) => {
-      e.preventDefault();
+    const pricePart = entry.price > 0 ? `, ${formatCurrency(entry.price)}` : "";
+    buyBtn.setAttribute(
+      "aria-label",
+      `Buy at ${_shortVendor(entry.vid)}${pricePart}. Opens the dealer page in a new window.`
+    );
+    buyBtn.addEventListener("click", () => {
       _openVendorPopup(url, entry.vid);
     });
     tdBuy.appendChild(buyBtn);
@@ -1590,8 +1640,19 @@ const openMarketDetailModal = async (slug, { preservePeriod = false } = {}) => {
   if (!preservePeriod) _activeModalPeriodId = MARKET_DETAIL_DEFAULT_PERIOD_ID;
   _destroyActiveMarketDetailChart();
   _activeModalSlug = slug;
+  const dialog = overlay.querySelector(".market-detail-modal");
+  // Clearing the content drops focus to the body, outside the trap's keydown listener.
+  if (content.contains(document.activeElement) && dialog instanceof HTMLElement) dialog.focus();
   content.textContent = "";
+  // A re-render of an open modal keeps the original opener and trap.
+  const isFreshOpen = overlay.hasAttribute("hidden");
   overlay.removeAttribute("hidden");
+  if (isFreshOpen) {
+    _activeModalOpener =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    if (typeof trapFocus === "function") trapFocus(overlay);
+    if (dialog instanceof HTMLElement) dialog.focus();
+  }
 
   const closeBtn = safeGetElement("marketDetailCloseBtn");
   if (closeBtn instanceof HTMLElement) closeBtn.onclick = () => closeMarketDetailModal();
@@ -1623,10 +1684,17 @@ const openMarketDetailModal = async (slug, { preservePeriod = false } = {}) => {
   }
   const { detail } = modalData;
 
+  // Focus moves to the title when it sits on the dialog box or was lost with the old content.
+  const dialogBox = overlay.querySelector(".market-detail-modal");
+  const focusOnBox = document.activeElement === dialogBox;
   content.textContent = "";
 
   const weightOz = (detail && detail.weight_oz) || coinMeta.weight || 0;
   _buildModalHeader(content, coinMeta, slug, metalCode, metalLower, weightOz);
+  const title = safeGetElement("marketDetailTitle");
+  if (title instanceof HTMLElement && (focusOnBox || !overlay.contains(document.activeElement))) {
+    title.focus();
+  }
 
   const updateSummary = _buildModalPriceSummary(content);
 
@@ -1839,24 +1907,23 @@ const _collectEnabledVendorIds = (metalSlugs, detailMap) => {
 const _buildVendorTableHead = (vendorIds) => {
   const thead = document.createElement("thead");
   const headRow = document.createElement("tr");
-  const thCoin = document.createElement("th");
-  thCoin.textContent = "ITEM";
-  headRow.appendChild(thCoin);
+  const addHeader = (text) => {
+    const th = document.createElement("th");
+    th.scope = "col";
+    th.textContent = text;
+    headRow.appendChild(th);
+    return th;
+  };
+  addHeader("ITEM");
 
   for (const vid of vendorIds) {
-    const th = document.createElement("th");
-    th.textContent = _shortVendor(vid);
+    const th = addHeader(_shortVendor(vid));
     th.style.color =
       typeof getRetailVendorColor === "function" ? getRetailVendorColor(vid) : "var(--text-muted)";
-    headRow.appendChild(th);
   }
 
-  const thMedian = document.createElement("th");
-  thMedian.textContent = "MEDIAN";
-  headRow.appendChild(thMedian);
-  const thSpread = document.createElement("th");
-  thSpread.textContent = "SPREAD";
-  headRow.appendChild(thSpread);
+  addHeader("MEDIAN");
+  addHeader("SPREAD");
 
   thead.appendChild(headRow);
   return thead;
@@ -1893,6 +1960,7 @@ const _computeInStockPrices = (vData, slug) => {
  * @param {number} weightOz - Coin weight in troy ounces.
  * @param {string} isoCode - ISO metal code (Goldback premium uses the G1 rate).
  * @param {Object} vendorMeta - Vendor-meta map (for the URL fallback).
+ * @param {string} itemName - Display name of the coin (price button name).
  * @returns {HTMLTableCellElement} The price cell.
  */
 const _buildVendorPriceCell = (
@@ -1903,7 +1971,8 @@ const _buildVendorPriceCell = (
   spotPrice,
   weightOz,
   isoCode,
-  vendorMeta
+  vendorMeta,
+  itemName
 ) => {
   // STAK-515: Skip disabled vendor cells
   if (typeof _isMarketItemEnabled === "function" && !_isMarketItemEnabled(slug, vid)) {
@@ -1935,25 +2004,37 @@ const _buildVendorPriceCell = (
 
   if (vInfo.price === lowestPrice && !vInfo.carried) td.classList.add("vp-best");
 
-  const priceSpan = document.createElement("span");
-  priceSpan.className = "vp-price";
-  priceSpan.textContent = formatCurrency(vInfo.price);
-  priceSpan.addEventListener("click", () => {
-    const url = _resolveVendorUrl(slug, vid, vendorMeta);
-    if (_isSafeUrl(url)) _openVendorPopup(url, vid);
-  });
-  td.appendChild(priceSpan);
-
   let premium = null;
   if (spotPrice && spotPrice > 0 && weightOz > 0) {
     premium = _calcMarketPremium(vInfo.price, spotPrice * weightOz);
   } else if (isoCode === "goldback" && _goldbackG1Rate > 0 && vInfo.price > 0) {
     premium = _calcMarketPremium(vInfo.price, _goldbackG1Rate);
   }
+  const premiumText = premium != null ? (premium >= 0 ? "+" : "") + premium.toFixed(1) + "%" : "";
+
+  // A safe dealer URL makes the price a button; its name matches the ticker items.
+  const url = _resolveVendorUrl(slug, vid, vendorMeta);
+  const isLink = _isSafeUrl(url);
+  const priceEl = document.createElement(isLink ? "button" : "span");
+  priceEl.className = "vp-price";
+  priceEl.textContent = formatCurrency(vInfo.price);
+  if (isLink) {
+    priceEl.type = "button";
+    const premiumPart = premiumText ? `, premium ${premiumText}` : "";
+    priceEl.setAttribute(
+      "aria-label",
+      `${itemName} at ${_shortVendor(vid)}, ${formatCurrency(vInfo.price)}${premiumPart}. Opens the dealer page in a new window.`
+    );
+    priceEl.addEventListener("click", () => {
+      _openVendorPopup(url, vid);
+    });
+  }
+  td.appendChild(priceEl);
+
   if (premium != null) {
     const premBadge = document.createElement("span");
     premBadge.className = "vp-premium " + _premiumTierClass(premium);
-    premBadge.textContent = (premium >= 0 ? "+" : "") + premium.toFixed(1) + "%";
+    premBadge.textContent = premiumText;
     td.appendChild(premBadge);
   }
 
@@ -2003,20 +2084,33 @@ const _buildVendorTableRow = (rowInfo, vendorIds, detailMap, coins, vendorMeta) 
 
   const tdName = document.createElement("td");
 
-  const nameSpan = document.createElement("span");
+  const nameBtn = document.createElement("button");
+  nameBtn.type = "button";
   const displayName = meta.name || slug;
-  nameSpan.textContent = displayName;
-  nameSpan.className = "vp-coin-link";
-  nameSpan.addEventListener("click", () => {
+  nameBtn.textContent = displayName;
+  nameBtn.className = "vp-coin-link";
+  nameBtn.dataset.slug = slug;
+  nameBtn.setAttribute("aria-haspopup", "dialog");
+  nameBtn.addEventListener("click", () => {
     openMarketDetailModal(slug);
   });
-  tdName.appendChild(nameSpan);
+  tdName.appendChild(nameBtn);
 
   tr.appendChild(tdName);
 
   for (const vid of vendorIds) {
     tr.appendChild(
-      _buildVendorPriceCell(slug, vid, vData, lowestPrice, spotPrice, weightOz, isoCode, vendorMeta)
+      _buildVendorPriceCell(
+        slug,
+        vid,
+        vData,
+        lowestPrice,
+        spotPrice,
+        weightOz,
+        isoCode,
+        vendorMeta,
+        displayName
+      )
     );
   }
 
@@ -2039,6 +2133,16 @@ const _buildVendorTableRow = (rowInfo, vendorIds, detailMap, coins, vendorMeta) 
   tr.appendChild(tdSpread);
 
   return tr;
+};
+
+/** Metal tab labels, keyed by tab code, that name the matrix in its caption. */
+const _VENDOR_TABLE_METAL_LABELS = {
+  all: "All",
+  xau: "Gold",
+  xag: "Silver",
+  xpt: "Platinum",
+  xpd: "Palladium",
+  goldback: "Goldback",
 };
 
 const _renderVendorTable = async (metalCode) => {
@@ -2081,6 +2185,11 @@ const _renderVendorTable = async (metalCode) => {
   const table = document.createElement("table");
   table.className = "vendor-prices-table";
 
+  const caption = document.createElement("caption");
+  caption.className = "sr-only";
+  caption.textContent = `${_VENDOR_TABLE_METAL_LABELS[metalCode] || "All"} dealer prices`;
+  table.appendChild(caption);
+
   table.appendChild(_buildVendorTableHead(vendorIds));
 
   const tbody = document.createElement("tbody");
@@ -2093,6 +2202,7 @@ const _renderVendorTable = async (metalCode) => {
   table.appendChild(tbody);
   scrollWrap.appendChild(table);
   tableWrap.appendChild(scrollWrap);
+  _applyPendingMarketFocus();
 
   // STAK-513: Removed redundant renderBestPriceTicker() call here.
   // Both initMarketData and refreshMarketData already call it — re-calling
@@ -2201,6 +2311,11 @@ const _buildMarketBlockHeader = () => {
   const headerRow = document.createElement("div");
   headerRow.className = "market-block-header";
 
+  const heading = document.createElement("h2");
+  heading.className = "sr-only";
+  heading.textContent = "Market prices";
+  headerRow.appendChild(heading);
+
   const rightGroup = document.createElement("div");
   rightGroup.className = "market-block-actions";
 
@@ -2246,6 +2361,7 @@ const _buildMarketBlockHeader = () => {
 
   const settingsBtn = document.createElement("button");
   settingsBtn.id = "marketSettingsBtn";
+  settingsBtn.type = "button";
   settingsBtn.title = "Market settings";
   settingsBtn.setAttribute("aria-label", "Market settings");
   settingsBtn.className = "market-block-btn";
@@ -2280,6 +2396,8 @@ const renderVendorPrices = () => {
 
   const tabBar = document.createElement("div");
   tabBar.className = "vendor-prices-tabs";
+  tabBar.setAttribute("role", "group");
+  tabBar.setAttribute("aria-label", "Metal");
 
   // Determine which metals have coins with data
   const coinMetaMap = _getCoinMeta();
@@ -2299,14 +2417,10 @@ const renderVendorPrices = () => {
     metalHasCoins[isoCode] = true;
   }
 
-  const allMetals = [
-    { code: "all", label: "All" },
-    { code: "xau", label: "Gold" },
-    { code: "xag", label: "Silver" },
-    { code: "xpt", label: "Platinum" },
-    { code: "xpd", label: "Palladium" },
-    { code: "goldback", label: "Goldback" },
-  ];
+  const allMetals = Object.entries(_VENDOR_TABLE_METAL_LABELS).map(([code, label]) => ({
+    code,
+    label,
+  }));
   // Only show tabs that have coins
   const metals = allMetals.filter((m) => m.code === "all" || metalHasCoins[m.code]);
 
@@ -2317,14 +2431,20 @@ const renderVendorPrices = () => {
     activeTab = code;
     saveDataSync("vendorPricesActiveTab", code);
     const btns = tabBar.querySelectorAll("button");
-    btns.forEach((b) => b.classList.toggle("active", b.getAttribute("data-metal") === code));
+    btns.forEach((b) => {
+      const isActive = b.getAttribute("data-metal") === code;
+      b.classList.toggle("active", isActive);
+      b.setAttribute("aria-pressed", String(isActive));
+    });
     _renderVendorTable(code);
   };
 
   for (const m of metals) {
     const btn = document.createElement("button");
+    btn.type = "button";
     btn.className = "vp-tab" + (m.code === activeTab ? " active" : "");
     btn.setAttribute("data-metal", m.code);
+    btn.setAttribute("aria-pressed", String(m.code === activeTab));
     btn.textContent = m.label;
     btn.addEventListener("click", () => {
       setActive(m.code);

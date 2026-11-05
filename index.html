@@ -9591,10 +9591,12 @@
       role="dialog"
       aria-modal="true"
       aria-labelledby="marketDetailTitle"
+      aria-label="Loading market details"
       hidden
     >
-      <div class="market-detail-modal">
+      <div class="market-detail-modal" tabindex="-1">
         <button
+          type="button"
           class="market-detail-close"
           id="marketDetailCloseBtn"
           title="Close"
