@@ -33,24 +33,34 @@ export function measureText(page, selector, { ancestorOpacity = false } = {}) {
       const channel = (v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
       const luminance = ([r, g, b]) =>
         0.2126 * channel(r / 255) + 0.7152 * channel(g / 255) + 0.0722 * channel(b / 255);
-      // Opacity above the opaque surface fades text and surface together, so the walk stops there.
-      const surfaceBehind = (el) => {
-        let opacity = Number(getComputedStyle(el).opacity);
-        for (let node = el.parentElement; node; node = node.parentElement) {
+      const mix = (top, base, a) => [0, 1, 2].map((i) => a * top[i] + (1 - a) * base[i]);
+      // Walks up from `from` to the first opaque surface. A faded opaque surface fades text and
+      // surface together, so `flatten` composites a colour painted on it over its own backdrop.
+      const walk = (from, start) => {
+        let opacity = start;
+        for (let node = from.parentElement; node; node = node.parentElement) {
           const cs = getComputedStyle(node);
           const c = toRgba(cs.backgroundColor);
-          if (c[3] === 255) return { colour: c, opacity };
-          if (withAncestors) opacity *= Number(cs.opacity);
+          const own = withAncestors ? Number(cs.opacity) : 1;
+          if (c[3] === 255) {
+            if (own === 1) return { colour: c, opacity, flatten: (x) => x };
+            const behind = walk(node, own);
+            const flatten = (x) => behind.flatten(mix(x, behind.colour, behind.opacity));
+            return { colour: c, opacity, flatten };
+          }
+          opacity *= own;
         }
-        return { colour: [255, 255, 255, 255], opacity };
+        return { colour: [255, 255, 255, 255], opacity, flatten: (x) => x };
       };
+      const surfaceBehind = (el) => walk(el, Number(getComputedStyle(el).opacity));
       return Array.from(document.querySelectorAll(sel)).map((el) => {
         const cs = getComputedStyle(el);
         const surface = surfaceBehind(el);
-        const back = over(toRgba(cs.backgroundColor), surface.colour);
+        const local = over(toRgba(cs.backgroundColor), surface.colour);
         const text = toRgba(cs.color);
         text[3] *= surface.opacity;
-        const fore = over(text, back);
+        const back = surface.flatten(local);
+        const fore = surface.flatten(over(text, local));
         const [hi, lo] = [luminance(back), luminance(fore)].sort((a, b) => b - a);
         return {
           text: el.textContent.trim(),

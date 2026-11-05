@@ -641,3 +641,19 @@ test.describe("card chart colours from theme tokens", () => {
     );
   });
 });
+
+test.describe("contrast measure", () => {
+  test("a faded opaque ancestor fades its text and its surface together", async ({ page }) => {
+    await page.setContent(
+      `<body style="margin:0;background:#fff">
+        <div style="background:#000;opacity:0.5"><span id="t" style="color:#fff">Faded</span></div>
+      </body>`
+    );
+    const [plain] = await measureText(page, "#t");
+    expect(plain.ratio).toBeCloseTo(21, 1);
+    const [faded] = await measureText(page, "#t", { ancestorOpacity: true });
+    // White over 50% black on white renders white on mid-grey.
+    expect(faded.ratio).toBeLessThan(AA_NORMAL_TEXT);
+    expect(faded.ratio).toBeCloseTo(4, 0);
+  });
+});
