@@ -2153,7 +2153,8 @@ const _buildVendorPriceCell = (
       // Title tooltips never show on touch or keyboard focus, so the date stays visible.
       const date = document.createElement("span");
       date.className = "vp-carried-date";
-      date.textContent = new Date(vInfo.carried_from).toLocaleDateString("en-CA");
+      // Same formatter as the tooltip, so both name one calendar day in one timezone.
+      date.textContent = _formatMarketTimestamp(vInfo.carried_from).split(",")[0];
       td.appendChild(date);
     }
   }

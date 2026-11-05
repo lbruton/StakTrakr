@@ -1872,6 +1872,25 @@ test.describe("core/retail-market", () => {
     await expect(carried.locator(".vp-carried-date")).toHaveText(localDate);
     await expect(carried).toHaveAttribute("title", lastSeen);
 
+    // 18:00 UTC is the next calendar day in Kiritimati, so the cell and tooltip must agree.
+    const zoned = await page.evaluate((iso) => {
+      const zone =
+        Intl.DateTimeFormat().resolvedOptions().timeZone === "Pacific/Kiritimati"
+          ? "America/Chicago"
+          : "Pacific/Kiritimati";
+      localStorage.setItem(TIMEZONE_KEY, zone);
+      window.renderVendorPrices();
+      return new Date(iso).toLocaleDateString("en-CA", { timeZone: zone });
+    }, CARRIED_FROM);
+    expect(zoned).not.toBe(localDate);
+    await expect(carried.locator(".vp-carried-date")).toHaveText(zoned);
+    await expect(carried).toHaveAttribute("title", new RegExp(`^Last seen ${zoned}, `));
+    await page.evaluate(() => {
+      localStorage.removeItem(TIMEZONE_KEY);
+      window.renderVendorPrices();
+    });
+    await expect(carried.locator(".vp-carried-date")).toHaveText(localDate);
+
     await page.evaluate((slug) => window.openMarketDetailModal(slug), SLUG_SILVER_A);
     await expect(page.locator("#marketDetailModal")).toBeVisible();
     const stock = page.locator("#marketDetailContent .market-stock");
