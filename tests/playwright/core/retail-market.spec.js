@@ -1832,6 +1832,7 @@ test.describe("core/retail-market", () => {
     page,
   }) => {
     // Silver spot is 36: one vendor per premium tier, plus one out of stock and one carried.
+    const CARRIED_FROM = `${RECENT_DATE}T18:00:00Z`;
     const vendors = {
       apmex: { price: 36.5, in_stock: true, inStock: true },
       jmbullion: { price: 37, in_stock: true, inStock: true },
@@ -1842,11 +1843,9 @@ test.describe("core/retail-market", () => {
         in_stock: true,
         inStock: true,
         carried: true,
-        // Midday UTC keeps the same calendar date in every timezone from UTC-12 to UTC+5.
-        carried_from: `${RECENT_DATE}T18:00:00Z`,
+        carried_from: CARRIED_FROM,
       },
     };
-    const lastSeen = new RegExp(`^Last seen ${RECENT_DATE}, \\d{2}:\\d{2}`);
     const row = { median_price: 38, lowest_price: 36.5, highest_price: 41, vendors };
     await setupRetailFixture(page, {
       retailPriceRows: { [SLUG_SILVER_A]: row },
@@ -1854,6 +1853,12 @@ test.describe("core/retail-market", () => {
         [SLUG_SILVER_A]: { latest: { weight_oz: 1, window_start: GENERATED_AT, ...row } },
       },
     });
+    // The browser's own timezone sets the expected local date.
+    const localDate = await page.evaluate(
+      (iso) => new Date(iso).toLocaleDateString("en-CA"),
+      CARRIED_FROM
+    );
+    const lastSeen = new RegExp(`^Last seen ${localDate}, \\d{2}:\\d{2}`);
     const matrixRow = page
       .locator(".vendor-prices-table tbody tr")
       .filter({ has: page.getByText("Alpha Silver Bar", { exact: true }) });
@@ -1864,7 +1869,7 @@ test.describe("core/retail-market", () => {
     const carried = matrixRow.locator(".vp-carried");
     await expect(carried).toContainText("$38.00");
     await expect(carried.locator(".vp-carried-mark")).toHaveText("Carried");
-    await expect(carried.locator(".vp-carried-date")).toHaveText(RECENT_DATE);
+    await expect(carried.locator(".vp-carried-date")).toHaveText(localDate);
     await expect(carried).toHaveAttribute("title", lastSeen);
 
     await page.evaluate((slug) => window.openMarketDetailModal(slug), SLUG_SILVER_A);
