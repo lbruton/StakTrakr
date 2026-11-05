@@ -977,6 +977,52 @@ async function getVendorCellText(page, rowName, vendorHeader) {
 }
 
 /**
+ * Measures the phone-width contract inside one root: the smallest visible text size, the
+ * visible controls whose hit area is under 44px, and the names that overflow their box.
+ * A control's hit area is its box, or its absolute ::after box when it has one.
+ * @param {import('@playwright/test').Page} page - Playwright page.
+ * @param {string} rootSelector - CSS selector of the root to measure.
+ * @returns {Promise<{minFont:number, smallTargets:string[], clippedNames:string[]}>}
+ */
+function readPhoneFit(page, rootSelector) {
+  return page.locator(rootSelector).evaluate((root) => {
+    const shown = (el) => el.getClientRects().length > 0 && !el.closest(".sr-only");
+    const hitBox = (el) => {
+      const after = getComputedStyle(el, "::after");
+      const r = el.getBoundingClientRect();
+      if (after.content === "none" || after.position !== "absolute") return r;
+      const base = getComputedStyle(el).position === "static" ? el.offsetParent : el;
+      const b = base.getBoundingClientRect();
+      const inset = (side) => parseFloat(after[side]) || 0;
+      return {
+        width: b.width - inset("left") - inset("right"),
+        height: b.height - inset("top") - inset("bottom"),
+      };
+    };
+    const texts = [...root.querySelectorAll("*")].filter(
+      (el) => shown(el) && [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())
+    );
+    const controls = [...root.querySelectorAll("button, a")].filter(shown);
+    return {
+      minFont: Math.min(...texts.map((el) => parseFloat(getComputedStyle(el).fontSize))),
+      smallTargets: controls
+        .filter((el) => {
+          const box = hitBox(el);
+          return box.width < 44 || box.height < 44;
+        })
+        .map((el) => el.id || el.className || el.textContent.trim()),
+      clippedNames: [...root.querySelectorAll(".vp-coin-link")]
+        .filter(shown)
+        .filter((el) => {
+          const cell = el.closest("td") || el;
+          return el.scrollWidth > el.clientWidth + 1 || cell.scrollWidth > cell.clientWidth + 1;
+        })
+        .map((el) => el.textContent.trim()),
+    };
+  });
+}
+
+/**
  * Locates a period button (e.g. "24H", "90D") within the market detail modal.
  * @param {import('@playwright/test').Page} page - Playwright page.
  * @param {string} label - Exact button label to match.
@@ -2069,6 +2115,99 @@ test.describe("core/retail-market", () => {
     });
     await expect(modal).toBeHidden();
     await expect(itemName).toBeFocused();
+  });
+
+  test("Market tab shows items as cards at phone width with 44px targets and wrapped names", async ({
+    page,
+  }) => {
+    const LONG_NAME = "South African Silver Krugerrand 1 oz (.999 fine silver)";
+    await page.setViewportSize({ width: 390, height: 844 });
+    await setupRetailFixture(page);
+    await page.evaluate(
+      ({ slug, name }) => {
+        const meta = _getCoinMeta();
+        meta[slug] = { ...meta[slug], name };
+        window._manifestCoinMeta = meta;
+        window.renderVendorPrices();
+      },
+      { slug: SLUG_SILVER_A, name: LONG_NAME }
+    );
+
+    const section = page.locator("#vendorPricesSectionEl");
+    const cards = section.locator(".vp-cards");
+    await expect(cards.locator(".vp-card").first()).toBeVisible();
+    await expect(section.locator(".vendor-prices-table")).toBeHidden();
+    const tableNames = await section
+      .locator(".vendor-prices-table .vp-coin-link")
+      .allTextContents();
+    expect(await cards.locator(".vp-card .vp-coin-link").allTextContents()).toEqual(tableNames);
+    await expect(cards).toHaveAttribute("aria-label", "All dealer prices");
+
+    // Each card names its dealers and keeps the price as the dealer button.
+    const longCard = cards.locator(".vp-card").filter({ hasText: LONG_NAME });
+    await expect(longCard.locator(".vp-card-vendor")).toHaveText(["APMEX"]);
+    await expect(
+      longCard.getByRole("button", {
+        name: new RegExp(`^${LONG_NAME.replace(/[().]/g, "\\$&")} at APMEX, \\$`),
+      })
+    ).toHaveCount(1);
+    await expect(longCard.locator(".vp-card-meta")).toContainText("Median");
+
+    // The page never scrolls sideways; the metal tabs scroll inside their bar.
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
+    ).toBe(true);
+    const tabs = section.locator(".vendor-prices-tabs");
+    expect(await tabs.evaluate((el) => getComputedStyle(el).overflowX)).toBe("auto");
+
+    await expect
+      .poll(() => readPhoneFit(page, "#vendorPricesSectionEl"))
+      .toEqual({ minFont: expect.any(Number), smallTargets: [], clippedNames: [] });
+    expect((await readPhoneFit(page, "#vendorPricesSectionEl")).minFont).toBeGreaterThanOrEqual(11);
+    const longBox = await longCard.locator(".vp-coin-link").boundingBox();
+    expect(longBox.height).toBeGreaterThan(30);
+
+    // The right-edge cue shows while tabs wait past the edge and clears at the end.
+    await page.setViewportSize({ width: 320, height: 844 });
+    await expect.poll(() => tabs.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
+    await expect(tabs).toHaveClass(/\bvp-tabs-more\b/);
+    await tabs.evaluate((el) => {
+      el.scrollLeft = el.scrollWidth;
+    });
+    await expect(tabs).not.toHaveClass(/\bvp-tabs-more\b/);
+    const lastTabRight = await tabs
+      .locator("button")
+      .last()
+      .evaluate((el) => el.getBoundingClientRect().right);
+    expect(lastTabRight).toBeLessThanOrEqual(320);
+    await page.setViewportSize({ width: 390, height: 844 });
+
+    // The detail modal's vendor table fits: Stock sits under the dealer name.
+    const opener = longCard.locator(".vp-coin-link");
+    await opener.click();
+    const modal = page.locator("#marketDetailModal");
+    await expect(page.getByRole("dialog", { name: LONG_NAME })).toBeVisible();
+    const vendors = modal.locator(".market-detail-vendors");
+    await expect(vendors.locator(".market-stock-sub").first()).toBeVisible();
+    await expect(vendors.locator(".market-detail-stock-col").first()).toBeHidden();
+    expect(await vendors.evaluate((t) => t.scrollWidth <= t.parentElement.clientWidth)).toBe(true);
+    await expect
+      .poll(() => readPhoneFit(page, ".market-detail-modal"))
+      .toEqual({ minFont: expect.any(Number), smallTargets: [], clippedNames: [] });
+    expect((await readPhoneFit(page, ".market-detail-modal")).minFont).toBeGreaterThanOrEqual(11);
+
+    // Closing returns focus to the card that opened the modal.
+    await page.keyboard.press("Escape");
+    await expect(modal).toBeHidden();
+    await expect(opener).toBeFocused();
+
+    // On a desktop the matrix shows, and a long name wraps instead of ending in an ellipsis.
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await expect(section.locator(".vendor-prices-table")).toBeVisible();
+    await expect(cards).toBeHidden();
+    await expect
+      .poll(async () => (await readPhoneFit(page, "#vendorPricesSectionEl")).clippedNames)
+      .toEqual([]);
   });
 
   test("Market tab states data age, refresh failures and hidden dealers in words", async ({
