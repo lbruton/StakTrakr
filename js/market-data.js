@@ -136,20 +136,35 @@ const _premiumTierClass = (pct) => {
 };
 
 /**
- * Formats a UTC feed timestamp as the local en-CA date and time every Market label uses.
+ * Formats a UTC feed timestamp as the en-CA date and time every Market label uses.
+ * Follows the Settings timezone; "auto" or an unknown zone falls back to the browser zone.
  * @param {string} iso - ISO timestamp from a feed or sync record.
  * @returns {(string|null)} "YYYY-MM-DD, hh:mm" text, or null when missing or unparseable.
  */
 const _formatMarketTimestamp = (iso) => {
   const when = iso ? new Date(iso) : null;
   if (!when || Number.isNaN(when.getTime())) return null;
-  return when.toLocaleString("en-CA", {
+  const options = {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
-  });
+  };
+  let zone = null;
+  try {
+    zone = typeof TIMEZONE_KEY !== "undefined" ? localStorage.getItem(TIMEZONE_KEY) : null;
+  } catch (e) {
+    zone = null;
+  }
+  if (zone && zone !== "auto") {
+    try {
+      return when.toLocaleString("en-CA", { ...options, timeZone: zone });
+    } catch (err) {
+      if (!(err instanceof RangeError)) throw err;
+    }
+  }
+  return when.toLocaleString("en-CA", options);
 };
 
 /**
@@ -1375,13 +1390,15 @@ const _buildModalChartSection = (
 
   const NO_CHART_DATA = "No dealer prices were recorded for this period. Select another period.";
   const NO_CHART_LIBRARY = "The chart did not load. Reload the page to try again.";
+  const NO_CHART_LOAD = "The price history did not load.";
 
   /**
    * Replace chart content with the unavailable state and its reason.
    * @param {string} reasonText - Why the chart is missing and what to do next.
+   * @param {boolean} [canRetry] - Adds a Try again button that refetches the modal data.
    * @returns {void}
    */
-  const _showNoChart = (reasonText) => {
+  const _showNoChart = (reasonText, canRetry = false) => {
     chartWrap.textContent = "";
     const msg = document.createElement("div");
     msg.className = "market-detail-chart-unavailable";
@@ -1391,6 +1408,19 @@ const _buildModalChartSection = (
     reason.className = "market-detail-chart-reason";
     reason.textContent = reasonText;
     msg.append(title, reason);
+    if (canRetry) {
+      const retry = document.createElement("button");
+      retry.type = "button";
+      retry.className = "market-block-btn vp-message-action";
+      retry.textContent = "Try again";
+      retry.addEventListener("click", () => {
+        if (!_activeModalSlug) return;
+        void openMarketDetailModal(_activeModalSlug, { preservePeriod: true }).catch((e) => {
+          debugLog(`[market-data] Detail retry failed: ${e?.message ?? e}`, "warn");
+        });
+      });
+      msg.appendChild(retry);
+    }
     chartWrap.appendChild(msg);
   };
 
@@ -1420,7 +1450,9 @@ const _buildModalChartSection = (
       return;
     }
     if (!rangeModel.hasChartData) {
-      _showNoChart(NO_CHART_DATA);
+      // _fetchModalData resolves a failed request to null; an empty feed is an array.
+      const loadFailed = modalData[period.source] === null;
+      _showNoChart(loadFailed ? NO_CHART_LOAD : NO_CHART_DATA, loadFailed);
       return;
     }
 
@@ -2383,19 +2415,14 @@ const _syncMarketRefreshBtnState = () => {
  * addresses Settings' #retailSyncBtn by id; this control owns its own state and
  * drives it off the awaited promise instead of a timer.
  *
- * Residual edge, considered and accepted: syncRetailPrices has its own
- * _retailSyncInProgress guard, so a click landing while the 30-minute background
- * sync happens to be running returns immediately and the button restores fast.
- * The user's intent is still met — that in-flight sync ends by calling
- * refreshMarketData() — so unlike the bug this replaces, the data does refresh.
- * Awaiting the in-flight run instead would mean exposing its promise from
- * js/retail.js, which is a wider change than this patch warrants.
+ * A click during the background sync awaits that sync's result, because
+ * syncRetailPrices shares the running promise. A failure line stays until the
+ * retail:updated listener clears it after a sync that loads prices.
  * @returns {Promise<void>}
  */
 const _runMarketRefresh = async () => {
   if (_marketRefreshInProgress) return;
   _marketRefreshInProgress = true;
-  _setMarketRefreshFailure(null);
   _syncMarketRefreshBtnState();
   try {
     if (typeof syncRetailPrices === "function") {

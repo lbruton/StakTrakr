@@ -12,9 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed — STRK-516: Market tab status and copy
 
 - **Heading and freshness**: The Market tab shows a "Market prices" heading. The update time carries a local date, and a "Current" or "Stale" word beside it states the data age; the freshness dot no longer glows (STRK-516).
-- **Refresh failures**: A Refresh that cannot reach the price server says so in the header and keeps the last prices on screen. The message clears on the next sync that loads prices (STRK-516).
-- **Empty states**: When the Market filter hides every dealer, the tab names the filter and offers a button that opens Settings, Market. "Retail data unavailable" says whether you are offline and points to Refresh; "Chart unavailable" gives its reason (STRK-516).
-- **Detail modal**: The modal header shows the time of the prices it lists. The disclaimer drops the "Click a price" hint, because each price is a named button (STRK-516).
+- **Refresh failures**: A Refresh that cannot reach the price server says so in the header and keeps the last prices on screen. A Refresh pressed during a background sync reports that sync's result. The message clears on the next sync that loads prices (STRK-516).
+- **Empty states**: When the Market filter hides every dealer, the tab names the filter and offers a button that opens Settings, Market. "Retail data unavailable" says whether you are offline and points to Refresh; "Chart unavailable" gives its reason, and offers Try again when the price history did not load (STRK-516).
+- **Detail modal**: The modal header shows the time of the prices it lists. The disclaimer drops the "Click a price" hint, because each linked price is a named button (STRK-516).
 
 ---
 

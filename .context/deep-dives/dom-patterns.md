@@ -239,9 +239,9 @@ The detail modal keeps this focus contract:
 The Market block header (`_buildMarketBlockHeader`) states its status in words:
 
 - The `h2.market-block-title` "Market prices" is visible. The header row rebuilds on every `renderVendorPrices` call.
-- `.market-block-status` (`aria-live="polite"`) holds `#marketDataTimestamp`, `#marketFreshnessStatus` and `#marketFreshnessDot`. The timestamp is the local `en-CA` date and time from `_formatMarketTimestamp`.
-- `updateMarketHealthDot` (`js/retail.js`) paints the dot and the word: "Current" under 60 minutes of manifest age, "Stale" after. The dot is `aria-hidden`.
-- `syncRetailPrices` returns `{ ok }`. A manual refresh that ends with `ok: false` stores a `.market-refresh-failure` line (`role="status"`) in `_marketRefreshFailure`, so header rebuilds keep it. The next `retail:updated` event clears it.
+- `.market-block-status` (`aria-live="polite"`) holds `#marketDataTimestamp`, `#marketFreshnessStatus` and `#marketFreshnessDot`. The timestamp is the `en-CA` date and time from `_formatMarketTimestamp`, in the Settings timezone (`TIMEZONE_KEY`) or the browser zone for "auto".
+- `updateMarketHealthDot` (`js/retail.js`) paints the dot and the word: "Current" under 60 minutes of manifest age, "Stale" after. The dot is `aria-hidden`. `_syncRetailV2` stores the manifest time only when at least one coin's prices are accepted.
+- `syncRetailPrices` returns `{ ok }`, and a call during a running sync returns that sync's promise. A manual refresh that ends with `ok: false` stores a `.market-refresh-failure` line (`role="status"`) in `_marketRefreshFailure`, so header rebuilds keep it. The next `retail:updated` event clears it.
 - The table area uses `.vp-message` (`role="status"`) for empty states. `_scopeHiddenByFilter` separates a Market filter that hides every dealer from missing data.
 
 ## Your Stack DOM Elements

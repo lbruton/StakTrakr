@@ -354,6 +354,9 @@ let retailLastAvailableDates = {};
 /** True while syncRetailPrices() is running — triggers skeleton render */
 let _retailSyncInProgress = false;
 
+/** @type {(Promise<{ok: boolean, error?: string}>|null)} The running sync, shared by concurrent callers */
+let _retailSyncPromise = null;
+
 // ---------------------------------------------------------------------------
 // Persistence
 // ---------------------------------------------------------------------------
@@ -1288,10 +1291,6 @@ async function _syncRetailV2({ ui, syncStatus }) {
   const slugBases = [apiBase, ...fallbackBases];
   _lastSuccessfulApiBase = apiBase + "/retail";
   window._lastSuccessfulApiBase = _lastSuccessfulApiBase;
-
-  if (generatedAt) {
-    _safeLocalStorageSet(RETAIL_MANIFEST_TS_KEY, generatedAt);
-  }
   debugLog(`[retail-v2] Using ${apiBase} (generated: ${generatedAt})`, "info");
 
   // Extract slug list and metadata from v2 manifest, then populate resolver state.
@@ -1346,6 +1345,8 @@ async function _syncRetailV2({ ui, syncStatus }) {
   }
 
   if (successCount > 0) {
+    // The manifest time is the data age only once its prices are accepted.
+    if (generatedAt) _safeLocalStorageSet(RETAIL_MANIFEST_TS_KEY, generatedAt);
     _persistV2SyncResults();
     document.dispatchEvent(new CustomEvent("retail:updated"));
   }
@@ -1365,14 +1366,26 @@ async function _syncRetailV2({ ui, syncStatus }) {
  * @param {{ ui?: boolean }} [opts]
  *   ui=true (default) updates the Sync button and status text.
  *   ui=false runs silently in the background.
- * @returns {Promise<{ok: boolean, error?: string, skipped?: boolean}>} ok is false when no
- *   endpoint answered or every coin fetch failed; skipped is true when a sync was already running.
+ * @returns {Promise<{ok: boolean, error?: string}>} ok is false when no endpoint answered or
+ *   every coin fetch failed. A call during a running sync shares that sync's result.
  */
-const syncRetailPrices = async ({ ui = true } = {}) => {
-  if (_retailSyncInProgress) {
-    debugLog("[retail] Sync already in progress — skipping", "info");
-    return { ok: true, skipped: true };
+const syncRetailPrices = ({ ui = true } = {}) => {
+  if (_retailSyncPromise) {
+    debugLog("[retail] Sync already in progress — sharing its result", "info");
+    return _retailSyncPromise;
   }
+  _retailSyncPromise = _runRetailSync({ ui }).finally(() => {
+    _retailSyncPromise = null;
+  });
+  return _retailSyncPromise;
+};
+
+/**
+ * One retail sync run behind syncRetailPrices, which keeps a single run in flight.
+ * @param {{ ui: boolean }} opts - ui=true updates the Settings Sync button and status text.
+ * @returns {Promise<{ok: boolean, error?: string}>} The sync result.
+ */
+const _runRetailSync = async ({ ui }) => {
   const syncBtn = safeGetElement("retailSyncBtn");
   const syncStatus = safeGetElement("retailSyncStatus");
 
