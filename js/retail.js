@@ -354,6 +354,9 @@ let retailLastAvailableDates = {};
 /** True while syncRetailPrices() is running — triggers skeleton render */
 let _retailSyncInProgress = false;
 
+/** @type {(Promise<{ok: boolean, error?: string}>|null)} The running sync, shared by concurrent callers */
+let _retailSyncPromise = null;
+
 // ---------------------------------------------------------------------------
 // Persistence
 // ---------------------------------------------------------------------------
@@ -1279,7 +1282,7 @@ async function _syncRetailV2({ ui, syncStatus }) {
     const errorMsg = "All v2 API endpoints unreachable — check your network connection.";
     if (ui && syncStatus) syncStatus.textContent = errorMsg;
     _appendSyncLogEntry({ success: false, coins: 0, window: null, error: errorMsg });
-    return;
+    return { ok: false, error: errorMsg };
   }
 
   const { base: apiBase, manifest, generatedAt, fallbackBases = [] } = result;
@@ -1288,10 +1291,6 @@ async function _syncRetailV2({ ui, syncStatus }) {
   const slugBases = [apiBase, ...fallbackBases];
   _lastSuccessfulApiBase = apiBase + "/retail";
   window._lastSuccessfulApiBase = _lastSuccessfulApiBase;
-
-  if (generatedAt) {
-    _safeLocalStorageSet(RETAIL_MANIFEST_TS_KEY, generatedAt);
-  }
   debugLog(`[retail-v2] Using ${apiBase} (generated: ${generatedAt})`, "info");
 
   // Extract slug list and metadata from v2 manifest, then populate resolver state.
@@ -1342,15 +1341,18 @@ async function _syncRetailV2({ ui, syncStatus }) {
     debugLog(`[retail-v2] ${errorMsg}`, "error");
     if (ui && syncStatus) syncStatus.textContent = errorMsg;
     _appendSyncLogEntry({ success: false, coins: 0, window: null, error: errorMsg });
-    return;
+    return { ok: false, error: errorMsg };
   }
 
   if (successCount > 0) {
+    // The manifest time is the data age only once its prices are accepted.
+    if (generatedAt) _safeLocalStorageSet(RETAIL_MANIFEST_TS_KEY, generatedAt);
     _persistV2SyncResults();
     document.dispatchEvent(new CustomEvent("retail:updated"));
   }
 
   _reportV2SyncSuccess(successCount, generatedAt, ui, syncStatus);
+  return { ok: true };
 }
 
 // ---------------------------------------------------------------------------
@@ -1364,13 +1366,26 @@ async function _syncRetailV2({ ui, syncStatus }) {
  * @param {{ ui?: boolean }} [opts]
  *   ui=true (default) updates the Sync button and status text.
  *   ui=false runs silently in the background.
- * @returns {Promise<void>}
+ * @returns {Promise<{ok: boolean, error?: string}>} ok is false when no endpoint answered or
+ *   every coin fetch failed. A call during a running sync shares that sync's result.
  */
-const syncRetailPrices = async ({ ui = true } = {}) => {
-  if (_retailSyncInProgress) {
-    debugLog("[retail] Sync already in progress — skipping", "info");
-    return;
+const syncRetailPrices = ({ ui = true } = {}) => {
+  if (_retailSyncPromise) {
+    debugLog("[retail] Sync already in progress — sharing its result", "info");
+    return _retailSyncPromise;
   }
+  _retailSyncPromise = _runRetailSync({ ui }).finally(() => {
+    _retailSyncPromise = null;
+  });
+  return _retailSyncPromise;
+};
+
+/**
+ * One retail sync run behind syncRetailPrices, which keeps a single run in flight.
+ * @param {{ ui: boolean }} opts - ui=true updates the Settings Sync button and status text.
+ * @returns {Promise<{ok: boolean, error?: string}>} The sync result.
+ */
+const _runRetailSync = async ({ ui }) => {
   const syncBtn = safeGetElement("retailSyncBtn");
   const syncStatus = safeGetElement("retailSyncStatus");
 
@@ -1385,12 +1400,14 @@ const syncRetailPrices = async ({ ui = true } = {}) => {
   }
   _retailSyncInProgress = true;
 
+  let result = { ok: true };
   try {
-    await _syncRetailV2({ ui, syncBtn, syncStatus });
+    result = await _syncRetailV2({ ui, syncBtn, syncStatus });
   } catch (err) {
     debugLog(`[retail] Sync error: ${err.message}`, "warn");
     if (ui && syncStatus) syncStatus.textContent = `Sync failed: ${err.message}`;
     _appendSyncLogEntry({ success: false, coins: 0, window: null, error: err.message });
+    result = { ok: false, error: err.message };
   } finally {
     _retailSyncInProgress = false;
     if (ui && syncBtn) {
@@ -1414,6 +1431,7 @@ const syncRetailPrices = async ({ ui = true } = {}) => {
       }
     }
   }
+  return result;
 };
 
 // ---------------------------------------------------------------------------
@@ -1742,11 +1760,25 @@ const updateMarketHealthDot = () => {
   } catch (e) {
     /* ignore */
   }
-  if (!ts) {
-    dot.classList.add("header-cloud-dot--red");
-    return;
-  }
-  dot.classList.add(`header-cloud-dot${getHealthStatusClass(ts)}`);
+  const healthClass = ts ? getHealthStatusClass(ts) : "--red";
+  dot.classList.add(`header-cloud-dot${healthClass}`);
+  _paintMarketFreshnessWord(ts ? healthClass : null);
+};
+
+/**
+ * Writes the data-age word beside the dot, because colour alone carries no meaning.
+ * @param {('--green'|'--orange'|'--red'|null)} healthClass - Manifest age class, or null for no data
+ * @returns {void}
+ */
+const _paintMarketFreshnessWord = (healthClass) => {
+  const word = safeGetElement("marketFreshnessStatus");
+  if (!(word instanceof HTMLElement)) return;
+  word.className = "market-freshness";
+  word.textContent = "";
+  if (!healthClass) return;
+  const isCurrent = healthClass === "--green";
+  word.textContent = isCurrent ? "Current" : "Stale";
+  word.classList.add(isCurrent ? "market-freshness--current" : "market-freshness--stale");
 };
 window.updateMarketHealthDot = updateMarketHealthDot;
 

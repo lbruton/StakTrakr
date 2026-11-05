@@ -236,6 +236,14 @@ The detail modal keeps this focus contract:
 - `closeMarketDetailModal` calls `releaseFocus(overlay)`. `_restoreMarketDetailFocus` then focuses the opener, or the `.vp-coin-link[data-slug]` button when a matrix re-render replaced the opener.
 - Item names (`.vp-coin-link`) are buttons. A price (`.vp-price`) is a button only when its dealer URL passes `_isSafeUrl`; otherwise it is a span.
 
+The Market block header (`_buildMarketBlockHeader`) states its status in words:
+
+- The `h2.market-block-title` "Market prices" is visible. The header row rebuilds on every `renderVendorPrices` call.
+- `.market-block-status` (`aria-live="polite"`) holds `#marketDataTimestamp`, `#marketFreshnessStatus` and `#marketFreshnessDot`. The timestamp is the `en-CA` date and time from `_formatMarketTimestamp`, in the Settings timezone (`TIMEZONE_KEY`) or the browser zone for "auto".
+- `updateMarketHealthDot` (`js/retail.js`) paints the dot and the word: "Current" under 60 minutes of manifest age, "Stale" after. The dot is `aria-hidden`. `_syncRetailV2` stores the manifest time only when at least one coin's prices are accepted.
+- `syncRetailPrices` returns `{ ok }`, and a call during a running sync returns that sync's promise. A manual refresh that ends with `ok: false` stores a `.market-refresh-failure` line (`role="status"`) in `_marketRefreshFailure`, so header rebuilds keep it. The next `retail:updated` event clears it.
+- The table area uses `.vp-message` (`role="status"`) for empty states. `_scopeHiddenByFilter` separates a Market filter that hides every dealer from missing data.
+
 ## Your Stack DOM Elements
 
 `#totalsSectionEl` is the Your stack card and the `totals` layout section, below the spot cards and the ticker by default. It holds the `#stackHeadlineTitle` heading, the stack figures and the totals ledger. `js/stack-headline.js` fills the figures: `updateSummary()` calls `renderStackHeadline(metalTotals)` with the same per-metal accumulators the totals ledger uses. `updateAllSparklines()` calls `refreshStackHeadline()`, so a spot history or comparison-mode change redraws today's change.

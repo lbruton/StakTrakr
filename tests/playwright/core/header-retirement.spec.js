@@ -797,6 +797,19 @@ test.describe("Market header button retired to the in-block refresh control", ()
     await expect(page.locator("#marketRefreshBtn")).toBeEnabled();
     // The freshness dot rides in the same header row, so it survives too.
     await expect(page.locator("#marketFreshnessDot")).toHaveCount(1);
+
+    // The message says why and points to Refresh, online and offline.
+    const message = page.locator("#vendorPricesContainer .vp-message");
+    await expect(message).toHaveAttribute("role", "status");
+    await expect(message).toHaveText(
+      "Retail data unavailable. Prices have not loaded. Select Refresh to try again."
+    );
+    await page.context().setOffline(true);
+    await page.evaluate(() => window.renderVendorPrices());
+    await expect(message).toHaveText(
+      "Retail data unavailable. You are offline. Select Refresh when you are back online."
+    );
+    await page.context().setOffline(false);
   });
 
   // The "keep it" half of the STRK-290 decision: Settings › Market keeps its

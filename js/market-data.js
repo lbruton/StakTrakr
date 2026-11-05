@@ -136,22 +136,45 @@ const _premiumTierClass = (pct) => {
 };
 
 /**
- * Tooltip text for a carried price: the feed's UTC carried_from timestamp as a local
- * en-CA date and time, or null when the timestamp is missing or unparseable.
- * @param {string} carriedFrom - ISO timestamp of the last scrape that saw the price.
- * @returns {(string|null)} "Last seen YYYY-MM-DD, hh:mm" text, or null.
+ * Formats a UTC feed timestamp as the en-CA date and time every Market label uses.
+ * Follows the Settings timezone; "auto" or an unknown zone falls back to the browser zone.
+ * @param {string} iso - ISO timestamp from a feed or sync record.
+ * @returns {(string|null)} "YYYY-MM-DD, hh:mm" text, or null when missing or unparseable.
  */
-const _carriedTitle = (carriedFrom) => {
-  const seen = carriedFrom ? new Date(carriedFrom) : null;
-  if (!seen || Number.isNaN(seen.getTime())) return null;
-  const local = seen.toLocaleString("en-CA", {
+const _formatMarketTimestamp = (iso) => {
+  const when = iso ? new Date(iso) : null;
+  if (!when || Number.isNaN(when.getTime())) return null;
+  const options = {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
-  });
-  return `Last seen ${local}`;
+  };
+  let zone = null;
+  try {
+    zone = typeof TIMEZONE_KEY !== "undefined" ? localStorage.getItem(TIMEZONE_KEY) : null;
+  } catch (e) {
+    zone = null;
+  }
+  if (zone && zone !== "auto") {
+    try {
+      return when.toLocaleString("en-CA", { ...options, timeZone: zone });
+    } catch (err) {
+      if (!(err instanceof RangeError)) throw err;
+    }
+  }
+  return when.toLocaleString("en-CA", options);
+};
+
+/**
+ * Tooltip text for a carried price, from the feed's carried_from timestamp.
+ * @param {string} carriedFrom - ISO timestamp of the last scrape that saw the price.
+ * @returns {(string|null)} "Last seen YYYY-MM-DD, hh:mm" text, or null.
+ */
+const _carriedTitle = (carriedFrom) => {
+  const local = _formatMarketTimestamp(carriedFrom);
+  return local ? `Last seen ${local}` : null;
 };
 
 /**
@@ -1250,9 +1273,10 @@ const _fetchModalData = async (slug) => {
  * @param {string} metalCode - ISO metal code (e.g. "xau") or metal name.
  * @param {string} metalLower - Lowercased metal name (weight-line fallback label).
  * @param {number} weightOz - Coin weight in troy ounces (0 hides the weight line).
+ * @param {string} [pricesAt] - ISO start of the price window (absent hides the time line).
  * @returns {void}
  */
-const _buildModalHeader = (content, coinMeta, slug, metalCode, metalLower, weightOz) => {
+const _buildModalHeader = (content, coinMeta, slug, metalCode, metalLower, weightOz, pricesAt) => {
   const header = document.createElement("div");
   header.className = "market-detail-header";
 
@@ -1273,6 +1297,14 @@ const _buildModalHeader = (content, coinMeta, slug, metalCode, metalLower, weigh
     weightInfo.className = "market-detail-weight";
     weightInfo.textContent = weightOz + " oz " + metalName;
     header.appendChild(weightInfo);
+  }
+
+  const pricesLocal = _formatMarketTimestamp(pricesAt);
+  if (pricesLocal) {
+    const asOf = document.createElement("div");
+    asOf.className = "market-detail-asof";
+    asOf.textContent = `Prices from ${pricesLocal}`;
+    header.appendChild(asOf);
   }
 
   content.appendChild(header);
@@ -1356,15 +1388,39 @@ const _buildModalChartSection = (
   );
   const periodButtons = new Map();
 
+  const NO_CHART_DATA = "No dealer prices were recorded for this period. Select another period.";
+  const NO_CHART_LIBRARY = "The chart did not load. Reload the page to try again.";
+  const NO_CHART_LOAD = "The price history did not load.";
+
   /**
-   * Replace chart content with the established unavailable state.
+   * Replace chart content with the unavailable state and its reason.
+   * @param {string} reasonText - Why the chart is missing and what to do next.
+   * @param {boolean} [canRetry] - Adds a Try again button that refetches the modal data.
    * @returns {void}
    */
-  const _showNoChart = () => {
+  const _showNoChart = (reasonText, canRetry = false) => {
     chartWrap.textContent = "";
     const msg = document.createElement("div");
     msg.className = "market-detail-chart-unavailable";
-    msg.textContent = "Chart unavailable";
+    const title = document.createElement("div");
+    title.textContent = "Chart unavailable";
+    const reason = document.createElement("div");
+    reason.className = "market-detail-chart-reason";
+    reason.textContent = reasonText;
+    msg.append(title, reason);
+    if (canRetry) {
+      const retry = document.createElement("button");
+      retry.type = "button";
+      retry.className = "market-block-btn vp-message-action";
+      retry.textContent = "Try again";
+      retry.addEventListener("click", () => {
+        if (!_activeModalSlug) return;
+        void openMarketDetailModal(_activeModalSlug, { preservePeriod: true }).catch((e) => {
+          debugLog(`[market-data] Detail retry failed: ${e?.message ?? e}`, "warn");
+        });
+      });
+      msg.appendChild(retry);
+    }
     chartWrap.appendChild(msg);
   };
 
@@ -1389,8 +1445,14 @@ const _buildModalChartSection = (
     _destroyActiveMarketDetailChart();
     chartWrap.textContent = "";
 
-    if (typeof LightweightCharts === "undefined" || !rangeModel.hasChartData) {
-      _showNoChart();
+    if (typeof LightweightCharts === "undefined") {
+      _showNoChart(NO_CHART_LIBRARY);
+      return;
+    }
+    if (!rangeModel.hasChartData) {
+      // _fetchModalData resolves a failed request to null; an empty feed is an array.
+      const loadFailed = modalData[period.source] === null;
+      _showNoChart(loadFailed ? NO_CHART_LOAD : NO_CHART_DATA, loadFailed);
       return;
     }
 
@@ -1414,7 +1476,7 @@ const _buildModalChartSection = (
     }
 
     if (!_activeModalChart) {
-      _showNoChart();
+      _showNoChart(NO_CHART_LIBRARY);
     }
   };
 
@@ -1690,7 +1752,16 @@ const openMarketDetailModal = async (slug, { preservePeriod = false } = {}) => {
   content.textContent = "";
 
   const weightOz = (detail && detail.weight_oz) || coinMeta.weight || 0;
-  _buildModalHeader(content, coinMeta, slug, metalCode, metalLower, weightOz);
+  _buildModalHeader(
+    content,
+    coinMeta,
+    slug,
+    metalCode,
+    metalLower,
+    weightOz,
+    // v2 feeds name the price window `t`; window_start is the v1 name.
+    detail && (detail.t || detail.window_start)
+  );
   const title = safeGetElement("marketDetailTitle");
   if (title instanceof HTMLElement && (focusOnBox || !overlay.contains(document.activeElement))) {
     title.focus();
@@ -1763,15 +1834,47 @@ const _getCachedRetailDetail = (slug, coins) => {
  * Replace the vendor table area with a single centered status message.
  * @param {HTMLElement} tableWrap - The ".vp-table-area" container.
  * @param {string} text - Message text.
+ * @param {{label: string, onClick: Function}} [action] - Optional button under the message.
  * @returns {void}
  */
-const _renderVendorTableMessage = (tableWrap, text) => {
+const _renderVendorTableMessage = (tableWrap, text, action) => {
   tableWrap.textContent = "";
   const msg = document.createElement("div");
   msg.className = "vp-message";
-  msg.textContent = text;
+  msg.setAttribute("role", "status");
+  const line = document.createElement("p");
+  line.className = "vp-message-text";
+  line.textContent = text;
+  msg.appendChild(line);
+  if (action) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "market-block-btn vp-message-action";
+    btn.textContent = action.label;
+    btn.addEventListener("click", action.onClick);
+    msg.appendChild(btn);
+  }
   tableWrap.appendChild(msg);
 };
+
+/**
+ * True when the metal scope holds priced coins but the Market filter hides every dealer.
+ * @param {string} metalCode - ISO metal code or "all".
+ * @param {Object} coins - Retail coins summary map.
+ * @param {Object|null} coinMetaMap - Manifest coin-meta map.
+ * @returns {boolean} True when the empty table is the filter's doing, not missing data.
+ */
+const _scopeHiddenByFilter = (metalCode, coins, coinMetaMap) =>
+  typeof _isMarketItemEnabled === "function" &&
+  Object.keys(coins).some((slug) => {
+    const meta = _getRetailCoinMetaForSlug(slug, coinMetaMap);
+    const metalLower = (meta.metal || "").toLowerCase();
+    const isoCode = _METAL_TO_ISO[metalLower] || metalLower;
+    const inScope =
+      metalCode === "all" ? isoCode in _VENDOR_TABLE_METAL_LABELS : isoCode === metalCode;
+    const vids = Object.keys((coins[slug] && coins[slug].vendors) || {});
+    return inScope && vids.length > 0 && !vids.some((vid) => _isMarketItemEnabled(slug, vid));
+  });
 
 /**
  * Build the ordered list of coin rows for a metal scope. For the "all" scope,
@@ -2050,7 +2153,8 @@ const _buildVendorPriceCell = (
       // Title tooltips never show on touch or keyboard focus, so the date stays visible.
       const date = document.createElement("span");
       date.className = "vp-carried-date";
-      date.textContent = new Date(vInfo.carried_from).toLocaleDateString("en-CA");
+      // Same formatter as the tooltip, so both name one calendar day in one timezone.
+      date.textContent = _formatMarketTimestamp(vInfo.carried_from).split(",")[0];
       td.appendChild(date);
     }
   }
@@ -2163,7 +2267,16 @@ const _renderVendorTable = async (metalCode) => {
   const metalSlugs = _collectVendorTableRows(metalCode, coins, coinMetaMap);
 
   if (metalSlugs.length === 0) {
-    _renderVendorTableMessage(tableWrap, "No coins tracked for this metal");
+    if (_scopeHiddenByFilter(metalCode, coins, coinMetaMap)) {
+      _renderVendorTableMessage(tableWrap, "All dealers are hidden by your Market filter.", {
+        label: "Open Market settings",
+        onClick: () => {
+          if (typeof showSettingsModal === "function") showSettingsModal("market");
+        },
+      });
+    } else {
+      _renderVendorTableMessage(tableWrap, "No coins tracked for this metal");
+    }
     return;
   }
 
@@ -2221,6 +2334,52 @@ const _renderVendorTable = async (metalCode) => {
 let _marketRefreshInProgress = false;
 
 /**
+ * Text of the last failed manual refresh, or null. Module-scoped because each sync
+ * rebuilds the header; any later sync that stores new prices clears it.
+ */
+let _marketRefreshFailure = null;
+
+/**
+ * Names what failed in a manual refresh and what the user still sees.
+ * @returns {string} Failure message for the Market header
+ */
+const _marketRefreshFailureText = () =>
+  navigator.onLine === false
+    ? "Refresh failed: you are offline. The last prices stay shown."
+    : "Refresh failed: the price server did not respond. The last prices stay shown.";
+
+/**
+ * Builds the header line that reports a failed refresh.
+ * @param {string} text - Failure message
+ * @returns {HTMLParagraphElement} The status line
+ */
+const _buildMarketRefreshFailureLine = (text) => {
+  const line = document.createElement("p");
+  line.className = "market-refresh-failure";
+  line.setAttribute("role", "status");
+  line.textContent = text;
+  return line;
+};
+
+/**
+ * Stores the refresh failure and shows or removes its line in the mounted header.
+ * @param {(string|null)} text - Failure message, or null to clear it
+ * @returns {void}
+ */
+const _setMarketRefreshFailure = (text) => {
+  _marketRefreshFailure = text;
+  const header = document.querySelector("#vendorPricesContainer .market-block-header");
+  if (!header) return;
+  const existing = header.querySelector(".market-refresh-failure");
+  if (existing) existing.remove();
+  if (text) header.appendChild(_buildMarketRefreshFailureLine(text));
+};
+
+if (typeof document !== "undefined") {
+  document.addEventListener("retail:updated", () => _setMarketRefreshFailure(null));
+}
+
+/**
  * Paints one refresh button to match the current refresh state.
  * @param {HTMLButtonElement} btn - The control to paint
  * @returns {void}
@@ -2257,13 +2416,9 @@ const _syncMarketRefreshBtnState = () => {
  * addresses Settings' #retailSyncBtn by id; this control owns its own state and
  * drives it off the awaited promise instead of a timer.
  *
- * Residual edge, considered and accepted: syncRetailPrices has its own
- * _retailSyncInProgress guard, so a click landing while the 30-minute background
- * sync happens to be running returns immediately and the button restores fast.
- * The user's intent is still met — that in-flight sync ends by calling
- * refreshMarketData() — so unlike the bug this replaces, the data does refresh.
- * Awaiting the in-flight run instead would mean exposing its promise from
- * js/retail.js, which is a wider change than this patch warrants.
+ * A click during the background sync awaits that sync's result, because
+ * syncRetailPrices shares the running promise. A failure line stays until the
+ * retail:updated listener clears it after a sync that loads prices.
  * @returns {Promise<void>}
  */
 const _runMarketRefresh = async () => {
@@ -2272,7 +2427,8 @@ const _runMarketRefresh = async () => {
   _syncMarketRefreshBtnState();
   try {
     if (typeof syncRetailPrices === "function") {
-      await syncRetailPrices({ ui: false });
+      const result = await syncRetailPrices({ ui: false });
+      if (result && result.ok === false) _setMarketRefreshFailure(_marketRefreshFailureText());
     }
     // syncRetailPrices covers vendor/retail feeds but never fetches
     // goldback/latest.json, so the G1 benchmark would stay stale and Goldback
@@ -2286,6 +2442,7 @@ const _runMarketRefresh = async () => {
     if (typeof refreshMarketData === "function") refreshMarketData();
   } catch (e) {
     debugLog(`[market-data] Manual market refresh failed: ${e?.message ?? e}`, "warn");
+    _setMarketRefreshFailure(_marketRefreshFailureText());
   } finally {
     _marketRefreshInProgress = false;
     // syncRetailPrices' own finally re-renders the block, so this repaints
@@ -2312,24 +2469,29 @@ const _buildMarketBlockHeader = () => {
   headerRow.className = "market-block-header";
 
   const heading = document.createElement("h2");
-  heading.className = "sr-only";
+  heading.className = "market-block-title";
   heading.textContent = "Market prices";
   headerRow.appendChild(heading);
 
   const rightGroup = document.createElement("div");
   rightGroup.className = "market-block-actions";
 
+  // The time, the age word and the dot read as one status; the word carries the meaning.
+  const statusGroup = document.createElement("span");
+  statusGroup.className = "market-block-status";
+  statusGroup.setAttribute("aria-live", "polite");
+
   const tsSpan = document.createElement("span");
   tsSpan.id = "marketDataTimestamp";
   const retailData = loadDataSync("v2RetailPrices", null) || loadDataSync("retailPrices", null);
-  if (retailData && retailData.lastSync) {
-    const d = new Date(retailData.lastSync);
-    tsSpan.textContent =
-      "Updated " + d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  } else {
-    tsSpan.textContent = "";
-  }
-  rightGroup.appendChild(tsSpan);
+  const syncedLocal = _formatMarketTimestamp(retailData && retailData.lastSync);
+  tsSpan.textContent = syncedLocal ? `Updated ${syncedLocal}` : "";
+  statusGroup.appendChild(tsSpan);
+
+  const freshnessWord = document.createElement("span");
+  freshnessWord.id = "marketFreshnessStatus";
+  freshnessWord.className = "market-freshness";
+  statusGroup.appendChild(freshnessWord);
 
   // STRK-290: market freshness moved here from #headerMarketDot when the Market
   // header button retired. Same painter (updateMarketHealthDot, js/retail.js) and
@@ -2341,8 +2503,9 @@ const _buildMarketBlockHeader = () => {
   const freshnessDot = document.createElement("span");
   freshnessDot.id = "marketFreshnessDot";
   freshnessDot.className = "cloud-sync-dot";
-  freshnessDot.title = "Market data freshness";
-  rightGroup.appendChild(freshnessDot);
+  freshnessDot.setAttribute("aria-hidden", "true");
+  statusGroup.appendChild(freshnessDot);
+  rightGroup.appendChild(statusGroup);
 
   const refreshBtn = document.createElement("button");
   refreshBtn.id = "marketRefreshBtn";
@@ -2372,6 +2535,9 @@ const _buildMarketBlockHeader = () => {
   rightGroup.appendChild(settingsBtn);
 
   headerRow.appendChild(rightGroup);
+  if (_marketRefreshFailure) {
+    headerRow.appendChild(_buildMarketRefreshFailureLine(_marketRefreshFailure));
+  }
   return headerRow;
 };
 
@@ -2388,7 +2554,11 @@ const renderVendorPrices = () => {
   if (!coins || Object.keys(coins).length === 0) {
     const msg = document.createElement("div");
     msg.className = "vp-message";
-    msg.textContent = "Retail data unavailable";
+    msg.setAttribute("role", "status");
+    msg.textContent =
+      navigator.onLine === false
+        ? "Retail data unavailable. You are offline. Select Refresh when you are back online."
+        : "Retail data unavailable. Prices have not loaded. Select Refresh to try again.";
     container.appendChild(msg);
     if (typeof updateMarketHealthDot === "function") updateMarketHealthDot();
     return;
@@ -2461,7 +2631,7 @@ const renderVendorPrices = () => {
   footer.className = "market-disclaimer";
   footer.appendChild(
     document.createTextNode(
-      "Market prices are best effort. Percentages show premium over spot (or G1 rate for Goldbacks). Click a price to visit the vendor."
+      "Market prices are best effort. Percentages show premium over spot (or G1 rate for Goldbacks)."
     )
   );
   footer.appendChild(
