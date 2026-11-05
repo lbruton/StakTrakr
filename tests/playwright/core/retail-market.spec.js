@@ -2052,6 +2052,129 @@ test.describe("core/retail-market", () => {
     await expect(itemName).toBeFocused();
   });
 
+  test("Market tab states data age, refresh failures and hidden dealers in words", async ({
+    page,
+  }) => {
+    // The v2 per-coin feed names its price window `t`; it carries no window_start.
+    const { window_start: _legacyWindow, ...v2Latest } = latestForSlug(SLUG_SILVER_A);
+    await setupRetailFixture(page, {
+      retailFeeds: { [SLUG_SILVER_A]: { latest: { ...v2Latest, t: GENERATED_AT } } },
+    });
+    await waitForRetailBackgroundSync(page);
+    const container = page.locator("#vendorPricesContainer");
+    // The browser's own timezone sets the expected local date and time.
+    const localStamp = (iso) =>
+      page.evaluate(
+        (value) =>
+          new Date(value).toLocaleString("en-CA", {
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+        iso
+      );
+
+    await test.step("a visible heading names the tab", async () => {
+      const heading = container.getByRole("heading", { level: 2, name: "Market prices" });
+      // A visually hidden heading is a 1px box, which Playwright still calls visible.
+      expect((await heading.boundingBox()).height).toBeGreaterThan(12);
+    });
+
+    await test.step("the timestamp carries a date and the data age is a word", async () => {
+      await expect(page.locator("#marketDataTimestamp")).toHaveText(
+        `Updated ${await localStamp(FIXED_NOW.toISOString())}`
+      );
+      // The fixture manifest is six hours old at FIXED_NOW.
+      const status = page.locator("#marketFreshnessStatus");
+      await expect(status).toHaveText("Stale");
+      await expect(page.locator(".market-block-status")).toHaveAttribute("aria-live", "polite");
+      await expect(page.locator("#marketFreshnessDot")).toHaveCSS("box-shadow", "none");
+      await page.evaluate(
+        (iso) => {
+          localStorage.setItem("retailManifestGeneratedAt", iso);
+          window.updateMarketHealthDot();
+        },
+        new Date(FIXED_NOW.getTime() - 10 * 60000).toISOString()
+      );
+      await expect(status).toHaveText("Current");
+    });
+
+    await test.step("the disclaimer drops the click hint the named price buttons replace", async () => {
+      await expect(container.locator(".market-disclaimer")).not.toContainText("Click a price");
+    });
+
+    await test.step("the detail modal shows when its prices were collected", async () => {
+      await page.evaluate((slug) => window.openMarketDetailModal(slug), SLUG_SILVER_A);
+      await expect(page.locator("#marketDetailContent .market-detail-asof")).toHaveText(
+        `Prices from ${await localStamp(GENERATED_AT)}`
+      );
+      await page.evaluate(() => window.closeMarketDetailModal());
+      await expect(page.locator("#marketDetailModal")).toBeHidden();
+    });
+
+    await test.step("an all-hidden filter names the filter and opens it", async () => {
+      const hideAll = Object.fromEntries(
+        Object.entries(priceRows).map(([slug, row]) => [slug, { [row.vendor]: false }])
+      );
+      await page.evaluate(
+        ({ key, filter }) => {
+          localStorage.setItem(key, JSON.stringify(filter));
+          _invalidateMarketFilterCache();
+          window.renderVendorPrices();
+        },
+        { key: MARKET_FILTER_KEY, filter: hideAll }
+      );
+      await expect(container.locator(".vp-message")).toContainText(
+        "All dealers are hidden by your Market filter."
+      );
+      await expect(container).not.toContainText("No coins tracked");
+      await container.getByRole("button", { name: "Open Market settings" }).click();
+      await expect(page.locator("#settingsPanel_market")).toBeVisible();
+      await page.evaluate((key) => {
+        localStorage.removeItem(key);
+        _invalidateMarketFilterCache();
+        window.hideSettingsModal?.();
+        window.renderVendorPrices();
+      }, MARKET_FILTER_KEY);
+      await expect(page.locator(".vendor-prices-table")).toBeVisible();
+    });
+
+    await test.step("a failed refresh says so and keeps the last prices", async () => {
+      await page.unroute("https://api.staktrakr.com/data/v2/**");
+      await page.unroute("https://api2.staktrakr.com/data/v2/**");
+      const unavailable = (route) =>
+        route.fulfill({ status: 503, contentType: "application/json", body: "{}" });
+      await page.route("https://api.staktrakr.com/data/v2/**", unavailable);
+      await page.route("https://api2.staktrakr.com/data/v2/**", unavailable);
+      await page.locator("#marketRefreshBtn").click();
+      await expect(container.getByRole("status").filter({ hasText: "Refresh failed" })).toHaveText(
+        "Refresh failed: the price server did not respond. The last prices stay shown."
+      );
+      await expect(page.locator(".vendor-prices-table")).toBeVisible();
+      await expect(page.locator("#marketRefreshBtn")).toBeEnabled();
+    });
+
+    await test.step("the new status text meets AA in all four themes", async () => {
+      const STATUS_TEXT = {
+        heading: "#vendorPricesContainer .market-block-title",
+        timestamp: "#marketDataTimestamp",
+        "freshness word": "#marketFreshnessStatus",
+        "refresh failure": "#vendorPricesContainer .market-refresh-failure",
+      };
+      for (const theme of THEMES) {
+        await page.evaluate((name) => window.setTheme(name), theme);
+        await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+        await expect
+          .poll(() => contrastFailures(page, STATUS_TEXT, { ancestorOpacity: true }), {
+            message: `${theme} Market header status text`,
+          })
+          .toEqual([]);
+      }
+    });
+  });
+
   // STRK-317 review round 1 (Codex): the test above seeds window meta directly,
   // which cannot catch the dual-store gap — retail.js's _populateManifestState
   // (the REAL mid-session manifest sync path) updates its lexical
