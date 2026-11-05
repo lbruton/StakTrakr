@@ -917,14 +917,14 @@ const _destroyActiveMarketDetailChart = () => {
 };
 
 /**
- * Return focus to the control that opened the detail modal. A matrix re-render
- * replaces the opener, so the item button with the same slug stands in for it.
+ * Return focus to the control that opened the detail modal. A re-render replaces the
+ * opener and a resize can hide it, so the shown item button with the same slug stands in.
  * @param {(HTMLElement|null)} opener - Element focused when the modal opened.
  * @param {(string|null)} slug - Slug of the coin the modal showed.
  * @returns {void}
  */
 const _restoreMarketDetailFocus = (opener, slug) => {
-  if (opener && opener.isConnected) {
+  if (opener && opener.isConnected && opener.getClientRects().length > 0) {
     opener.focus();
     return;
   }

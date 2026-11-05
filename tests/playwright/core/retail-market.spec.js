@@ -2208,8 +2208,17 @@ test.describe("core/retail-market", () => {
     await expect(modal).toBeHidden();
     await expect(opener).toBeFocused();
 
-    // On a desktop the matrix shows, and a long name wraps instead of ending in an ellipsis.
+    // A card opener hidden by a resize past 480px hands focus to the matrix button.
+    await opener.click();
+    await expect(modal).toBeVisible();
     await page.setViewportSize({ width: 1440, height: 900 });
+    await page.keyboard.press("Escape");
+    await expect(modal).toBeHidden();
+    await expect(
+      section.locator(".vendor-prices-table .vp-coin-link", { hasText: LONG_NAME })
+    ).toBeFocused();
+
+    // On a desktop the matrix shows, and a long name wraps instead of ending in an ellipsis.
     await expect(section.locator(".vendor-prices-table")).toBeVisible();
     await expect(cards).toBeHidden();
     await expect
