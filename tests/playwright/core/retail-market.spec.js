@@ -1995,6 +1995,15 @@ test.describe("core/retail-market", () => {
     expect(buyBox.width).toBeGreaterThanOrEqual(24);
     expect(buyBox.height).toBeGreaterThanOrEqual(24);
 
+    // A reload of the open modal keeps focus inside the dialog while it fetches.
+    await page.locator("#marketDetailContent .market-detail-period-btn").first().focus();
+    const focusInsideDuringReload = await page.evaluate((slug) => {
+      void window.openMarketDetailModal(slug, { preservePeriod: true });
+      return document.getElementById("marketDetailModal").contains(document.activeElement);
+    }, SLUG_SILVER_A);
+    expect(focusInsideDuringReload).toBe(true);
+    await expect(page.locator("#marketDetailTitle")).toBeFocused();
+
     // Tab and Shift+Tab stay inside the dialog.
     for (const key of ["Tab", "Shift+Tab"]) {
       for (let i = 0; i < 25; i++) {

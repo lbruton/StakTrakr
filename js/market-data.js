@@ -1640,6 +1640,9 @@ const openMarketDetailModal = async (slug, { preservePeriod = false } = {}) => {
   if (!preservePeriod) _activeModalPeriodId = MARKET_DETAIL_DEFAULT_PERIOD_ID;
   _destroyActiveMarketDetailChart();
   _activeModalSlug = slug;
+  const dialog = overlay.querySelector(".market-detail-modal");
+  // Clearing the content drops focus to the body, outside the trap's keydown listener.
+  if (content.contains(document.activeElement) && dialog instanceof HTMLElement) dialog.focus();
   content.textContent = "";
   // A re-render of an open modal keeps the original opener and trap.
   const isFreshOpen = overlay.hasAttribute("hidden");
@@ -1648,7 +1651,6 @@ const openMarketDetailModal = async (slug, { preservePeriod = false } = {}) => {
     _activeModalOpener =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
     if (typeof trapFocus === "function") trapFocus(overlay);
-    const dialog = overlay.querySelector(".market-detail-modal");
     if (dialog instanceof HTMLElement) dialog.focus();
   }
 
