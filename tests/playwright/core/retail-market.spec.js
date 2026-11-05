@@ -784,7 +784,11 @@ async function bootMarketDataPage(page) {
     await window.initMarketData?.();
     window.refreshMarketData();
   });
-  await page.waitForSelector(".vendor-prices-table", { timeout: 10000 });
+  // Phones below 480px show the cards and hide the matrix; either layout means the render landed.
+  await page
+    .locator(".vendor-prices-table:visible, .vp-cards:visible")
+    .first()
+    .waitFor({ timeout: 10000 });
 }
 
 /**
@@ -2121,13 +2125,16 @@ test.describe("core/retail-market", () => {
     page,
   }) => {
     const LONG_NAME = "South African Silver Krugerrand 1 oz (.999 fine silver)";
-    await page.setViewportSize({ width: 390, height: 844 });
+    // The fixture boot waits for the visible matrix, so the phone width comes after it.
     await setupRetailFixture(page);
+    await page.setViewportSize({ width: 390, height: 844 });
     await page.evaluate(
       ({ slug, name }) => {
-        const meta = _getCoinMeta();
-        meta[slug] = { ...meta[slug], name };
-        window._manifestCoinMeta = meta;
+        // The matrix reads the lexical manifest map in retail.js; the modal prefers the
+        // window copy. Both hold the same manifest in the app, so rename in both.
+        const meta = { ...getRetailCoinMeta(slug), name };
+        _manifestCoinMeta = { ..._manifestCoinMeta, [slug]: meta };
+        window._manifestCoinMeta = { ...(window._manifestCoinMeta || {}), [slug]: meta };
         window.renderVendorPrices();
       },
       { slug: SLUG_SILVER_A, name: LONG_NAME }

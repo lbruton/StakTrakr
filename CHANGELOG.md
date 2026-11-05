@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.107] - 2026-11-05
+
+### Changed — STRK-515: Market tab at phone width
+
+- **Cards on phones**: Below 480px each Market item is a card. The card shows the full item name, the median and spread, and a tile for each dealer that lists the item, with the price as the dealer button (STRK-515).
+- **Wider screens**: From 481px up the price table stays. Long item names wrap instead of ending in an ellipsis, and each price cell is a 44px touch target below 768px (STRK-515).
+- **Metal tabs**: The metal tabs scroll inside their bar, and a fade on the right edge shows that more tabs wait past it. Every tab is a 44px target (STRK-515).
+- **Detail modal**: Below 560px the Stock column moves under the dealer name, so the Buy column stays on screen. Buy is a 44px target (STRK-515).
+- **Text size**: Market text is at least 11px on phones, the header buttons reach 44px, and the disclaimer is 12px (STRK-515).
+
+---
+
 ## [3.36.106] - 2026-11-05
 
 ### Changed — STRK-516: Market tab status and copy

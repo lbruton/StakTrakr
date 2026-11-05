@@ -233,8 +233,16 @@ The detail modal keeps this focus contract:
 - `openMarketDetailModal` records the opener and calls `trapFocus(overlay)` only when the overlay was hidden. A re-render of an open modal keeps the first opener and trap.
 - Focus goes to `.market-detail-modal` (`tabindex="-1"`) and then to `#marketDetailTitle` (`tabindex="-1"`) once the title renders.
 - The overlay carries `aria-label="Loading market details"`. It names the dialog until `#marketDetailTitle` exists for `aria-labelledby`.
-- `closeMarketDetailModal` calls `releaseFocus(overlay)`. `_restoreMarketDetailFocus` then focuses the opener, or the `.vp-coin-link[data-slug]` button when a matrix re-render replaced the opener.
+- `closeMarketDetailModal` calls `releaseFocus(overlay)`. `_restoreMarketDetailFocus` then focuses the opener, or the shown `.vp-coin-link[data-slug]` button (`_findShownCoinButton`) when a re-render replaced the opener.
 - Item names (`.vp-coin-link`) are buttons. A price (`.vp-price`) is a button only when its dealer URL passes `_isSafeUrl`; otherwise it is a span.
+
+`_renderVendorTable` builds two layouts from one row context (`_vendorRowContext`):
+
+- The matrix (`.vp-scroll` > `.vendor-prices-table`) shows from 481px up. Below 768px each cell is a 44px target through a `::after` box.
+- The cards (`ul.vp-cards`, named "<metal> dealer prices") show below 480px. `_buildVendorCard` moves each matrix price cell's content into a `.vp-card-dealer` tile and skips dealers that do not list the item.
+- CSS hides one layout, so both sets of `.vp-coin-link[data-slug]` buttons exist. Focus code looks up the shown one with `_findShownCoinButton`.
+- `_watchVendorTabOverflow` toggles `.vp-tabs-more` on the scrolling metal tab bar while tabs wait past its right edge.
+- Below 560px the detail modal hides `.market-detail-stock-col` and shows the stock word as `.market-stock-sub` under the dealer name.
 
 The Market block header (`_buildMarketBlockHeader`) states its status in words:
 

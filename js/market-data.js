@@ -929,7 +929,7 @@ const _restoreMarketDetailFocus = (opener, slug) => {
     return;
   }
   if (!slug) return;
-  const stand = document.querySelector(`.vp-coin-link[data-slug="${CSS.escape(slug)}"]`);
+  const stand = _findShownCoinButton(slug);
   if (stand instanceof HTMLElement) stand.focus();
   // The matrix may still be rebuilding; _applyPendingMarketFocus finishes the restore.
   else _pendingMarketFocusSlug = slug;
@@ -944,8 +944,19 @@ const _applyPendingMarketFocus = () => {
   const slug = _pendingMarketFocusSlug;
   _pendingMarketFocusSlug = null;
   if (!slug || (document.activeElement && document.activeElement !== document.body)) return;
-  const btn = document.querySelector(`.vp-coin-link[data-slug="${CSS.escape(slug)}"]`);
+  const btn = _findShownCoinButton(slug);
   if (btn instanceof HTMLElement) btn.focus();
+};
+
+/**
+ * Find the item button for a slug in the layout on screen. The matrix and the phone
+ * cards both carry one, and CSS hides one of the two.
+ * @param {string} slug - Retail coin slug.
+ * @returns {(HTMLElement|null)} The shown button, else the first match, else null.
+ */
+const _findShownCoinButton = (slug) => {
+  const buttons = [...document.querySelectorAll(`.vp-coin-link[data-slug="${CSS.escape(slug)}"]`)];
+  return buttons.find((btn) => btn.getClientRects().length > 0) || buttons[0] || null;
 };
 
 const closeMarketDetailModal = () => {
@@ -1582,21 +1593,27 @@ const _buildModalVendorRow = (entry, vendorMeta, slug, metalCode, weightOz, spot
   }
   tr.appendChild(tdPrem);
 
-  // Stock
+  // Stock: its own column, and a copy under the vendor name that the phone layout shows instead.
   const tdStock = document.createElement("td");
+  let stockState = "out";
+  let stockWord = "Out of Stock";
   if (entry.carried) {
-    tdStock.className = "market-stock market-stock--carried";
-    tdStock.textContent = "Carried";
+    stockState = "carried";
+    stockWord = "Carried";
     const title = _carriedTitle(entry.carried_from);
     if (title) tdStock.title = title;
   } else if (entry.in_stock) {
-    tdStock.className = "market-stock market-stock--in";
-    tdStock.textContent = "In Stock";
-  } else {
-    tdStock.className = "market-stock market-stock--out";
-    tdStock.textContent = "Out of Stock";
+    stockState = "in";
+    stockWord = "In Stock";
   }
+  tdStock.className = `market-stock market-stock--${stockState} market-detail-stock-col`;
+  tdStock.textContent = stockWord;
   tr.appendChild(tdStock);
+
+  const stockSub = document.createElement("span");
+  stockSub.className = `market-stock--${stockState} market-stock-sub`;
+  stockSub.textContent = stockWord;
+  tdVendor.appendChild(stockSub);
 
   tr.appendChild(_buildModalBuyCell(entry, slug, vendorMeta));
 
@@ -1645,6 +1662,7 @@ const _buildModalVendorTable = (content, detail, slug, vendorMeta, metalCode, we
       for (const h of headers) {
         const th = document.createElement("th");
         th.textContent = h;
+        if (h === "Stock") th.className = "market-detail-stock-col";
         headRow.appendChild(th);
       }
       thead.appendChild(headRow);
@@ -2173,24 +2191,90 @@ const _buildVendorPriceCell = (
  * @returns {(HTMLTableRowElement|null)} The row element, or null if no detail.
  */
 const _buildVendorTableRow = (rowInfo, vendorIds, detailMap, coins, vendorMeta) => {
+  const row = _vendorRowContext(rowInfo, detailMap, coins);
+  if (!row) return null;
+
+  const tr = document.createElement("tr");
+  const tdName = document.createElement("td");
+  tdName.appendChild(_buildCoinNameButton(row.slug, row.displayName));
+  tr.appendChild(tdName);
+
+  for (const vid of vendorIds) tr.appendChild(_buildRowPriceCell(row, vid, vendorMeta));
+
+  for (const text of [row.medianText, row.spreadText]) {
+    const td = document.createElement("td");
+    td.textContent = text;
+    tr.appendChild(td);
+  }
+  return tr;
+};
+
+/**
+ * Collect what a matrix row and a phone card both show for one coin.
+ * @param {{slug:string, meta:Object, isoCode:string}} rowInfo - Row descriptor.
+ * @param {Object} detailMap - Map of slug to normalized detail.
+ * @param {Object} coins - Retail coins summary map (for median).
+ * @returns {(Object|null)} Row context, or null when the coin has no vendor detail.
+ */
+const _vendorRowContext = (rowInfo, detailMap, coins) => {
   const { slug, meta, isoCode } = rowInfo;
   const detail = detailMap[slug];
   if (!detail || !detail.vendors) return null;
 
   const vData = detail.vendors;
-  const weightOz = detail.weight_oz || meta.weight || 0;
-  const spotPrice = _getSpotPrice(isoCode);
-
   const inStockPrices = _computeInStockPrices(vData, slug);
   const lowestPrice = inStockPrices.length > 0 ? Math.min(...inStockPrices) : null;
+  const highestPrice = inStockPrices.length > 0 ? Math.max(...inStockPrices) : null;
 
-  const tr = document.createElement("tr");
+  const coinSummary = coins[slug];
+  const medianVal = coinSummary ? _coalesce(coinSummary.median_price, coinSummary.median) : null;
 
-  const tdName = document.createElement("td");
+  return {
+    slug,
+    isoCode,
+    vData,
+    lowestPrice,
+    displayName: meta.name || slug,
+    weightOz: detail.weight_oz || meta.weight || 0,
+    spotPrice: _getSpotPrice(isoCode),
+    medianText: medianVal != null ? formatCurrency(medianVal) : "—",
+    // The summary may lack high and low, so the spread comes from the in-stock prices.
+    spreadText:
+      lowestPrice != null && highestPrice !== lowestPrice
+        ? formatCurrency(highestPrice - lowestPrice)
+        : "—",
+  };
+};
 
+/**
+ * Build one vendor price cell from a row context.
+ * @param {Object} row - Context from _vendorRowContext.
+ * @param {string} vid - Vendor id.
+ * @param {Object} vendorMeta - Vendor-meta map.
+ * @returns {HTMLTableCellElement} The price cell.
+ */
+const _buildRowPriceCell = (row, vid, vendorMeta) =>
+  _buildVendorPriceCell(
+    row.slug,
+    vid,
+    row.vData,
+    row.lowestPrice,
+    row.spotPrice,
+    row.weightOz,
+    row.isoCode,
+    vendorMeta,
+    row.displayName
+  );
+
+/**
+ * Build the item name button that opens the detail modal.
+ * @param {string} slug - Retail coin slug.
+ * @param {string} displayName - Item name shown on the button.
+ * @returns {HTMLButtonElement} The name button.
+ */
+const _buildCoinNameButton = (slug, displayName) => {
   const nameBtn = document.createElement("button");
   nameBtn.type = "button";
-  const displayName = meta.name || slug;
   nameBtn.textContent = displayName;
   nameBtn.className = "vp-coin-link";
   nameBtn.dataset.slug = slug;
@@ -2198,45 +2282,65 @@ const _buildVendorTableRow = (rowInfo, vendorIds, detailMap, coins, vendorMeta) 
   nameBtn.addEventListener("click", () => {
     openMarketDetailModal(slug);
   });
-  tdName.appendChild(nameBtn);
+  return nameBtn;
+};
 
-  tr.appendChild(tdName);
+/**
+ * Build one phone card: the item name, the median and spread, and a tile per dealer
+ * that lists the item. Tiles reuse the matrix cell content, so prices stay dealer buttons.
+ * @param {{slug:string, meta:Object, isoCode:string}} rowInfo - Row descriptor.
+ * @param {string[]} vendorIds - Sorted vendor ids (tile order).
+ * @param {Object} detailMap - Map of slug to normalized detail.
+ * @param {Object} coins - Retail coins summary map (for median).
+ * @param {Object} vendorMeta - Vendor-meta map.
+ * @returns {(HTMLLIElement|null)} The card, or null if no detail.
+ */
+const _buildVendorCard = (rowInfo, vendorIds, detailMap, coins, vendorMeta) => {
+  const row = _vendorRowContext(rowInfo, detailMap, coins);
+  if (!row) return null;
 
+  const card = document.createElement("li");
+  card.className = "vp-card";
+  card.appendChild(_buildCoinNameButton(row.slug, row.displayName));
+
+  const metaLine = document.createElement("p");
+  metaLine.className = "vp-card-meta";
+  for (const [label, text] of [
+    ["Median", row.medianText],
+    ["Spread", row.spreadText],
+  ]) {
+    const part = document.createElement("span");
+    part.textContent = `${label} `;
+    const figure = document.createElement("b");
+    figure.textContent = text;
+    part.appendChild(figure);
+    metaLine.appendChild(part);
+  }
+  card.appendChild(metaLine);
+
+  const dealers = document.createElement("ul");
+  dealers.className = "vp-card-dealers";
   for (const vid of vendorIds) {
-    tr.appendChild(
-      _buildVendorPriceCell(
-        slug,
-        vid,
-        vData,
-        lowestPrice,
-        spotPrice,
-        weightOz,
-        isoCode,
-        vendorMeta,
-        displayName
-      )
-    );
+    const cell = _buildRowPriceCell(row, vid, vendorMeta);
+    // A muted dash means the dealer does not list the item, so it gets no tile.
+    if (cell.classList.contains("vp-muted")) continue;
+    const tile = document.createElement("li");
+    tile.className = `vp-card-dealer ${cell.className}`.trim();
+    if (cell.title) tile.title = cell.title;
+    const vendor = document.createElement("span");
+    vendor.className = "vp-card-vendor";
+    // Brand colours fail 4.5:1 as text, so the colour marks a dot beside the name.
+    const dot = document.createElement("span");
+    dot.className = "vp-card-vendor-dot";
+    dot.setAttribute("aria-hidden", "true");
+    if (typeof getRetailVendorColor === "function") dot.style.color = getRetailVendorColor(vid);
+    vendor.append(dot, _shortVendor(vid));
+    tile.appendChild(vendor);
+    tile.append(...cell.childNodes);
+    dealers.appendChild(tile);
   }
-
-  const coinSummary = coins[slug];
-  const tdMedian = document.createElement("td");
-  const medianVal = coinSummary ? _coalesce(coinSummary.median_price, coinSummary.median) : null;
-  tdMedian.textContent = medianVal != null ? formatCurrency(medianVal) : "—";
-  tr.appendChild(tdMedian);
-
-  const tdSpread = document.createElement("td");
-  // Calculate high/low from vendor data since summary may not have these fields
-  const allPrices = inStockPrices.length > 0 ? inStockPrices : [];
-  const calcHigh = allPrices.length > 0 ? Math.max(...allPrices) : null;
-  const calcLow = allPrices.length > 0 ? Math.min(...allPrices) : null;
-  if (calcHigh != null && calcLow != null && calcHigh !== calcLow) {
-    tdSpread.textContent = formatCurrency(calcHigh - calcLow);
-  } else {
-    tdSpread.textContent = "—";
-  }
-  tr.appendChild(tdSpread);
-
-  return tr;
+  card.appendChild(dealers);
+  return card;
 };
 
 /** Metal tab labels, keyed by tab code, that name the matrix in its caption. */
@@ -2300,21 +2404,29 @@ const _renderVendorTable = async (metalCode) => {
 
   const caption = document.createElement("caption");
   caption.className = "sr-only";
-  caption.textContent = `${_VENDOR_TABLE_METAL_LABELS[metalCode] || "All"} dealer prices`;
+  const scopeLabel = `${_VENDOR_TABLE_METAL_LABELS[metalCode] || "All"} dealer prices`;
+  caption.textContent = scopeLabel;
   table.appendChild(caption);
 
   table.appendChild(_buildVendorTableHead(vendorIds));
 
   const tbody = document.createElement("tbody");
+  // Phones below 480px show the cards and desktops the matrix; CSS hides the other one.
+  const cards = document.createElement("ul");
+  cards.className = "vp-cards";
+  cards.setAttribute("aria-label", scopeLabel);
 
   for (const rowInfo of metalSlugs) {
     const tr = _buildVendorTableRow(rowInfo, vendorIds, detailMap, coins, vendorMeta);
     if (tr) tbody.appendChild(tr);
+    const card = _buildVendorCard(rowInfo, vendorIds, detailMap, coins, vendorMeta);
+    if (card) cards.appendChild(card);
   }
 
   table.appendChild(tbody);
   scrollWrap.appendChild(table);
   tableWrap.appendChild(scrollWrap);
+  tableWrap.appendChild(cards);
   _applyPendingMarketFocus();
 
   // STAK-513: Removed redundant renderBestPriceTicker() call here.
@@ -2541,6 +2653,31 @@ const _buildMarketBlockHeader = () => {
   return headerRow;
 };
 
+/**
+ * Keep the metal tab bar's right-edge fade on while tabs sit past the edge, and off
+ * once the last tab is in view. Rechecks on scroll and whenever the bar resizes.
+ * @param {HTMLElement} tabBar - The .vendor-prices-tabs element.
+ * @returns {void}
+ */
+const _watchVendorTabOverflow = (tabBar) => {
+  let observer = null;
+  const sync = () => {
+    // Each render replaces the bar, so a replaced bar stops its own observer.
+    if (!tabBar.isConnected && observer) {
+      observer.disconnect();
+      return;
+    }
+    const hidden = tabBar.scrollWidth - tabBar.clientWidth - tabBar.scrollLeft;
+    tabBar.classList.toggle("vp-tabs-more", hidden > 1);
+  };
+  tabBar.addEventListener("scroll", sync, { passive: true });
+  if (typeof ResizeObserver === "function") {
+    observer = new ResizeObserver(sync);
+    observer.observe(tabBar);
+  }
+  sync();
+};
+
 const renderVendorPrices = () => {
   const container = safeGetElement("vendorPricesContainer");
   if (!container) return;
@@ -2623,6 +2760,7 @@ const renderVendorPrices = () => {
   }
 
   container.appendChild(tabBar);
+  _watchVendorTabOverflow(tabBar);
 
   _renderVendorTable(activeTab);
 

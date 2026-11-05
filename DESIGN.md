@@ -432,6 +432,15 @@ then Items, ounces and the amount paid.
 
 The approved end state of the Dashboard is `playground/STRK-485-dashboard-end-state.html`.
 
+### Market Prices
+
+From 481px up the Market tab is a price matrix: one row per item, one column per dealer. Item names wrap;
+no value ends in an ellipsis. Below 480px each item is a card: the full name, a median and spread line, and
+a three-column grid of dealer tiles. Each tile names the dealer beside a dot in its vendor colour, because
+vendor colours fall below 4.5:1 as text. The price is the tile's button. The metal tabs scroll inside their
+bar, and a fade on the right edge marks tabs past it. Below 560px the detail modal moves the stock word under
+the dealer name. The approved phone layout is proposal B in `playground/STRK-515-market-phone.html`.
+
 ## Do's and Don'ts
 
 ### Do:
