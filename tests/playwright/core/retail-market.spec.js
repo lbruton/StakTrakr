@@ -1946,6 +1946,10 @@ test.describe("core/retail-market", () => {
     const stock = page.locator("#marketDetailContent .market-stock");
     await expect(stock).toHaveText(["In Stock", "In Stock", "Carried", "In Stock", "Out of Stock"]);
     await expect(stock.nth(2)).toHaveAttribute("title", lastSeen);
+    // Phones hide the Stock column, so the stock line under the dealer carries the date in view.
+    const carriedSub = page.locator("#marketDetailContent .market-stock-sub.market-stock--carried");
+    await expect(carriedSub).toHaveText(`Carried ${localDate}`);
+    await expect(carriedSub).toHaveAttribute("title", lastSeen);
     await expect(page.locator("#marketDetailContent .market-detail-period-btn.active")).toHaveCount(
       1
     );

@@ -1597,14 +1597,22 @@ const _buildModalVendorRow = (entry, vendorMeta, slug, metalCode, weightOz, spot
   const tdStock = document.createElement("td");
   let stockState = "out";
   let stockWord = "Out of Stock";
+  let stockSubWord = stockWord;
+  let carriedTitle = "";
   if (entry.carried) {
     stockState = "carried";
     stockWord = "Carried";
-    const title = _carriedTitle(entry.carried_from);
-    if (title) tdStock.title = title;
+    stockSubWord = stockWord;
+    carriedTitle = _carriedTitle(entry.carried_from);
+    if (carriedTitle) {
+      tdStock.title = carriedTitle;
+      // Touch never shows a title, so the phone line names the day it was last seen.
+      stockSubWord = `Carried ${_formatMarketTimestamp(entry.carried_from).split(",")[0]}`;
+    }
   } else if (entry.in_stock) {
     stockState = "in";
     stockWord = "In Stock";
+    stockSubWord = stockWord;
   }
   tdStock.className = `market-stock market-stock--${stockState} market-detail-stock-col`;
   tdStock.textContent = stockWord;
@@ -1612,7 +1620,8 @@ const _buildModalVendorRow = (entry, vendorMeta, slug, metalCode, weightOz, spot
 
   const stockSub = document.createElement("span");
   stockSub.className = `market-stock--${stockState} market-stock-sub`;
-  stockSub.textContent = stockWord;
+  stockSub.textContent = stockSubWord;
+  if (carriedTitle) stockSub.title = carriedTitle;
   tdVendor.appendChild(stockSub);
 
   tr.appendChild(_buildModalBuyCell(entry, slug, vendorMeta));
