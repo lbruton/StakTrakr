@@ -17309,7 +17309,7 @@ span.vp-price {
   cursor: default;
 }
 
-.vp-price:hover {
+button.vp-price:hover {
   text-decoration: underline;
   opacity: 0.85;
 }

@@ -1968,7 +1968,10 @@ test.describe("core/retail-market", () => {
     await page.keyboard.press("Enter");
     const modal = page.locator("#marketDetailModal");
     await expect(modal).toBeVisible();
+    // The fallback name covers the load; the rendered title then names the dialog.
+    await expect(modal).toHaveAttribute("aria-label", "Loading market details");
     await expect(page.locator("#marketDetailTitle")).toBeFocused();
+    await expect(page.getByRole("dialog", { name: "Alpha Silver Bar" })).toBeVisible();
     await expect(page.locator("#marketDetailChartArea")).toHaveAttribute(
       "aria-label",
       "Vendor price history chart"

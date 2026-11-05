@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed — STRK-513: Market tab keyboard and screen reader access
 
-- **Price table**: Item names and dealer prices are buttons, so Tab reaches them and Enter opens them. Each price is named with the item, dealer, price and premium, as in the best-price ticker (STRK-513).
+- **Price table**: Item names, and prices that link to a dealer page, are buttons, so Tab reaches them and Enter opens them. Each linked price is named with the item, dealer, price and premium, as in the best-price ticker; a price without a dealer link stays plain text (STRK-513).
 - **Detail modal**: Opening the modal moves focus to its title, Tab and Shift+Tab stay inside it, and closing it returns focus to the item name. The Buy controls are buttons named with the dealer and price, the close button is 44px and the chart area has a label (STRK-513).
 - **Metal tabs and table**: The metal tabs are a labelled toggle group with a pressed state. The table has a caption that names the metal shown and column scopes, and the tab has a "Market prices" heading for screen readers (STRK-513).
 
