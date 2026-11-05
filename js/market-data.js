@@ -136,6 +136,25 @@ const _premiumTierClass = (pct) => {
 };
 
 /**
+ * Tooltip text for a carried price: the feed's UTC carried_from timestamp as a local
+ * en-CA date and time, or null when the timestamp is missing or unparseable.
+ * @param {string} carriedFrom - ISO timestamp of the last scrape that saw the price.
+ * @returns {(string|null)} "Last seen YYYY-MM-DD, hh:mm" text, or null.
+ */
+const _carriedTitle = (carriedFrom) => {
+  const seen = carriedFrom ? new Date(carriedFrom) : null;
+  if (!seen || Number.isNaN(seen.getTime())) return null;
+  const local = seen.toLocaleString("en-CA", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  return `Last seen ${local}`;
+};
+
+/**
  * Open a vendor URL in a standardized detached popup window. Mirrors the
  * window name and feature string used by the ticker, vendor matrix, and detail
  * modal so all three open identical popups. Caller validates url via _isSafeUrl.
@@ -1456,7 +1475,8 @@ const _buildModalVendorRow = (entry, vendorMeta, slug, metalCode, weightOz, spot
   if (entry.carried) {
     tdStock.className = "market-stock market-stock--carried";
     tdStock.textContent = "Carried";
-    if (entry.carried_from) tdStock.title = `Last seen ${entry.carried_from}`;
+    const title = _carriedTitle(entry.carried_from);
+    if (title) tdStock.title = title;
   } else if (entry.in_stock) {
     tdStock.className = "market-stock market-stock--in";
     tdStock.textContent = "In Stock";
@@ -1943,7 +1963,8 @@ const _buildVendorPriceCell = (
     mark.className = "vp-carried-mark";
     mark.textContent = "Carried";
     td.appendChild(mark);
-    if (vInfo.carried_from) td.title = `Last seen ${vInfo.carried_from}`;
+    const title = _carriedTitle(vInfo.carried_from);
+    if (title) td.title = title;
   }
 
   return td;

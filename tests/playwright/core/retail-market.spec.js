@@ -1842,9 +1842,11 @@ test.describe("core/retail-market", () => {
         in_stock: true,
         inStock: true,
         carried: true,
-        carried_from: RECENT_DATE,
+        // Midday UTC keeps the same calendar date in every timezone from UTC-12 to UTC+5.
+        carried_from: `${RECENT_DATE}T18:00:00Z`,
       },
     };
+    const lastSeen = new RegExp(`^Last seen ${RECENT_DATE}, \\d{2}:\\d{2}`);
     const row = { median_price: 38, lowest_price: 36.5, highest_price: 41, vendors };
     await setupRetailFixture(page, {
       retailPriceRows: { [SLUG_SILVER_A]: row },
@@ -1862,12 +1864,13 @@ test.describe("core/retail-market", () => {
     const carried = matrixRow.locator(".vp-carried");
     await expect(carried).toContainText("$38.00");
     await expect(carried.locator(".vp-carried-mark")).toHaveText("Carried");
-    await expect(carried).toHaveAttribute("title", `Last seen ${RECENT_DATE}`);
+    await expect(carried).toHaveAttribute("title", lastSeen);
 
     await page.evaluate((slug) => window.openMarketDetailModal(slug), SLUG_SILVER_A);
     await expect(page.locator("#marketDetailModal")).toBeVisible();
     const stock = page.locator("#marketDetailContent .market-stock");
     await expect(stock).toHaveText(["In Stock", "In Stock", "Carried", "In Stock", "Out of Stock"]);
+    await expect(stock.nth(2)).toHaveAttribute("title", lastSeen);
     await expect(page.locator("#marketDetailContent .market-detail-period-btn.active")).toHaveCount(
       1
     );
