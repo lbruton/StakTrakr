@@ -1964,7 +1964,14 @@ const _buildVendorPriceCell = (
     mark.textContent = "Carried";
     td.appendChild(mark);
     const title = _carriedTitle(vInfo.carried_from);
-    if (title) td.title = title;
+    if (title) {
+      td.title = title;
+      // Title tooltips never show on touch or keyboard focus, so the date stays visible.
+      const date = document.createElement("span");
+      date.className = "vp-carried-date";
+      date.textContent = new Date(vInfo.carried_from).toLocaleDateString("en-CA");
+      td.appendChild(date);
+    }
   }
 
   return td;

@@ -57,7 +57,7 @@ export function measureText(page, selector, { ancestorOpacity = false } = {}) {
           color: cs.color,
           background: `rgb(${back.map(Math.round).join(", ")})`,
           inlineColor: el.style.color,
-          ratio: Math.round(((hi + 0.05) / (lo + 0.05)) * 100) / 100,
+          ratio: (hi + 0.05) / (lo + 0.05),
         };
       });
     },
@@ -79,7 +79,7 @@ export async function contrastFailures(page, selectors, options = {}) {
     const records = (await measureText(page, selector, options)).filter((r) => r.text !== "");
     if (!records.length) failures.push(`${what}: nothing rendered`);
     for (const r of records) {
-      if (r.ratio < AA_NORMAL_TEXT) failures.push(`${what} "${r.text}" ${r.ratio}:1`);
+      if (r.ratio < AA_NORMAL_TEXT) failures.push(`${what} "${r.text}" ${r.ratio.toFixed(2)}:1`);
       if (r.inlineColor) failures.push(`${what} "${r.text}" inline ${r.inlineColor}`);
     }
   }

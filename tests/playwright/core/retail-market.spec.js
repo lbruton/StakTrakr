@@ -1864,6 +1864,7 @@ test.describe("core/retail-market", () => {
     const carried = matrixRow.locator(".vp-carried");
     await expect(carried).toContainText("$38.00");
     await expect(carried.locator(".vp-carried-mark")).toHaveText("Carried");
+    await expect(carried.locator(".vp-carried-date")).toHaveText(RECENT_DATE);
     await expect(carried).toHaveAttribute("title", lastSeen);
 
     await page.evaluate((slug) => window.openMarketDetailModal(slug), SLUG_SILVER_A);
@@ -1884,6 +1885,7 @@ test.describe("core/retail-market", () => {
       "out of stock": "#vendorPricesContainer .vp-oos span",
       "carried price": "#vendorPricesContainer .vp-carried .vp-price",
       "carried mark": "#vendorPricesContainer .vp-carried-mark",
+      "carried date": "#vendorPricesContainer .vp-carried-date",
       "muted dash": "#vendorPricesContainer .vp-muted",
       "disclaimer link": "#vendorPricesContainer .market-disclaimer a",
       "modal premium": "#marketDetailContent .vp-premium",

@@ -17329,7 +17329,8 @@ input[type="number"] {
 }
 
 /* ── Carried Price ── */
-.vp-carried-mark {
+.vp-carried-mark,
+.vp-carried-date {
   display: block;
   color: var(--text-muted);
   font-size: var(--font-size-xs);
