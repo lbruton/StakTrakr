@@ -1884,7 +1884,7 @@ const _computeInStockPrices = (vData, slug) => {
 /**
  * Build one vendor price cell for the matrix: a muted dash for disabled vendors
  * or missing data, an OOS marker when out of stock, otherwise the price (with a
- * best-price highlight, carried dimming, click-to-vendor link, and premium badge).
+ * best-price highlight, carried label and date, click-to-vendor link, and premium badge).
  * @param {string} slug - Retail coin slug.
  * @param {string} vid - Vendor id.
  * @param {Object} vData - Per-vendor data map for the coin.
@@ -1957,7 +1957,7 @@ const _buildVendorPriceCell = (
     td.appendChild(premBadge);
   }
 
-  // A carried price is the last one seen, so it is named in words, not only dimmed.
+  // A carried price is the last one seen, so a label and its local date name it.
   if (vInfo.carried && vInfo.price != null) {
     const mark = document.createElement("span");
     mark.className = "vp-carried-mark";
