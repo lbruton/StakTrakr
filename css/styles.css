@@ -17295,9 +17295,18 @@ input[type="number"] {
 
 /* ── Price Cell ── */
 .vp-price {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
   font-family: var(--font-mono);
   font-weight: 600;
   cursor: pointer;
+}
+
+span.vp-price {
+  cursor: default;
 }
 
 .vp-price:hover {
@@ -17356,6 +17365,11 @@ input[type="number"] {
 
 /* ── Coin Name Link ── */
 .vp-coin-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  text-align: inherit;
   color: var(--text-primary);
   cursor: pointer;
   transition: color 0.15s ease;
@@ -17364,6 +17378,19 @@ input[type="number"] {
 .vp-coin-link:hover {
   color: var(--primary);
   text-decoration: underline;
+}
+
+.vp-coin-link:focus-visible,
+.vp-price:focus-visible,
+.market-detail-buy:focus-visible,
+.market-detail-close:focus-visible,
+.vendor-prices-tabs button:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+#marketDetailTitle:focus {
+  outline: none;
 }
 
 .vp-scroll {
@@ -17483,8 +17510,8 @@ input[type="number"] {
   background: var(--bg-secondary);
   border: 1px solid var(--border);
   color: var(--text-secondary);
-  width: 32px;
-  height: 32px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   cursor: pointer;
   font-size: var(--font-size-xl);
@@ -17537,10 +17564,27 @@ input[type="number"] {
 }
 
 .market-detail-buy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  min-height: 24px;
+  padding: 2px 6px;
+  border: 0;
+  background: none;
   color: var(--primary-text);
-  text-decoration: none;
+  font: inherit;
   font-weight: 600;
   font-size: 12px;
+  cursor: pointer;
+}
+
+.market-detail-buy:hover {
+  text-decoration: underline;
+}
+
+.market-detail-modal:focus {
+  outline: none;
 }
 
 /* ── Modal Period Controls ── */

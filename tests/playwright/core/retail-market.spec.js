@@ -1909,6 +1909,96 @@ test.describe("core/retail-market", () => {
     }
   });
 
+  test("Market tab works by keyboard and names its controls for screen readers", async ({
+    page,
+  }) => {
+    await setupRetailFixture(page);
+    const container = page.locator("#vendorPricesContainer");
+
+    await expect(container.getByRole("heading", { name: "Market prices" })).toBeAttached();
+    await expect(page.locator("#marketSettingsBtn")).toHaveAttribute("type", "button");
+
+    // Metal tabs are a pressed-state toggle group, like the modal period group.
+    const metals = container.getByRole("group", { name: "Metal" });
+    await expect(metals.getByRole("button", { name: "All" })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+    await metals.getByRole("button", { name: "Silver" }).click();
+    await expect(metals.getByRole("button", { name: "Silver" })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+    await expect(metals.getByRole("button", { name: "All" })).toHaveAttribute(
+      "aria-pressed",
+      "false"
+    );
+    for (const btn of await metals.getByRole("button").all()) {
+      await expect(btn).toHaveAttribute("type", "button");
+    }
+
+    const table = page.locator(".vendor-prices-table");
+    await expect(table.locator("caption")).toHaveText("Silver dealer prices");
+    const headScopes = await table
+      .locator("thead th")
+      .evaluateAll((ths) => ths.map((th) => th.getAttribute("scope")));
+    expect(headScopes.length).toBeGreaterThan(0);
+    expect(headScopes.every((scope) => scope === "col")).toBe(true);
+
+    // Each price is a button whose name carries item, dealer, price and premium.
+    const row = table
+      .locator("tbody tr")
+      .filter({ has: page.getByText("Alpha Silver Bar", { exact: true }) });
+    await expect(
+      row.getByRole("button", {
+        name: /^Alpha Silver Bar at APMEX, \$[\d,.]+, premium [+-]\d+\.\d%\. Opens the dealer page in a new window\.$/,
+      })
+    ).toHaveCount(1);
+
+    // Tab from the Silver toggle reaches the item name without a pointer.
+    await metals.getByRole("button", { name: "Silver" }).focus();
+    const itemName = row.getByRole("button", { name: "Alpha Silver Bar", exact: true });
+    let reached = false;
+    for (let i = 0; i < 10 && !reached; i++) {
+      await page.keyboard.press("Tab");
+      reached = await itemName.evaluate((el) => el === document.activeElement);
+    }
+    expect(reached).toBe(true);
+
+    await page.keyboard.press("Enter");
+    const modal = page.locator("#marketDetailModal");
+    await expect(modal).toBeVisible();
+    await expect(page.locator("#marketDetailTitle")).toBeFocused();
+    await expect(page.locator("#marketDetailChartArea")).toHaveAttribute(
+      "aria-label",
+      "Vendor price history chart"
+    );
+
+    const buy = modal.getByRole("button", {
+      name: /^Buy at .+, \$[\d,.]+\. Opens the dealer page in a new window\.$/,
+    });
+    expect(await buy.count()).toBeGreaterThan(0);
+    const closeBox = await page.locator("#marketDetailCloseBtn").boundingBox();
+    expect(closeBox.width).toBeGreaterThanOrEqual(44);
+    expect(closeBox.height).toBeGreaterThanOrEqual(44);
+    const buyBox = await buy.first().boundingBox();
+    expect(buyBox.width).toBeGreaterThanOrEqual(24);
+    expect(buyBox.height).toBeGreaterThanOrEqual(24);
+
+    // Tab and Shift+Tab stay inside the dialog.
+    for (const key of ["Tab", "Shift+Tab"]) {
+      for (let i = 0; i < 25; i++) {
+        await page.keyboard.press(key);
+        const inside = await modal.evaluate((el) => el.contains(document.activeElement));
+        expect(inside, `${key} press ${i + 1} left the dialog`).toBe(true);
+      }
+    }
+
+    await page.keyboard.press("Escape");
+    await expect(modal).toBeHidden();
+    await expect(itemName).toBeFocused();
+  });
+
   // STRK-317 review round 1 (Codex): the test above seeds window meta directly,
   // which cannot catch the dual-store gap — retail.js's _populateManifestState
   // (the REAL mid-session manifest sync path) updates its lexical
