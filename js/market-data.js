@@ -2681,11 +2681,25 @@ const _watchVendorTabOverflow = (tabBar) => {
     const hidden = tabBar.scrollWidth - tabBar.clientWidth - tabBar.scrollLeft;
     tabBar.classList.toggle("vp-tabs-more", hidden > 1);
   };
+  // A rebuilt bar starts at scrollLeft 0, so the selected tab is scrolled back into view.
+  // A hidden panel has no width; the resize when it shows runs this again.
+  const reveal = () => {
+    const active = tabBar.querySelector('button[aria-pressed="true"]');
+    if (!active || tabBar.clientWidth === 0) return;
+    const bar = tabBar.getBoundingClientRect();
+    const tab = active.getBoundingClientRect();
+    if (tab.right > bar.right) tabBar.scrollLeft += tab.right - bar.right;
+    else if (tab.left < bar.left) tabBar.scrollLeft -= bar.left - tab.left;
+  };
   tabBar.addEventListener("scroll", sync, { passive: true });
   if (typeof ResizeObserver === "function") {
-    _vendorTabObserver = new ResizeObserver(sync);
+    _vendorTabObserver = new ResizeObserver(() => {
+      reveal();
+      sync();
+    });
     _vendorTabObserver.observe(tabBar);
   }
+  reveal();
   sync();
 };
 

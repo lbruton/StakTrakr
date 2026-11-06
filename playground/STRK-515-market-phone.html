@@ -346,6 +346,10 @@
       .mk-cards {
         display: none;
       }
+      /* The app hides this wrapper below 480px for its own cards; Current and A keep the matrix. */
+      html:not(.mk-b) .vendor-prices-section .vp-table-area .vp-scroll {
+        display: block;
+      }
       @media (max-width: 480px) {
         .mk-b .vendor-prices-section .vp-scroll {
           display: none;
@@ -1003,8 +1007,11 @@
             const [label, key] = VENDORS[i];
             const name = `<span class="mk-dealer-name" style="color: var(--vendor-${key});">${label}</span>`;
             if (c === "O") return `<li class="mk-dealer vp-oos">${name}OOS</li>`;
-            const [price, prem, tier, best] = c;
-            return `<li class="mk-dealer${best ? " vp-best" : ""}">${name}<button class="vp-price" type="button">${price}</button><span class="vp-premium ${tier}">${prem}</span></li>`;
+            const [price, prem, tier, best, carried] = c;
+            const extra = carried
+              ? `<span class="vp-carried-mark">Carried</span><span class="vp-carried-date">2026-11-04</span>`
+              : "";
+            return `<li class="mk-dealer${best ? " vp-best" : ""}">${name}<button class="vp-price" type="button">${price}</button><span class="vp-premium ${tier}">${prem}</span>${extra}</li>`;
           })
           .join("");
         return `<li class="mk-card"><button type="button" class="vp-coin-link" aria-haspopup="dialog">${r[0]}</button><p class="mk-card-meta">Median <b>${r[3]}</b> · Spread <b>${r[4]}</b></p><ul class="mk-dealers">${dealers}</ul></li>`;

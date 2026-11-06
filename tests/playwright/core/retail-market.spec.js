@@ -613,6 +613,7 @@ function makeV2Handler({
   goldbackG1Rate = GOLDBACK_G1_RATE,
   retailFeeds = {},
   failedRetailFeeds = [],
+  meta = coinMeta,
 } = {}) {
   return async (route) => {
     const url = new URL(route.request().url());
@@ -641,11 +642,11 @@ function makeV2Handler({
           v: 2,
           generated_at: GENERATED_AT,
           data: {
-            coins: Object.entries(coinMeta).map(([slug, meta]) => ({
+            coins: Object.entries(meta).map(([slug, coin]) => ({
               slug,
-              name: meta.name,
-              weight_oz: meta.weight,
-              metal: meta.metal === "silver" ? "xag" : meta.metal === "gold" ? "xau" : meta.metal,
+              name: coin.name,
+              weight_oz: coin.weight,
+              metal: coin.metal === "silver" ? "xag" : coin.metal === "gold" ? "xau" : coin.metal,
             })),
             vendors: VENDORS,
           },
@@ -819,7 +820,13 @@ async function setupRetailFixture(page, options = {}) {
     retailHistory = {},
     retailPriceRows = {},
     failedRetailFeeds = [],
+    // Slug-to-name overrides, seeded into storage and the manifest alike.
+    coinNames = {},
   } = options;
+  const fixtureMeta = { ...coinMeta };
+  for (const [slug, name] of Object.entries(coinNames)) {
+    fixtureMeta[slug] = { ...fixtureMeta[slug], name };
+  }
   const seededPrices = { ...prices, prices: { ...prices.prices, ...retailPriceRows } };
 
   await injectSeedInventory(page);
@@ -854,7 +861,7 @@ async function setupRetailFixture(page, options = {}) {
         intraday: intradayRows,
         generatedAt: GENERATED_AT,
       },
-      meta: coinMeta,
+      meta: fixtureMeta,
       vendors: vendorMeta,
       saved: savedTab,
       filter: marketFilter,
@@ -863,7 +870,7 @@ async function setupRetailFixture(page, options = {}) {
     }
   );
 
-  const fulfillV2 = makeV2Handler({ retailFeeds, failedRetailFeeds });
+  const fulfillV2 = makeV2Handler({ retailFeeds, failedRetailFeeds, meta: fixtureMeta });
   const failV2 = async (route) => {
     await route.fulfill({ status: 503, contentType: "application/json", body: "{}" });
   };
@@ -983,7 +990,8 @@ async function getVendorCellText(page, rowName, vendorHeader) {
 /**
  * Measures the phone-width contract inside one root: the smallest visible text size, the
  * visible controls whose hit area is under 44px, and the names that overflow their box.
- * A control's hit area is its box, or its absolute ::after box when it has one.
+ * A control's hit area is its box, or its absolute ::after box when it has one. That box is
+ * placed against the containing block's padding box, so the block's borders do not count.
  * @param {import('@playwright/test').Page} page - Playwright page.
  * @param {string} rootSelector - CSS selector of the root to measure.
  * @returns {Promise<{minFont:number, smallTargets:string[], clippedNames:string[]}>}
@@ -997,10 +1005,12 @@ function readPhoneFit(page, rootSelector) {
       if (after.content === "none" || after.position !== "absolute") return r;
       const base = getComputedStyle(el).position === "static" ? el.offsetParent : el;
       const b = base.getBoundingClientRect();
+      const baseStyle = getComputedStyle(base);
+      const border = (side) => parseFloat(baseStyle[`border-${side}-width`]) || 0;
       const inset = (side) => parseFloat(after[side]) || 0;
       return {
-        width: b.width - inset("left") - inset("right"),
-        height: b.height - inset("top") - inset("bottom"),
+        width: b.width - border("left") - border("right") - inset("left") - inset("right"),
+        height: b.height - border("top") - border("bottom") - inset("top") - inset("bottom"),
       };
     };
     const texts = [...root.querySelectorAll("*")].filter(
@@ -2145,23 +2155,12 @@ test.describe("core/retail-market", () => {
       };
     });
     // The fixture boot waits for the visible matrix, so the phone width comes after it.
-    await setupRetailFixture(page);
+    await setupRetailFixture(page, { coinNames: { [SLUG_SILVER_A]: LONG_NAME } });
     await page.evaluate(() => {
       for (let i = 0; i < 3; i += 1) window.renderVendorPrices();
     });
     expect(await page.evaluate(() => window.__vpTabObservers.size)).toBe(1);
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.evaluate(
-      ({ slug, name }) => {
-        // The matrix reads the lexical manifest map in retail.js; the modal prefers the
-        // window copy. Both hold the same manifest in the app, so rename in both.
-        const meta = { ...getRetailCoinMeta(slug), name };
-        _manifestCoinMeta = { ..._manifestCoinMeta, [slug]: meta };
-        window._manifestCoinMeta = { ...(window._manifestCoinMeta || {}), [slug]: meta };
-        window.renderVendorPrices();
-      },
-      { slug: SLUG_SILVER_A, name: LONG_NAME }
-    );
 
     const section = page.locator("#vendorPricesSectionEl");
     const cards = section.locator(".vp-cards");
@@ -2210,6 +2209,22 @@ test.describe("core/retail-market", () => {
       .last()
       .evaluate((el) => el.getBoundingClientRect().right);
     expect(lastTabRight).toBeLessThanOrEqual(320);
+
+    // A selected tab past the edge is scrolled into the rebuilt bar.
+    await tabs.getByRole("button", { name: "Goldback" }).click();
+    await page.evaluate(() => window.renderVendorPrices());
+    const pressed = tabs.locator('button[aria-pressed="true"]');
+    await expect(pressed).toHaveText("Goldback");
+    await expect
+      .poll(() =>
+        pressed.evaluate((el) => {
+          const r = el.getBoundingClientRect();
+          const bar = el.parentElement.getBoundingClientRect();
+          return r.left >= bar.left - 1 && r.right <= bar.right + 1;
+        })
+      )
+      .toBe(true);
+    await tabs.getByRole("button", { name: "All" }).click();
     await page.setViewportSize({ width: 390, height: 844 });
 
     // The detail modal's vendor table fits: Stock sits under the dealer name.

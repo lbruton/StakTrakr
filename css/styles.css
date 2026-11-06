@@ -17488,6 +17488,7 @@ button.vp-price:hover {
 
 .vp-card-dealer {
   position: relative;
+  min-width: 0;
   min-height: 44px;
   padding: 4px 6px;
   border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
@@ -17523,13 +17524,14 @@ button.vp-price:hover {
 
 .vp-card-dealer .vp-price {
   font-size: 12px;
+  overflow-wrap: anywhere;
 }
 
-/* The whole tile is the dealer button's target. */
+/* The whole tile, borders included, is the dealer button's target. */
 .vp-card-dealer button.vp-price::after {
   content: "";
   position: absolute;
-  inset: 0;
+  inset: -1px;
 }
 
 .vp-card-dealer .vp-premium {
@@ -17579,10 +17581,12 @@ button.vp-price:hover {
   text-align: center;
 }
 
-/* Inline padding grows the link's hit area to 44px without moving the line box. */
+/* A 20px line plus 12px above and below gives the link a 44px target. */
 .market-disclaimer a {
+  display: inline-block;
+  padding-block: 12px;
+  line-height: 20px;
   color: var(--primary-text);
-  padding-block: 14px;
 }
 
 /* ── Market Block Header ── */
@@ -17670,11 +17674,11 @@ button.vp-price:hover {
   font-weight: 600;
 }
 
-/* The hit area extends 4px past the 36px face to reach 44px. */
+/* The ::after box starts at the 34px padding box, so 5px each way reaches 44px. */
 .market-block-btn::after {
   content: "";
   position: absolute;
-  inset: -4px;
+  inset: -5px;
 }
 
 .ticker-item--link {
