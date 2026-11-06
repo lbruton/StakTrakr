@@ -2113,8 +2113,15 @@ test.describe("core/retail-market", () => {
   }) => {
     // The item's window differs from the manifest's GENERATED_AT, which the snapshot keeps.
     const ITEM_T = "2026-05-25T15:45:00Z";
+    // An empty t must not hide the item's valid v1 window.
+    const ITEM_W = "2026-05-25T14:30:00Z";
     await setupRetailFixture(page, {
-      retailFeeds: { [SLUG_SILVER_A]: { latest: { ...latestForSlug(SLUG_SILVER_A), t: ITEM_T } } },
+      retailFeeds: {
+        [SLUG_SILVER_A]: { latest: { ...latestForSlug(SLUG_SILVER_A), t: ITEM_T } },
+        [SLUG_SILVER_M]: {
+          latest: { ...latestForSlug(SLUG_SILVER_M), t: "", window_start: ITEM_W },
+        },
+      },
     });
     const synced = await page.evaluate(async (slug) => {
       const result = await syncRetailPrices({ ui: false });
@@ -2125,11 +2132,16 @@ test.describe("core/retail-market", () => {
       return { ok: result.ok, t: stored.prices[slug].t, snapshot: stored.window_start };
     }, SLUG_SILVER_A);
     expect(synced).toEqual({ ok: true, t: ITEM_T, snapshot: GENERATED_AT });
-    const priceCell = page
-      .locator(".vendor-prices-table tbody tr")
-      .filter({ has: page.getByText("Alpha Silver Bar", { exact: true }) })
-      .locator("td:has(.vp-price)");
-    await expect(priceCell).toHaveAttribute("title", await lastSeenText(page, ITEM_T));
+    for (const [name, iso] of [
+      ["Alpha Silver Bar", ITEM_T],
+      ["Middle Silver Coin", ITEM_W],
+    ]) {
+      const priceCell = page
+        .locator(".vendor-prices-table tbody tr")
+        .filter({ has: page.getByText(name, { exact: true }) })
+        .locator("td:has(.vp-price)");
+      await expect(priceCell.first(), name).toHaveAttribute("title", await lastSeenText(page, iso));
+    }
   });
 
   test("Market tab works by keyboard and names its controls for screen readers", async ({
