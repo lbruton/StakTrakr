@@ -2615,7 +2615,11 @@ const _setMarketRefreshFailure = (text) => {
 };
 
 if (typeof document !== "undefined") {
-  document.addEventListener("retail:updated", () => _setMarketRefreshFailure(null));
+  // A sync dispatches this before its refreshMarketData() render, so the render reads the new prices.
+  document.addEventListener("retail:updated", () => {
+    _cachedSlugDetail = {};
+    _setMarketRefreshFailure(null);
+  });
 }
 
 /**

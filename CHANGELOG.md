@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.110] - 2026-11-06
+
+### Fixed — STRK-531: Market prices refresh after a sync
+
+- **Fresh prices**: After Refresh or a background sync stores new prices, the Market table, the phone cards and the best-price ticker show them without a page reload. Before, they kept the prices from the first render until the page reloaded (STRK-531).
+- **Last seen**: The "Last seen" tooltip refreshes with the prices, so it names the time of the prices on screen (STRK-531).
+
+---
+
 ## [3.36.109] - 2026-11-06
 
 ### Changed — STRK-530: Even Market rows and a Configure button
