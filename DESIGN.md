@@ -447,6 +447,12 @@ least 1% above it, and amber is in between. A carried price or a lone dealer has
 premium uses the secondary text colour. The Median column shows that same median. The approved rule is in
 `playground/STRK-517-premium-colour.html`.
 
+A price cell holds only the price and its premium, so every cell in a row is the same height. Each in-stock
+price has a "Last seen" tooltip with the date and time in the Settings timezone: the price window for a fresh
+price, and the last scrape that saw it for a carried price. The price button's accessible name carries the
+same time, because a tooltip does not show on touch or keyboard focus. The detail modal names a carried
+price in its stock word. The Market header ends with a Configure button: the gear icon and the word.
+
 ## Do's and Don'ts
 
 ### Do:

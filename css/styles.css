@@ -17377,15 +17377,6 @@ button.vp-price:hover {
   font-weight: 700;
 }
 
-/* ── Carried Price ── */
-.vp-carried-mark,
-.vp-carried-date {
-  display: block;
-  color: var(--text-muted);
-  font-size: var(--font-size-xs);
-  font-style: italic;
-}
-
 /* ── Out of Stock ── */
 .vp-oos {
   color: var(--text-muted);
@@ -17684,6 +17675,16 @@ button.vp-price:hover {
   inset: -5px;
 }
 
+.market-block-btn--labelled {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.market-block-icon {
+  flex: none;
+}
+
 .ticker-item--link {
   cursor: pointer;
 }
@@ -17970,8 +17971,8 @@ button.vp-price:hover {
     font-size: max(12px, var(--font-size-sm));
   }
 
-  .vendor-prices-section :is(.vp-premium, .vp-oos, .vp-carried-mark, .vp-carried-date),
-  .market-detail-modal :is(.vp-premium, .vp-oos, .vp-carried-mark, .vp-carried-date),
+  .vendor-prices-section :is(.vp-premium, .vp-oos),
+  .market-detail-modal :is(.vp-premium, .vp-oos),
   .market-detail-stat-label,
   .vendor-prices-table th,
   .market-detail-periods .market-detail-period-btn {
