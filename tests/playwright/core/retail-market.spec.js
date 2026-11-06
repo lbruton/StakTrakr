@@ -2108,30 +2108,44 @@ test.describe("core/retail-market", () => {
     }
   });
 
-  test("a synced price keeps its item's price window for the Last seen tooltip", async ({
-    page,
-  }) => {
+  test("a sync shows its new prices and their price window without a reload", async ({ page }) => {
     // The item's window differs from the manifest's GENERATED_AT, which the snapshot keeps.
     const ITEM_T = "2026-05-25T15:45:00Z";
     // An empty t must not hide the item's valid v1 window.
     const ITEM_W = "2026-05-25T14:30:00Z";
+    const NEW_PRICE = 37.25;
+    const alpha = latestForSlug(SLUG_SILVER_A);
     await setupRetailFixture(page, {
       retailFeeds: {
-        [SLUG_SILVER_A]: { latest: { ...latestForSlug(SLUG_SILVER_A), t: ITEM_T } },
+        [SLUG_SILVER_A]: {
+          latest: {
+            ...alpha,
+            t: ITEM_T,
+            vendors: { apmex: { ...alpha.vendors.apmex, price: NEW_PRICE } },
+          },
+        },
         [SLUG_SILVER_M]: {
           latest: { ...latestForSlug(SLUG_SILVER_M), t: "", window_start: ITEM_W },
         },
       },
     });
-    const synced = await page.evaluate(async (slug) => {
-      const result = await syncRetailPrices({ ui: false });
-      const stored = loadDataSync("v2RetailPrices", null);
-      // A fresh cache, so the render reads the stored summary the sync wrote.
-      _cachedSlugDetail = {};
-      window.renderVendorPrices();
-      return { ok: result.ok, t: stored.prices[slug].t, snapshot: stored.window_start };
+    const alphaRow = page
+      .locator(".vendor-prices-table tbody tr")
+      .filter({ has: page.getByText("Alpha Silver Bar", { exact: true }) });
+    // The first render caches the seeded $38.00 price; each later sync must replace it.
+    await page.locator("#marketRefreshBtn").click();
+    await expect(alphaRow.locator(".vp-price")).toContainText("$37.25");
+    const stored = await page.evaluate((slug) => {
+      const data = loadDataSync("v2RetailPrices", null);
+      return { t: data.prices[slug].t, snapshot: data.window_start };
     }, SLUG_SILVER_A);
-    expect(synced).toEqual({ ok: true, t: ITEM_T, snapshot: GENERATED_AT });
+    expect(stored).toEqual({ t: ITEM_T, snapshot: GENERATED_AT });
+    const alphaCard = page.locator(".vp-card").filter({ hasText: "Alpha Silver Bar" });
+    await expect(alphaCard.locator(".vp-card-dealer")).toContainText("$37.25");
+    const tickerItem = page
+      .locator(".ticker-block[data-ticker-block='primary'] .ticker-item")
+      .filter({ hasText: "Alpha Silver Bar" });
+    await expect(tickerItem).toContainText("$37.25");
     for (const [name, iso] of [
       ["Alpha Silver Bar", ITEM_T],
       ["Middle Silver Coin", ITEM_W],
