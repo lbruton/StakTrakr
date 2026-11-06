@@ -255,15 +255,22 @@ const _validTimestamp = (value) => {
 };
 
 /**
- * The price window of the stored retail snapshot.
+ * The price window of the retail snapshot: the first source, in memory then storage,
+ * that names a valid window_start. A source without one does not hide the next.
  * @returns {(string|null)} ISO timestamp, or null when no snapshot names one.
  */
 const _snapshotWindowTime = () => {
-  const snapshot =
-    (typeof window._v2RetailData !== "undefined" && window._v2RetailData) ||
-    loadDataSync("v2RetailPrices", null) ||
-    loadDataSync("retailPrices", null);
-  return _validTimestamp(snapshot && snapshot.window_start);
+  const sources = [
+    () => (typeof window._v2RetailData !== "undefined" ? window._v2RetailData : null),
+    () => loadDataSync("v2RetailPrices", null),
+    () => loadDataSync("retailPrices", null),
+  ];
+  for (const read of sources) {
+    const snapshot = read();
+    const windowStart = _validTimestamp(snapshot && snapshot.window_start);
+    if (windowStart) return windowStart;
+  }
+  return null;
 };
 
 /**
