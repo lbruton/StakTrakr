@@ -2262,6 +2262,16 @@ test.describe("core/retail-market", () => {
     await expect
       .poll(async () => (await readPhoneFit(page, "#vendorPricesSectionEl")).clippedNames)
       .toEqual([]);
+
+    // The empty state draws no tab bar, so it releases the last bar's observer too.
+    await page.evaluate(() => {
+      window._v2RetailData = null;
+      localStorage.removeItem("v2RetailPrices");
+      localStorage.removeItem("retailPrices");
+      window.renderVendorPrices();
+    });
+    await expect(section).toContainText("Retail data unavailable");
+    expect(await page.evaluate(() => window.__vpTabObservers.size)).toBe(0);
   });
 
   test("Market tab states data age, refresh failures and hidden dealers in words", async ({

@@ -2666,17 +2666,23 @@ const _buildMarketBlockHeader = () => {
 let _vendorTabObserver = null;
 
 /**
+ * Stop watching the current metal tab bar. A detached bar never resizes, so every
+ * render calls this before it clears the container, the empty-state path included.
+ * @returns {void}
+ */
+const _releaseVendorTabObserver = () => {
+  if (_vendorTabObserver) _vendorTabObserver.disconnect();
+  _vendorTabObserver = null;
+};
+
+/**
  * Keep the metal tab bar's right-edge fade on while tabs sit past the edge, and off
  * once the last tab is in view. Rechecks on scroll and whenever the bar resizes.
  * @param {HTMLElement} tabBar - The .vendor-prices-tabs element.
  * @returns {void}
  */
 const _watchVendorTabOverflow = (tabBar) => {
-  // A detached bar never resizes, so each render releases the previous bar's observer here.
-  if (_vendorTabObserver) {
-    _vendorTabObserver.disconnect();
-    _vendorTabObserver = null;
-  }
+  _releaseVendorTabObserver();
   const sync = () => {
     const hidden = tabBar.scrollWidth - tabBar.clientWidth - tabBar.scrollLeft;
     tabBar.classList.toggle("vp-tabs-more", hidden > 1);
@@ -2707,6 +2713,7 @@ const renderVendorPrices = () => {
   const container = safeGetElement("vendorPricesContainer");
   if (!container) return;
 
+  _releaseVendorTabObserver();
   container.textContent = "";
   // Header first, unconditionally — the empty branch below needs the Refresh
   // control too, otherwise "Retail data unavailable" is a dead end (STRK-290).
