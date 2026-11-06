@@ -2662,6 +2662,9 @@ const _buildMarketBlockHeader = () => {
   return headerRow;
 };
 
+/** The ResizeObserver watching the current metal tab bar, or null. */
+let _vendorTabObserver = null;
+
 /**
  * Keep the metal tab bar's right-edge fade on while tabs sit past the edge, and off
  * once the last tab is in view. Rechecks on scroll and whenever the bar resizes.
@@ -2669,20 +2672,19 @@ const _buildMarketBlockHeader = () => {
  * @returns {void}
  */
 const _watchVendorTabOverflow = (tabBar) => {
-  let observer = null;
+  // A detached bar never resizes, so each render releases the previous bar's observer here.
+  if (_vendorTabObserver) {
+    _vendorTabObserver.disconnect();
+    _vendorTabObserver = null;
+  }
   const sync = () => {
-    // Each render replaces the bar, so a replaced bar stops its own observer.
-    if (!tabBar.isConnected && observer) {
-      observer.disconnect();
-      return;
-    }
     const hidden = tabBar.scrollWidth - tabBar.clientWidth - tabBar.scrollLeft;
     tabBar.classList.toggle("vp-tabs-more", hidden > 1);
   };
   tabBar.addEventListener("scroll", sync, { passive: true });
   if (typeof ResizeObserver === "function") {
-    observer = new ResizeObserver(sync);
-    observer.observe(tabBar);
+    _vendorTabObserver = new ResizeObserver(sync);
+    _vendorTabObserver.observe(tabBar);
   }
   sync();
 };

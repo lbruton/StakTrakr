@@ -2129,8 +2129,27 @@ test.describe("core/retail-market", () => {
     page,
   }) => {
     const LONG_NAME = "South African Silver Krugerrand 1 oz (.999 fine silver)";
+    // Count observers still watching a Market tab bar; each render must release the last one.
+    await page.addInitScript(() => {
+      const Native = window.ResizeObserver;
+      window.__vpTabObservers = new Set();
+      window.ResizeObserver = class extends Native {
+        observe(el, opts) {
+          if (el.classList.contains("vendor-prices-tabs")) window.__vpTabObservers.add(this);
+          return super.observe(el, opts);
+        }
+        disconnect() {
+          window.__vpTabObservers.delete(this);
+          return super.disconnect();
+        }
+      };
+    });
     // The fixture boot waits for the visible matrix, so the phone width comes after it.
     await setupRetailFixture(page);
+    await page.evaluate(() => {
+      for (let i = 0; i < 3; i += 1) window.renderVendorPrices();
+    });
+    expect(await page.evaluate(() => window.__vpTabObservers.size)).toBe(1);
     await page.setViewportSize({ width: 390, height: 844 });
     await page.evaluate(
       ({ slug, name }) => {
