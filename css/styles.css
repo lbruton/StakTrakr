@@ -17367,6 +17367,9 @@ button.vp-price:hover {
 .vp-premium.high {
   color: var(--danger-text);
 }
+.vp-premium.plain {
+  color: var(--text-secondary);
+}
 
 /* ── Best Price Highlight ── */
 .vp-best {

@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.108] - 2026-11-05
+
+### Changed — STRK-517: Premium colour compares dealers
+
+- **Premium colour**: The colour of a Market premium compares the price with the other dealers for the same item. Green is at least 1% below the median of the in-stock prices, red is at least 1% above it, and amber is in between. The percentage is still the premium over spot (STRK-517).
+- **Plain premiums**: A carried price, and the price of the only dealer in stock, show the premium in the secondary text colour, because there is no other dealer to compare with. Carried prices stay out of the median (STRK-517).
+- **Median**: The Median column and the phone card show the median of the in-stock prices that the colour compares against (STRK-517).
+- **Screen readers**: Each price button names its distance from the dealer median, for example "1.4% below the dealer median" (STRK-517).
+
+---
+
 ## [3.36.107] - 2026-11-05
 
 ### Changed — STRK-515: Market tab at phone width
