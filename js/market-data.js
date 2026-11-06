@@ -342,16 +342,19 @@ const _resolveCoinMetaPreferMap = (slug, coinMetaMap) => {
 
 let _cachedSlugDetail = {};
 let _cachedSlugDetailGeneration = 0;
+let _vendorTableRenderSeq = 0;
 let _goldbackG1Rate = null;
 
 /**
  * Empties the per-slug detail cache after a sync stores new prices. The generation
- * bump stops a fetch that started before the sync from refilling the cache.
+ * bump stops a fetch that started before the sync from refilling the cache, and the
+ * render bump stops a table render that started before the sync from drawing.
  * @returns {void}
  */
 const _clearCachedSlugDetail = () => {
   _cachedSlugDetail = {};
   _cachedSlugDetailGeneration += 1;
+  _vendorTableRenderSeq += 1;
 };
 
 const _fmtPrice = (n) => {
@@ -2495,9 +2498,17 @@ const _VENDOR_TABLE_METAL_LABELS = {
   goldback: "Goldback",
 };
 
+/**
+ * Renders the dealer matrix and phone cards for one metal tab. Only the newest
+ * render draws after the detail fetch, so a slow older render cannot replace it.
+ * @param {string} metalCode - Metal tab code (all, xau, xag, xpt, xpd, goldback).
+ * @returns {Promise<void>}
+ */
 const _renderVendorTable = async (metalCode) => {
   const container = safeGetElement("vendorPricesContainer");
   if (!container) return;
+  _vendorTableRenderSeq += 1;
+  const renderSeq = _vendorTableRenderSeq;
 
   let tableWrap = container.querySelector(".vp-table-area");
   if (!tableWrap) {
@@ -2529,6 +2540,7 @@ const _renderVendorTable = async (metalCode) => {
   _renderVendorTableMessage(tableWrap, "Loading vendor prices\u2026");
 
   const detailMap = await _resolveVendorDetailMap(metalSlugs, coins);
+  if (renderSeq !== _vendorTableRenderSeq) return;
 
   const vendorIds = _collectEnabledVendorIds(metalSlugs, detailMap);
 

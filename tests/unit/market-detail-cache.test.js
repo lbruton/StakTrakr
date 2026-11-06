@@ -7,6 +7,8 @@ import { sliceArrowConst } from "./test-helpers.js";
 
 const marketSrc = readSource("js/market-data.js");
 const SLUG = "core-alpha-silver";
+const CACHE_LETS =
+  "let _cachedSlugDetail = {};\nlet _cachedSlugDetailGeneration = 0;\nlet _vendorTableRenderSeq = 0;";
 
 /**
  * Loads the cache and _resolveVendorDetailMap with a latest.json fetch the test resolves.
@@ -27,7 +29,7 @@ const loadDetailCache = () => {
         }),
     },
     slice: [
-      rangeOf(marketSrc, "let _cachedSlugDetail = {};\nlet _cachedSlugDetailGeneration = 0;"),
+      rangeOf(marketSrc, CACHE_LETS),
       rangeOf(marketSrc, sliceArrowConst(marketSrc, "const _clearCachedSlugDetail = (")),
       rangeOf(marketSrc, sliceArrowConst(marketSrc, "const _resolveVendorDetailMap = async (")),
     ],
@@ -56,5 +58,60 @@ describe("_resolveVendorDetailMap cache writes", () => {
     detail.answer(FETCHED);
     await pending;
     assert.deepEqual(detail.cache(), {});
+  });
+});
+
+/**
+ * Loads _renderVendorTable with detail fetches the test resolves in any order.
+ * @returns {{render: Function, clear: Function, answers: Function[], drawn: string[]}}
+ */
+const loadVendorTable = () => {
+  const answers = [];
+  const drawn = [];
+  const tableWrap = {};
+  const api = evalSource("js/market-data.js", {
+    params: {
+      safeGetElement: () => ({ querySelector: () => tableWrap }),
+      _getRetailCoins: () => ({}),
+      _getCoinMeta: () => ({}),
+      _getVendorMeta: () => ({}),
+      _collectVendorTableRows: () => [{ slug: SLUG }],
+      _renderVendorTableMessage: () => {},
+      _resolveVendorDetailMap: () => new Promise((resolve) => answers.push(resolve)),
+      // The first step after the fetch; the render stops at the empty vendor list.
+      _collectEnabledVendorIds: (rows, detailMap) => {
+        drawn.push(detailMap.label);
+        return [];
+      },
+    },
+    slice: [
+      rangeOf(marketSrc, CACHE_LETS),
+      rangeOf(marketSrc, sliceArrowConst(marketSrc, "const _clearCachedSlugDetail = (")),
+      rangeOf(marketSrc, sliceArrowConst(marketSrc, "const _renderVendorTable = async (")),
+    ],
+    suffix: "\nreturn { render: _renderVendorTable, clear: _clearCachedSlugDetail };",
+  });
+  return { ...api, answers, drawn };
+};
+
+describe("_renderVendorTable supersede", () => {
+  test("an older render that finishes last does not draw", async () => {
+    const table = loadVendorTable();
+    const older = table.render("all");
+    const newer = table.render("xag");
+    table.answers[1]({ label: "newer" });
+    await newer;
+    table.answers[0]({ label: "older" });
+    await older;
+    assert.deepEqual(table.drawn, ["newer"]);
+  });
+
+  test("a render from before a sync does not draw after the cache reset", async () => {
+    const table = loadVendorTable();
+    const before = table.render("all");
+    table.clear();
+    table.answers[0]({ label: "before" });
+    await before;
+    assert.deepEqual(table.drawn, []);
   });
 });
