@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.111] - 2026-11-06
+
+### Fixed — STRK-532: Notes keep their line breaks
+
+- **Notes field**: The Notes field in the Add and Edit Item form is a multi-line box. Before, it was a single-line field, so opening Edit and pressing Save on an Item joined the lines of its note into one (STRK-532).
+- **Enter key**: Enter in the Notes field starts a new line and does not save the form (STRK-532).
+- **Duplicate**: A duplicated Item carries the note with its line breaks (STRK-532).
+
+---
+
 ## [3.36.110] - 2026-11-06
 
 ### Fixed — STRK-531: Market prices refresh after a sync

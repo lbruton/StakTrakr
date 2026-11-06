@@ -954,6 +954,48 @@ test.describe("payment-method", () => {
     });
   });
 
+  test("a note keeps its line breaks through Edit, Enter and Duplicate", async ({ page }) => {
+    const twoLines = "Line one\nLine two";
+    const threeLines = `${twoLines}\nLine three`;
+    await seedData(page, [makeItem({ serial: 1, name: "Two-line note", notes: twoLines })]);
+    await gotoApp(page);
+    await dismissWhatsNew(page);
+    const notes = page.locator("#itemNotes");
+
+    await test.step("Edit shows the note with its line break", async () => {
+      await page.evaluate(() => window.editItem(0));
+      await expect(page.locator("#itemModal")).toBeVisible();
+      await expect(notes).toHaveValue(twoLines);
+    });
+
+    await test.step("Enter in Notes adds a line and does not submit the form", async () => {
+      await notes.evaluate((el) => {
+        el.focus();
+        el.setSelectionRange(el.value.length, el.value.length);
+      });
+      await page.keyboard.press("Enter");
+      await page.keyboard.type("Line three");
+      await expect(page.locator("#itemModal")).toBeVisible();
+      await expect(notes).toHaveValue(threeLines);
+    });
+
+    await test.step("Save stores the note with both line breaks", async () => {
+      await submitItemModal(page);
+      const stored = await page.evaluate(() => JSON.parse(localStorage.getItem("metalInventory")));
+      expect(stored[0].notes).toBe(threeLines);
+    });
+
+    await test.step("Duplicate carries the note with its line breaks", async () => {
+      await page.evaluate(() => window.duplicateItem(0));
+      await expect(page.locator("#itemModal")).toBeVisible();
+      await expect(notes).toHaveValue(threeLines);
+      await submitItemModal(page);
+      const stored = await page.evaluate(() => JSON.parse(localStorage.getItem("metalInventory")));
+      expect(stored).toHaveLength(2);
+      expect(stored.map((i) => i.notes)).toEqual([threeLines, threeLines]);
+    });
+  });
+
   /**
    * Seed one source item whose country the user customised (STRK-437 userModified
    * provenance) and open the Duplicate form for it.
