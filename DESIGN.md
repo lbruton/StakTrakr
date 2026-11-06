@@ -441,6 +441,12 @@ vendor colours fall below 4.5:1 as text. The price is the tile's button. The met
 bar, and a fade on the right edge marks tabs past it. Below 560px the detail modal moves the stock word under
 the dealer name. The approved phone layout is proposal B in `playground/STRK-515-market-phone.html`.
 
+A premium shows its percentage over spot, and its colour compares the price with the other dealers for the
+item. Green is at least 1% below the median of the in-stock prices, leaving out carried prices. Red is at
+least 1% above it, and amber is in between. A carried price or a lone dealer has no comparison, so its
+premium uses the secondary text colour. The Median column shows that same median. The approved rule is in
+`playground/STRK-517-premium-colour.html`.
+
 ## Do's and Don'ts
 
 ### Do:

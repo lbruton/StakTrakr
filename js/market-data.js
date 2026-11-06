@@ -135,6 +135,74 @@ const _premiumTierClass = (pct) => {
   return "low";
 };
 
+/** Percent from the dealer median at which a Market premium turns low or high. */
+const MARKET_PREMIUM_BAND_PCT = 1;
+
+/**
+ * Tiers each dealer price against the median of the in-stock, non-carried prices.
+ * A carried price, or any price when fewer than two dealers are in stock, is "plain".
+ * @param {Array<{id:string, price:number, inStock:boolean, carried:boolean}>} entries - Dealer prices.
+ * @returns {{median:(number|null), liveCount:number, byId:Object}} Tier and distance per ranked id.
+ */
+const _rankDealerPrices = (entries) => {
+  const priced = entries.filter((e) => e && e.inStock && e.price > 0);
+  const live = priced
+    .filter((e) => !e.carried)
+    .map((e) => e.price)
+    .sort((a, b) => a - b);
+  const mid = Math.floor(live.length / 2);
+  let median = null;
+  if (live.length > 0) median = live.length % 2 ? live[mid] : (live[mid - 1] + live[mid]) / 2;
+  const byId = Object.create(null);
+  for (const e of priced) {
+    if (e.carried || live.length < 2) {
+      byId[e.id] = { tier: "plain", distancePct: null, only: !e.carried };
+      continue;
+    }
+    const distancePct = ((e.price - median) / median) * 100;
+    let tier = "mid";
+    if (distancePct <= -MARKET_PREMIUM_BAND_PCT) tier = "low";
+    else if (distancePct >= MARKET_PREMIUM_BAND_PCT) tier = "high";
+    byId[e.id] = { tier, distancePct, only: false };
+  }
+  return { median, liveCount: live.length, byId };
+};
+
+/**
+ * Ranks one item's dealer prices, skipping dealers the Market filter hides.
+ * @param {Object} vData - Per-vendor data map for one item.
+ * @param {string} slug - Retail coin slug (for the market-filter check).
+ * @returns {{median:(number|null), liveCount:number, byId:Object}} See _rankDealerPrices.
+ */
+const _rankVendorData = (vData, slug) => {
+  const entries = [];
+  for (const vid in vData || {}) {
+    if (typeof _isMarketItemEnabled === "function" && !_isMarketItemEnabled(slug, vid)) continue;
+    const v = vData[vid];
+    if (!v) continue;
+    entries.push({
+      id: vid,
+      price: v.price,
+      inStock: v.in_stock === true || v.inStock === true,
+      carried: Boolean(v.carried),
+    });
+  }
+  return _rankDealerPrices(entries);
+};
+
+/**
+ * Names a ranked price's distance from the dealer median for an accessible name.
+ * @param {(Object|undefined)} ranked - One byId entry from _rankDealerPrices.
+ * @returns {string} A leading-comma phrase, or "" when the price has no distance.
+ */
+const _medianDistancePhrase = (ranked) => {
+  if (!ranked) return "";
+  if (ranked.distancePct == null) return ranked.only ? ", the only dealer in stock" : "";
+  const size = Math.abs(ranked.distancePct);
+  if (size < 0.05) return ", at the dealer median";
+  return `, ${size.toFixed(1)}% ${ranked.distancePct < 0 ? "below" : "above"} the dealer median`;
+};
+
 /**
  * Formats a UTC feed timestamp as the en-CA date and time every Market label uses.
  * Follows the Settings timezone; "auto" or an unknown zone falls back to the browser zone.
@@ -1556,7 +1624,7 @@ const _buildModalBuyCell = (entry, slug, vendorMeta) => {
  * @param {(number|null)} spotPrice - Spot price for the metal, or null.
  * @returns {HTMLTableRowElement} The vendor row element.
  */
-const _buildModalVendorRow = (entry, vendorMeta, slug, metalCode, weightOz, spotPrice) => {
+const _buildModalVendorRow = (entry, vendorMeta, slug, metalCode, weightOz, spotPrice, rank) => {
   const tr = document.createElement("tr");
 
   // Vendor name
@@ -1584,7 +1652,7 @@ const _buildModalVendorRow = (entry, vendorMeta, slug, metalCode, weightOz, spot
   }
   if (_modalPremium != null) {
     const badge = document.createElement("span");
-    badge.className = "vp-premium " + _premiumTierClass(_modalPremium);
+    badge.className = "vp-premium " + (rank?.byId[entry.vid]?.tier || "plain");
     badge.textContent = (_modalPremium >= 0 ? "+" : "") + _modalPremium.toFixed(1) + "%";
     tdPrem.appendChild(badge);
   } else {
@@ -1644,6 +1712,7 @@ const _buildModalVendorTable = (content, detail, slug, vendorMeta, metalCode, we
   if (detail && detail.vendors) {
     const vData = detail.vendors;
     const spotPrice = _getSpotPrice(metalCode);
+    const rank = _rankVendorData(vData, slug);
 
     const vendorEntries = [];
     for (const vid in vData) {
@@ -1681,7 +1750,7 @@ const _buildModalVendorTable = (content, detail, slug, vendorMeta, metalCode, we
 
       for (const entry of vendorEntries) {
         tbody.appendChild(
-          _buildModalVendorRow(entry, vendorMeta, slug, metalCode, weightOz, spotPrice)
+          _buildModalVendorRow(entry, vendorMeta, slug, metalCode, weightOz, spotPrice, rank)
         );
       }
 
@@ -2091,6 +2160,7 @@ const _computeInStockPrices = (vData, slug) => {
  * @param {string} isoCode - ISO metal code (Goldback premium uses the G1 rate).
  * @param {Object} vendorMeta - Vendor-meta map (for the URL fallback).
  * @param {string} itemName - Display name of the coin (price button name).
+ * @param {Object} [rank] - Row rank from _rankVendorData; computed from vData when absent.
  * @returns {HTMLTableCellElement} The price cell.
  */
 const _buildVendorPriceCell = (
@@ -2102,7 +2172,8 @@ const _buildVendorPriceCell = (
   weightOz,
   isoCode,
   vendorMeta,
-  itemName
+  itemName,
+  rank = _rankVendorData(vData, slug)
 ) => {
   // STAK-515: Skip disabled vendor cells
   if (typeof _isMarketItemEnabled === "function" && !_isMarketItemEnabled(slug, vid)) {
@@ -2150,7 +2221,9 @@ const _buildVendorPriceCell = (
   priceEl.textContent = formatCurrency(vInfo.price);
   if (isLink) {
     priceEl.type = "button";
-    const premiumPart = premiumText ? `, premium ${premiumText}` : "";
+    const premiumPart = premiumText
+      ? `, premium ${premiumText}${_medianDistancePhrase(rank.byId[vid])}`
+      : "";
     priceEl.setAttribute(
       "aria-label",
       `${itemName} at ${_shortVendor(vid)}, ${formatCurrency(vInfo.price)}${premiumPart}. Opens the dealer page in a new window.`
@@ -2163,7 +2236,7 @@ const _buildVendorPriceCell = (
 
   if (premium != null) {
     const premBadge = document.createElement("span");
-    premBadge.className = "vp-premium " + _premiumTierClass(premium);
+    premBadge.className = "vp-premium " + (rank.byId[vid]?.tier || "plain");
     premBadge.textContent = premiumText;
     td.appendChild(premBadge);
   }
@@ -2192,17 +2265,12 @@ const _buildVendorPriceCell = (
 /**
  * Build one coin row for the vendor matrix: the clickable coin name, one price
  * cell per vendor, and the median and spread cells.
- * @param {{slug:string, meta:Object, isoCode:string}} rowInfo - Row descriptor.
+ * @param {Object} row - Context from _vendorRowContext.
  * @param {string[]} vendorIds - Sorted vendor ids (column order).
- * @param {Object} detailMap - Map of slug to normalized detail.
- * @param {Object} coins - Retail coins summary map (for median).
  * @param {Object} vendorMeta - Vendor-meta map.
- * @returns {(HTMLTableRowElement|null)} The row element, or null if no detail.
+ * @returns {HTMLTableRowElement} The row element.
  */
-const _buildVendorTableRow = (rowInfo, vendorIds, detailMap, coins, vendorMeta) => {
-  const row = _vendorRowContext(rowInfo, detailMap, coins);
-  if (!row) return null;
-
+const _buildVendorTableRow = (row, vendorIds, vendorMeta) => {
   const tr = document.createElement("tr");
   const tdName = document.createElement("td");
   tdName.appendChild(_buildCoinNameButton(row.slug, row.displayName));
@@ -2222,10 +2290,9 @@ const _buildVendorTableRow = (rowInfo, vendorIds, detailMap, coins, vendorMeta) 
  * Collect what a matrix row and a phone card both show for one coin.
  * @param {{slug:string, meta:Object, isoCode:string}} rowInfo - Row descriptor.
  * @param {Object} detailMap - Map of slug to normalized detail.
- * @param {Object} coins - Retail coins summary map (for median).
  * @returns {(Object|null)} Row context, or null when the coin has no vendor detail.
  */
-const _vendorRowContext = (rowInfo, detailMap, coins) => {
+const _vendorRowContext = (rowInfo, detailMap) => {
   const { slug, meta, isoCode } = rowInfo;
   const detail = detailMap[slug];
   if (!detail || !detail.vendors) return null;
@@ -2234,14 +2301,15 @@ const _vendorRowContext = (rowInfo, detailMap, coins) => {
   const inStockPrices = _computeInStockPrices(vData, slug);
   const lowestPrice = inStockPrices.length > 0 ? Math.min(...inStockPrices) : null;
   const highestPrice = inStockPrices.length > 0 ? Math.max(...inStockPrices) : null;
-
-  const coinSummary = coins[slug];
-  const medianVal = coinSummary ? _coalesce(coinSummary.median_price, coinSummary.median) : null;
+  // The Median shown is the median the premium colour compares against.
+  const rank = _rankVendorData(vData, slug);
+  const medianVal = rank.median;
 
   return {
     slug,
     isoCode,
     vData,
+    rank,
     lowestPrice,
     displayName: meta.name || slug,
     weightOz: detail.weight_oz || meta.weight || 0,
@@ -2272,7 +2340,8 @@ const _buildRowPriceCell = (row, vid, vendorMeta) =>
     row.weightOz,
     row.isoCode,
     vendorMeta,
-    row.displayName
+    row.displayName,
+    row.rank
   );
 
 /**
@@ -2297,17 +2366,12 @@ const _buildCoinNameButton = (slug, displayName) => {
 /**
  * Build one phone card: the item name, the median and spread, and a tile per dealer
  * that lists the item. Tiles reuse the matrix cell content, so prices stay dealer buttons.
- * @param {{slug:string, meta:Object, isoCode:string}} rowInfo - Row descriptor.
+ * @param {Object} row - Context from _vendorRowContext.
  * @param {string[]} vendorIds - Sorted vendor ids (tile order).
- * @param {Object} detailMap - Map of slug to normalized detail.
- * @param {Object} coins - Retail coins summary map (for median).
  * @param {Object} vendorMeta - Vendor-meta map.
- * @returns {(HTMLLIElement|null)} The card, or null if no detail.
+ * @returns {HTMLLIElement} The card.
  */
-const _buildVendorCard = (rowInfo, vendorIds, detailMap, coins, vendorMeta) => {
-  const row = _vendorRowContext(rowInfo, detailMap, coins);
-  if (!row) return null;
-
+const _buildVendorCard = (row, vendorIds, vendorMeta) => {
   const card = document.createElement("li");
   card.className = "vp-card";
   card.appendChild(_buildCoinNameButton(row.slug, row.displayName));
@@ -2426,10 +2490,10 @@ const _renderVendorTable = async (metalCode) => {
   cards.setAttribute("aria-label", scopeLabel);
 
   for (const rowInfo of metalSlugs) {
-    const tr = _buildVendorTableRow(rowInfo, vendorIds, detailMap, coins, vendorMeta);
-    if (tr) tbody.appendChild(tr);
-    const card = _buildVendorCard(rowInfo, vendorIds, detailMap, coins, vendorMeta);
-    if (card) cards.appendChild(card);
+    const row = _vendorRowContext(rowInfo, detailMap);
+    if (!row) continue;
+    tbody.appendChild(_buildVendorTableRow(row, vendorIds, vendorMeta));
+    cards.appendChild(_buildVendorCard(row, vendorIds, vendorMeta));
   }
 
   table.appendChild(tbody);
@@ -2801,7 +2865,7 @@ const renderVendorPrices = () => {
   footer.className = "market-disclaimer";
   footer.appendChild(
     document.createTextNode(
-      "Market prices are best effort. Percentages show premium over spot (or G1 rate for Goldbacks)."
+      "Market prices are best effort. Percentages show premium over spot (or G1 rate for Goldbacks); their colour compares dealers."
     )
   );
   footer.appendChild(

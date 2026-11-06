@@ -1541,12 +1541,13 @@ test.describe("core/retail-market", () => {
       .filter({ hasText: "Goldback" })
       .locator(".vp-premium");
     await expect(matrixBadge).toHaveText("+20.0%");
-    await expect(matrixBadge).toHaveClass(/\bhigh\b/);
+    // The matrix and modal colour compares dealers, and a lone dealer has none to compare.
+    await expect(matrixBadge).toHaveClass(/\bplain\b/);
 
     await page.evaluate((slug) => window.openMarketDetailModal(slug), SLUG_GOLDBACK);
     const detailBadge = page.locator("#marketDetailContent .vp-premium");
     await expect(detailBadge.first()).toHaveText("+20.0%");
-    await expect(detailBadge.first()).toHaveClass(/\bhigh\b/);
+    await expect(detailBadge.first()).toHaveClass(/\bplain\b/);
   });
 
   // STRK-317: two ticker display fixes pinned together —
@@ -1925,6 +1926,53 @@ test.describe("core/retail-market", () => {
     for (const tier of ["low", "mid", "high"]) {
       await expect(matrixRow.locator(`.vp-premium.${tier}`).first()).toBeVisible();
     }
+    // The colour compares dealers: the in-stock median is 37, so $36.50 is low and $40 high.
+    // The carried $38 is plain and stays out of the median, which the Median column shows.
+    /** Maps each shown price to its premium tier class. */
+    const tiersByPrice = (rows) =>
+      rows.evaluateAll((trs) => {
+        const tierOf = (badge) =>
+          ["low", "mid", "high", "plain"].filter((t) => badge?.classList.contains(t)).join(" ");
+        // A matrix cell holds its price and badge; a modal row puts them in two cells.
+        const pairs = trs.flatMap((tr) =>
+          tr.querySelector(".market-price")
+            ? [[tr.querySelector(".market-price"), tr.querySelector(".vp-premium")]]
+            : Array.from(tr.querySelectorAll("td:has(.vp-price)"), (td) => [
+                td.querySelector(".vp-price"),
+                td.querySelector(".vp-premium"),
+              ])
+        );
+        return Object.fromEntries(
+          pairs.map(([price, badge]) => [price.textContent.trim(), tierOf(badge)])
+        );
+      });
+    expect(await tiersByPrice(matrixRow)).toEqual({
+      "$36.50": "low",
+      "$37.00": "mid",
+      "$40.00": "high",
+      "$38.00": "plain",
+    });
+    await expect(matrixRow.locator("td").nth(-2)).toHaveText("$37.00");
+    const card = page
+      .locator(".vp-card")
+      .filter({ has: page.locator(".vp-coin-link", { hasText: "Alpha Silver Bar" }) });
+    await expect(card.locator(".vp-card-meta b").first()).toHaveText("$37.00");
+    for (const [price, distance] of [
+      ["36.50", "1.4% below the dealer median"],
+      ["37.00", "at the dealer median"],
+      ["40.00", "8.1% above the dealer median"],
+    ]) {
+      await expect(
+        matrixRow.getByRole("button", {
+          name: new RegExp(
+            `\\$${price.replace(".", "\\.")}, premium [+-]\\d+\\.\\d%, ${distance}\\.`
+          ),
+        })
+      ).toHaveCount(1);
+    }
+    await expect(page.locator("#vendorPricesContainer .market-disclaimer")).toContainText(
+      "Percentages show premium over spot (or G1 rate for Goldbacks); their colour compares dealers."
+    );
     await expect(matrixRow.locator(".vp-oos")).toHaveText("OOS");
     const carried = matrixRow.locator(".vp-carried");
     await expect(carried).toContainText("$38.00");
@@ -1955,6 +2003,16 @@ test.describe("core/retail-market", () => {
     await expect(page.locator("#marketDetailModal")).toBeVisible();
     const stock = page.locator("#marketDetailContent .market-stock");
     await expect(stock).toHaveText(["In Stock", "In Stock", "Carried", "In Stock", "Out of Stock"]);
+    // The modal colours each dealer by the same rule; the out-of-stock $41 is not ranked.
+    expect(
+      await tiersByPrice(page.locator("#marketDetailContent .market-detail-vendors tbody tr"))
+    ).toEqual({
+      "$36.50": "low",
+      "$37.00": "mid",
+      "$38.00": "plain",
+      "$40.00": "high",
+      "$41.00": "plain",
+    });
     await expect(stock.nth(2)).toHaveAttribute("title", lastSeen);
     // Phones hide the Stock column, so the stock line under the dealer carries the date in view.
     const carriedSub = page.locator("#marketDetailContent .market-stock-sub.market-stock--carried");
@@ -2028,13 +2086,13 @@ test.describe("core/retail-market", () => {
     expect(headScopes.length).toBeGreaterThan(0);
     expect(headScopes.every((scope) => scope === "col")).toBe(true);
 
-    // Each price is a button whose name carries item, dealer, price and premium.
+    // Each price is a button whose name carries item, dealer, price, premium and median distance.
     const row = table
       .locator("tbody tr")
       .filter({ has: page.getByText("Alpha Silver Bar", { exact: true }) });
     await expect(
       row.getByRole("button", {
-        name: /^Alpha Silver Bar at APMEX, \$[\d,.]+, premium [+-]\d+\.\d%\. Opens the dealer page in a new window\.$/,
+        name: /^Alpha Silver Bar at APMEX, \$[\d,.]+, premium [+-]\d+\.\d%, (\d+\.\d% (above|below) the dealer median|at the dealer median|the only dealer in stock)\. Opens the dealer page in a new window\.$/,
       })
     ).toHaveCount(1);
 
@@ -3099,7 +3157,7 @@ test.describe("core/retail-market", () => {
     const matrixBadge = goldbackMatrixBadge(page);
     await expect(matrixBadge).toHaveCount(1);
     await expect(matrixBadge.first()).toHaveText("+20.0%");
-    await expect(matrixBadge.first()).toHaveClass(/\bhigh\b/);
+    await expect(matrixBadge.first()).toHaveClass(/\bplain\b/);
   });
 
   // =========================================================================
