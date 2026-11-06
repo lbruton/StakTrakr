@@ -603,6 +603,26 @@ function latestForSlug(slug) {
 }
 
 /**
+ * The "Last seen" tooltip text the browser gives an ISO time, in its own timezone.
+ * @param {import('@playwright/test').Page} page - Playwright page.
+ * @param {string} iso - ISO timestamp.
+ * @returns {Promise<string>} "Last seen YYYY-MM-DD, hh:mm" text.
+ */
+function lastSeenText(page, iso) {
+  return page.evaluate(
+    (when) =>
+      `Last seen ${new Date(when).toLocaleString("en-CA", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      })}`,
+    iso
+  );
+}
+
+/**
  * Returns a v2-API route handler that serves the standard fixture set.
  * @param {{ failGoldback?: boolean, goldbackG1Rate?: number }} opts
  *   failGoldback  – return 503 for goldback/latest.json (default: false)
@@ -1991,17 +2011,7 @@ test.describe("core/retail-market", () => {
       })
     ).toHaveCount(1);
     // A fresh price is last seen at its item's price window, not the snapshot's.
-    const freshSeen = await page.evaluate(
-      (iso) =>
-        `Last seen ${new Date(iso).toLocaleString("en-CA", {
-          year: "numeric",
-          month: "2-digit",
-          day: "2-digit",
-          hour: "2-digit",
-          minute: "2-digit",
-        })}`,
-      DETAIL_T
-    );
+    const freshSeen = await lastSeenText(page, DETAIL_T);
     const freshCell = matrixRow.locator("td:has(.vp-premium.low)");
     await expect(freshCell).toHaveAttribute("title", freshSeen);
     await expect(freshCell.locator(":scope > *")).toHaveCount(2);
@@ -2096,6 +2106,30 @@ test.describe("core/retail-market", () => {
         })
         .toEqual([]);
     }
+  });
+
+  test("a synced price keeps its item's price window for the Last seen tooltip", async ({
+    page,
+  }) => {
+    // The item's window differs from the manifest's GENERATED_AT, which the snapshot keeps.
+    const ITEM_T = "2026-05-25T15:45:00Z";
+    await setupRetailFixture(page, {
+      retailFeeds: { [SLUG_SILVER_A]: { latest: { ...latestForSlug(SLUG_SILVER_A), t: ITEM_T } } },
+    });
+    const synced = await page.evaluate(async (slug) => {
+      const result = await syncRetailPrices({ ui: false });
+      const stored = loadDataSync("v2RetailPrices", null);
+      // A fresh cache, so the render reads the stored summary the sync wrote.
+      _cachedSlugDetail = {};
+      window.renderVendorPrices();
+      return { ok: result.ok, t: stored.prices[slug].t, snapshot: stored.window_start };
+    }, SLUG_SILVER_A);
+    expect(synced).toEqual({ ok: true, t: ITEM_T, snapshot: GENERATED_AT });
+    const priceCell = page
+      .locator(".vendor-prices-table tbody tr")
+      .filter({ has: page.getByText("Alpha Silver Bar", { exact: true }) })
+      .locator("td:has(.vp-price)");
+    await expect(priceCell).toHaveAttribute("title", await lastSeenText(page, ITEM_T));
   });
 
   test("Market tab works by keyboard and names its controls for screen readers", async ({
