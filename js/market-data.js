@@ -246,20 +246,41 @@ const _lastSeenTitle = (seenAt) => {
 };
 
 /**
- * The price window a coin's fresh prices come from: the detail's own window,
- * else the stored snapshot's window.
- * @param {Object} detail - Normalized retail detail for one coin.
- * @returns {(string|null)} ISO timestamp, or null when no source names one.
+ * Returns the value when it parses as a timestamp.
+ * @param {*} value - Candidate ISO timestamp.
+ * @returns {(string|null)} The value, or null when missing or unparseable.
  */
-const _detailWindowTime = (detail) => {
-  // v2 feeds name the price window `t`; window_start is the v1 name.
-  const own = detail && (detail.t || detail.window_start);
-  if (own) return own;
+const _validTimestamp = (value) => {
+  return value && !Number.isNaN(new Date(value).getTime()) ? value : null;
+};
+
+/**
+ * The price window of the stored retail snapshot.
+ * @returns {(string|null)} ISO timestamp, or null when no snapshot names one.
+ */
+const _snapshotWindowTime = () => {
   const snapshot =
     (typeof window._v2RetailData !== "undefined" && window._v2RetailData) ||
     loadDataSync("v2RetailPrices", null) ||
     loadDataSync("retailPrices", null);
-  return (snapshot && snapshot.window_start) || null;
+  return _validTimestamp(snapshot && snapshot.window_start);
+};
+
+/**
+ * The price window a coin's fresh prices come from: the detail's own window,
+ * else the fallback.
+ * @param {Object} detail - Retail detail for one coin.
+ * @param {(string|null)} fallback - Window to use when the detail names none.
+ * @returns {(string|null)} ISO timestamp, or null when no source names one.
+ */
+const _detailWindowTime = (detail, fallback) => {
+  // v2 feeds name the price window `t`; window_start is the v1 name.
+  return (
+    _validTimestamp(detail && detail.t) ||
+    _validTimestamp(detail && detail.window_start) ||
+    fallback ||
+    null
+  );
 };
 
 /**
@@ -2046,7 +2067,8 @@ const _collectVendorTableRows = (metalCode, coins, coinMetaMap) => {
 /**
  * Resolve a normalized retail-detail map for the given rows, using cached detail
  * where available and fetching the rest in parallel (failures resolve to null).
- * Also refreshes the in-memory _cachedSlugDetail entries.
+ * Also refreshes the in-memory _cachedSlugDetail entries. Each detail keeps the
+ * windowTime of its prices from when it was first cached, so a tooltip names their time.
  * @param {Array<{slug:string}>} metalSlugs - Ordered rows (slugs read).
  * @param {Object} coins - Retail coins summary map (cache fallback).
  * @returns {Promise<Object>} Map of slug to normalized detail.
@@ -2054,9 +2076,13 @@ const _collectVendorTableRows = (metalCode, coins, coinMetaMap) => {
 const _resolveVendorDetailMap = async (metalSlugs, coins) => {
   const detailMap = {};
   const missingSlugs = [];
+  const snapshotWindow = _snapshotWindowTime();
   for (const { slug } of metalSlugs) {
     const cachedDetail = _getCachedRetailDetail(slug, coins);
     if (cachedDetail) {
+      if (!cachedDetail.windowTime) {
+        cachedDetail.windowTime = _detailWindowTime(cachedDetail, snapshotWindow);
+      }
       detailMap[slug] = cachedDetail;
       _cachedSlugDetail[slug] = cachedDetail;
     } else {
@@ -2079,6 +2105,7 @@ const _resolveVendorDetailMap = async (metalSlugs, coins) => {
       if (r.status === "fulfilled" && r.value && r.value.data) {
         const normalized = _getCachedRetailDetail(r.value.slug, { [r.value.slug]: r.value.data });
         if (normalized) {
+          normalized.windowTime = _detailWindowTime(normalized, snapshotWindow);
           detailMap[r.value.slug] = normalized;
           _cachedSlugDetail[r.value.slug] = normalized;
         }
@@ -2265,7 +2292,16 @@ const _buildVendorPriceCell = (
     td.appendChild(premBadge);
   }
 
-  if (lastSeen) td.title = lastSeen;
+  if (lastSeen) {
+    td.title = lastSeen;
+    // A plain price has no name to carry the time, so hidden text reads it after the premium.
+    if (!isLink) {
+      const seenText = document.createElement("span");
+      seenText.className = "sr-only";
+      seenText.textContent = `, ${lastSeen}`;
+      td.appendChild(seenText);
+    }
+  }
 
   return td;
 };
@@ -2322,7 +2358,7 @@ const _vendorRowContext = (rowInfo, detailMap) => {
     displayName: meta.name || slug,
     weightOz: detail.weight_oz || meta.weight || 0,
     spotPrice: _getSpotPrice(isoCode),
-    windowTime: _detailWindowTime(detail),
+    windowTime: detail.windowTime || null,
     medianText: medianVal != null ? formatCurrency(medianVal) : "—",
     // The summary may lack high and low, so the spread comes from the in-stock prices.
     spreadText:

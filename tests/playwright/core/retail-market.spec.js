@@ -1907,7 +1907,9 @@ test.describe("core/retail-market", () => {
         carried_from: CARRIED_FROM,
       },
     };
-    const row = { median_price: 38, lowest_price: 36.5, highest_price: 41, vendors };
+    // The item's own price window differs from the snapshot's GENERATED_AT, so a fresh tooltip must use it.
+    const DETAIL_T = "2026-05-25T15:45:00Z";
+    const row = { t: DETAIL_T, median_price: 38, lowest_price: 36.5, highest_price: 41, vendors };
     await setupRetailFixture(page, {
       retailPriceRows: { [SLUG_SILVER_A]: row },
       retailFeeds: {
@@ -1988,15 +1990,24 @@ test.describe("core/retail-market", () => {
         ),
       })
     ).toHaveCount(1);
-    // A fresh price is last seen at the snapshot's price window.
-    const freshDate = await page.evaluate(
-      (iso) => new Date(iso).toLocaleDateString("en-CA"),
-      GENERATED_AT
+    // A fresh price is last seen at its item's price window, not the snapshot's.
+    const freshSeen = await page.evaluate(
+      (iso) =>
+        `Last seen ${new Date(iso).toLocaleString("en-CA", {
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+        })}`,
+      DETAIL_T
     );
-    const freshSeen = new RegExp(`^Last seen ${freshDate}, \\d{2}:\\d{2}`);
     const freshCell = matrixRow.locator("td:has(.vp-premium.low)");
     await expect(freshCell).toHaveAttribute("title", freshSeen);
     await expect(freshCell.locator(":scope > *")).toHaveCount(2);
+    const freshName = await freshCell.locator(".vp-price").getAttribute("aria-label");
+    expect(freshName).toContain(`. ${freshSeen}`);
+    expect(freshName).toMatch(/\. Opens the dealer page in a new window\.$/);
     const carriedTile = card.locator(".vp-card-dealer.vp-carried");
     await expect(carriedTile).toHaveAttribute("title", lastSeen);
     await expect(carriedTile).not.toContainText("Carried");
@@ -2084,6 +2095,17 @@ test.describe("core/retail-market", () => {
     const settingsBox = await settingsBtn.boundingBox();
     const refreshBox = await page.locator("#marketRefreshBtn").boundingBox();
     expect(Math.round(settingsBox.height)).toBe(Math.round(refreshBox.height));
+    // The 44px ::after target reaches 4px past the 36px border box, so 3px out is inside it.
+    for (const [id, box] of [
+      ["marketSettingsBtn", settingsBox],
+      ["marketRefreshBtn", refreshBox],
+    ]) {
+      const hitId = await page.evaluate(
+        ([x, y]) => document.elementFromPoint(x, y)?.closest("button")?.id || null,
+        [box.x + box.width / 2, box.y + box.height + 3]
+      );
+      expect(hitId, `${id} target below the button`).toBe(id);
+    }
 
     // Metal tabs are a pressed-state toggle group, like the modal period group.
     const metals = container.getByRole("group", { name: "Metal" });
@@ -2134,16 +2156,24 @@ test.describe("core/retail-market", () => {
           0,
           "xag",
           { plainvendor: { name: "Plain", url } },
-          "Plain Coin"
+          "Plain Coin",
+          undefined,
+          "2026-05-26T12:00:00.000Z"
         );
         const price = cell.querySelector(".vp-price");
-        return { tag: price.tagName, labelled: price.hasAttribute("aria-label") };
+        const hidden = cell.querySelector(".sr-only");
+        return {
+          tag: price.tagName,
+          labelled: price.hasAttribute("aria-label"),
+          seenHidden: hidden ? /^, Last seen \d{4}-\d{2}-\d{2}, /.test(hidden.textContent) : false,
+        };
       })
     );
+    // A plain price reads its time from hidden text; a button carries it in its name.
     expect(plainPrices).toEqual([
-      { tag: "SPAN", labelled: false },
-      { tag: "SPAN", labelled: false },
-      { tag: "BUTTON", labelled: true },
+      { tag: "SPAN", labelled: false, seenHidden: true },
+      { tag: "SPAN", labelled: false, seenHidden: true },
+      { tag: "BUTTON", labelled: true, seenHidden: false },
     ]);
 
     // Tab from the Silver toggle reaches the item name without a pointer.
