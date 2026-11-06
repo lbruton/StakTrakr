@@ -2265,16 +2265,12 @@ const _buildVendorPriceCell = (
 /**
  * Build one coin row for the vendor matrix: the clickable coin name, one price
  * cell per vendor, and the median and spread cells.
- * @param {{slug:string, meta:Object, isoCode:string}} rowInfo - Row descriptor.
+ * @param {Object} row - Context from _vendorRowContext.
  * @param {string[]} vendorIds - Sorted vendor ids (column order).
- * @param {Object} detailMap - Map of slug to normalized detail.
  * @param {Object} vendorMeta - Vendor-meta map.
- * @returns {(HTMLTableRowElement|null)} The row element, or null if no detail.
+ * @returns {HTMLTableRowElement} The row element.
  */
-const _buildVendorTableRow = (rowInfo, vendorIds, detailMap, vendorMeta) => {
-  const row = _vendorRowContext(rowInfo, detailMap);
-  if (!row) return null;
-
+const _buildVendorTableRow = (row, vendorIds, vendorMeta) => {
   const tr = document.createElement("tr");
   const tdName = document.createElement("td");
   tdName.appendChild(_buildCoinNameButton(row.slug, row.displayName));
@@ -2370,16 +2366,12 @@ const _buildCoinNameButton = (slug, displayName) => {
 /**
  * Build one phone card: the item name, the median and spread, and a tile per dealer
  * that lists the item. Tiles reuse the matrix cell content, so prices stay dealer buttons.
- * @param {{slug:string, meta:Object, isoCode:string}} rowInfo - Row descriptor.
+ * @param {Object} row - Context from _vendorRowContext.
  * @param {string[]} vendorIds - Sorted vendor ids (tile order).
- * @param {Object} detailMap - Map of slug to normalized detail.
  * @param {Object} vendorMeta - Vendor-meta map.
- * @returns {(HTMLLIElement|null)} The card, or null if no detail.
+ * @returns {HTMLLIElement} The card.
  */
-const _buildVendorCard = (rowInfo, vendorIds, detailMap, vendorMeta) => {
-  const row = _vendorRowContext(rowInfo, detailMap);
-  if (!row) return null;
-
+const _buildVendorCard = (row, vendorIds, vendorMeta) => {
   const card = document.createElement("li");
   card.className = "vp-card";
   card.appendChild(_buildCoinNameButton(row.slug, row.displayName));
@@ -2498,10 +2490,10 @@ const _renderVendorTable = async (metalCode) => {
   cards.setAttribute("aria-label", scopeLabel);
 
   for (const rowInfo of metalSlugs) {
-    const tr = _buildVendorTableRow(rowInfo, vendorIds, detailMap, vendorMeta);
-    if (tr) tbody.appendChild(tr);
-    const card = _buildVendorCard(rowInfo, vendorIds, detailMap, vendorMeta);
-    if (card) cards.appendChild(card);
+    const row = _vendorRowContext(rowInfo, detailMap);
+    if (!row) continue;
+    tbody.appendChild(_buildVendorTableRow(row, vendorIds, vendorMeta));
+    cards.appendChild(_buildVendorCard(row, vendorIds, vendorMeta));
   }
 
   table.appendChild(tbody);
