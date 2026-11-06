@@ -341,7 +341,18 @@ const _resolveCoinMetaPreferMap = (slug, coinMetaMap) => {
 };
 
 let _cachedSlugDetail = {};
+let _cachedSlugDetailGeneration = 0;
 let _goldbackG1Rate = null;
+
+/**
+ * Empties the per-slug detail cache after a sync stores new prices. The generation
+ * bump stops a fetch that started before the sync from refilling the cache.
+ * @returns {void}
+ */
+const _clearCachedSlugDetail = () => {
+  _cachedSlugDetail = {};
+  _cachedSlugDetailGeneration += 1;
+};
 
 const _fmtPrice = (n) => {
   if (n == null || isNaN(n)) return "\u2014";
@@ -2084,6 +2095,7 @@ const _resolveVendorDetailMap = async (metalSlugs, coins) => {
   const detailMap = {};
   const missingSlugs = [];
   const snapshotWindow = _snapshotWindowTime();
+  const generation = _cachedSlugDetailGeneration;
   for (const { slug } of metalSlugs) {
     const cachedDetail = _getCachedRetailDetail(slug, coins);
     if (cachedDetail) {
@@ -2115,7 +2127,10 @@ const _resolveVendorDetailMap = async (metalSlugs, coins) => {
         if (normalized) {
           normalized.windowTime = _detailWindowTime(normalized, snapshotWindow);
           detailMap[r.value.slug] = normalized;
-          _cachedSlugDetail[r.value.slug] = normalized;
+          // A fetch from before a sync holds old prices, so it fills this render only.
+          if (generation === _cachedSlugDetailGeneration) {
+            _cachedSlugDetail[r.value.slug] = normalized;
+          }
         }
       }
     }
@@ -2617,7 +2632,7 @@ const _setMarketRefreshFailure = (text) => {
 if (typeof document !== "undefined") {
   // A sync dispatches this before its refreshMarketData() render, so the render reads the new prices.
   document.addEventListener("retail:updated", () => {
-    _cachedSlugDetail = {};
+    _clearCachedSlugDetail();
     _setMarketRefreshFailure(null);
   });
 }
