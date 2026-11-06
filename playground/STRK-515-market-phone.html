@@ -1,0 +1,1197 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Market Phone Width</title>
+    <!-- Mockup for STRK-515: the Market tab and its detail modal at phone width. The page
+         loads itself in iframes (?frame) so the app's media queries see the phone width.
+         The app stylesheet supplies tokens, themes and the current rules; the proposal CSS
+         is scoped under html.mk-a or html.mk-b. Prices are a capture of the live feed. -->
+    <link rel="stylesheet" href="../css/styles.css" />
+    <style>
+      /* ---------- Shell (outer page) ---------- */
+      html.mk-shell,
+      html.mk-shell body {
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        font-family: var(--font-body);
+        margin: 0;
+        max-width: none;
+      }
+      .mk-controls {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.6rem 1.5rem;
+        align-items: center;
+        padding: 0.6rem 1rem;
+        background: var(--bg-tertiary);
+        border-bottom: 1px solid var(--border);
+        font-size: 13px;
+      }
+      .mk-controls fieldset {
+        border: 0;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.25rem;
+        align-items: center;
+      }
+      .mk-controls legend {
+        float: left;
+        margin-right: 0.4rem;
+        color: var(--text-secondary);
+        font-weight: 500;
+      }
+      .mk-controls button {
+        font: inherit;
+        padding: 0.3rem 0.7rem;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: var(--bg-secondary);
+        color: var(--text-primary);
+        cursor: pointer;
+      }
+      .mk-controls button[aria-pressed="true"] {
+        background: var(--bg-primary);
+        border: 2px solid var(--primary);
+        font-weight: 600;
+      }
+      .mk-stage {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 2rem;
+        justify-content: center;
+        padding: 1.5rem 1rem;
+      }
+      .mk-pane {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        align-items: center;
+      }
+      .mk-pane h2 {
+        margin: 0;
+        font-family: var(--font-heading);
+        font-weight: 400;
+        font-size: 1.25rem;
+      }
+      .mk-pane p {
+        margin: 0;
+        color: var(--text-secondary);
+        font-size: 13px;
+      }
+      .mk-pane iframe {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: var(--bg-primary);
+        height: 844px;
+      }
+      .mk-notes {
+        max-width: 900px;
+        margin: 0 auto 3rem;
+        padding: 0 1.5rem;
+        color: var(--text-secondary);
+        font-size: 14px;
+        line-height: 1.6;
+      }
+      .mk-notes h2 {
+        font-family: var(--font-heading);
+        font-weight: 400;
+        color: var(--text-primary);
+      }
+      .mk-notes li {
+        margin-bottom: 0.35rem;
+      }
+      .mk-notes code {
+        font-family: var(--font-mono);
+        font-size: 12px;
+      }
+
+      /* ---------- Frame (inside the iframe) ---------- */
+      html.mk-frame body {
+        margin: 0;
+        padding: 8px;
+        max-width: none;
+        background: var(--bg-primary);
+      }
+      .mk-chart-placeholder {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        border: 1px dashed var(--border);
+        border-radius: 8px;
+        color: var(--text-muted);
+        font-size: 12px;
+      }
+      .mk-chart-placeholder svg {
+        width: 100%;
+        height: 100%;
+      }
+
+      /* =====================================================================
+         Proposal, shared by A and B. Every rule here maps to a STRK-515 plan step.
+         ===================================================================== */
+
+      /* Plan 1: the global td rule (20ch, ellipsis, nowrap) stops at the Market tables. */
+      :is(.mk-a, .mk-b) .vendor-prices-table :is(td, th) {
+        max-width: none;
+        overflow: visible;
+        text-overflow: clip;
+        border-right: 0;
+      }
+      :is(.mk-a, .mk-b) .vendor-prices-table td {
+        white-space: nowrap;
+        line-height: 1.3;
+      }
+      :is(.mk-a, .mk-b) .vendor-prices-table td:first-child {
+        white-space: normal;
+      }
+
+      /* Plan 3: header buttons draw at 36px and keep a 44px target through ::after. */
+      :is(.mk-a, .mk-b) .market-block-btn {
+        position: relative;
+        min-height: 36px;
+        min-width: 36px;
+        padding: 0 12px;
+        font-size: 13px;
+        border-radius: 8px;
+      }
+      :is(.mk-a, .mk-b) .market-block-btn::after {
+        content: "";
+        position: absolute;
+        inset: -4px;
+      }
+      .mk-scroll-hint {
+        display: none;
+      }
+      /* Sepia muted ink measures 4.1:1 on the frame; the disclaimer and hint take the secondary ink. */
+      [data-theme="sepia"]:is(.mk-a, .mk-b) :is(.market-disclaimer, .mk-scroll-hint) {
+        --text-muted: var(--text-secondary);
+      }
+
+      /* Plan 3: the disclaimer link grows a 44px hit area without changing the line box. */
+      :is(.mk-a, .mk-b) .market-disclaimer {
+        font-size: 12px;
+        line-height: 1.5;
+        padding-top: 12px;
+      }
+      :is(.mk-a, .mk-b) .market-disclaimer a {
+        padding-block: 14px;
+      }
+
+      /* Plan 4: metal tabs scroll sideways; the fade shows more tabs wait to the right. */
+      :is(.mk-a, .mk-b) .vendor-prices-tabs {
+        overflow-x: auto;
+        scrollbar-width: none;
+      }
+      :is(.mk-a, .mk-b) .vendor-prices-tabs::-webkit-scrollbar {
+        display: none;
+      }
+      :is(.mk-a, .mk-b) .vendor-prices-tabs.mk-more-right {
+        mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
+      }
+      :is(.mk-a, .mk-b) .vendor-prices-tabs button {
+        flex: 0 0 auto;
+        min-height: 44px;
+        padding: 0 14px;
+        font-size: max(12px, var(--font-size-sm));
+      }
+
+      /* Plan 6: the modal vendor table fits 318px. Stock moves under the vendor name. */
+      :is(.mk-a, .mk-b) .mk-stock-sub {
+        display: none;
+      }
+      :is(.mk-a, .mk-b) .market-detail-buy {
+        min-width: 44px;
+        min-height: 44px;
+        padding: 0 10px;
+        font-size: 13px;
+      }
+
+      @media (max-width: 768px) {
+        /* Plan 2: the phone text floor. */
+        :is(.mk-a, .mk-b) :is(.vp-coin-link, .vp-price, .market-price) {
+          font-size: max(12px, var(--font-size-sm));
+        }
+        :is(.mk-a, .mk-b)
+          :is(.vp-premium, .vp-oos, .vp-carried-mark, .vp-carried-date, .market-detail-stat-label),
+        :is(.mk-a, .mk-b) .vendor-prices-table th,
+        :is(.mk-a, .mk-b) .market-detail-periods .market-detail-period-btn {
+          font-size: max(11px, var(--font-size-xs));
+        }
+        :is(.mk-a, .mk-b) .vendor-prices-table td {
+          font-size: max(12px, var(--font-size-sm));
+        }
+        :is(.mk-a, .mk-b) .market-detail-weight,
+        :is(.mk-a, .mk-b) .market-detail-asof {
+          font-size: 12px;
+        }
+      }
+
+      @media (max-width: 560px) {
+        :is(.mk-a, .mk-b) .market-detail-vendors .mk-col-stock {
+          display: none;
+        }
+        :is(.mk-a, .mk-b) .mk-stock-sub {
+          display: block;
+          font-size: 11px;
+          font-weight: 500;
+        }
+        :is(.mk-a, .mk-b) .market-detail-vendors {
+          display: table;
+          width: 100%;
+        }
+        :is(.mk-a, .mk-b) .market-detail-vendors :is(td, th) {
+          padding: 6px 4px;
+          vertical-align: middle;
+        }
+        :is(.mk-a, .mk-b) .market-detail-vendors td:last-child {
+          padding: 0;
+          text-align: right;
+        }
+      }
+
+      @media (max-width: 480px) {
+        /* The modal gives the table back 32px: less overlay gutter, less inner padding. */
+        :is(.mk-a, .mk-b) .market-detail-overlay {
+          padding: 0.5rem;
+        }
+        :is(.mk-a, .mk-b) .market-detail-modal {
+          padding: 1rem;
+          max-height: 92vh;
+        }
+        :is(.mk-a, .mk-b) .market-detail-close {
+          top: 8px;
+          right: 8px;
+        }
+      }
+
+      /* =====================================================================
+         A: the dealer matrix stays. Names wrap, cells are the targets, the header sticks.
+         ===================================================================== */
+      @media (max-width: 768px) {
+        /* The table goes back to table layout so the .vp-scroll wrapper scrolls it and the
+           sticky header has a scroll container to stick to. */
+        .mk-a .vendor-prices-section .vendor-prices-table {
+          display: table;
+          overflow: visible;
+        }
+        .mk-a .vendor-prices-section .vp-scroll {
+          overflow: auto;
+          overscroll-behavior-x: contain;
+        }
+        .mk-a.mk-sticky .vendor-prices-section .vp-scroll {
+          max-height: min(70vh, 40rem);
+        }
+        .mk-a .vendor-prices-section td:first-child,
+        .mk-a .vendor-prices-section th:first-child {
+          width: 8.5rem;
+          min-width: 8.5rem;
+          max-width: 8.5rem;
+        }
+        .mk-a .vendor-prices-section td {
+          height: 44px;
+          padding: 5px 8px;
+        }
+        .mk-a .vendor-prices-section td:not(:first-child) {
+          position: relative;
+          min-width: 4.75rem;
+        }
+        /* Plan 3: the whole cell is the price target and the name cell is the name target. */
+        .mk-a .vendor-prices-section button.vp-price::after,
+        .mk-a .vendor-prices-section .vp-coin-link::after {
+          content: "";
+          position: absolute;
+          inset: 0;
+        }
+        .mk-a .vendor-prices-section .vp-coin-link {
+          display: block;
+          line-height: 1.3;
+        }
+        /* The name column casts an edge once the dealers scroll under it. */
+        .mk-a .vendor-prices-section .mk-scrolled td:first-child,
+        .mk-a .vendor-prices-section .mk-scrolled th:first-child {
+          box-shadow:
+            1px 0 0 var(--border),
+            6px 0 8px -6px color-mix(in srgb, #000 45%, transparent);
+        }
+      }
+      /* Plan 5: the header row sticks inside the table scroller. */
+      .mk-a.mk-sticky .vendor-prices-section thead th {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+      }
+      .mk-a.mk-sticky .vendor-prices-section thead th:first-child {
+        z-index: 3;
+      }
+      @media (max-width: 768px) {
+        .mk-a .mk-scroll-hint {
+          display: block;
+          margin: -0.5rem 0 0.5rem;
+          font-size: 12px;
+          color: var(--text-muted);
+        }
+      }
+
+      /* =====================================================================
+         B: below 480px each item is a card with its dealers in a three-column grid.
+         ===================================================================== */
+      .mk-cards {
+        display: none;
+      }
+      /* The app hides this wrapper below 480px for its own cards; Current and A keep the matrix. */
+      html:not(.mk-b) .vendor-prices-section .vp-table-area .vp-scroll {
+        display: block;
+      }
+      @media (max-width: 480px) {
+        .mk-b .vendor-prices-section .vp-scroll {
+          display: none;
+        }
+        .mk-b .mk-cards {
+          display: flex;
+          flex-direction: column;
+          gap: 0.6rem;
+          list-style: none;
+          margin: 0;
+          padding: 0;
+        }
+      }
+      .mk-card {
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--bg-on-frame);
+        padding: 0.6rem 0.6rem 0.5rem;
+      }
+      .mk-card .vp-coin-link {
+        display: block;
+        width: 100%;
+        min-height: 44px;
+        font-size: 14px;
+        font-weight: 600;
+        line-height: 1.3;
+        text-align: left;
+      }
+      .mk-card-meta {
+        margin: -0.35rem 0 0.45rem;
+        font-size: 12px;
+        color: var(--text-muted);
+      }
+      .mk-card-meta b {
+        font-family: var(--font-mono);
+        font-weight: 600;
+        color: var(--text-secondary);
+      }
+      .mk-dealers {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 4px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+      .mk-dealer {
+        position: relative;
+        min-height: 44px;
+        padding: 4px 6px;
+        border-radius: 6px;
+        border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+        font-size: 12px;
+        line-height: 1.25;
+      }
+      .mk-dealer.vp-best {
+        border-color: color-mix(in srgb, var(--success) 45%, transparent);
+      }
+      .mk-dealer-name {
+        display: block;
+        font-size: 11px;
+        font-style: normal;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .mk-dealer .vp-price {
+        font-size: 12px;
+      }
+      .mk-dealer .vp-price::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+      }
+      .mk-dealer .vp-premium {
+        display: inline;
+        margin: 0 0 0 4px;
+        font-size: 11px;
+      }
+      .mk-dealer.vp-oos {
+        font-size: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <script>
+      const params = new URLSearchParams(location.search);
+      const FRAME = params.has("frame");
+      const doc = document.documentElement;
+
+      /* ---------- Captured live data (2026-11-05, 16:59 CT) ---------- */
+      const VENDORS = [
+        ["APMEX", "apmex"],
+        ["BullionX", "bullionexchanges"],
+        ["Gville", "gainesvillecoins"],
+        ["Hero", "herobullion"],
+        ["JM", "jmbullion"],
+        ["MintBuilder", "mintbuilder"],
+        ["Monument", "monumentmetals"],
+        ["SD", "sdbullion"],
+        ["Summit", "summitmetals"],
+      ];
+      // [name, metal, cells[9], median, spread]; cell = [price, premium, tier, best, carried] | "O" | 0
+      const ROWS = [
+        [
+          "American Gold Buffalo 1 oz",
+          "xau",
+          [
+            ["$4,424.29", "+8.2%", "high", 0, 0],
+            ["$4,310.52", "+5.4%", "high", 0, 0],
+            ["$4,222.97", "+3.3%", "mid", 1, 0],
+            "O",
+            ["$4,410.99", "+7.9%", "high", 0, 0],
+            ["$4,238.40", "+3.7%", "mid", 0, 0],
+            ["$4,341.88", "+6.2%", "high", 0, 0],
+            "O",
+            ["$4,443.85", "+8.7%", "high", 0, 0],
+          ],
+          "$4,341.88",
+          "$220.88",
+        ],
+        [
+          "American Gold Eagle 1 oz",
+          "xau",
+          [
+            ["$4,324.29", "+5.8%", "high", 0, 0],
+            ["$4,298.22", "+5.1%", "high", 0, 0],
+            ["$4,161.47", "+1.8%", "low", 1, 0],
+            "O",
+            ["$4,352.93", "+6.5%", "high", 0, 0],
+            ["$4,301.45", "+5.2%", "high", 0, 0],
+            ["$4,269.60", "+4.4%", "mid", 0, 0],
+            ["$4,258.96", "+4.2%", "mid", 0, 0],
+            ["$4,383.95", "+7.2%", "high", 0, 0],
+          ],
+          "$4,301.45",
+          "$222.48",
+        ],
+        [
+          "American Gold Eagle 1/10 oz",
+          "xau",
+          [
+            ["$499.92", "+22.3%", "high", 0, 0],
+            ["$471.43", "+15.3%", "high", 0, 0],
+            ["$456.12", "+11.6%", "high", 1, 0],
+            "O",
+            ["$514.78", "+25.9%", "high", 0, 0],
+            ["$457.01", "+11.8%", "high", 0, 0],
+            ["$470.18", "+15.0%", "high", 0, 0],
+            ["$479.58", "+17.3%", "high", 0, 0],
+            ["$471.17", "+15.3%", "high", 0, 0],
+          ],
+          "$471.43",
+          "$58.66",
+        ],
+        [
+          "Australian Gold Kangaroo 1/10 oz",
+          "xau",
+          [
+            ["$484.90", "+18.6%", "high", 0, 0],
+            "O",
+            0,
+            "O",
+            ["$485.39", "+18.7%", "high", 0, 0],
+            0,
+            ["$456.24", "+11.6%", "high", 1, 0],
+            ["$483.68", "+18.3%", "high", 0, 0],
+            ["$482.26", "+18.0%", "high", 0, 0],
+          ],
+          "$483.68",
+          "$29.15",
+        ],
+        [
+          "Australian Gold Kookaburra 1/10 oz",
+          "xau",
+          [
+            ["$530.92", "+29.9%", "high", 0, 0],
+            "O",
+            0,
+            ["$447.39", "+9.4%", "high", 1, 0],
+            "O",
+            0,
+            ["$447.98", "+9.6%", "high", 0, 0],
+            "O",
+            ["$471.50", "+15.3%", "high", 0, 0],
+          ],
+          "$471.50",
+          "$83.53",
+        ],
+        [
+          "Canadian Gold Maple Leaf 1 oz",
+          "xau",
+          [
+            ["$4,274.29", "+4.6%", "mid", 0, 0],
+            ["$4,159.39", "+1.7%", "low", 0, 0],
+            ["$4,119.96", "+0.8%", "low", 0, 0],
+            "O",
+            ["$4,105.64", "+0.4%", "low", 1, 0],
+            ["$4,137.39", "+1.2%", "low", 0, 0],
+            ["$4,180.70", "+2.3%", "mid", 0, 0],
+            ["$4,208.96", "+3.0%", "mid", 0, 0],
+            ["$4,248.18", "+3.9%", "mid", 0, 0],
+          ],
+          "$4,180.70",
+          "$168.65",
+        ],
+        [
+          "Canadian Gold Maple Leaf 1/10 oz",
+          "xau",
+          [
+            ["$493.12", "+20.6%", "high", 0, 0],
+            "O",
+            ["$438.70", "+7.3%", "high", 1, 0],
+            ["$463.47", "+13.4%", "high", 0, 0],
+            ["$553.80", "+35.5%", "high", 0, 0],
+            ["$446.19", "+9.1%", "high", 0, 0],
+            ["$447.98", "+9.6%", "high", 0, 0],
+            ["$471.38", "+15.3%", "high", 0, 0],
+            ["$469.59", "+14.9%", "high", 0, 0],
+          ],
+          "$469.59",
+          "$115.10",
+        ],
+        [
+          "South African Gold Krugerrand 1 oz",
+          "xau",
+          [
+            ["$4,259.29", "+4.2%", "mid", 0, 0],
+            ["$4,144.39", "+1.4%", "low", 0, 0],
+            ["$4,118.97", "+0.8%", "low", 1, 0],
+            "O",
+            "O",
+            0,
+            ["$4,147.70", "+1.5%", "low", 0, 0],
+            ["$4,168.96", "+2.0%", "low", 0, 0],
+            ["$4,167.44", "+1.9%", "low", 0, 0],
+          ],
+          "$4,167.44",
+          "$140.32",
+        ],
+        [
+          "American Silver Eagle 1 oz",
+          "xag",
+          [
+            ["$61.68", "+19.1%", "high", 0, 0],
+            ["$57.80", "+11.6%", "high", 0, 0],
+            ["$57.10", "+10.3%", "high", 0, 0],
+            ["$59.15", "+14.2%", "high", 0, 0],
+            ["$69.44", "+34.1%", "high", 0, 0],
+            ["$56.35", "+8.8%", "high", 1, 0],
+            ["$58.44", "+12.8%", "high", 0, 0],
+            ["$61.42", "+18.6%", "high", 0, 0],
+            ["$59.02", "+14.0%", "high", 0, 0],
+          ],
+          "$59.02",
+          "$13.09",
+        ],
+        [
+          "Australian Silver Kangaroo 1 oz",
+          "xag",
+          [
+            ["$61.68", "+19.1%", "high", 0, 0],
+            ["$55.65", "+7.5%", "high", 0, 0],
+            0,
+            ["$56.37", "+8.8%", "high", 0, 0],
+            ["$63.96", "+23.5%", "high", 0, 0],
+            ["$55.59", "+7.3%", "high", 1, 0],
+            ["$56.24", "+8.6%", "high", 0, 0],
+            ["$58.92", "+13.8%", "high", 0, 0],
+            "O",
+          ],
+          "$56.37",
+          "$8.37",
+        ],
+        [
+          "Australian Silver Koala 1 oz",
+          "xag",
+          [
+            ["$65.68", "+26.8%", "high", 0, 0],
+            "O",
+            0,
+            ["$58.99", "+13.9%", "high", 0, 0],
+            ["$64.16", "+23.9%", "high", 0, 0],
+            0,
+            ["$57.74", "+11.5%", "high", 1, 0],
+            ["$61.42", "+18.6%", "high", 0, 0],
+            "O",
+          ],
+          "$61.42",
+          "$7.94",
+        ],
+        [
+          "Australian Silver Kookaburra 1 oz",
+          "xag",
+          [
+            ["$69.69", "+34.6%", "high", 0, 0],
+            "O",
+            0,
+            ["$59.81", "+15.5%", "high", 0, 0],
+            ["$67.91", "+31.1%", "high", 0, 0],
+            ["$63.09", "+21.8%", "high", 0, 0],
+            ["$58.44", "+12.8%", "high", 1, 0],
+            ["$63.42", "+22.5%", "high", 0, 0],
+            ["$60.60", "+17.0%", "high", 0, 0],
+          ],
+          "$63.09",
+          "$11.25",
+        ],
+        [
+          "British Silver Britannia 1 oz",
+          "xag",
+          [
+            ["$62.68", "+21.0%", "high", 0, 0],
+            "O",
+            0,
+            "O",
+            ["$56.48", "+9.1%", "high", 0, 0],
+            ["$54.50", "+5.2%", "high", 1, 0],
+            ["$56.34", "+8.8%", "high", 0, 0],
+            ["$58.42", "+12.8%", "high", 0, 0],
+            ["$58.79", "+13.5%", "high", 0, 0],
+          ],
+          "$58.42",
+          "$8.18",
+        ],
+        [
+          "Canadian Silver Maple Leaf 1 oz",
+          "xag",
+          [
+            ["$63.68", "+23.0%", "high", 0, 0],
+            ["$56.90", "+9.9%", "high", 0, 0],
+            ["$54.11", "+4.5%", "mid", 1, 0],
+            "O",
+            ["$64.02", "+23.6%", "high", 0, 0],
+            ["$55.80", "+7.7%", "high", 0, 0],
+            ["$57.50", "+11.0%", "high", 0, 0],
+            ["$59.92", "+15.7%", "high", 0, 0],
+            ["$58.34", "+12.6%", "high", 0, 0],
+          ],
+          "$58.34",
+          "$9.91",
+        ],
+        [
+          "Generic Silver Bar 10 oz (.999)",
+          "xag",
+          [
+            ["$606.80", "+17.2%", "high", 0, 0],
+            ["$537.00", "+3.7%", "mid", 0, 0],
+            ["$563.60", "+8.8%", "high", 0, 0],
+            "O",
+            0,
+            ["$527.40", "+1.8%", "low", 1, 0],
+            ["$546.40", "+5.5%", "high", 0, 0],
+            "O",
+            ["$567.89", "+9.7%", "high", 0, 0],
+          ],
+          "$563.60",
+          "$79.40",
+        ],
+        [
+          "Generic Silver Round 1 oz (.999)",
+          "xag",
+          [
+            ["$60.68", "+17.2%", "high", 0, 0],
+            ["$54.40", "+5.0%", "high", 0, 0],
+            ["$52.36", "+1.1%", "low", 1, 0],
+            ["$55.62", "+7.4%", "high", 0, 0],
+            0,
+            ["$52.84", "+2.0%", "mid", 0, 0],
+            ["$55.20", "+6.6%", "high", 0, 0],
+            ["$57.42", "+10.9%", "high", 0, 0],
+            "O",
+          ],
+          "$55.20",
+          "$8.32",
+        ],
+        [
+          "South African Silver Krugerrand 1 oz",
+          "xag",
+          [
+            ["$62.68", "+21.0%", "high", 0, 0],
+            "O",
+            0,
+            ["$56.74", "+9.6%", "high", 0, 0],
+            "O",
+            ["$54.35", "+4.9%", "mid", 1, 0],
+            ["$56.30", "+8.7%", "high", 0, 0],
+            ["$57.42", "+10.9%", "high", 0, 0],
+            "O",
+          ],
+          "$56.74",
+          "$8.33",
+        ],
+        [
+          "American Platinum Eagle 1 oz",
+          "xpt",
+          [
+            ["$1,877.59", "+23.7%", "high", 0, 0],
+            "O",
+            0,
+            ["$1,673.05", "+10.2%", "high", 0, 0],
+            ["$1,868.69", "+23.1%", "high", 0, 0],
+            ["$1,669.50", "+10.0%", "high", 0, 0],
+            ["$1,667.35", "+9.8%", "high", 1, 0],
+            ["$1,825.69", "+20.3%", "high", 0, 0],
+            ["$1,721.85", "+13.4%", "high", 0, 0],
+          ],
+          "$1,721.85",
+          "$210.24",
+        ],
+        [
+          "G1 Arizona Goldback (1/1000 oz gold)",
+          "goldback",
+          [
+            ["$8.01", "-2.9%", "low", 0, 0],
+            ["$7.83", "-5.1%", "low", 1, 0],
+            0,
+            "O",
+            0,
+            0,
+            0,
+            ["$7.84", "-5.0%", "low", 0, 0],
+            0,
+          ],
+          "$7.84",
+          "$0.18",
+        ],
+        [
+          "G1 Florida Goldback (1/1000 oz gold)",
+          "goldback",
+          [
+            ["$8.01", "-2.9%", "low", 0, 0],
+            ["$7.83", "-5.1%", "low", 1, 0],
+            0,
+            ["$8.81", "+6.8%", "high", 0, 0],
+            0,
+            0,
+            0,
+            "O",
+            0,
+          ],
+          "$8.01",
+          "$0.98",
+        ],
+        [
+          "G1 Nevada Goldback (1/1000 oz gold)",
+          "goldback",
+          [
+            ["$8.01", "-2.9%", "low", 0, 0],
+            ["$7.83", "-5.1%", "low", 1, 0],
+            0,
+            ["$8.81", "+6.8%", "high", 0, 0],
+            0,
+            0,
+            0,
+            "O",
+            0,
+          ],
+          "$8.01",
+          "$0.98",
+        ],
+        [
+          "G1 New Hampshire Goldback (1/1000 oz gold)",
+          "goldback",
+          [
+            ["$8.01", "-2.9%", "low", 0, 0],
+            ["$7.85", "-4.8%", "low", 0, 1],
+            0,
+            ["$8.81", "+6.8%", "high", 0, 0],
+            0,
+            0,
+            0,
+            ["$7.84", "-5.0%", "low", 1, 0],
+            0,
+          ],
+          "$8.01",
+          "$0.97",
+        ],
+        [
+          "G1 Oklahoma Goldback (1/1000 oz gold)",
+          "goldback",
+          [
+            ["$8.01", "-2.9%", "low", 0, 0],
+            ["$7.83", "-5.1%", "low", 1, 0],
+            0,
+            ["$8.81", "+6.8%", "high", 0, 0],
+            0,
+            0,
+            0,
+            ["$7.84", "-5.0%", "low", 0, 0],
+            0,
+          ],
+          "$8.01",
+          "$0.98",
+        ],
+        [
+          "G1 South Dakota Goldback (1/1000 oz gold)",
+          "goldback",
+          [
+            ["$8.01", "-2.9%", "low", 0, 0],
+            ["$7.83", "-5.1%", "low", 1, 0],
+            0,
+            ["$8.81", "+6.8%", "high", 0, 0],
+            0,
+            0,
+            0,
+            ["$7.84", "-5.0%", "low", 0, 0],
+            0,
+          ],
+          "$8.01",
+          "$0.98",
+        ],
+        [
+          "G1 Utah Goldback (1/1000 oz gold)",
+          "goldback",
+          [
+            ["$8.01", "-2.9%", "low", 0, 0],
+            ["$7.83", "-5.1%", "low", 1, 0],
+            0,
+            "O",
+            0,
+            0,
+            0,
+            ["$7.84", "-5.0%", "low", 0, 0],
+            0,
+          ],
+          "$7.84",
+          "$0.18",
+        ],
+        [
+          "G1 Wyoming Goldback (1/1000 oz gold)",
+          "goldback",
+          [
+            ["$8.01", "-2.9%", "low", 0, 0],
+            ["$7.83", "-5.1%", "low", 1, 0],
+            0,
+            ["$8.81", "+6.8%", "high", 0, 0],
+            0,
+            0,
+            0,
+            ["$7.84", "-5.0%", "low", 0, 0],
+            0,
+          ],
+          "$8.01",
+          "$0.98",
+        ],
+      ];
+      const METALS = [
+        ["all", "All"],
+        ["xau", "Gold"],
+        ["xag", "Silver"],
+        ["xpt", "Platinum"],
+        ["goldback", "Goldback"],
+      ];
+      const MODAL_ROWS = [
+        ["Hero", "herobullion", "$4,158.42", "+1.7%", "low", "out"],
+        ["Gville", "gainesvillecoins", "$4,222.97", "+3.3%", "mid", "in"],
+        ["MintBuilder", "mintbuilder", "$4,238.40", "+3.7%", "mid", "in"],
+        ["BullionX", "bullionexchanges", "$4,310.52", "+5.4%", "high", "in"],
+        ["Monument", "monumentmetals", "$4,341.88", "+6.2%", "high", "in"],
+        ["JM", "jmbullion", "$4,410.99", "+7.9%", "high", "in"],
+        ["APMEX", "apmex", "$4,424.29", "+8.2%", "high", "in"],
+        ["Summit", "summitmetals", "$4,443.85", "+8.7%", "high", "in"],
+        ["SD", "sdbullion", "—", "", "", "out"],
+      ];
+
+      if (FRAME) renderFrame();
+      else renderShell();
+
+      /* ---------- Frame: one rendering of the Market tab ---------- */
+      function renderFrame() {
+        const variant = params.get("v") || "current";
+        const metal = params.get("metal") || "all";
+        doc.classList.add("mk-frame");
+        if (variant !== "current") doc.classList.add("mk-" + variant);
+        if (params.get("sticky") !== "0") doc.classList.add("mk-sticky");
+        doc.setAttribute("data-theme", params.get("theme") || "dark");
+
+        const rows = ROWS.filter((r) => metal === "all" || r[1] === metal);
+        const tabs = METALS.map(
+          ([key, label]) =>
+            `<button type="button" class="vp-tab${key === metal ? " active" : ""}" data-metal="${key}" aria-pressed="${key === metal}">${label}</button>`
+        ).join("");
+        const head =
+          `<th scope="col">ITEM</th>` +
+          VENDORS.map(
+            ([label, key]) => `<th scope="col" style="color: var(--vendor-${key});">${label}</th>`
+          ).join("") +
+          `<th scope="col">MEDIAN</th><th scope="col">SPREAD</th>`;
+        const body = rows
+          .map(
+            (r) =>
+              `<tr><td><button type="button" class="vp-coin-link" aria-haspopup="dialog">${r[0]}</button></td>${r[2].map(cell).join("")}<td>${r[3]}</td><td>${r[4]}</td></tr>`
+          )
+          .join("");
+        const cards = rows.map(card).join("");
+
+        document.body.innerHTML = `
+          <section class="vendor-prices-section" id="vendorPricesSectionEl">
+            <div id="vendorPricesContainer">
+              <div class="market-block-header">
+                <h2 class="market-block-title">Market prices</h2>
+                <div class="market-block-actions">
+                  <span class="market-block-status" aria-live="polite"><span id="marketDataTimestamp">Updated 2026-11-05, 04:59 p.m.</span><span id="marketFreshnessStatus" class="market-freshness market-freshness--current">Current</span><span id="marketFreshnessDot" class="cloud-sync-dot header-cloud-dot--green" aria-hidden="true"></span></span>
+                  <button id="marketRefreshBtn" type="button" aria-label="Refresh market prices" class="market-block-btn">↻ Refresh</button>
+                  <button id="marketSettingsBtn" type="button" aria-label="Market settings" class="market-block-btn">⚙</button>
+                </div>
+              </div>
+              <div class="vendor-prices-tabs" role="group" aria-label="Metal">${tabs}</div>
+              <p class="mk-scroll-hint">Scroll the table sideways for all 9 dealers.</p>
+              <div class="vp-table-area">
+                <div class="vp-scroll"><table class="vendor-prices-table"><caption class="sr-only">Dealer prices</caption><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>
+                <ul class="mk-cards">${cards}</ul>
+              </div>
+              <div class="market-disclaimer">Market prices are best effort. Percentages show premium over spot (or G1 rate for Goldbacks). Prices are sourced directly from vendors when possible, or provided by <a href="https://findbullionprices.com" target="_blank" rel="noopener noreferrer">findbullionprices.com</a></div>
+            </div>
+          </section>
+          ${params.get("view") === "modal" ? modal(variant) : ""}`;
+
+        document.querySelectorAll(".vp-tab").forEach((b) =>
+          b.addEventListener("click", () => {
+            params.set("metal", b.dataset.metal);
+            location.search = params.toString();
+          })
+        );
+        const tabBar = document.querySelector(".vendor-prices-tabs");
+        const scroller = document.querySelector(".vp-scroll");
+        const syncCues = () => {
+          tabBar.classList.toggle(
+            "mk-more-right",
+            tabBar.scrollLeft + tabBar.clientWidth < tabBar.scrollWidth - 2
+          );
+          scroller.classList.toggle("mk-scrolled", scroller.scrollLeft > 0);
+        };
+        tabBar.addEventListener("scroll", syncCues);
+        scroller.addEventListener("scroll", syncCues);
+        syncCues();
+        window.mkMeasure = measure;
+      }
+
+      function cell(c, i) {
+        if (c === "O") return `<td class="vp-oos"><span>OOS</span></td>`;
+        if (!c) return `<td class="vp-muted">—</td>`;
+        const [price, prem, tier, best, carried] = c;
+        const extra = carried
+          ? `<span class="vp-carried-mark">Carried</span><span class="vp-carried-date">2026-11-04</span>`
+          : "";
+        return `<td${best ? ' class="vp-best"' : ""}><button class="vp-price" type="button" aria-label="${VENDORS[i][0]}, ${price}">${price}</button><span class="vp-premium ${tier}">${prem}</span>${extra}</td>`;
+      }
+
+      function card(r) {
+        const dealers = r[2]
+          .map((c, i) => {
+            if (!c) return "";
+            const [label, key] = VENDORS[i];
+            const name = `<span class="mk-dealer-name" style="color: var(--vendor-${key});">${label}</span>`;
+            if (c === "O") return `<li class="mk-dealer vp-oos">${name}OOS</li>`;
+            const [price, prem, tier, best, carried] = c;
+            const extra = carried
+              ? `<span class="vp-carried-mark">Carried</span><span class="vp-carried-date">2026-11-04</span>`
+              : "";
+            return `<li class="mk-dealer${best ? " vp-best" : ""}">${name}<button class="vp-price" type="button">${price}</button><span class="vp-premium ${tier}">${prem}</span>${extra}</li>`;
+          })
+          .join("");
+        return `<li class="mk-card"><button type="button" class="vp-coin-link" aria-haspopup="dialog">${r[0]}</button><p class="mk-card-meta">Median <b>${r[3]}</b> · Spread <b>${r[4]}</b></p><ul class="mk-dealers">${dealers}</ul></li>`;
+      }
+
+      function modal(variant) {
+        const proposed = variant !== "current";
+        const stockWord = (s) => (s === "in" ? "In Stock" : "Out of Stock");
+        const rows = MODAL_ROWS.map(([label, key, price, prem, tier, stock]) => {
+          const sub = proposed
+            ? `<span class="market-stock market-stock--${stock} mk-stock-sub">${stockWord(stock)}</span>`
+            : "";
+          const premCell = prem
+            ? `<td><span class="vp-premium ${tier}">${prem}</span></td>`
+            : `<td class="vp-muted">—</td>`;
+          return `<tr><td style="color: var(--vendor-${key});">${label}${sub}</td><td class="market-price">${price}</td>${premCell}<td class="market-stock market-stock--${stock} mk-col-stock">${stockWord(stock)}</td><td><button type="button" class="market-detail-buy" aria-label="Buy at ${label}">Buy</button></td></tr>`;
+        }).join("");
+        const periods = ["24H", "7D", "30D", "60D", "90D"]
+          .map(
+            (p) =>
+              `<button type="button" class="chip-sort-btn market-detail-period-btn${p === "7D" ? " active" : ""}" aria-pressed="${p === "7D"}">${p}</button>`
+          )
+          .join("");
+        const lines = [
+          "M0,60 L40,58 L80,62 L120,50 L160,48 L200,52 L240,44 L280,46 L318,40",
+          "M0,90 L40,92 L80,88 L120,95 L160,90 L200,86 L240,88 L280,84 L318,82",
+          "M0,140 L40,132 L80,136 L120,128 L160,130 L200,126 L240,120 L280,124 L318,118",
+        ];
+        const colors = ["--vendor-apmex", "--vendor-jmbullion", "--vendor-gainesvillecoins"];
+        const svg = `<svg viewBox="0 0 318 200" preserveAspectRatio="none" aria-hidden="true">${lines.map((d, i) => `<path d="${d}" fill="none" stroke="var(${colors[i]})" stroke-width="2"/>`).join("")}</svg>`;
+        return `
+          <div class="market-detail-overlay" role="dialog" aria-modal="true" aria-labelledby="marketDetailTitle">
+            <div class="market-detail-modal" tabindex="-1">
+              <button type="button" class="market-detail-close" aria-label="Close modal">×</button>
+              <div id="marketDetailContent">
+                <div class="market-detail-header"><h2 id="marketDetailTitle" tabindex="-1"><span class="metal-dot xau"></span> American Gold Buffalo 1 oz</h2><div class="market-detail-weight">1 oz Gold</div><div class="market-detail-asof">Prices from 2026-11-05, 04:45 p.m.</div></div>
+                <div class="market-detail-summary"><div><div class="market-detail-stat-label">Median</div><div class="market-value">$4,184.34</div></div><div><div class="market-detail-stat-label">Low</div><div class="market-value">$3,942.41</div></div><div><div class="market-detail-stat-label">High</div><div class="market-value">$4,466.15</div></div><div><div class="market-detail-stat-label">Spread</div><div class="market-value">$523.74</div></div></div>
+                <div class="market-detail-chart-section"><div class="chip-sort-toggle market-detail-periods" role="group" aria-label="Vendor history period">${periods}</div><div class="market-detail-chart" role="group" aria-label="Vendor price history chart"><div class="mk-chart-placeholder">${svg}</div></div></div>
+                <div class="vp-scroll"><table class="vendor-prices-table market-detail-vendors"><thead><tr><th>Vendor</th><th>Price</th><th>Premium</th><th class="mk-col-stock">Stock</th><th>Buy</th></tr></thead><tbody>${rows}</tbody></table></div>
+              </div>
+            </div>
+          </div>`;
+      }
+
+      /* Measures the STRK-515 test assertions inside a frame. */
+      function measure() {
+        const root = document;
+        const ellipsis = [...root.querySelectorAll(".vp-coin-link")].filter((e) => {
+          const td = e.closest("td");
+          return (
+            e.offsetParent &&
+            (e.scrollWidth > e.clientWidth + 1 || (td && td.scrollWidth > td.clientWidth + 1))
+          );
+        }).length;
+        const fonts = [...root.querySelectorAll(".vendor-prices-section *, .market-detail-modal *")]
+          .filter(
+            (e) =>
+              e.offsetParent &&
+              !e.closest(".sr-only") &&
+              [...e.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())
+          )
+          .map((e) => parseFloat(getComputedStyle(e).fontSize));
+        const small = [...root.querySelectorAll("button, a")].filter((e) => {
+          if (!e.offsetParent) return false;
+          const r = e.getBoundingClientRect();
+          const a = getComputedStyle(e, "::after");
+          const hitByAfter = a.content !== "none" && a.position === "absolute";
+          const grow = hitByAfter ? -2 * parseFloat(a.top) || 0 : 0;
+          const cellRect =
+            hitByAfter && e.closest("td, li")
+              ? e.closest("td, li").getBoundingClientRect()
+              : { width: r.width + grow, height: r.height + grow };
+          const pad = e.matches(".market-disclaimer a") ? 28 : 0;
+          return Math.min(cellRect.width, 999) < 44 || cellRect.height + pad < 44;
+        });
+        const lastTab = root.querySelector(".vp-tab:last-child");
+        const tabs = root.querySelector(".vendor-prices-tabs");
+        const mt = root.querySelector(".market-detail-vendors");
+        return {
+          ellipsisNames: ellipsis,
+          minFont: Math.min(...fonts),
+          under44: small.map((e) => e.className || e.id || e.textContent.trim()).slice(0, 12),
+          under44Count: small.length,
+          tabsOverflowVisible:
+            getComputedStyle(tabs).overflowX === "visible" && tabs.scrollWidth > tabs.clientWidth,
+          lastTabRight: Math.round(lastTab.getBoundingClientRect().right),
+          modalTable: mt ? [mt.scrollWidth, mt.parentElement.clientWidth] : null,
+        };
+      }
+
+      /* ---------- Shell: controls and side-by-side frames ---------- */
+      function renderShell() {
+        doc.classList.add("mk-shell");
+        const state = { theme: "dark", width: "390", view: "table", v: "b", sticky: "1" };
+        document.body.innerHTML = `
+          <div class="mk-controls">
+            <fieldset data-key="theme"><legend>Theme</legend>${opts(["dark", "light", "slate", "sepia"])}</fieldset>
+            <fieldset data-key="width"><legend>Width</legend>${opts(["390", "360", "768"])}</fieldset>
+            <fieldset data-key="view"><legend>View</legend>${opts([
+              ["table", "Table"],
+              ["modal", "Detail modal"],
+            ])}</fieldset>
+            <fieldset data-key="v"><legend>Proposal</legend>${opts([
+              ["a", "A: Matrix"],
+              ["b", "B: Cards"],
+            ])}</fieldset>
+            <fieldset data-key="sticky"><legend>A header</legend>${opts([
+              ["1", "Sticky"],
+              ["0", "Scrolls away"],
+            ])}</fieldset>
+          </div>
+          <div class="mk-stage">
+            <div class="mk-pane"><h2>Current</h2><p>dev at v3.36.106</p><iframe id="mkCurrent" title="Current Market tab"></iframe></div>
+            <div class="mk-pane"><h2 id="mkPropTitle">Proposed</h2><p id="mkPropNote"></p><iframe id="mkProposed" title="Proposed Market tab"></iframe></div>
+          </div>
+          <div class="mk-notes">
+            <h2>STRK-515: what changes</h2>
+            <ul>
+              <li>Names wrap inside an 8.5rem name column. The global <code>td</code> rule (20ch, ellipsis, nowrap) is reset under the Market tables, at every width.</li>
+              <li>Phone text floor: names and prices 12px, premiums, headers, stat labels and period buttons 11px, the disclaimer 12px.</li>
+              <li>44px targets: Refresh and the gear, every metal tab, the modal Buy. Item names and prices take the whole cell as the target (a <code>::after</code> over the cell), so the visible size does not grow.</li>
+              <li>Metal tabs scroll sideways. A fade at the right edge shows while more tabs wait, and goes when the last tab is in view.</li>
+              <li>A: the dealer matrix keeps its columns. The header row sticks inside a 70vh table scroller, and the name column casts an edge once dealers scroll under it. A one-line hint names the dealer count.</li>
+              <li>B (below 480px only): each item is a card with its dealers in a three-column grid. No sideways scroll, but the page is about four times as tall and dealers no longer line up for comparison.</li>
+              <li>Modal: Stock moves under the vendor name below 560px, so the table has four columns and fits 318px. The overlay gutter and modal padding shrink below 480px.</li>
+            </ul>
+            <h2>Decision</h2>
+            <ul>
+              <li>Approved 2026-11-05: B, cards below 480px. From 481px up the matrix stays, with the shared fixes above.</li>
+              <li>A, its sticky header and the scroll hint are not built. They stay here for comparison.</li>
+            </ul>
+            <p>The chart in the modal is a placeholder. Prices are a capture of the live feed on 2026-11-05.</p>
+          </div>`;
+        document.querySelectorAll(".mk-controls fieldset").forEach((fs) =>
+          fs.addEventListener("click", (e) => {
+            const b = e.target.closest("button");
+            if (!b) return;
+            state[fs.dataset.key] = b.dataset.val;
+            apply();
+          })
+        );
+        function apply() {
+          document
+            .querySelectorAll(".mk-controls fieldset")
+            .forEach((fs) =>
+              fs
+                .querySelectorAll("button")
+                .forEach((b) =>
+                  b.setAttribute("aria-pressed", String(state[fs.dataset.key] === b.dataset.val))
+                )
+            );
+          doc.setAttribute("data-theme", state.theme);
+          const q = (v) =>
+            `?frame&v=${v}&theme=${state.theme}&view=${state.view}&sticky=${state.sticky}`;
+          for (const [id, v] of [
+            ["mkCurrent", "current"],
+            ["mkProposed", state.v],
+          ]) {
+            const f = document.getElementById(id);
+            f.style.width = state.width + "px";
+            f.src = q(v);
+          }
+          document.getElementById("mkPropTitle").textContent =
+            state.v === "a" ? "Proposed A: Matrix" : "Proposed B: Cards";
+          document.getElementById("mkPropNote").textContent =
+            state.v === "b" && state.width === "768"
+              ? "Cards start below 480px; 768px shows the matrix."
+              : "STRK-515";
+        }
+        apply();
+      }
+
+      function opts(list) {
+        return list
+          .map((o) => {
+            const [val, label] = Array.isArray(o) ? o : [o, o];
+            return `<button type="button" data-val="${val}">${label}</button>`;
+          })
+          .join("");
+      }
+    </script>
+  </body>
+</html>

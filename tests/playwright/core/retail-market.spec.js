@@ -613,6 +613,7 @@ function makeV2Handler({
   goldbackG1Rate = GOLDBACK_G1_RATE,
   retailFeeds = {},
   failedRetailFeeds = [],
+  meta = coinMeta,
 } = {}) {
   return async (route) => {
     const url = new URL(route.request().url());
@@ -641,11 +642,11 @@ function makeV2Handler({
           v: 2,
           generated_at: GENERATED_AT,
           data: {
-            coins: Object.entries(coinMeta).map(([slug, meta]) => ({
+            coins: Object.entries(meta).map(([slug, coin]) => ({
               slug,
-              name: meta.name,
-              weight_oz: meta.weight,
-              metal: meta.metal === "silver" ? "xag" : meta.metal === "gold" ? "xau" : meta.metal,
+              name: coin.name,
+              weight_oz: coin.weight,
+              metal: coin.metal === "silver" ? "xag" : coin.metal === "gold" ? "xau" : coin.metal,
             })),
             vendors: VENDORS,
           },
@@ -784,7 +785,11 @@ async function bootMarketDataPage(page) {
     await window.initMarketData?.();
     window.refreshMarketData();
   });
-  await page.waitForSelector(".vendor-prices-table", { timeout: 10000 });
+  // Phones below 480px show the cards and hide the matrix; either layout means the render landed.
+  await page
+    .locator(".vendor-prices-table:visible, .vp-cards:visible")
+    .first()
+    .waitFor({ timeout: 10000 });
 }
 
 /**
@@ -815,7 +820,13 @@ async function setupRetailFixture(page, options = {}) {
     retailHistory = {},
     retailPriceRows = {},
     failedRetailFeeds = [],
+    // Slug-to-name overrides, seeded into storage and the manifest alike.
+    coinNames = {},
   } = options;
+  const fixtureMeta = { ...coinMeta };
+  for (const [slug, name] of Object.entries(coinNames)) {
+    fixtureMeta[slug] = { ...fixtureMeta[slug], name };
+  }
   const seededPrices = { ...prices, prices: { ...prices.prices, ...retailPriceRows } };
 
   await injectSeedInventory(page);
@@ -850,7 +861,7 @@ async function setupRetailFixture(page, options = {}) {
         intraday: intradayRows,
         generatedAt: GENERATED_AT,
       },
-      meta: coinMeta,
+      meta: fixtureMeta,
       vendors: vendorMeta,
       saved: savedTab,
       filter: marketFilter,
@@ -859,7 +870,7 @@ async function setupRetailFixture(page, options = {}) {
     }
   );
 
-  const fulfillV2 = makeV2Handler({ retailFeeds, failedRetailFeeds });
+  const fulfillV2 = makeV2Handler({ retailFeeds, failedRetailFeeds, meta: fixtureMeta });
   const failV2 = async (route) => {
     await route.fulfill({ status: 503, contentType: "application/json", body: "{}" });
   };
@@ -974,6 +985,55 @@ async function getVendorCellText(page, rowName, vendorHeader) {
     },
     { rowName, vendorHeader }
   );
+}
+
+/**
+ * Measures the phone-width contract inside one root: the smallest visible text size, the
+ * visible controls whose hit area is under 44px, and the names that overflow their box.
+ * A control's hit area is its box, or its absolute ::after box when it has one. That box is
+ * placed against the containing block's padding box, so the block's borders do not count.
+ * @param {import('@playwright/test').Page} page - Playwright page.
+ * @param {string} rootSelector - CSS selector of the root to measure.
+ * @returns {Promise<{minFont:number, smallTargets:string[], clippedNames:string[]}>}
+ */
+function readPhoneFit(page, rootSelector) {
+  return page.locator(rootSelector).evaluate((root) => {
+    const shown = (el) => el.getClientRects().length > 0 && !el.closest(".sr-only");
+    const hitBox = (el) => {
+      const after = getComputedStyle(el, "::after");
+      const r = el.getBoundingClientRect();
+      if (after.content === "none" || after.position !== "absolute") return r;
+      const base = getComputedStyle(el).position === "static" ? el.offsetParent : el;
+      const b = base.getBoundingClientRect();
+      const baseStyle = getComputedStyle(base);
+      const border = (side) => parseFloat(baseStyle[`border-${side}-width`]) || 0;
+      const inset = (side) => parseFloat(after[side]) || 0;
+      return {
+        width: b.width - border("left") - border("right") - inset("left") - inset("right"),
+        height: b.height - border("top") - border("bottom") - inset("top") - inset("bottom"),
+      };
+    };
+    const texts = [...root.querySelectorAll("*")].filter(
+      (el) => shown(el) && [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())
+    );
+    const controls = [...root.querySelectorAll("button, a")].filter(shown);
+    return {
+      minFont: Math.min(...texts.map((el) => parseFloat(getComputedStyle(el).fontSize))),
+      smallTargets: controls
+        .filter((el) => {
+          const box = hitBox(el);
+          return box.width < 44 || box.height < 44;
+        })
+        .map((el) => el.id || el.className || el.textContent.trim()),
+      clippedNames: [...root.querySelectorAll(".vp-coin-link")]
+        .filter(shown)
+        .filter((el) => {
+          const cell = el.closest("td") || el;
+          return el.scrollWidth > el.clientWidth + 1 || cell.scrollWidth > cell.clientWidth + 1;
+        })
+        .map((el) => el.textContent.trim()),
+    };
+  });
 }
 
 /**
@@ -1896,6 +1956,10 @@ test.describe("core/retail-market", () => {
     const stock = page.locator("#marketDetailContent .market-stock");
     await expect(stock).toHaveText(["In Stock", "In Stock", "Carried", "In Stock", "Out of Stock"]);
     await expect(stock.nth(2)).toHaveAttribute("title", lastSeen);
+    // Phones hide the Stock column, so the stock line under the dealer carries the date in view.
+    const carriedSub = page.locator("#marketDetailContent .market-stock-sub.market-stock--carried");
+    await expect(carriedSub).toHaveText(`Carried ${localDate}`);
+    await expect(carriedSub).toHaveAttribute("title", lastSeen);
     await expect(page.locator("#marketDetailContent .market-detail-period-btn.active")).toHaveCount(
       1
     );
@@ -2069,6 +2133,145 @@ test.describe("core/retail-market", () => {
     });
     await expect(modal).toBeHidden();
     await expect(itemName).toBeFocused();
+  });
+
+  test("Market tab shows items as cards at phone width with 44px targets and wrapped names", async ({
+    page,
+  }) => {
+    const LONG_NAME = "South African Silver Krugerrand 1 oz (.999 fine silver)";
+    // Count observers still watching a Market tab bar; each render must release the last one.
+    await page.addInitScript(() => {
+      const Native = window.ResizeObserver;
+      window.__vpTabObservers = new Set();
+      window.ResizeObserver = class extends Native {
+        observe(el, opts) {
+          if (el.classList.contains("vendor-prices-tabs")) window.__vpTabObservers.add(this);
+          return super.observe(el, opts);
+        }
+        disconnect() {
+          window.__vpTabObservers.delete(this);
+          return super.disconnect();
+        }
+      };
+    });
+    // The fixture boot waits for the visible matrix, so the phone width comes after it.
+    await setupRetailFixture(page, { coinNames: { [SLUG_SILVER_A]: LONG_NAME } });
+    await page.evaluate(() => {
+      for (let i = 0; i < 3; i += 1) window.renderVendorPrices();
+    });
+    expect(await page.evaluate(() => window.__vpTabObservers.size)).toBe(1);
+    await page.setViewportSize({ width: 390, height: 844 });
+
+    const section = page.locator("#vendorPricesSectionEl");
+    const cards = section.locator(".vp-cards");
+    await expect(cards.locator(".vp-card").first()).toBeVisible();
+    await expect(section.locator(".vendor-prices-table")).toBeHidden();
+    const tableNames = await section
+      .locator(".vendor-prices-table .vp-coin-link")
+      .allTextContents();
+    expect(await cards.locator(".vp-card .vp-coin-link").allTextContents()).toEqual(tableNames);
+    await expect(cards).toHaveAttribute("aria-label", "All dealer prices");
+
+    // Each card names its dealers and keeps the price as the dealer button.
+    const longCard = cards.locator(".vp-card").filter({ hasText: LONG_NAME });
+    await expect(longCard.locator(".vp-card-vendor")).toHaveText(["APMEX"]);
+    await expect(
+      longCard.getByRole("button", {
+        name: new RegExp(`^${LONG_NAME.replace(/[().]/g, "\\$&")} at APMEX, \\$`),
+      })
+    ).toHaveCount(1);
+    await expect(longCard.locator(".vp-card-meta")).toContainText("Median");
+
+    // The page never scrolls sideways; the metal tabs scroll inside their bar.
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
+    ).toBe(true);
+    const tabs = section.locator(".vendor-prices-tabs");
+    expect(await tabs.evaluate((el) => getComputedStyle(el).overflowX)).toBe("auto");
+
+    await expect
+      .poll(() => readPhoneFit(page, "#vendorPricesSectionEl"))
+      .toEqual({ minFont: expect.any(Number), smallTargets: [], clippedNames: [] });
+    expect((await readPhoneFit(page, "#vendorPricesSectionEl")).minFont).toBeGreaterThanOrEqual(11);
+    const longBox = await longCard.locator(".vp-coin-link").boundingBox();
+    expect(longBox.height).toBeGreaterThan(30);
+
+    // The right-edge cue shows while tabs wait past the edge and clears at the end.
+    await page.setViewportSize({ width: 320, height: 844 });
+    await expect.poll(() => tabs.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
+    await expect(tabs).toHaveClass(/\bvp-tabs-more\b/);
+    await tabs.evaluate((el) => {
+      el.scrollLeft = el.scrollWidth;
+    });
+    await expect(tabs).not.toHaveClass(/\bvp-tabs-more\b/);
+    const lastTabRight = await tabs
+      .locator("button")
+      .last()
+      .evaluate((el) => el.getBoundingClientRect().right);
+    expect(lastTabRight).toBeLessThanOrEqual(320);
+
+    // A selected tab past the edge is scrolled into the rebuilt bar.
+    await tabs.getByRole("button", { name: "Goldback" }).click();
+    await page.evaluate(() => window.renderVendorPrices());
+    const pressed = tabs.locator('button[aria-pressed="true"]');
+    await expect(pressed).toHaveText("Goldback");
+    await expect
+      .poll(() =>
+        pressed.evaluate((el) => {
+          const r = el.getBoundingClientRect();
+          const bar = el.parentElement.getBoundingClientRect();
+          return r.left >= bar.left - 1 && r.right <= bar.right + 1;
+        })
+      )
+      .toBe(true);
+    await tabs.getByRole("button", { name: "All" }).click();
+    await page.setViewportSize({ width: 390, height: 844 });
+
+    // The detail modal's vendor table fits: Stock sits under the dealer name.
+    const opener = longCard.locator(".vp-coin-link");
+    await opener.click();
+    const modal = page.locator("#marketDetailModal");
+    await expect(page.getByRole("dialog", { name: LONG_NAME })).toBeVisible();
+    const vendors = modal.locator(".market-detail-vendors");
+    await expect(vendors.locator(".market-stock-sub").first()).toBeVisible();
+    await expect(vendors.locator(".market-detail-stock-col").first()).toBeHidden();
+    expect(await vendors.evaluate((t) => t.scrollWidth <= t.parentElement.clientWidth)).toBe(true);
+    await expect
+      .poll(() => readPhoneFit(page, ".market-detail-modal"))
+      .toEqual({ minFont: expect.any(Number), smallTargets: [], clippedNames: [] });
+    expect((await readPhoneFit(page, ".market-detail-modal")).minFont).toBeGreaterThanOrEqual(11);
+
+    // Closing returns focus to the card that opened the modal.
+    await page.keyboard.press("Escape");
+    await expect(modal).toBeHidden();
+    await expect(opener).toBeFocused();
+
+    // A card opener hidden by a resize past 480px hands focus to the matrix button.
+    await opener.click();
+    await expect(modal).toBeVisible();
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.keyboard.press("Escape");
+    await expect(modal).toBeHidden();
+    await expect(
+      section.locator(".vendor-prices-table .vp-coin-link", { hasText: LONG_NAME })
+    ).toBeFocused();
+
+    // On a desktop the matrix shows, and a long name wraps instead of ending in an ellipsis.
+    await expect(section.locator(".vendor-prices-table")).toBeVisible();
+    await expect(cards).toBeHidden();
+    await expect
+      .poll(async () => (await readPhoneFit(page, "#vendorPricesSectionEl")).clippedNames)
+      .toEqual([]);
+
+    // The empty state draws no tab bar, so it releases the last bar's observer too.
+    await page.evaluate(() => {
+      window._v2RetailData = null;
+      localStorage.removeItem("v2RetailPrices");
+      localStorage.removeItem("retailPrices");
+      window.renderVendorPrices();
+    });
+    await expect(section).toContainText("Retail data unavailable");
+    expect(await page.evaluate(() => window.__vpTabObservers.size)).toBe(0);
   });
 
   test("Market tab states data age, refresh failures and hidden dealers in words", async ({

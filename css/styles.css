@@ -17230,6 +17230,28 @@ input[type="number"] {
   color: var(--text-secondary);
 }
 
+/* Market metal tabs scroll inside their bar. The fade marks tabs past the right edge;
+   _watchVendorTabOverflow sets .vp-tabs-more. */
+.vendor-prices-section .vendor-prices-tabs {
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.vendor-prices-section .vendor-prices-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.vendor-prices-section .vendor-prices-tabs.vp-tabs-more {
+  mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
+}
+
+.vendor-prices-section .vendor-prices-tabs button {
+  flex: 0 0 auto;
+  min-height: 44px;
+  padding: 0 14px;
+  font-size: max(12px, var(--font-size-sm));
+}
+
 .vendor-prices-tabs button.active {
   color: var(--text-primary);
   border-bottom: 2px solid var(--primary);
@@ -17275,6 +17297,16 @@ input[type="number"] {
   text-align: center;
   border-bottom: 1px solid var(--border);
   vertical-align: top;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+/* The global td rule clips at 20ch with an ellipsis; values in these tables wrap instead. */
+.vendor-prices-table :is(td, th) {
+  max-width: none;
+  overflow: visible;
+  text-overflow: clip;
+  border-right: 0;
 }
 
 .vendor-prices-table td:first-child {
@@ -17284,6 +17316,11 @@ input[type="number"] {
   left: 0;
   background: var(--bg-card);
   z-index: 1;
+  white-space: normal;
+}
+
+.vendor-prices-section .vendor-prices-table :is(td, th):first-child {
+  min-width: 9rem;
 }
 
 .vendor-prices-table .vp-muted {
@@ -17397,6 +17434,122 @@ button.vp-price:hover {
   overflow-x: auto;
 }
 
+/* ── Phone Cards ── */
+/* Below 480px each item is a card with its dealers in a three-column grid. */
+.vp-cards {
+  display: none;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.vp-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-on-frame);
+  padding: 0.6rem 0.6rem 0.5rem;
+}
+
+.vp-card .vp-coin-link {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.3;
+  text-align: left;
+}
+
+.vp-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 0.75rem;
+  margin: -0.35rem 0 0.45rem;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.vp-card-meta b {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.vp-card-dealers {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.vp-card-dealer {
+  position: relative;
+  min-width: 0;
+  min-height: 44px;
+  padding: 4px 6px;
+  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+.vp-card-dealer.vp-best {
+  border-color: color-mix(in srgb, var(--success) 45%, transparent);
+}
+
+.vp-card-vendor {
+  display: block;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.vp-card-vendor-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 4px;
+  border-radius: 50%;
+  color: var(--border);
+  background: currentColor;
+  vertical-align: 1px;
+}
+
+.vp-card-dealer .vp-price {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+/* The whole tile, borders included, is the dealer button's target. */
+.vp-card-dealer button.vp-price::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+}
+
+.vp-card-dealer .vp-premium {
+  display: inline;
+  margin: 0 0 0 4px;
+  font-size: 11px;
+}
+
+@media (max-width: 480px) {
+  .vendor-prices-section .vp-table-area .vp-scroll {
+    display: none;
+  }
+
+  .vendor-prices-section .vp-cards {
+    display: flex;
+  }
+}
+
 /* ── Market Block Status Lines ── */
 .vp-message {
   padding: 24px;
@@ -17414,20 +17567,25 @@ button.vp-price:hover {
 }
 
 /* The only recovery action in an empty state: a full 44px touch target. */
-.vp-message-action {
+.market-block-btn.vp-message-action {
   min-height: 44px;
   padding: 0 16px;
   font-size: 13px;
 }
 
 .market-disclaimer {
-  padding: 8px 0 0;
-  font-size: 10px;
+  padding: 12px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
   color: var(--text-muted);
   text-align: center;
 }
 
+/* A 20px line plus 12px above and below gives the link a 44px target. */
 .market-disclaimer a {
+  display: inline-block;
+  padding-block: 12px;
+  line-height: 20px;
   color: var(--primary-text);
 }
 
@@ -17503,14 +17661,24 @@ button.vp-price:hover {
 }
 
 .market-block-btn {
+  position: relative;
+  min-width: 36px;
+  min-height: 36px;
   background: var(--bg-secondary);
   border: 1px solid var(--border);
   color: var(--text-secondary);
-  padding: 3px 10px;
-  border-radius: 6px;
-  font-size: 11px;
+  padding: 0 12px;
+  border-radius: 8px;
+  font-size: 13px;
   cursor: pointer;
   font-weight: 600;
+}
+
+/* The ::after box starts at the 34px padding box, so 5px each way reaches 44px. */
+.market-block-btn::after {
+  content: "";
+  position: absolute;
+  inset: -5px;
 }
 
 .ticker-item--link {
@@ -17640,16 +17808,21 @@ button.vp-price:hover {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 24px;
-  min-height: 24px;
-  padding: 2px 6px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 10px;
   border: 0;
   background: none;
   color: var(--primary-text);
   font: inherit;
   font-weight: 600;
-  font-size: 12px;
+  font-size: 13px;
   cursor: pointer;
+}
+
+/* Below 560px the stock word moves under the dealer name. */
+.market-stock-sub {
+  display: none;
 }
 
 .market-detail-buy:hover {
@@ -17761,7 +17934,8 @@ button.vp-price:hover {
 }
 
 /* Sepia muted ink falls below 4.5:1 on the striped --bg-secondary rows and the panel surface. */
-[data-theme="sepia"] :is(.vendor-prices-table, .market-block-header, .vp-message) {
+[data-theme="sepia"]
+  :is(.vendor-prices-table, .market-block-header, .vp-message, .vp-cards, .market-disclaimer) {
   --text-muted: var(--text-secondary);
 }
 
@@ -17785,9 +17959,78 @@ button.vp-price:hover {
   .ticker-item {
     font-size: var(--font-size-xs);
   }
+
+  /* Text floors: names and prices 12px, labels 11px. */
+  .vendor-prices-section :is(.vp-coin-link, .vp-price),
+  .market-detail-modal :is(.vp-price, .market-price),
+  .vendor-prices-table td {
+    font-size: max(12px, var(--font-size-sm));
+  }
+
+  .vendor-prices-section :is(.vp-premium, .vp-oos, .vp-carried-mark, .vp-carried-date),
+  .market-detail-modal :is(.vp-premium, .vp-oos, .vp-carried-mark, .vp-carried-date),
+  .market-detail-stat-label,
+  .vendor-prices-table th,
+  .market-detail-periods .market-detail-period-btn {
+    font-size: max(11px, var(--font-size-xs));
+  }
+
+  /* Each matrix cell is the 44px target of its price or name button. */
+  .vendor-prices-section .vendor-prices-table td {
+    height: 44px;
+  }
+
+  .vendor-prices-section .vendor-prices-table td:not(:first-child) {
+    position: relative;
+  }
+
+  .vendor-prices-section .vp-coin-link {
+    display: block;
+    width: 100%;
+  }
+
+  .vendor-prices-section .vendor-prices-table td:first-child .vp-coin-link {
+    position: relative;
+    min-height: 32px;
+  }
+
+  .vendor-prices-section .vendor-prices-table :is(button.vp-price, .vp-coin-link)::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+  }
+
+  .vendor-prices-section .vendor-prices-table td:first-child .vp-coin-link::after {
+    inset: -6px -8px;
+  }
 }
 
 @media (max-width: 560px) {
+  .market-detail-modal .vendor-prices-table.market-detail-vendors {
+    display: table;
+    width: 100%;
+  }
+
+  .market-detail-vendors :is(td, th) {
+    padding: 6px 4px;
+    vertical-align: middle;
+  }
+
+  .market-detail-vendors td:last-child {
+    padding: 0;
+    text-align: right;
+  }
+
+  .market-detail-stock-col {
+    display: none;
+  }
+
+  .market-stock-sub {
+    display: block;
+    font-size: 11px;
+    font-weight: 500;
+  }
+
   .market-detail-summary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -17800,6 +18043,22 @@ button.vp-price:hover {
 
   .market-detail-periods .market-detail-period-btn {
     width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .market-detail-overlay {
+    padding: 0.5rem;
+  }
+
+  .market-detail-modal {
+    padding: 1rem;
+    max-height: 92vh;
+  }
+
+  .market-detail-close {
+    top: 8px;
+    right: 8px;
   }
 }
 
