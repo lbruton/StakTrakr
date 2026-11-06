@@ -2080,7 +2080,8 @@ const _resolveVendorDetailMap = async (metalSlugs, coins) => {
   for (const { slug } of metalSlugs) {
     const cachedDetail = _getCachedRetailDetail(slug, coins);
     if (cachedDetail) {
-      if (!cachedDetail.windowTime) {
+      // A stored null stays null: a newer snapshot's window would mislabel the cached prices.
+      if (!("windowTime" in cachedDetail)) {
         cachedDetail.windowTime = _detailWindowTime(cachedDetail, snapshotWindow);
       }
       detailMap[slug] = cachedDetail;

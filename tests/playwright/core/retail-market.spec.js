@@ -2008,6 +2008,25 @@ test.describe("core/retail-market", () => {
     const freshName = await freshCell.locator(".vp-price").getAttribute("aria-label");
     expect(freshName).toContain(`. ${freshSeen}`);
     expect(freshName).toMatch(/\. Opens the dealer page in a new window\.$/);
+    // Prices cached with no window keep none: the snapshot's GENERATED_AT window must not label them.
+    const keptWindow = await page.evaluate((slug) => {
+      const kept = _cachedSlugDetail[slug].windowTime;
+      _cachedSlugDetail[slug].windowTime = null;
+      window.renderVendorPrices();
+      return kept;
+    }, SLUG_SILVER_A);
+    await expect(freshCell).not.toHaveAttribute("title", /./);
+    expect(await freshCell.locator(".vp-price").getAttribute("aria-label")).not.toContain(
+      "Last seen"
+    );
+    await page.evaluate(
+      ([slug, kept]) => {
+        _cachedSlugDetail[slug].windowTime = kept;
+        window.renderVendorPrices();
+      },
+      [SLUG_SILVER_A, keptWindow]
+    );
+    await expect(freshCell).toHaveAttribute("title", freshSeen);
     const carriedTile = card.locator(".vp-card-dealer.vp-carried");
     await expect(carriedTile).toHaveAttribute("title", lastSeen);
     await expect(carriedTile).not.toContainText("Carried");
