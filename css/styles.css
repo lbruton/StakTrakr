@@ -11658,6 +11658,7 @@ th {
    joins these selector lists instead of carrying its own control sizing. */
 #inventoryForm input,
 #inventoryForm select,
+#inventoryForm textarea,
 .collections-builder-form input:not([type="radio"]):not([type="file"]),
 .collections-builder-form select,
 .collections-builder-form textarea {
@@ -11677,6 +11678,7 @@ th {
 }
 
 /* A textarea keeps the shared surface but grows with its rows. */
+#inventoryForm textarea,
 .collections-builder-form textarea {
   height: auto;
   min-height: 4.5rem;
@@ -11693,6 +11695,7 @@ th {
 
 #inventoryForm input:focus,
 #inventoryForm select:focus,
+#inventoryForm textarea:focus,
 .collections-builder-form input:not([type="radio"]):not([type="file"]):focus,
 .collections-builder-form select:focus,
 .collections-builder-form textarea:focus {
