@@ -236,13 +236,58 @@ const _formatMarketTimestamp = (iso) => {
 };
 
 /**
- * Tooltip text for a carried price, from the feed's carried_from timestamp.
- * @param {string} carriedFrom - ISO timestamp of the last scrape that saw the price.
+ * Tooltip text for a dealer price, from the time a scrape last saw it.
+ * @param {string} seenAt - ISO timestamp: carried_from for a carried price, else the price window.
  * @returns {(string|null)} "Last seen YYYY-MM-DD, hh:mm" text, or null.
  */
-const _carriedTitle = (carriedFrom) => {
-  const local = _formatMarketTimestamp(carriedFrom);
+const _lastSeenTitle = (seenAt) => {
+  const local = _formatMarketTimestamp(seenAt);
   return local ? `Last seen ${local}` : null;
+};
+
+/**
+ * Returns the value when it parses as a timestamp.
+ * @param {*} value - Candidate ISO timestamp.
+ * @returns {(string|null)} The value, or null when missing or unparseable.
+ */
+const _validTimestamp = (value) => {
+  return value && !Number.isNaN(new Date(value).getTime()) ? value : null;
+};
+
+/**
+ * The price window of the retail snapshot: the first source, in memory then storage,
+ * that names a valid window_start. A source without one does not hide the next.
+ * @returns {(string|null)} ISO timestamp, or null when no snapshot names one.
+ */
+const _snapshotWindowTime = () => {
+  const sources = [
+    () => (typeof window._v2RetailData !== "undefined" ? window._v2RetailData : null),
+    () => loadDataSync("v2RetailPrices", null),
+    () => loadDataSync("retailPrices", null),
+  ];
+  for (const read of sources) {
+    const snapshot = read();
+    const windowStart = _validTimestamp(snapshot && snapshot.window_start);
+    if (windowStart) return windowStart;
+  }
+  return null;
+};
+
+/**
+ * The price window a coin's fresh prices come from: the detail's own window,
+ * else the fallback.
+ * @param {Object} detail - Retail detail for one coin.
+ * @param {(string|null)} fallback - Window to use when the detail names none.
+ * @returns {(string|null)} ISO timestamp, or null when no source names one.
+ */
+const _detailWindowTime = (detail, fallback) => {
+  // v2 feeds name the price window `t`; window_start is the v1 name.
+  return (
+    _validTimestamp(detail && detail.t) ||
+    _validTimestamp(detail && detail.window_start) ||
+    fallback ||
+    null
+  );
 };
 
 /**
@@ -1671,7 +1716,7 @@ const _buildModalVendorRow = (entry, vendorMeta, slug, metalCode, weightOz, spot
     stockState = "carried";
     stockWord = "Carried";
     stockSubWord = stockWord;
-    carriedTitle = _carriedTitle(entry.carried_from);
+    carriedTitle = _lastSeenTitle(entry.carried_from);
     if (carriedTitle) {
       tdStock.title = carriedTitle;
       // Touch never shows a title, so the phone line names the day it was last seen.
@@ -2029,7 +2074,8 @@ const _collectVendorTableRows = (metalCode, coins, coinMetaMap) => {
 /**
  * Resolve a normalized retail-detail map for the given rows, using cached detail
  * where available and fetching the rest in parallel (failures resolve to null).
- * Also refreshes the in-memory _cachedSlugDetail entries.
+ * Also refreshes the in-memory _cachedSlugDetail entries. Each detail keeps the
+ * windowTime of its prices from when it was first cached, so a tooltip names their time.
  * @param {Array<{slug:string}>} metalSlugs - Ordered rows (slugs read).
  * @param {Object} coins - Retail coins summary map (cache fallback).
  * @returns {Promise<Object>} Map of slug to normalized detail.
@@ -2037,9 +2083,14 @@ const _collectVendorTableRows = (metalCode, coins, coinMetaMap) => {
 const _resolveVendorDetailMap = async (metalSlugs, coins) => {
   const detailMap = {};
   const missingSlugs = [];
+  const snapshotWindow = _snapshotWindowTime();
   for (const { slug } of metalSlugs) {
     const cachedDetail = _getCachedRetailDetail(slug, coins);
     if (cachedDetail) {
+      // A stored null stays null: a newer snapshot's window would mislabel the cached prices.
+      if (!("windowTime" in cachedDetail)) {
+        cachedDetail.windowTime = _detailWindowTime(cachedDetail, snapshotWindow);
+      }
       detailMap[slug] = cachedDetail;
       _cachedSlugDetail[slug] = cachedDetail;
     } else {
@@ -2062,6 +2113,7 @@ const _resolveVendorDetailMap = async (metalSlugs, coins) => {
       if (r.status === "fulfilled" && r.value && r.value.data) {
         const normalized = _getCachedRetailDetail(r.value.slug, { [r.value.slug]: r.value.data });
         if (normalized) {
+          normalized.windowTime = _detailWindowTime(normalized, snapshotWindow);
           detailMap[r.value.slug] = normalized;
           _cachedSlugDetail[r.value.slug] = normalized;
         }
@@ -2150,7 +2202,7 @@ const _computeInStockPrices = (vData, slug) => {
 /**
  * Build one vendor price cell for the matrix: a muted dash for disabled vendors
  * or missing data, an OOS marker when out of stock, otherwise the price (with a
- * best-price highlight, carried label and date, click-to-vendor link, and premium badge).
+ * best-price highlight, a "Last seen" tooltip, click-to-vendor link, and premium badge).
  * @param {string} slug - Retail coin slug.
  * @param {string} vid - Vendor id.
  * @param {Object} vData - Per-vendor data map for the coin.
@@ -2161,6 +2213,7 @@ const _computeInStockPrices = (vData, slug) => {
  * @param {Object} vendorMeta - Vendor-meta map (for the URL fallback).
  * @param {string} itemName - Display name of the coin (price button name).
  * @param {Object} [rank] - Row rank from _rankVendorData; computed from vData when absent.
+ * @param {(string|null)} [windowTime] - ISO price window that a fresh price was seen in.
  * @returns {HTMLTableCellElement} The price cell.
  */
 const _buildVendorPriceCell = (
@@ -2173,7 +2226,8 @@ const _buildVendorPriceCell = (
   isoCode,
   vendorMeta,
   itemName,
-  rank = _rankVendorData(vData, slug)
+  rank = _rankVendorData(vData, slug),
+  windowTime = null
 ) => {
   // STAK-515: Skip disabled vendor cells
   if (typeof _isMarketItemEnabled === "function" && !_isMarketItemEnabled(slug, vid)) {
@@ -2204,6 +2258,8 @@ const _buildVendorPriceCell = (
   }
 
   if (vInfo.price === lowestPrice && !vInfo.carried) td.classList.add("vp-best");
+  // A carried price was seen before this window, so only its carried_from names the time.
+  const lastSeen = _lastSeenTitle(vInfo.carried ? vInfo.carried_from : windowTime);
 
   let premium = null;
   if (spotPrice && spotPrice > 0 && weightOz > 0) {
@@ -2224,9 +2280,12 @@ const _buildVendorPriceCell = (
     const premiumPart = premiumText
       ? `, premium ${premiumText}${_medianDistancePhrase(rank.byId[vid])}`
       : "";
+    // Title tooltips never show on touch or keyboard focus, so the name carries the time too.
+    // An en-CA time can end in "a.m.", which already closes the sentence.
+    const seenPart = lastSeen ? ` ${lastSeen}${lastSeen.endsWith(".") ? "" : "."}` : "";
     priceEl.setAttribute(
       "aria-label",
-      `${itemName} at ${_shortVendor(vid)}, ${formatCurrency(vInfo.price)}${premiumPart}. Opens the dealer page in a new window.`
+      `${itemName} at ${_shortVendor(vid)}, ${formatCurrency(vInfo.price)}${premiumPart}.${seenPart} Opens the dealer page in a new window.`
     );
     priceEl.addEventListener("click", () => {
       _openVendorPopup(url, vid);
@@ -2241,21 +2300,14 @@ const _buildVendorPriceCell = (
     td.appendChild(premBadge);
   }
 
-  // A carried price is the last one seen, so a label and its local date name it.
-  if (vInfo.carried && vInfo.price != null) {
-    const mark = document.createElement("span");
-    mark.className = "vp-carried-mark";
-    mark.textContent = "Carried";
-    td.appendChild(mark);
-    const title = _carriedTitle(vInfo.carried_from);
-    if (title) {
-      td.title = title;
-      // Title tooltips never show on touch or keyboard focus, so the date stays visible.
-      const date = document.createElement("span");
-      date.className = "vp-carried-date";
-      // Same formatter as the tooltip, so both name one calendar day in one timezone.
-      date.textContent = _formatMarketTimestamp(vInfo.carried_from).split(",")[0];
-      td.appendChild(date);
+  if (lastSeen) {
+    td.title = lastSeen;
+    // A plain price has no name to carry the time, so hidden text reads it after the premium.
+    if (!isLink) {
+      const seenText = document.createElement("span");
+      seenText.className = "sr-only";
+      seenText.textContent = `, ${lastSeen}`;
+      td.appendChild(seenText);
     }
   }
 
@@ -2314,6 +2366,7 @@ const _vendorRowContext = (rowInfo, detailMap) => {
     displayName: meta.name || slug,
     weightOz: detail.weight_oz || meta.weight || 0,
     spotPrice: _getSpotPrice(isoCode),
+    windowTime: detail.windowTime || null,
     medianText: medianVal != null ? formatCurrency(medianVal) : "—",
     // The summary may lack high and low, so the spread comes from the in-stock prices.
     spreadText:
@@ -2341,7 +2394,8 @@ const _buildRowPriceCell = (row, vid, vendorMeta) =>
     row.isoCode,
     vendorMeta,
     row.displayName,
-    row.rank
+    row.rank,
+    row.windowTime
   );
 
 /**
@@ -2638,7 +2692,38 @@ const _runMarketRefresh = async () => {
 };
 
 /**
- * Builds the Market block's header row: timestamp, freshness dot, Refresh, gear.
+ * Builds the gear icon the app header's Settings button draws, for the Configure button.
+ * @returns {SVGSVGElement} A decorative 16px icon that inherits the text colour.
+ */
+const _buildGearIcon = () => {
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(ns, "svg");
+  svg.setAttribute("class", "market-block-icon");
+  svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("focusable", "false");
+  svg.setAttribute("width", "16");
+  svg.setAttribute("height", "16");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke-width", "2");
+  svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("stroke-linejoin", "round");
+  const hub = document.createElementNS(ns, "circle");
+  hub.setAttribute("cx", "12");
+  hub.setAttribute("cy", "12");
+  hub.setAttribute("r", "3");
+  const teeth = document.createElementNS(ns, "path");
+  teeth.setAttribute(
+    "d",
+    "M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"
+  );
+  svg.append(hub, teeth);
+  return svg;
+};
+
+/**
+ * Builds the Market block's header row: timestamp, freshness dot, Refresh, Configure.
  *
  * Extracted from renderVendorPrices (STRK-290) so it can render in BOTH the
  * populated and the empty-data branches. Previously the empty branch returned
@@ -2711,9 +2796,13 @@ const _buildMarketBlockHeader = () => {
   settingsBtn.id = "marketSettingsBtn";
   settingsBtn.type = "button";
   settingsBtn.title = "Market settings";
-  settingsBtn.setAttribute("aria-label", "Market settings");
-  settingsBtn.className = "market-block-btn";
-  settingsBtn.textContent = "\u2699";
+  // The name starts with the visible word, so voice control users can say "Configure".
+  settingsBtn.setAttribute("aria-label", "Configure Market");
+  settingsBtn.className = "market-block-btn market-block-btn--labelled";
+  const settingsLabel = document.createElement("span");
+  settingsLabel.className = "market-block-label";
+  settingsLabel.textContent = "Configure";
+  settingsBtn.append(_buildGearIcon(), settingsLabel);
   settingsBtn.addEventListener("click", () => {
     if (typeof showSettingsModal === "function") showSettingsModal("market");
   });

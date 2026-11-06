@@ -224,9 +224,9 @@ The market data module (`js/market-data.js`) uses eight DOM elements, all looked
 | `marketDetailModal`     | `<div>`     | Full-screen overlay for per-coin detail charts                                                                                                                                                                                  |
 | `marketDetailContent`   | `<div>`     | Content area inside the market detail modal                                                                                                                                                                                     |
 | `marketDetailCloseBtn`  | `<button>`  | Close button for the market detail modal                                                                                                                                                                                        |
-| `marketSettingsBtn`     | `<button>`  | Gear icon in the Market block (vendor prices section): opens the Market Settings panel. Added alongside the header Market button behavior change (header button now triggers `syncRetailPrices()` instead of opening Settings). |
+| `marketSettingsBtn`     | `<button>`  | Configure button (gear icon and the word "Configure"), built at render time by `_buildMarketBlockHeader()` in `js/market-data.js`, not in `index.html`. Opens Settings on the Market panel. Accessible name "Configure Market". |
 
-These elements are defined in `index.html` and are part of the `layoutSectionConfig` system. The `bestPriceTicker` section moves `bestPriceTickerFrame`, not the ribbon. The ticker is inserted in the main page flow; the modal is a top-level overlay with `hidden` attribute toggled by JS.
+The other elements are defined in `index.html` and are part of the `layoutSectionConfig` system. The `bestPriceTicker` section moves `bestPriceTickerFrame`, not the ribbon. The ticker is inserted in the main page flow; the modal is a top-level overlay with `hidden` attribute toggled by JS.
 
 The detail modal keeps this focus contract:
 

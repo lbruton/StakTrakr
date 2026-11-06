@@ -1036,6 +1036,10 @@ const _processV2SlugResult = (r, newPrices) => {
       median_price: latest.median ?? null,
       lowest_price: latest.low ?? null,
       highest_price: latest.high ?? null,
+      // The item's own price window; the snapshot's window_start is the manifest time.
+      // Both names are kept, so _detailWindowTime can skip an empty or invalid t.
+      t: latest.t ?? null,
+      window_start: latest.window_start ?? null,
       vendors: _buildV2VendorMap(latest),
     };
     _applyV2SlugAvailability(slug, latest);

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.109] - 2026-11-06
+
+### Changed — STRK-530: Even Market rows and a Configure button
+
+- **Carried prices**: A carried price cell shows only the price and its premium. The "Carried" label and the date under the price are gone, so a carried cell is the same height as the other cells in its row (STRK-530).
+- **Last seen**: Every in-stock price has a "Last seen" tooltip with the date and time in the Settings timezone. A fresh price gives the time of its price window, and a carried price the last scrape that saw it. The price button's screen-reader name carries the same time (STRK-530).
+- **Configure button**: The Market header settings button shows a gear icon and the word "Configure", at the height of the Refresh button. It still opens Settings on the Market panel (STRK-530).
+
+---
+
 ## [3.36.108] - 2026-11-05
 
 ### Changed — STRK-517: Premium colour compares dealers

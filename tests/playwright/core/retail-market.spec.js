@@ -603,6 +603,26 @@ function latestForSlug(slug) {
 }
 
 /**
+ * The "Last seen" tooltip text the browser gives an ISO time, in its own timezone.
+ * @param {import('@playwright/test').Page} page - Playwright page.
+ * @param {string} iso - ISO timestamp.
+ * @returns {Promise<string>} "Last seen YYYY-MM-DD, hh:mm" text.
+ */
+function lastSeenText(page, iso) {
+  return page.evaluate(
+    (when) =>
+      `Last seen ${new Date(when).toLocaleString("en-CA", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      })}`,
+    iso
+  );
+}
+
+/**
  * Returns a v2-API route handler that serves the standard fixture set.
  * @param {{ failGoldback?: boolean, goldbackG1Rate?: number }} opts
  *   failGoldback  – return 503 for goldback/latest.json (default: false)
@@ -1907,7 +1927,9 @@ test.describe("core/retail-market", () => {
         carried_from: CARRIED_FROM,
       },
     };
-    const row = { median_price: 38, lowest_price: 36.5, highest_price: 41, vendors };
+    // The item's own price window differs from the snapshot's GENERATED_AT, so a fresh tooltip must use it.
+    const DETAIL_T = "2026-05-25T15:45:00Z";
+    const row = { t: DETAIL_T, median_price: 38, lowest_price: 36.5, highest_price: 41, vendors };
     await setupRetailFixture(page, {
       retailPriceRows: { [SLUG_SILVER_A]: row },
       retailFeeds: {
@@ -1974,11 +1996,50 @@ test.describe("core/retail-market", () => {
       "Percentages show premium over spot (or G1 rate for Goldbacks); their colour compares dealers."
     );
     await expect(matrixRow.locator(".vp-oos")).toHaveText("OOS");
+    await expect(matrixRow.locator(".vp-oos")).not.toHaveAttribute("title", /./);
     const carried = matrixRow.locator(".vp-carried");
-    await expect(carried).toContainText("$38.00");
-    await expect(carried.locator(".vp-carried-mark")).toHaveText("Carried");
-    await expect(carried.locator(".vp-carried-date")).toHaveText(localDate);
+    // A carried price shows only its price and premium; the tooltip names its age.
+    await expect(carried.locator(".vp-price")).toHaveText("$38.00");
+    await expect(carried).not.toContainText("Carried");
+    await expect(carried.locator(":scope > *")).toHaveCount(2);
     await expect(carried).toHaveAttribute("title", lastSeen);
+    await expect(
+      carried.getByRole("button", {
+        name: new RegExp(
+          `\\$38\\.00, premium .*\\. Last seen ${localDate}, \\d{2}:\\d{2}(?: [ap]\\.m\\.|\\.) Opens`
+        ),
+      })
+    ).toHaveCount(1);
+    // A fresh price is last seen at its item's price window, not the snapshot's.
+    const freshSeen = await lastSeenText(page, DETAIL_T);
+    const freshCell = matrixRow.locator("td:has(.vp-premium.low)");
+    await expect(freshCell).toHaveAttribute("title", freshSeen);
+    await expect(freshCell.locator(":scope > *")).toHaveCount(2);
+    const freshName = await freshCell.locator(".vp-price").getAttribute("aria-label");
+    expect(freshName).toContain(`. ${freshSeen}`);
+    expect(freshName).toMatch(/\. Opens the dealer page in a new window\.$/);
+    // Prices cached with no window keep none: the snapshot's GENERATED_AT window must not label them.
+    const keptWindow = await page.evaluate((slug) => {
+      const kept = _cachedSlugDetail[slug].windowTime;
+      _cachedSlugDetail[slug].windowTime = null;
+      window.renderVendorPrices();
+      return kept;
+    }, SLUG_SILVER_A);
+    await expect(freshCell).not.toHaveAttribute("title", /./);
+    expect(await freshCell.locator(".vp-price").getAttribute("aria-label")).not.toContain(
+      "Last seen"
+    );
+    await page.evaluate(
+      ([slug, kept]) => {
+        _cachedSlugDetail[slug].windowTime = kept;
+        window.renderVendorPrices();
+      },
+      [SLUG_SILVER_A, keptWindow]
+    );
+    await expect(freshCell).toHaveAttribute("title", freshSeen);
+    const carriedTile = card.locator(".vp-card-dealer.vp-carried");
+    await expect(carriedTile).toHaveAttribute("title", lastSeen);
+    await expect(carriedTile).not.toContainText("Carried");
 
     // 18:00 UTC is the next calendar day in Kiritimati, so the cell and tooltip must agree.
     const zoned = await page.evaluate((iso) => {
@@ -1991,13 +2052,12 @@ test.describe("core/retail-market", () => {
       return new Date(iso).toLocaleDateString("en-CA", { timeZone: zone });
     }, CARRIED_FROM);
     expect(zoned).not.toBe(localDate);
-    await expect(carried.locator(".vp-carried-date")).toHaveText(zoned);
     await expect(carried).toHaveAttribute("title", new RegExp(`^Last seen ${zoned}, `));
     await page.evaluate(() => {
       localStorage.removeItem(TIMEZONE_KEY);
       window.renderVendorPrices();
     });
-    await expect(carried.locator(".vp-carried-date")).toHaveText(localDate);
+    await expect(carried).toHaveAttribute("title", lastSeen);
 
     await page.evaluate((slug) => window.openMarketDetailModal(slug), SLUG_SILVER_A);
     await expect(page.locator("#marketDetailModal")).toBeVisible();
@@ -2030,8 +2090,6 @@ test.describe("core/retail-market", () => {
       "premium tier": "#vendorPricesContainer .vp-premium",
       "out of stock": "#vendorPricesContainer .vp-oos span",
       "carried price": "#vendorPricesContainer .vp-carried .vp-price",
-      "carried mark": "#vendorPricesContainer .vp-carried-mark",
-      "carried date": "#vendorPricesContainer .vp-carried-date",
       "muted dash": "#vendorPricesContainer .vp-muted",
       "disclaimer link": "#vendorPricesContainer .market-disclaimer a",
       "modal premium": "#marketDetailContent .vp-premium",
@@ -2050,6 +2108,42 @@ test.describe("core/retail-market", () => {
     }
   });
 
+  test("a synced price keeps its item's price window for the Last seen tooltip", async ({
+    page,
+  }) => {
+    // The item's window differs from the manifest's GENERATED_AT, which the snapshot keeps.
+    const ITEM_T = "2026-05-25T15:45:00Z";
+    // An empty t must not hide the item's valid v1 window.
+    const ITEM_W = "2026-05-25T14:30:00Z";
+    await setupRetailFixture(page, {
+      retailFeeds: {
+        [SLUG_SILVER_A]: { latest: { ...latestForSlug(SLUG_SILVER_A), t: ITEM_T } },
+        [SLUG_SILVER_M]: {
+          latest: { ...latestForSlug(SLUG_SILVER_M), t: "", window_start: ITEM_W },
+        },
+      },
+    });
+    const synced = await page.evaluate(async (slug) => {
+      const result = await syncRetailPrices({ ui: false });
+      const stored = loadDataSync("v2RetailPrices", null);
+      // A fresh cache, so the render reads the stored summary the sync wrote.
+      _cachedSlugDetail = {};
+      window.renderVendorPrices();
+      return { ok: result.ok, t: stored.prices[slug].t, snapshot: stored.window_start };
+    }, SLUG_SILVER_A);
+    expect(synced).toEqual({ ok: true, t: ITEM_T, snapshot: GENERATED_AT });
+    for (const [name, iso] of [
+      ["Alpha Silver Bar", ITEM_T],
+      ["Middle Silver Coin", ITEM_W],
+    ]) {
+      const priceCell = page
+        .locator(".vendor-prices-table tbody tr")
+        .filter({ has: page.getByText(name, { exact: true }) })
+        .locator("td:has(.vp-price)");
+      await expect(priceCell.first(), name).toHaveAttribute("title", await lastSeenText(page, iso));
+    }
+  });
+
   test("Market tab works by keyboard and names its controls for screen readers", async ({
     page,
   }) => {
@@ -2057,7 +2151,26 @@ test.describe("core/retail-market", () => {
     const container = page.locator("#vendorPricesContainer");
 
     await expect(container.getByRole("heading", { name: "Market prices" })).toBeAttached();
-    await expect(page.locator("#marketSettingsBtn")).toHaveAttribute("type", "button");
+    const settingsBtn = page.locator("#marketSettingsBtn");
+    await expect(settingsBtn).toHaveAttribute("type", "button");
+    // The visible word starts the accessible name, so voice control can say "Configure".
+    await expect(settingsBtn.locator(".market-block-label")).toHaveText("Configure");
+    await expect(settingsBtn).toHaveAccessibleName("Configure Market");
+    await expect(settingsBtn.locator(".market-block-icon")).toHaveAttribute("aria-hidden", "true");
+    const settingsBox = await settingsBtn.boundingBox();
+    const refreshBox = await page.locator("#marketRefreshBtn").boundingBox();
+    expect(Math.round(settingsBox.height)).toBe(Math.round(refreshBox.height));
+    // The 44px ::after target reaches 4px past the 36px border box, so 3px out is inside it.
+    for (const [id, box] of [
+      ["marketSettingsBtn", settingsBox],
+      ["marketRefreshBtn", refreshBox],
+    ]) {
+      const hitId = await page.evaluate(
+        ([x, y]) => document.elementFromPoint(x, y)?.closest("button")?.id || null,
+        [box.x + box.width / 2, box.y + box.height + 3]
+      );
+      expect(hitId, `${id} target below the button`).toBe(id);
+    }
 
     // Metal tabs are a pressed-state toggle group, like the modal period group.
     const metals = container.getByRole("group", { name: "Metal" });
@@ -2092,7 +2205,7 @@ test.describe("core/retail-market", () => {
       .filter({ has: page.getByText("Alpha Silver Bar", { exact: true }) });
     await expect(
       row.getByRole("button", {
-        name: /^Alpha Silver Bar at APMEX, \$[\d,.]+, premium [+-]\d+\.\d%, (\d+\.\d% (above|below) the dealer median|at the dealer median|the only dealer in stock)\. Opens the dealer page in a new window\.$/,
+        name: /^Alpha Silver Bar at APMEX, \$[\d,.]+, premium [+-]\d+\.\d%, (\d+\.\d% (above|below) the dealer median|at the dealer median|the only dealer in stock)\. Last seen \d{4}-\d{2}-\d{2}, \d{2}:\d{2}(?: [ap]\.m\.|\.) Opens the dealer page in a new window\.$/,
       })
     ).toHaveCount(1);
 
@@ -2108,16 +2221,24 @@ test.describe("core/retail-market", () => {
           0,
           "xag",
           { plainvendor: { name: "Plain", url } },
-          "Plain Coin"
+          "Plain Coin",
+          undefined,
+          "2026-05-26T12:00:00.000Z"
         );
         const price = cell.querySelector(".vp-price");
-        return { tag: price.tagName, labelled: price.hasAttribute("aria-label") };
+        const hidden = cell.querySelector(".sr-only");
+        return {
+          tag: price.tagName,
+          labelled: price.hasAttribute("aria-label"),
+          seenHidden: hidden ? /^, Last seen \d{4}-\d{2}-\d{2}, /.test(hidden.textContent) : false,
+        };
       })
     );
+    // A plain price reads its time from hidden text; a button carries it in its name.
     expect(plainPrices).toEqual([
-      { tag: "SPAN", labelled: false },
-      { tag: "SPAN", labelled: false },
-      { tag: "BUTTON", labelled: true },
+      { tag: "SPAN", labelled: false, seenHidden: true },
+      { tag: "SPAN", labelled: false, seenHidden: true },
+      { tag: "BUTTON", labelled: true, seenHidden: false },
     ]);
 
     // Tab from the Silver toggle reaches the item name without a pointer.
