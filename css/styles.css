@@ -932,15 +932,10 @@ label {
   }
 }
 
-/* Responsive scaling */
+/* Phone floor: text stays at 12px or more below 768px, and max() keeps a larger user font size. */
 @media (max-width: 768px) {
-}
-
-@media (max-width: 480px) {
-  html {
-    font-size: var(
-      --font-size-md
-    ); /* Down from 16px default — 12.5% global reduction for 360-412px phones */
+  :root {
+    --font-size-xs: max(12px, 0.6875rem);
   }
 }
 
@@ -2175,6 +2170,13 @@ input[type="submit"] {
   min-height: 2.75rem;
   background: var(--primary-fill);
   color: var(--on-primary);
+}
+
+/* Settings action buttons stay compact on desktop; the phone block gives them 44px. */
+@media (min-width: 769px) {
+  .btn.settings-compact-btn {
+    min-height: 0;
+  }
 }
 
 .btn:hover {
@@ -6557,6 +6559,14 @@ td.totals-col-gain {
   .totals-ledger[data-lead="retail"] .totals-col-melt,
   .totals-ledger[data-lead="melt"] .totals-col-retail {
     display: none;
+  }
+}
+
+/* At 360px and below the narrower side padding keeps name, value and Gain/Loss on one line. */
+@media (max-width: 360px) {
+  #totalsSectionEl,
+  #totalsSectionEl:hover {
+    padding-inline: var(--spacing-sm);
   }
 }
 
@@ -20781,7 +20791,7 @@ button.vp-price:hover {
 
   /* "More" leaves the corner and joins the flow, so a 44px target never covers text. */
   .collections-slot .collections-more {
-    position: static;
+    position: relative;
   }
 
   /* thumb | year | item (+ status or price line) | action */
@@ -21177,6 +21187,10 @@ button.vp-price:hover {
 @media (max-width: 768px) {
   .collections-builder-covers {
     gap: 0.5rem;
+  }
+  /* The caption wraps inside the frame's width, so the 12px text does not widen the pair. */
+  .collections-builder-title-option {
+    width: min-content;
   }
 }
 
@@ -23011,5 +23025,247 @@ button.vp-price:hover {
   #diffReviewModal .dm-field-diff {
     grid-template-columns: 1fr;
     gap: 0.25rem;
+  }
+}
+
+/* =============================================================================
+   MODALS AND COLLECTIONS AT PHONE WIDTH
+   Fields read at 16px and every control has its own 44px hit area. A control's
+   square ::after holds the hit area, so rounded corners do not shrink it. Kept
+   last so it outranks the base control rules of equal specificity.
+   ============================================================================= */
+@media (max-width: 768px) {
+  :is(.modal, .collections-section) :is(input, select, textarea) {
+    font-size: max(16px, 1rem);
+  }
+  :is(.modal, .collections-section)
+    :is(
+      select,
+      input:not([type="checkbox"], [type="radio"], [type="file"], [type="range"], [type="color"])
+    ) {
+    min-height: 44px;
+  }
+
+  :is(.modal, .collections-section)
+    :is(
+      .btn,
+      .view-footer-btn,
+      .view-ebay-btn,
+      .tag-add-btn,
+      .resource-btn,
+      summary.form-section-header
+    ),
+  #inventoryForm :is(.item-modal-actions-left, .item-modal-actions-right) .btn,
+  #inventoryForm #itemModalSubmit.premium,
+  :is(.collections-builder-footer, .collections-builder-actions) .btn {
+    min-height: 44px;
+  }
+
+  /* The segmented toggle clips its children at its rounded corners, which cuts the hit areas. */
+  :is(.modal, .collections-section) .chip-sort-toggle {
+    overflow: visible;
+  }
+  /* Segment borders sit between the buttons, so each segment is wider than its 44px hit area. */
+  :is(.modal, .collections-section) .chip-sort-toggle .chip-sort-btn {
+    min-width: 46px;
+  }
+  /* A round icon button clips its own hit area, so it shows no sheen and does not clip. */
+  :is(.modal, .collections-section) .btn.btn-icon {
+    overflow: visible;
+  }
+  :is(.modal, .collections-section) .btn.btn-icon::before {
+    content: none;
+  }
+
+  /* The close buttons are absolutely positioned already, which also anchors their ::after. */
+  .card-sort-dir-btn,
+  .inline-chip-move,
+  .inline-search-btn,
+  :is(.modal, .collections-section)
+    :is(.chip-sort-btn, .view-chart-range-pill, .view-footer-btn, .tag-add-btn, .btn-icon) {
+    position: relative;
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .modal-close,
+  .view-modal-close,
+  .card-sort-dir-btn {
+    width: 44px;
+    height: 44px;
+  }
+  /* The details modal's close button sits in the top bar's flow, so it needs a positioned box to anchor its ::after. */
+  .dm-topbar .modal-close {
+    position: relative;
+  }
+  /* The title row is as tall as the close button, so the badges row and its eBay button start below it. */
+  #viewItemModal .view-header-title-row {
+    min-height: 44px;
+    padding-right: 48px;
+  }
+  .modal-close::after,
+  .view-modal-close::after,
+  .card-sort-dir-btn::after,
+  .inline-chip-move::after,
+  .inline-search-btn::after,
+  :is(.modal, .collections-section)
+    :is(.chip-sort-btn, .view-chart-range-pill, .view-footer-btn, .tag-add-btn, .btn-icon)::after,
+  .settings-toggle-switch::after,
+  .chip-check-hit::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: max(100%, 44px);
+    height: max(100%, 44px);
+    transform: translate(-50%, -50%);
+  }
+
+  /* Checkbox hit areas: the wrapping label takes the taps around the box. The label's margin
+     keeps it off the collapsed table edge, which does not hit-test. */
+  .settings-toggle-switch,
+  .chip-check-hit {
+    position: relative;
+    display: inline-grid;
+    place-items: center;
+  }
+  .chip-check-hit {
+    min-width: 44px;
+    min-height: 44px;
+    margin: 2px;
+  }
+  .chip-grouping-table .chip-grouping-col-check {
+    width: 44px;
+    padding: 0;
+  }
+  .chip-grouping-table .chip-grouping-col-move {
+    width: auto;
+  }
+  .settings-checkbox-label {
+    min-height: 44px;
+  }
+  .settings-checkbox-label > input[type="checkbox"] {
+    margin-inline: 15px 8px;
+  }
+  .cloud-status-row {
+    min-height: 44px;
+  }
+
+  /* A link inside running text keeps one 44px line box. */
+  .settings-subtext a,
+  #cloudDropboxSignoutLink a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+
+  /* The link icon straddles the frame's corner, so its hit area stays clear of the upload target. */
+  .ife-link {
+    right: -10px;
+    bottom: -10px;
+  }
+  /* A landscape Bar or Note frame reaches Swap, so the link stays inside the frame's right edge. */
+  .ife-frame:is([data-shape="bar"], [data-shape="note"]):not([data-orientation="portrait"])
+    .ife-link {
+    right: 2px;
+  }
+
+  /* The select's 8px corners clip the sample square, so it stands 50px tall. */
+  .modal .chip-grouping-table .chip-grouping-group-select {
+    font-size: max(16px, 1rem);
+    min-height: 50px;
+  }
+  /* Rule names wrap, so the delete button stays inside the scrolling table. */
+  #customRuleTableContainer .chip-grouping-table td:not(.chip-grouping-col-check) {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  /* Rounded buttons clip their corners, so a short button shows no sheen and its square ::after holds the hit area. */
+  :is(.modal, .collections-section) .btn {
+    overflow: visible;
+  }
+  :is(.modal, .collections-section) .btn::before {
+    content: none;
+  }
+
+  /* Pills and row buttons that wrap or stack grow to 44px; their gaps keep the targets apart. */
+  .modal
+    :is(
+      .about-badge-item,
+      .market-filter-pill,
+      .gb-source-btn,
+      .gb-history-btn,
+      .retail-sync-btn,
+      .settings-log-panel .btn
+    ),
+  .collections-section
+    :is(.collections-arrange-toggle, .collections-sort-reset, .collections-view-chip) {
+    min-height: 44px;
+  }
+  /* The ledger's action cell clips overflow, so More takes a real 44px box. */
+  .collections-section .collections-more {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .modal .market-filter-pill {
+    min-width: 44px;
+  }
+
+  /* Text links and round icon buttons keep their size; a square ::after holds the hit area. The
+     album note toggle is absolutely positioned already. */
+  :is(.modal, .collections-section)
+    :is(
+      .btn,
+      .about-card-link,
+      .about-disclaimer a,
+      .storage-toggle-tiny,
+      .market-filter-pill,
+      .gb-source-btn,
+      .collections-settings-handle,
+      .collections-settings-move,
+      .collections-linkbtn,
+      .collections-textlink,
+      .collections-view-chip
+    ) {
+    position: relative;
+  }
+  :is(.modal, .collections-section)
+    :is(
+      .btn,
+      .about-card-link,
+      .about-disclaimer a,
+      .storage-toggle-tiny,
+      .market-filter-pill,
+      .gb-source-btn,
+      .collections-settings-handle,
+      .collections-settings-move,
+      .collections-note-toggle,
+      .collections-linkbtn,
+      .collections-textlink,
+      .collections-view-chip
+    )::after,
+  .collections-slot .collections-more::after,
+  .modal .settings-info-icon::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: max(100%, 44px);
+    height: max(100%, 44px);
+    transform: translate(-50%, -50%);
+  }
+
+  /* The info icon's ::after holds its tooltip, so its ::before holds the hit area. */
+  .modal .settings-info-icon {
+    margin-inline: 15px;
+  }
+
+  /* The rule table and its scrolling frame clip at their rounded corners. The frame's padding
+     and an unclipped table keep the move buttons' hit areas whole. */
+  .chip-grouping-table-container {
+    padding: 4px;
+  }
+  .chip-grouping-table-container .chip-grouping-table {
+    overflow: visible;
   }
 }

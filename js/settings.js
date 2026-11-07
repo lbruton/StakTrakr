@@ -2102,6 +2102,18 @@ const renderInlineChipConfigTable = () =>
   });
 
 /**
+ * Wraps a table-row checkbox in a label, so a phone tap anywhere in its 44px hit area toggles it.
+ * @param {HTMLInputElement} cb - The checkbox.
+ * @returns {HTMLLabelElement} The label that holds the checkbox.
+ */
+const wrapCheckHit = (cb) => {
+  const label = document.createElement("label");
+  label.className = "chip-check-hit";
+  label.appendChild(cb);
+  return label;
+};
+
+/**
  * Renders the filter chip category config table in Settings > Chips.
  * Each row has a checkbox (enable/disable) and up/down arrows for reordering.
  */
@@ -2158,7 +2170,7 @@ const renderFilterChipCategoryTable = () => {
         if (typeof renderActiveFilters === "function") renderActiveFilters();
       }
     });
-    tdCheck.appendChild(cb);
+    tdCheck.appendChild(wrapCheckHit(cb));
 
     // Label cell
     const tdLabel = document.createElement("td");
@@ -2647,7 +2659,7 @@ const _renderSectionConfigTable = (opts) => {
         }
       });
     }
-    tdCheck.appendChild(cb);
+    tdCheck.appendChild(wrapCheckHit(cb));
 
     // Label cell
     const tdLabel = document.createElement("td");
@@ -4432,7 +4444,7 @@ const renderMarketFilterMatrix = () => {
   masterCb.type = "checkbox";
   masterCb.title = "Toggle everything";
   masterCb.className = "mfm-master-toggle";
-  masterTd.appendChild(masterCb);
+  masterTd.appendChild(wrapCheckHit(masterCb));
   allRow.appendChild(masterTd);
 
   vendors.forEach((v) => {
@@ -4441,7 +4453,7 @@ const renderMarketFilterMatrix = () => {
     cb.type = "checkbox";
     cb.setAttribute("data-col-toggle", v.id);
     cb.title = "Toggle all " + v.name;
-    td.appendChild(cb);
+    td.appendChild(wrapCheckHit(cb));
     allRow.appendChild(td);
   });
   tbody.appendChild(allRow);
@@ -4480,7 +4492,7 @@ const renderMarketFilterMatrix = () => {
     rowCb.type = "checkbox";
     rowCb.setAttribute("data-row-toggle", slug);
     rowCb.title = "Toggle all for " + meta.name;
-    rowAllTd.appendChild(rowCb);
+    rowAllTd.appendChild(wrapCheckHit(rowCb));
     tr.appendChild(rowAllTd);
 
     let rowTotal = 0;
@@ -4507,7 +4519,7 @@ const renderMarketFilterMatrix = () => {
         rowTotal++;
         if (isEnabled) rowChecked++;
       }
-      td.appendChild(cb);
+      td.appendChild(wrapCheckHit(cb));
       tr.appendChild(td);
     });
 

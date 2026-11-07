@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.116] - 2026-11-07
+
+### Fixed — STRK-535: Phone floors in Collections, the Item modals and Settings
+
+- **Text floor**: Below 768px `--font-size-xs` is `max(12px, 0.6875rem)`, so no text in Collections, the Item modals or Settings renders under 12px. The 480px rule that shrank the root font size is removed (STRK-535).
+- **Fields**: Inputs, selects and text areas in modals and Collections render at 16px or more and stand 44px tall below 768px, so a phone does not zoom on focus (STRK-535).
+- **Hit areas**: Buttons, close buttons, segmented toggles, chart range pills, toggle switches and links in those surfaces each get a 44px hit area that does not overlap a neighbour. A square `::after` holds the area, so rounded corners and clipping parents do not shrink it. Table checkboxes in the chip settings and the market filter matrix sit in a label that takes the tap. The link icon of a landscape Bar or Note frame stays clear of Swap (STRK-535).
+- **Inline styles**: The 25 inline `min-height: 0` overrides, the inline `min-width` on the card-style toggle and the inline font size on the backup history depth select are removed from index.html (STRK-535).
+- **Desktop Settings buttons**: The Settings import, export and cloud buttons keep their compact height above 768px (STRK-535).
+- **Tests**: A new core test at 390x844 reads the Collections hub and an album, the Edit Item, Item view and metal details modals and thirteen Settings panels. It checks text size, field size and that every control takes taps across a 44px square (STRK-535).
+
+---
+
 ## [3.36.115] - 2026-11-07
 
 ### Fixed — STRK-537: Theme token gaps in muted text, status titles and the diff review modal
