@@ -2,6 +2,7 @@ import { test, expect } from "../helpers/mocks/extended-test.js";
 import { injectSeedInventory } from "../helpers/seed.js";
 import { installStakTrakrNetworkMocks } from "../helpers/mocks/routes.js";
 import { readPhoneFloors } from "../helpers/phone-floors.js";
+import { showSampleDiffReview } from "../helpers/diff-review.js";
 
 const BASE_ITEM = {
   uuid: "core-mobile-layout-item",
@@ -1504,6 +1505,52 @@ test.describe("Phone floors in Collections, Item modals and Settings", () => {
       (page) => page.evaluate(() => window.showDetailsModal("Silver")),
     ],
     ...[
+      ["Diff review modal with Item and setting changes", ""],
+      ["Diff review modal at a 14px root font size", "14px"],
+    ].map(([label, rootFontSize]) => [
+      label,
+      "#diffReviewModal .modal-content",
+      async (page) => {
+        if (rootFontSize) {
+          await page.evaluate((size) => {
+            document.documentElement.style.fontSize = size;
+          }, rootFontSize);
+        }
+        await showSampleDiffReview(page, {
+          backupCount: 3,
+          localCount: 2,
+          settingsDiff: {
+            changed: [
+              { key: "displayCurrency", localVal: "USD", remoteVal: "EUR" },
+              {
+                key: "layoutSectionConfig",
+                localVal: [{ id: "a", label: "Alpha", enabled: true }],
+                remoteVal: [{ id: "a", label: "Alpha", enabled: false }],
+              },
+              {
+                key: "providerPriority",
+                localVal: { metals: 1, apmex: 2 },
+                remoteVal: { metals: 2, apmex: 1 },
+              },
+              {
+                key: "chipCustomGroups",
+                localVal: [{ name: "Eagles", patterns: ["eagle"] }],
+                remoteVal: [{ name: "Maples", patterns: ["maple"] }],
+              },
+            ],
+            matched: [{ key: "appTheme", value: "dark" }],
+          },
+        });
+        // The settings section opens collapsed; expanded, its chips and pills are measured too.
+        await page.locator('#diffReviewModal [data-cat-toggle="settings"]').click();
+        for (const control of [".dm-chip-enabled", ".dm-kv-pill.local", ".dm-count-btn"]) {
+          await expect(page.locator(`#diffReviewModal ${control}`).first()).toBeVisible();
+        }
+      },
+      // Setting choices are clickable spans with no control role.
+      "[data-field][data-side], [data-setting-resolution]",
+    ]),
+    ...[
       "site",
       "system",
       "cloud",
@@ -1531,13 +1578,13 @@ test.describe("Phone floors in Collections, Item modals and Settings", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.emulateMedia({ reducedMotion: "reduce" });
     await seedInventory(page, BULK_ITEMS);
-    for (const [label, root, open] of surfaces) {
+    for (const [label, root, open, extraControls] of surfaces) {
       await test.step(label, async () => {
         await page.goto("about:blank");
         await gotoApp(page);
         await open(page);
         await expect(page.locator(root)).toBeVisible();
-        const floors = await readPhoneFloors(page, root);
+        const floors = await readPhoneFloors(page, root, extraControls);
         expect(floors.tested).toBeGreaterThan(0);
         expect
           .soft({
