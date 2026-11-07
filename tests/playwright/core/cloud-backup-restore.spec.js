@@ -269,4 +269,71 @@ test.describe("core/cloud-backup-restore", () => {
     await expect(page.locator("#vaultModal")).toBeVisible();
     expect(await page.evaluate(() => window.__deriveCount)).toBe(0);
   });
+  test("a preview that cannot read the sync vault offers Try again before Restore without preview", async ({
+    page,
+  }) => {
+    await seedConnectedDevice(page, VAULT_PHRASE);
+    await bootApp(page);
+    await page.route("https://content.dropboxapi.com/2/files/download", async (route) => {
+      const arg = JSON.parse(route.request().headers()["dropbox-api-arg"] || "{}");
+      if (arg.path === "/StakTrakr/sync/staktrakr-sync.stvault") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/octet-stream",
+          body: Buffer.from("not a vault file, so decryption fails"),
+        });
+        return;
+      }
+      await route.fulfill({ status: 409, body: "{}" });
+    });
+    const openFailedPreview = () =>
+      page.evaluate(() =>
+        window.pullWithPreview({ syncId: "preview-fail", deviceId: "other-device", timestamp: 1 })
+      );
+
+    await openFailedPreview();
+    const modal = page.locator("#restorePreviewModal");
+    await expect(modal).toBeVisible();
+    await expect(page.locator("#restorePreviewError")).toHaveText(
+      "Could not read this backup. Check the vault password and try again."
+    );
+    await expect(modal).not.toContainText(/decrypt|Error:|operation/i);
+    const actions = modal.locator(".encryption-actions button:visible");
+    await expect(actions).toHaveText(["Try again", "Restore without preview", "Cancel"]);
+    await expect(actions.first()).toHaveClass(/\bsuccess\b/);
+    await expect(actions.nth(1)).toHaveClass(/\bsecondary\b/);
+    await expect(actions.nth(2)).toHaveClass(/\bsecondary\b/);
+    await expect(page.locator("#restorePreviewFallbackNote")).toContainText(
+      "saves a snapshot of this device first"
+    );
+
+    await page.evaluate(() => {
+      window.__retryCalls = [];
+      window.__fallbackCalls = [];
+      window.__realPullWithPreview = window.pullWithPreview;
+      window.pullWithPreview = (meta) => window.__retryCalls.push(meta.syncId);
+      window.pullSyncVault = (meta) => {
+        window.__fallbackCalls.push(meta.syncId);
+        return Promise.resolve();
+      };
+    });
+    await actions.first().click();
+    await expect(modal).toBeHidden();
+    expect(await page.evaluate(() => window.__retryCalls)).toEqual(["preview-fail"]);
+    expect(await page.evaluate(() => window.__fallbackCalls)).toEqual([]);
+
+    await page.evaluate(() => {
+      window.pullWithPreview = window.__realPullWithPreview;
+    });
+    await openFailedPreview();
+    await expect(modal).toBeVisible();
+    await page.locator("#restorePreviewFallbackBtn").click();
+    await expect(modal).toBeHidden();
+    expect(await page.evaluate(() => window.__fallbackCalls)).toEqual(["preview-fail"]);
+
+    await openFailedPreview();
+    await page.locator("#restorePreviewCancelBtn").click();
+    await expect(modal).toBeHidden();
+    expect(await page.evaluate(() => window.__fallbackCalls)).toEqual(["preview-fail"]);
+  });
 });
