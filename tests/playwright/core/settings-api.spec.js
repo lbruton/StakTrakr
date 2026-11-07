@@ -419,6 +419,18 @@ test.describe("core/settings-api", () => {
       await expect(dialog.locator("#appDialogCancel")).toHaveText("Skip attachments");
       await dialog.locator("#appDialogCancel").click();
       expect(await result).toBe(false);
+
+      const titled = page.evaluate(() =>
+        window.showAppConfirm("Export the attachments?", {
+          title: "Large Attachment Export",
+          confirmLabel: "Export anyway",
+        })
+      );
+      await expect(dialog).toBeVisible();
+      await expect(dialog.locator("#appDialogTitle")).toHaveText("Large Attachment Export");
+      await expect(okBtn).toHaveText("Export anyway");
+      await dialog.locator("#appDialogCancel").click();
+      expect(await titled).toBe(false);
     });
   });
 
