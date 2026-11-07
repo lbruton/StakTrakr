@@ -6516,21 +6516,32 @@
                       transmit your inventory. The developer has no technical means to access your
                       data.
                     </p>
-                    <p>The only outbound network requests the app makes are:</p>
+                    <p>The app makes these outbound network requests:</p>
                     <ul class="faq-list">
                       <li>
-                        Spot price lookups from public metal pricing APIs (no inventory data
-                        included)
-                      </li>
-                      <li>Numista / PCGS catalog searches when you use those features</li>
-                      <li>
-                        Version check against <code>staktrakr.com/version.json</code> (no inventory
-                        data included)
+                        Spot prices, Market prices and Goldback rates from the StakTrakr API at
+                        <code>api.staktrakr.com</code>
                       </li>
                       <li>
-                        Exchange rate data from Open Exchange Rates (no inventory data included)
+                        Spot prices from another provider, if you set one up with your own key
                       </li>
+                      <li>Exchange rates from <code>open.er-api.com</code></li>
+                      <li>
+                        Numista and PCGS catalog lookups, which send the search text or catalog
+                        number you enter
+                      </li>
+                      <li>Item images from a catalog or from an image address you enter</li>
+                      <li>A version check against <code>staktrakr.com/version.json</code></li>
+                      <li>
+                        The Lightweight Charts library from <code>cdn.jsdelivr.net</code>, and
+                        <code>cdnjs</code> copies of bundled libraries that fail to load
+                      </li>
+                      <li>Dropbox, when you connect Cloud Sync</li>
                     </ul>
+                    <p>
+                      Only Dropbox requests carry your inventory, as an encrypted file that Dropbox
+                      cannot read. The other requests carry no inventory data.
+                    </p>
                   </div>
                 </details>
 
@@ -6612,9 +6623,11 @@
                       >. There is no hidden code.
                     </p>
                     <p>
-                      The app loads several trusted third-party libraries (Chart.js, PapaParse,
-                      jsPDF, Bootstrap) from CDNs. These are industry-standard libraries used by
-                      millions of websites.
+                      The app ships Chart.js with its data labels plugin, PapaParse, jsPDF with
+                      AutoTable, JSZip, Forge and LZ-String in its own <code>vendor</code> folder.
+                      If a local copy fails to load, the app fetches the same version from cdnjs
+                      with an integrity check. The Market charts use Lightweight Charts, which loads
+                      from <code>cdn.jsdelivr.net</code>.
                     </p>
                     <p>
                       Like any web app, your device's security is part of the equation. Keep your
@@ -6651,7 +6664,7 @@
                         file
                       </li>
                     </ul>
-                    <p>All export options are in the <strong>Inventory → Export</strong> menu.</p>
+                    <p>All export options are in <strong>Settings → Inventory</strong>.</p>
                   </div>
                 </details>
 
@@ -6705,9 +6718,9 @@
                       <summary>Technical details</summary>
                       <p>
                         Encryption uses <strong>AES-256-GCM</strong> (symmetric authenticated
-                        encryption) with a key derived from your password via
-                        <strong>PBKDF2-SHA256 with 100,000 iterations</strong>. The encryption
-                        happens entirely in your browser using the
+                        encryption) with a key derived from your vault password and your Dropbox
+                        account ID via <strong>PBKDF2-SHA256 with 600,000 iterations</strong>. The
+                        encryption happens entirely in your browser using the
                         <a
                           href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API"
                           target="_blank"
@@ -6798,8 +6811,7 @@
                         hidden behaviors
                       </li>
                       <li>
-                        <strong>No subscription</strong> — the core app is free forever; optional
-                        sponsor perks cover infrastructure costs
+                        <strong>No subscription</strong> — every feature is free, with no paywall
                       </li>
                       <li>
                         <strong>Works offline</strong> — once loaded, the app works without internet
@@ -6828,29 +6840,6 @@
                       Running the app costs real money: the domain renewal, and the API provider
                       that supplies hourly live spot prices for all users on a best-effort basis.
                       Sponsoring at $1/month or more on GitHub helps cover those costs directly.
-                    </p>
-                    <p>
-                      As a thank-you, sponsors will get access to
-                      <strong>optional infrastructure perks</strong> as they are built out:
-                    </p>
-                    <ul class="faq-list">
-                      <li><strong>Now:</strong> Dropbox cloud backup is free for everyone</li>
-                      <li>
-                        <strong>Coming for sponsors:</strong> a hosted cloud storage key
-                        (Supabase-backed) — same encryption guarantees as Dropbox, no third-party
-                        account needed
-                      </li>
-                      <li>
-                        <strong>Further out:</strong> early access to real-time encrypted cloud sync
-                        (live CRUD to the cloud, not just manual backup/restore), as the user base
-                        and infrastructure grows
-                      </li>
-                    </ul>
-                    <p>
-                      None of these are features being removed from the free tier — they are new
-                      infrastructure that costs money to operate. If sponsorship never materializes,
-                      the core app stays exactly as it is. If it grows, everyone benefits from a
-                      more sustainable project.
                     </p>
                     <p>
                       The hourly API spot prices are provided on a best-effort basis. If
@@ -6976,8 +6965,8 @@
                     </p>
                     <ul class="faq-list">
                       <li>
-                        <strong>Codacy</strong> — continuous code quality gate, A+ rating maintained
-                        on every PR
+                        <strong>Codacy</strong> — code quality gate on every pull request; the
+                        repository holds a Codacy grade of A
                       </li>
                       <li>
                         <strong>CodeQL</strong> — GitHub's semantic code analysis, scans for
@@ -6987,13 +6976,14 @@
                         <strong>Semgrep</strong> — static analysis for common security anti-patterns
                       </li>
                       <li>
-                        <strong>PMD</strong> — additional static analysis for code quality issues
-                      </li>
-                      <li>
                         <strong>ESLint</strong> — JavaScript linting with security-aware rules
                       </li>
                       <li>
-                        <strong>GitHub Copilot &amp; Codex</strong> — AI-assisted code review on
+                        <strong>Automated tests</strong> — the test suite must pass before a change
+                        merges
+                      </li>
+                      <li>
+                        <strong>GitHub Copilot, Codex &amp; CodeRabbit</strong> — AI code review on
                         pull requests
                       </li>
                     </ul>
@@ -8175,8 +8165,8 @@
                   No. Your backup is encrypted on your device with
                   <strong>AES-256-GCM</strong> before it is uploaded. The cloud provider receives
                   only ciphertext and a random salt — never your password or plaintext data. The key
-                  is derived from your password via PBKDF2-SHA256 with 100,000 iterations using the
-                  browser's
+                  is derived from your vault password and your Dropbox account ID via PBKDF2-SHA256
+                  with 600,000 iterations using the browser's
                   <a
                     href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API"
                     target="_blank"
@@ -8208,18 +8198,24 @@
               <summary class="faq-question">What external services does StakTrakr contact?</summary>
               <div class="faq-answer">
                 <p>
-                  StakTrakr may contact external services for spot price data, exchange rates, and
-                  catalog lookups. These requests contain no personal information — only metal type
-                  or coin identifiers. No cookies or tracking identifiers are sent. Specific
-                  services include:
+                  StakTrakr may contact external services for spot price data, exchange rates,
+                  catalog lookups and Cloud Sync. Price and catalog requests contain no personal
+                  information, only metal types, search text or coin identifiers. Dropbox receives
+                  your inventory only as an encrypted file. No cookies or tracking identifiers are
+                  sent. Specific services include:
                 </p>
                 <ul class="faq-list">
-                  <li>Public metal pricing APIs (spot prices)</li>
-                  <li>Open Exchange Rates (currency conversion)</li>
+                  <li>
+                    The StakTrakr API at <code>api.staktrakr.com</code> (spot prices, Market prices
+                    and Goldback rates)
+                  </li>
+                  <li>A spot price provider you set up with your own key</li>
+                  <li><code>open.er-api.com</code> (currency conversion)</li>
                   <li>
                     Numista &amp; PCGS APIs (coin catalog lookups, when you use those features)
                   </li>
                   <li><code>staktrakr.com/version.json</code> (version update check)</li>
+                  <li>Dropbox (encrypted Cloud Sync, when you connect it)</li>
                 </ul>
               </div>
             </details>
@@ -8511,7 +8507,8 @@
        7. init.js - Application initialization and startup
        
        All scripts use 'defer' to ensure DOM is ready before execution
-       External libraries (Chart.js, jsPDF, PapaParse, JSZip) loaded via CDN
+       External libraries load from vendor/, with cdnjs fallbacks declared in the head;
+       lightweight-charts loads from jsDelivr
        ============================================================================= -->
 
     <script defer src="js/debug-log.js"></script>
