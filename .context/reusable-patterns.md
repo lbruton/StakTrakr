@@ -378,6 +378,11 @@ The **persistence half of this pattern is live**: the per-slug/per-vendor filter
 All modals use the FIFO dialog queue in `js/dialogs.js`:
 
 - `openModalById(id)` / `closeModalById(id)`: the only correct way to open/close modals
+- Every open modal sits on one stack in `js/utils.js` (`trapFocus` pushes, `releaseFocus` pops). Escape closes only the top modal
+- Escape uses the close function passed to `openModalById(id, onClose)` or `trapFocus(modal, onClose)`. Without one it uses `registerModalClose(id, fn)`, then `closeModalById(id)`
+- A modal with cleanup on close (state reset, a pending promise) registers that close function; it never adds its own Escape listener
+- A widget inside a modal that claims Escape (a menu, a popover, an inline edit) calls `preventDefault()` or `stopPropagation()`. The stack listener runs last, on `window`, and skips a claimed key
+- Closing the top modal returns focus to its opener, or to the modal below when the opener is gone. `closeModalById` clears the body scroll lock only when no modal is left open
 - `showDialog()` / `presentDialog()`: queue management
 - Settings sections use config objects: `{ id, title, icon, contentBuilder }`
 - Close button selector is `.modal-close`: **not** `.close-btn`, and **not** `[data-bs-dismiss]` (the Bootstrap JS library is not loaded in this project; `data-bs-*` appears zero times in `index.html` and `js/`)

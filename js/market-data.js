@@ -1032,10 +1032,6 @@ let _activeModalRenderGeneration = 0;
 let _activeModalOpener = null;
 let _pendingMarketFocusSlug = null;
 
-const _modalEscHandler = (e) => {
-  if (e.key === "Escape") closeMarketDetailModal();
-};
-
 const _destroyActiveMarketDetailChart = () => {
   if (_activeModalChart && typeof destroyCoinChart === "function") {
     destroyCoinChart(_activeModalChart);
@@ -1101,13 +1097,12 @@ const closeMarketDetailModal = () => {
     const wasOpen = !overlay.hasAttribute("hidden");
     overlay.setAttribute("hidden", "");
     if (wasOpen) {
-      if (typeof releaseFocus === "function") releaseFocus(overlay);
+      // _restoreMarketDetailFocus owns focus here: it waits for a matrix rebuild.
+      if (typeof releaseFocus === "function") releaseFocus(overlay, { restoreFocus: false });
       _restoreMarketDetailFocus(_activeModalOpener, closedSlug);
     }
   }
   _activeModalOpener = null;
-
-  document.removeEventListener("keydown", _modalEscHandler);
 };
 
 /**
@@ -1867,7 +1862,8 @@ const openMarketDetailModal = async (slug, { preservePeriod = false } = {}) => {
   if (isFreshOpen) {
     _activeModalOpener =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    if (typeof trapFocus === "function") trapFocus(overlay);
+    document.body.style.overflow = "hidden";
+    if (typeof trapFocus === "function") trapFocus(overlay, closeMarketDetailModal);
     if (dialog instanceof HTMLElement) dialog.focus();
   }
 
@@ -1876,7 +1872,6 @@ const openMarketDetailModal = async (slug, { preservePeriod = false } = {}) => {
   overlay.onclick = (e) => {
     if (e.target === overlay) closeMarketDetailModal();
   };
-  document.addEventListener("keydown", _modalEscHandler);
 
   const loadingEl = document.createElement("div");
   loadingEl.className = "market-detail-loading";

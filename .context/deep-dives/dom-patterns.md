@@ -230,10 +230,10 @@ The other elements are defined in `index.html` and are part of the `layoutSectio
 
 The detail modal keeps this focus contract:
 
-- `openMarketDetailModal` records the opener and calls `trapFocus(overlay)` only when the overlay was hidden. A re-render of an open modal keeps the first opener and trap.
+- `openMarketDetailModal` records the opener and calls `trapFocus(overlay, closeMarketDetailModal)` only when the overlay was hidden, so Escape closes it through the shared modal stack. A re-render of an open modal keeps the first opener and trap.
 - Focus goes to `.market-detail-modal` (`tabindex="-1"`) and then to `#marketDetailTitle` (`tabindex="-1"`) once the title renders.
 - The overlay carries `aria-label="Loading market details"`. It names the dialog until `#marketDetailTitle` exists for `aria-labelledby`.
-- `closeMarketDetailModal` calls `releaseFocus(overlay)`. `_restoreMarketDetailFocus` then focuses the opener, or the shown `.vp-coin-link[data-slug]` button (`_findShownCoinButton`) when a re-render replaced the opener.
+- `closeMarketDetailModal` calls `releaseFocus(overlay, { restoreFocus: false })`. `_restoreMarketDetailFocus` then focuses the opener, or the shown `.vp-coin-link[data-slug]` button (`_findShownCoinButton`) when a re-render replaced the opener.
 - Item names (`.vp-coin-link`) are buttons. A price (`.vp-price`) is a button only when its dealer URL passes `_isSafeUrl`; otherwise it is a span.
 
 `_renderVendorTable` builds two layouts from one row context (`_vendorRowContext`):

@@ -2575,7 +2575,8 @@
 
       // Open modal
       if (typeof openModalById === "function") {
-        openModalById(MODAL_ID);
+        // Escape and the backdrop cancel the review, so the awaiting sync settles.
+        openModalById(MODAL_ID, _onCancel);
       } else {
         var modal = safeGetElement(MODAL_ID);
         if (modal) modal.style.display = "flex";

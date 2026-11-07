@@ -2089,7 +2089,7 @@ const wireCatalogActions = () => {
  * Wires the Bulk Sync modal lifecycle:
  *   - Delegated click on `.js-open-bulk-sync` buttons (within the Settings
  *     modal) opens the modal for the provider from `data-provider`.
- *   - Document-level Escape keydown closes the modal when visible.
+ *   - Escape closes it through the shared modal stack (`openBulkSyncModal`).
  *   - Backdrop click on `#bulkSyncModal` (but not `.modal-content`) closes it.
  *   - `.modal-close` inside the modal closes it.
  *   - `.bulk-tab` clicks switch the active tab via `window.switchBulkSyncTab`.
@@ -2137,20 +2137,6 @@ const wireBulkSyncModal = () => {
       if (tab && bulkModal.contains(tab) && typeof window.switchBulkSyncTab === "function") {
         const tabId = tab.dataset.tab;
         if (tabId) window.switchBulkSyncTab(tabId);
-      }
-    });
-  }
-
-  // Document-level Escape handler — bound once for the lifetime of the page.
-  // Safe because it short-circuits when the modal is hidden.
-  if (!document.__stakBulkEscapeBound) {
-    document.__stakBulkEscapeBound = true;
-    document.addEventListener("keydown", (e) => {
-      if (e.key !== "Escape") return;
-      const modal = safeGetElement("bulkSyncModal");
-      if (!modal || modal.style.display === "none") return;
-      if (typeof window.closeBulkSyncModal === "function") {
-        window.closeBulkSyncModal();
       }
     });
   }

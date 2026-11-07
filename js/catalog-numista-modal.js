@@ -836,7 +836,7 @@ const showNumistaResults = (results, directLookup = false, originalQuery = "") =
       ${quickPicksHtml}
     </div>`;
     list.style.display = "block";
-    modal.style.display = "flex";
+    openModalById("numistaResultsModal");
 
     // Wire up retry search
     const retryBtn = document.getElementById("numistaRetryBtn");
@@ -897,7 +897,7 @@ const showNumistaResults = (results, directLookup = false, originalQuery = "") =
     preview.innerHTML = renderNumistaSelectedItem(results[0]);
     renderNumistaFieldCheckboxes(results[0]);
     picker.style.display = "block";
-    modal.style.display = "flex";
+    openModalById("numistaResultsModal");
     return;
   }
 
@@ -919,7 +919,7 @@ const showNumistaResults = (results, directLookup = false, originalQuery = "") =
   // nosemgrep: javascript.browser.security.insecure-innerhtml.insecure-innerhtml, javascript.browser.security.insecure-document-method.insecure-document-method
   list.innerHTML = searchBarHtml + cardsHtml;
   list.style.display = "flex";
-  modal.style.display = "flex";
+  openModalById("numistaResultsModal");
 
   // Wire up refinement search
   const refineBtn = document.getElementById("numistaRefineBtn");
@@ -1335,8 +1335,7 @@ const fillFormFromNumistaResult = () => {
  * Close Numista results modal and clean up state
  */
 const closeNumistaResultsModal = (opts) => {
-  const modal = document.getElementById("numistaResultsModal");
-  if (modal) modal.style.display = "none";
+  closeModalById("numistaResultsModal");
   selectedNumistaResult = null;
   const willClear = opts == null || opts.clearPendingSnapshot !== false;
   if (willClear) {
@@ -1588,14 +1587,7 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
-  // ESC key handler — results modal has higher z-index, check it first
-  document.addEventListener("keydown", function (e) {
-    if (e.key === "Escape") {
-      const resultsModal = document.getElementById("numistaResultsModal");
-      if (resultsModal && resultsModal.style.display !== "none") {
-        e.stopImmediatePropagation();
-        closeNumistaResultsModal({ clearPendingSnapshot: true });
-      }
-    }
-  });
+  registerModalClose("numistaResultsModal", () =>
+    closeNumistaResultsModal({ clearPendingSnapshot: true })
+  );
 });

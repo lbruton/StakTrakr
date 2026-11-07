@@ -589,6 +589,7 @@
 
   const _onContextMenuKey = (e) => {
     if (e.key === "Escape") {
+      e.preventDefault();
       _hideContextMenu();
     }
   };
@@ -673,6 +674,7 @@
 
   const _onConfirmKey = (e) => {
     if (e.key === "Escape") {
+      e.preventDefault();
       _hideBlacklistConfirm();
     }
   };

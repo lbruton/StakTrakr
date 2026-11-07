@@ -134,11 +134,12 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.36.112 &ndash; Modals that close one at a time</strong>: Escape closes only the top modal, so a window opened over Settings or the Edit form closes without the one beneath it. Every modal moves keyboard focus inside when it opens, keeps Tab inside, and returns focus to the button that opened it. The page behind stays still until the last modal closes (STRK-534).</li>
     <li><strong>v3.36.111 &ndash; Notes that keep their line breaks</strong>: The Notes field in the Add and Edit Item form is a multi-line box, so a note keeps its lines when you edit and save the Item. It was a single-line field, and saving an Item from Edit joined the lines of its note into one. Enter in Notes starts a new line, and Duplicate copies the note with its lines (STRK-532).</li>
     <li><strong>v3.36.110 &ndash; Market prices that refresh after a sync</strong>: After Refresh or a background sync, the Market table, the phone cards and the best-price ticker show the new prices at once. They kept the prices from the first load until you reloaded the page. The "Last seen" tooltip updates with them (STRK-531).</li>
     <li><strong>v3.36.109 &ndash; Even Market rows and a Configure button</strong>: A carried price shows only its price and premium, so its cell is the same height as the others in the row. Every in-stock price has a "Last seen" tooltip with the date and time of the price, and screen readers hear the same time. The small gear in the Market header is a Configure button with a gear icon and its name (STRK-530).</li>
     <li><strong>v3.36.108 &ndash; Premium colours that compare dealers</strong>: A Market premium is green when the price is at least 1% below the median of the in-stock dealers (carried prices left out), red when it is at least 1% above it, and amber in between. The percentage still shows the premium over spot, and the Median column shows the median the colour compares against. A carried price or a lone dealer shows its premium in plain text (STRK-517).</li>
-    <li><strong>v3.36.107 &ndash; The Market tab on a phone</strong>: On a phone each Market item is a card with its full name, its median and spread, and a tile for each dealer price. The metal tabs scroll inside their bar, every price and button is large enough to tap, and the detail modal fits the screen with Buy in view (STRK-515).</li>      `;
+      `;
 };
 
 // Expose globally for access from other modules

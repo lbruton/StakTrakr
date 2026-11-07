@@ -333,23 +333,17 @@ const showRestoreChoice = ({ clone, original, mergedQty }) =>
       `Merge: original goes from ${original.qty} → ${mergedQty}. ` +
       `Separate: ${original.qty} + ${clone.qty} as two rows.`;
 
-    openModalById("restoreChoiceModal");
+    const cleanup = () => {
+      closeModalById("restoreChoiceModal");
+    };
+
+    openModalById("restoreChoiceModal", () => {
+      cleanup();
+      resolve("cancel");
+    });
 
     const mergeBtn = modal.querySelector('[data-action="merge"]');
     if (mergeBtn) mergeBtn.focus();
-
-    const cleanup = () => {
-      closeModalById("restoreChoiceModal");
-      document.removeEventListener("keydown", escHandler);
-    };
-
-    const escHandler = (e) => {
-      if (e.key === "Escape") {
-        cleanup();
-        resolve("cancel");
-      }
-    };
-    document.addEventListener("keydown", escHandler);
 
     modal.addEventListener(
       "click",
@@ -3225,6 +3219,7 @@ const setupItemFormListeners = () => {
 
   optionalListener(elements.cancelItemBtn, "click", closeItemModal, "Cancel item button");
   optionalListener(elements.itemCloseBtn, "click", closeItemModal, "Item modal close button");
+  registerModalClose("itemModal", closeItemModal);
 
   // RETAIL PRICE HISTORY LINK — opens per-item price history modal (STAK-109)
   const retailHistoryLink = document.getElementById("retailPriceHistoryLink");
@@ -3242,22 +3237,14 @@ const setupItemFormListeners = () => {
   }
 
   // ITEM PRICE HISTORY MODAL — close & filter handlers (STAK-109)
-  const itemPriceHistoryModal = document.getElementById("itemPriceHistoryModal");
   const itemPriceHistoryCloseBtn = document.getElementById("itemPriceHistoryCloseBtn");
   const itemPriceHistoryFilter = document.getElementById("itemPriceHistoryFilter");
   const itemPriceHistoryClearFilterBtn = document.getElementById("itemPriceHistoryClearFilterBtn");
 
   if (itemPriceHistoryCloseBtn) {
-    itemPriceHistoryCloseBtn.addEventListener("click", () => {
-      if (itemPriceHistoryModal) itemPriceHistoryModal.style.display = "none";
-    });
-  }
-  if (itemPriceHistoryModal) {
-    itemPriceHistoryModal.addEventListener("click", (e) => {
-      if (e.target === itemPriceHistoryModal) {
-        itemPriceHistoryModal.style.display = "none";
-      }
-    });
+    itemPriceHistoryCloseBtn.addEventListener("click", () =>
+      closeModalById("itemPriceHistoryModal")
+    );
   }
   if (itemPriceHistoryFilter) {
     itemPriceHistoryFilter.addEventListener("input", () => {
@@ -3960,7 +3947,7 @@ const setupItemFormListeners = () => {
 
 /** Closes the notes modal and resets the notes index. */
 const dismissNotesModal = () => {
-  if (elements.notesModal) elements.notesModal.style.display = "none";
+  closeModalById("notesModal");
   notesIndex = null;
 };
 
@@ -5176,7 +5163,7 @@ const setupApiEvents = () => {
       safeAttachListener(
         quotaClose,
         "click",
-        () => (elements.apiQuotaModal.style.display = "none"),
+        () => closeModalById("apiQuotaModal"),
         "API quota close"
       );
     }
@@ -5194,7 +5181,7 @@ const setupApiEvents = () => {
             if (!cfg.usage[qp]) cfg.usage[qp] = { quota: val, used: 0 };
             cfg.usage[qp].quota = val;
             saveApiConfig(cfg);
-            elements.apiQuotaModal.style.display = "none";
+            closeModalById("apiQuotaModal");
             updateProviderHistoryTables();
           }
         },
@@ -5328,84 +5315,20 @@ const setupApiEvents = () => {
       );
     }
 
-    // ESC key to close modals (sub-modals first, then settings, then others)
-    safeAttachListener(
-      document,
-      "keydown",
-      (e) => {
-        if (e.key === "Escape") {
-          const infoModal = document.getElementById("apiInfoModal");
-          const historyModal = document.getElementById("apiHistoryModal");
-          const catalogHistModal = document.getElementById("catalogHistoryModal");
-          const quotaModal = document.getElementById("apiQuotaModal");
-          const bulkEditModal = document.getElementById("bulkEditModal");
-          const settingsModal = document.getElementById("settingsModal");
-          const itemModal = document.getElementById("itemModal");
-          const notesModal = document.getElementById("notesModal");
-          const detailsModal = document.getElementById("detailsModal");
-          const changeLogModal = document.getElementById("changeLogModal");
-          // Close sub-modals (stacking overlays) before settings modal
-          if (
-            infoModal &&
-            infoModal.style.display === "flex" &&
-            typeof hideProviderInfo === "function"
-          ) {
-            hideProviderInfo();
-          } else if (
-            historyModal &&
-            historyModal.style.display === "flex" &&
-            typeof hideApiHistoryModal === "function"
-          ) {
-            hideApiHistoryModal();
-          } else if (
-            catalogHistModal &&
-            catalogHistModal.style.display === "flex" &&
-            typeof hideCatalogHistoryModal === "function"
-          ) {
-            hideCatalogHistoryModal();
-          } else if (quotaModal && quotaModal.style.display === "flex") {
-            quotaModal.style.display = "none";
-          } else if (
-            bulkEditModal &&
-            bulkEditModal.style.display !== "none" &&
-            typeof closeBulkEdit === "function"
-          ) {
-            closeBulkEdit();
-          } else if (
-            settingsModal &&
-            settingsModal.style.display === "flex" &&
-            typeof hideSettingsModal === "function"
-          ) {
-            hideSettingsModal();
-          } else if (
-            document.getElementById("spotLookupModal")?.style.display === "flex" &&
-            typeof closeSpotLookupModal === "function"
-          ) {
-            closeSpotLookupModal();
-          } else if (itemModal && itemModal.style.display === "flex") {
-            itemModal.style.display = "none";
-            document.body.style.overflow = "";
-            editingIndex = null;
-            editingChangeLogIndex = null;
-          } else if (notesModal && notesModal.style.display === "flex") {
-            notesModal.style.display = "none";
-            notesIndex = null;
-          } else if (changeLogModal && changeLogModal.style.display === "flex") {
-            changeLogModal.style.display = "none";
-            document.body.style.overflow = "";
-          } else if (document.getElementById("viewItemModal")?.style.display === "flex") {
-            /* viewModal.js's own document-level Escape listener owns this close; claiming it here would also close the details modal stacked beneath (STRK-352) */
-          } else if (
-            detailsModal &&
-            detailsModal.style.display === "flex" &&
-            typeof closeDetailsModal === "function"
-          ) {
-            closeDetailsModal();
-          }
-        }
-      },
-      "ESC key modal close"
-    );
+    // Escape and the backdrop close these modals through their own close functions.
+    const modalClosers = {
+      apiInfoModal: hideProviderInfo,
+      apiHistoryModal: hideApiHistoryModal,
+      catalogHistoryModal: hideCatalogHistoryModal,
+      bulkEditModal: typeof closeBulkEdit === "function" ? closeBulkEdit : null,
+      settingsModal: typeof hideSettingsModal === "function" ? hideSettingsModal : null,
+      spotLookupModal: typeof closeSpotLookupModal === "function" ? closeSpotLookupModal : null,
+      notesModal: dismissNotesModal,
+      detailsModal: typeof closeDetailsModal === "function" ? closeDetailsModal : null,
+    };
+    Object.entries(modalClosers).forEach(([id, close]) => {
+      if (close) registerModalClose(id, close);
+    });
 
     debugLog("✓ API events setup complete");
   } catch (error) {

@@ -668,13 +668,12 @@ const showPcgsFieldPicker = (result) => {
   if (preview) preview.innerHTML = renderPcgsSelectedItem(result);
   renderPcgsFieldCheckboxes(result);
 
-  modal.style.display = "flex";
+  openModalById("pcgsFieldPickerModal");
 };
 
 /** Close the PCGS field picker modal. */
 const closePcgsFieldPicker = () => {
-  const modal = document.getElementById("pcgsFieldPickerModal");
-  if (modal) modal.style.display = "none";
+  closeModalById("pcgsFieldPickerModal");
 };
 
 // =============================================================================
@@ -712,17 +711,6 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     });
   }
-
-  // ESC key handler
-  document.addEventListener("keydown", function (e) {
-    if (e.key === "Escape") {
-      const modal = document.getElementById("pcgsFieldPickerModal");
-      if (modal && modal.style.display !== "none") {
-        e.stopImmediatePropagation();
-        closePcgsFieldPicker();
-      }
-    }
-  });
 });
 
 // Expose globally
