@@ -3711,7 +3711,6 @@
               </svg>
               About
             </button>
-            <hr class="stk-nav-separator" />
             <button class="settings-nav-item" data-section="site">
               <svg
                 width="16"
@@ -4227,14 +4226,7 @@
               <!-- ── Display ── -->
               <div class="settings-fieldset">
                 <div class="settings-fieldset-title">Display</div>
-                <div
-                  style="
-                    display: grid;
-                    grid-template-columns: 1fr 1fr;
-                    gap: 0.75rem 1.5rem;
-                    align-items: end;
-                  "
-                >
+                <div class="settings-display-grid">
                   <div style="display: flex; flex-direction: column; gap: 0.35rem">
                     <div class="settings-group-label">Color scheme</div>
                     <div class="theme-picker" style="display: flex; flex-wrap: nowrap; gap: 0">
@@ -4358,14 +4350,7 @@
 
               <!-- ── Card 2: Display preference dropdowns ── -->
               <div class="settings-fieldset">
-                <div
-                  style="
-                    display: grid;
-                    grid-template-columns: repeat(3, 1fr);
-                    gap: 0.75rem 1rem;
-                    align-items: end;
-                  "
-                >
+                <div class="settings-display-grid settings-display-grid-narrow">
                   <div style="display: flex; flex-direction: column; gap: 0.35rem">
                     <div class="settings-group-label">Timezone</div>
                     <select id="settingsTimezone" class="form-control">
@@ -6122,19 +6107,21 @@
                   <p class="settings-subtext">
                     Read-only table showing the current denomination pricing and source.
                   </p>
-                  <table class="settings-goldback-table" id="goldbackPriceTable">
-                    <thead>
-                      <tr>
-                        <th>Denom</th>
-                        <th>Gold content</th>
-                        <th>Current price</th>
-                        <th>Source</th>
-                      </tr>
-                    </thead>
-                    <tbody id="goldbackPriceTableBody">
-                      <!-- Rows rendered dynamically by syncGoldbackSettingsUI() -->
-                    </tbody>
-                  </table>
+                  <div class="settings-table-scroll">
+                    <table class="settings-goldback-table" id="goldbackPriceTable">
+                      <thead>
+                        <tr>
+                          <th>Denom</th>
+                          <th>Gold content</th>
+                          <th>Current price</th>
+                          <th>Source</th>
+                        </tr>
+                      </thead>
+                      <tbody id="goldbackPriceTableBody">
+                        <!-- Rows rendered dynamically by syncGoldbackSettingsUI() -->
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
 
                 <div class="gb-history-row">
@@ -8121,7 +8108,7 @@
             &times;
           </button>
         </div>
-        <div class="modal-body" style="padding: 1rem 1.5rem; overflow-y: auto; max-height: 70vh">
+        <div class="modal-body" style="padding: 1rem 1.5rem">
           <!-- Overview -->
           <div class="about-section">
             <div class="section-title">🏠 Overview</div>

@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.118] - 2026-11-07
+
+### Fixed — STRK-552: Settings overflows sideways at phone width
+
+- **Appearance**: The Display and Timezone grids use a `settings-display-grid` class that drops to one column on a narrow panel, so the theme picker, Inventory View toggle and Default Sort select fit at 390px. The select shows its full option name (STRK-552).
+- **Tables**: The Goldback price table and the two Storage tables scroll sideways inside a `settings-table-scroll` wrapper, so the Settings panel itself never scrolls sideways (STRK-552).
+- **Log tabs**: The seven Activity Log tabs wrap onto a second row and stand 44px tall at phone width (STRK-552).
+- **Wrapping**: Image pattern rules, Item names in the Review Changes window and the Collections Clone and customize button wrap or keep their width instead of cutting text. Hidden info-icon tips stay out of layout (STRK-552).
+- **Privacy**: The Privacy policy scrolls as one surface that fills the phone screen, in place of a 70vh inner scroller. The Settings nav drops its stray separator line (STRK-552).
+- **Tests**: A new test reads every Settings panel, the Privacy policy and the Review Changes window with long names at 390px and 1440px for sideways overflow, using a shared `readHorizontalOverflow` helper. A second test checks the Privacy policy scroll (STRK-552).
+
+---
+
 ## [3.36.117] - 2026-11-07
 
 ### Fixed — STRK-556: Diff review modal text below 12px
