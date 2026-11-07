@@ -22500,6 +22500,69 @@ button.vp-price:hover {
 #diffReviewModal .dm-qty-opt.sum .dm-qty-verb {
   color: var(--info-text);
 }
+/* Purchase details that tell two rows for the same coin apart. */
+#diffReviewModal .dm-item-detail {
+  font-size: max(12px, var(--font-size-sm));
+  color: var(--text-secondary);
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.15rem;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+/* Column headers over the field rows; the hidden arrow keeps the grid tracks aligned. */
+#diffReviewModal .dm-field-head {
+  display: grid;
+  grid-template-columns: 120px 1fr auto 1fr;
+  gap: 0.5rem;
+  align-items: end;
+  padding: 0.25rem 0 0.35rem;
+  border-bottom: 1px solid var(--border);
+  font-size: max(12px, var(--font-size-sm));
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-align: center;
+}
+#diffReviewModal .dm-field-head > :first-child {
+  text-align: left;
+}
+#diffReviewModal .dm-field-head .dm-col-sub {
+  display: block;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+#diffReviewModal .dm-field-head .dm-field-arrow {
+  visibility: hidden;
+}
+/* The chosen side reads in text as well as colour. */
+#diffReviewModal .dm-field-value .dm-pick-tag {
+  display: none;
+}
+#diffReviewModal .dm-field-value.selected .dm-pick-tag {
+  display: block;
+  font-size: max(12px, var(--font-size-sm));
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+#diffReviewModal .dm-field-value .dm-pick-val {
+  display: block;
+  font-variant-numeric: tabular-nums;
+}
+/* Restore Preview failure: a tinted alert, then the fallback's snapshot note. */
+#restorePreviewModal .restore-preview-error {
+  margin: 0 0 1rem;
+  color: var(--warning-text);
+  background: color-mix(in srgb, var(--warning) 15%, var(--bg-secondary));
+  border: 1px solid color-mix(in srgb, var(--warning) 40%, transparent);
+  font-weight: 600;
+}
+#restorePreviewModal .restore-preview-fallback-note {
+  margin: 0.5rem 0 0;
+  font-size: max(12px, var(--font-size-sm));
+  color: var(--text-secondary);
+}
 /* Possible-duplicate flag. A raw --warning fill fails 4.5:1 on small text
    in light and sepia, so the badge tints the surface and uses --warning-text. */
 #diffReviewModal .dm-dup-flag {
@@ -23034,14 +23097,26 @@ button.vp-price:hover {
   min-width: 120px;
 }
 @media (max-width: 700px) {
-  #diffReviewModal .dm-field-diff {
+  #diffReviewModal .dm-field-diff,
+  #diffReviewModal .dm-field-head {
     grid-template-columns: 80px 1fr auto 1fr;
   }
 }
+/* One column: each value cell names its own side in place of the header row. */
 @media (max-width: 480px) {
   #diffReviewModal .dm-field-diff {
     grid-template-columns: 1fr;
     gap: 0.25rem;
+  }
+  #diffReviewModal .dm-field-head {
+    display: none;
+  }
+  #diffReviewModal .dm-field-value[data-side-label]::before {
+    content: attr(data-side-label);
+    display: block;
+    font-size: max(12px, var(--font-size-sm));
+    font-weight: 600;
+    color: var(--text-secondary);
   }
 }
 
@@ -23258,6 +23333,7 @@ button.vp-price:hover {
   }
   #diffReviewModal .dm-field-value:not(.dm-qty-opt) {
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
     min-height: 44px;

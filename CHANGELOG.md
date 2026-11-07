@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.120] - 2026-11-07
+
+### Fixed — STRK-554: Review Changes rows and Restore Preview failures are hard to read
+
+- **Item details**: Rows for Items with the same name show the purchase date, the price paid and a serial or notes excerpt. Rows that still match get an entry number (STRK-554).
+- **Column headers**: Conflict fields sit under "This device" and the remote side with its sync date. The chosen value carries a "Chosen" tag as well as colour (STRK-554).
+- **Plain values**: Field labels read as words, prices use the display currency, and the raw item ID chip is gone. The sync row names the source device and the sync time (STRK-554).
+- **Preview failure**: A vault that cannot be read shows "Could not read this backup", offers Try again first, and notes that Restore without preview saves a snapshot first (STRK-554).
+- **Cancel**: Cancel in Review Changes and Restore Preview uses the secondary button style (STRK-554).
+
+---
+
 ## [3.36.119] - 2026-11-07
 
 ### Fixed — STRK-561: In-app FAQ states facts the code contradicts

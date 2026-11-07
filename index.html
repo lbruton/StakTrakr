@@ -7469,13 +7469,25 @@
           <div id="restorePreviewSettingsDiff" style="margin-bottom: 1rem"></div>
           <div
             id="restorePreviewError"
-            class="encryption-warning"
-            style="display: none; margin-bottom: 1rem"
+            class="encryption-warning restore-preview-error"
+            role="alert"
+            style="display: none"
           ></div>
           <div class="encryption-actions" style="gap: 0.5rem; flex-wrap: wrap">
             <button class="btn success" id="restorePreviewApplyBtn">Apply Changes</button>
-            <button class="btn" id="restorePreviewCancelBtn">Cancel</button>
+            <button class="btn secondary" id="restorePreviewFallbackBtn" style="display: none">
+              Restore without preview
+            </button>
+            <button class="btn secondary" id="restorePreviewCancelBtn">Cancel</button>
           </div>
+          <p
+            class="restore-preview-fallback-note"
+            id="restorePreviewFallbackNote"
+            style="display: none"
+          >
+            Restore without preview saves a snapshot of this device first. Restore it from Settings
+            &rarr; Cloud &rarr; Advanced.
+          </p>
         </div>
       </div>
     </div>
@@ -7538,7 +7550,7 @@
               Select All
             </button>
             <button class="btn success" id="diffReviewApplyBtn">Apply Changes</button>
-            <button class="btn" id="diffReviewCancelBtn">Cancel</button>
+            <button class="btn secondary" id="diffReviewCancelBtn">Cancel</button>
           </div>
         </div>
       </div>

@@ -670,6 +670,178 @@
     };
   }
 
+  // ── Item identity details and field labels ──
+
+  /** Item fields whose values are stored in USD and display through formatCurrency. */
+  var PRICE_FIELDS = {
+    price: true,
+    purchasePrice: true,
+    retailPrice: true,
+    marketValue: true,
+    spotPriceAtPurchase: true,
+    premiumPerOz: true,
+    totalPremium: true,
+  };
+
+  /** Plain-language labels for item fields whose key does not read as a label. */
+  var ITEM_FIELD_LABELS = {
+    price: "Purchase price",
+    qty: "Quantity",
+    date: "Purchase date",
+    marketValue: "Retail price",
+    spotPriceAtPurchase: "Spot at purchase",
+    premiumPerOz: "Premium per oz",
+    certNumber: "Cert number",
+    pcgsNumber: "PCGS number",
+    pcgsVerified: "PCGS verified",
+    numistaId: "Numista ID",
+    purchaseLocation: "Purchased at",
+    obverseImageUrl: "Obverse image URL",
+    reverseImageUrl: "Reverse image URL",
+  };
+
+  var NOTE_EXCERPT_LENGTH = 40;
+
+  /** Sentence-case label for an item field key. */
+  function _fieldLabel(field) {
+    if (ITEM_FIELD_LABELS[field]) return ITEM_FIELD_LABELS[field];
+    var words = _titleCase(field);
+    return words.charAt(0) + words.slice(1).toLowerCase();
+  }
+
+  /** Display text for one field value: prices through formatCurrency, empty as a dash. */
+  function _fieldDisplay(field, value) {
+    if (value == null || value === "") return "—";
+    if (PRICE_FIELDS[field] && typeof formatCurrency === "function") {
+      var money = formatCurrency(value);
+      if (money) return money;
+    }
+    return String(value);
+  }
+
+  /** Purchase date, price paid, and a serial or notes excerpt: the details that tell twins apart. */
+  function _itemDetailParts(item) {
+    var parts = [];
+    if (item.date) parts.push("Bought " + String(item.date));
+    if (item.price != null && item.price !== "")
+      parts.push("Paid " + _fieldDisplay("price", item.price));
+    if (item.serialNumber) {
+      parts.push("Serial " + String(item.serialNumber));
+    } else if (item.notes) {
+      var note = String(item.notes).trim();
+      if (note.length > NOTE_EXCERPT_LENGTH) note = note.slice(0, NOTE_EXCERPT_LENGTH).trim() + "…";
+      if (note) parts.push("“" + note + "”");
+    }
+    return parts;
+  }
+
+  /**
+   * Entry labels ("Entry 2 of 3") for rows that still read the same after the detail line.
+   * Returns an array parallel to `items`, with null where the row is unique.
+   */
+  function _entryLabels(items) {
+    var sigs = [];
+    var totals = {};
+    for (var i = 0; i < items.length; i++) {
+      var it = items[i] || {};
+      var sig = [it.name, it.metal, it.weight, it.weightUnit, it.qty]
+        .concat(_itemDetailParts(it))
+        .join("|");
+      sigs.push(sig);
+      totals[sig] = (totals[sig] || 0) + 1;
+    }
+    var seen = {};
+    return sigs.map(function (s) {
+      if (totals[s] < 2) return null;
+      seen[s] = (seen[s] || 0) + 1;
+      return "Entry " + seen[s] + " of " + totals[s];
+    });
+  }
+
+  /** The detail line under an item's metal and weight. Empty when there is nothing to show. */
+  function _renderItemDetail(item, entryLabel) {
+    var parts = _itemDetailParts(item);
+    if (entryLabel) parts.push(entryLabel);
+    if (parts.length === 0) return "";
+    var html = '<div class="dm-item-detail">';
+    for (var p = 0; p < parts.length; p++) {
+      if (p > 0) html += '<span aria-hidden="true">&#8226;</span>';
+      html += "<span>" + _esc(parts[p]) + "</span>";
+    }
+    return html + "</div>";
+  }
+
+  /** Name of the remote side for column headers: the provider, file, or backup label. */
+  function _remoteSideLabel() {
+    var source = (_options && _options.source) || {};
+    var label = String(source.label || "Backup");
+    if (source.type === "sync") label = label.charAt(0).toUpperCase() + label.slice(1);
+    return label;
+  }
+
+  /** Local date of a sync or export timestamp (epoch ms or ISO string), or "" when absent. */
+  function _metaDate(timestamp, withTime) {
+    if (timestamp == null || timestamp === "") return "";
+    var d = new Date(timestamp);
+    if (isNaN(d.getTime())) return "";
+    var day = d.toLocaleDateString("en-CA");
+    if (!withTime) return day;
+    return day + " " + d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  }
+
+  /** Column header row over a conflict card's field rows. */
+  function _renderFieldHead() {
+    var meta = (_options && _options.meta) || {};
+    var source = (_options && _options.source) || {};
+    var date = _metaDate(meta.timestamp, false);
+    var sub = date ? (source.type === "sync" ? "synced " : "saved ") + date : "";
+    return (
+      '<div class="dm-field-head">' +
+      "<span>Field</span>" +
+      "<span>This device</span>" +
+      '<span class="dm-field-arrow" aria-hidden="true">&#10231;</span>' +
+      "<span>" +
+      _esc(_remoteSideLabel()) +
+      (sub ? '<span class="dm-col-sub">' + _esc(sub) + "</span>" : "") +
+      "</span>" +
+      "</div>"
+    );
+  }
+
+  /** One clickable value cell; the "Chosen" tag shows on the selected side. */
+  function _renderPickCell(side, isSelected, field, cardIdx, display) {
+    return (
+      '<div class="dm-field-value ' +
+      side +
+      (isSelected ? " selected" : "") +
+      '" data-field="' +
+      _esc(field) +
+      '" data-card="' +
+      cardIdx +
+      '" data-side-label="' +
+      _esc(side === "local" ? "This device" : _remoteSideLabel()) +
+      '" title="' +
+      _esc(display) +
+      '"><span class="dm-pick-tag">&#10003; Chosen</span><span class="dm-pick-val">' +
+      _esc(display) +
+      "</span></div>"
+    );
+  }
+
+  /** A local/remote field row: label, both value cells and the arrow between them. */
+  function _renderPickRow(label, field, cardIdx, sel, localDisplay, remoteDisplay) {
+    return (
+      '<div class="dm-field-diff">' +
+      '<div class="dm-field-label">' +
+      _esc(label) +
+      "</div>" +
+      _renderPickCell("local", sel === "local", field, cardIdx, localDisplay) +
+      '<div class="dm-field-arrow" aria-hidden="true">&#10231;</div>' +
+      _renderPickCell("remote", sel === "remote", field, cardIdx, remoteDisplay) +
+      "</div>"
+    );
+  }
+
   // ── Card-based renderers (STAK-454 — matches playground/diffmodal-item-cards.html) ──
 
   /** Shared card header: dual OBV/REV thumbnails + item identity. Used by orphan and conflict cards. */
@@ -743,6 +915,7 @@
     html += '<div class="dm-section-body' + (collapsed ? " collapsed" : "") + '">';
     var showAll = _collapsedCategories["_showAll_" + type];
     var limit = !showAll && items.length > 30 ? 30 : items.length;
+    var entryLabels = _entryLabels(items);
     for (var i = 0; i < limit; i++) {
       var item = items[i];
       var key = type + "-" + i;
@@ -781,7 +954,9 @@
           "</span>";
       if (item.qty != null)
         html += "<span>&#8226;</span><span>Qty: " + _esc(String(item.qty)) + "</span>";
-      html += "</div></div>";
+      html += "</div>";
+      html += _renderItemDetail(item, entryLabels[i]);
+      html += "</div>";
       // STRK-167 (AC-11): advisory possible-duplicate badge for an added row whose
       // key is in the showImportDiffReview sidecar (an ungraded import sharing
       // numistaId+year with an existing graded item). Advisory only — never blocks
@@ -922,6 +1097,7 @@
       var changes = mod.changes || [];
       var mColor = window.DiffModalSettings.metalColor(item.metal);
       var uuid = item.uuid || "";
+      var detailItem = item;
       // Manifest stubs lack uuid/metal — resolve from local inventory by itemKey
       if (
         !uuid &&
@@ -934,13 +1110,13 @@
         for (var ri = 0; ri < inventory.length; ri++) {
           if (DiffEngine.computeItemKey(inventory[ri]) === item.itemKey) {
             uuid = inventory[ri].uuid || "";
+            detailItem = inventory[ri];
             if (!item.metal) mColor = window.DiffModalSettings.metalColor(inventory[ri].metal);
             break;
           }
         }
       }
       var isResolved = _resolvedConflicts[i];
-      var itemKey = _itemKey(item);
 
       html +=
         '<div class="dm-card dm-conflict-card' +
@@ -964,11 +1140,9 @@
           " " +
           _esc(item.weightUnit || "oz") +
           "</span>";
-      html +=
-        '<span>&#8226;</span><span class="dm-chip dm-chip-id">ID: ' +
-        _esc(itemKey).substring(0, 16) +
-        "</span>";
-      html += "</div></div>";
+      html += "</div>";
+      html += _renderItemDetail(detailItem, null);
+      html += "</div>";
       // Field count pill
       if (isResolved) {
         html += '<span class="dm-pill dm-pill-gain">&#10003; Resolved</span>';
@@ -990,6 +1164,7 @@
         '" id="dm-conflict-details-' +
         i +
         '">';
+      html += _renderFieldHead();
       for (var c = 0; c < changes.length; c++) {
         var ch = changes[c];
 
@@ -1005,46 +1180,20 @@
             var attUuid = attEntry.attachmentUuid;
             var attFKey = "conflict-" + i + "-attachments:" + attUuid;
             var attSel = _fieldSelections[attFKey] || "remote";
-            var attLocalSel = attSel === "local" ? " selected" : "";
-            var attRemoteSel = attSel === "remote" ? " selected" : "";
-            var attLocalDisplay = attEntry.localVal ? _esc(attEntry.localVal.fileName) : "\u2014";
-            var attRemoteDisplay = attEntry.remoteVal
-              ? _esc(attEntry.remoteVal.fileName)
-              : "\u2014";
             var attLabel =
               attEntry.action === "add"
                 ? "Attachment (added)"
                 : attEntry.action === "remove"
                   ? "Attachment (removed)"
                   : "Attachment (replaced)";
-            html += '<div class="dm-field-diff">';
-            html += '<div class="dm-field-label">' + _esc(attLabel) + "</div>";
-            html +=
-              '<div class="dm-field-value local' +
-              attLocalSel +
-              '" data-field="attachments:' +
-              _esc(attUuid) +
-              '" data-card="' +
-              i +
-              '" title="' +
-              attLocalDisplay +
-              '">' +
-              attLocalDisplay +
-              "</div>";
-            html += '<div class="dm-field-arrow">&#10231;</div>';
-            html +=
-              '<div class="dm-field-value remote' +
-              attRemoteSel +
-              '" data-field="attachments:' +
-              _esc(attUuid) +
-              '" data-card="' +
-              i +
-              '" title="' +
-              attRemoteDisplay +
-              '">' +
-              attRemoteDisplay +
-              "</div>";
-            html += "</div>";
+            html += _renderPickRow(
+              attLabel,
+              "attachments:" + attUuid,
+              i,
+              attSel,
+              attEntry.localVal ? attEntry.localVal.fileName : "\u2014",
+              attEntry.remoteVal ? attEntry.remoteVal.fileName : "\u2014"
+            );
           }
           continue;
         }
@@ -1053,10 +1202,8 @@
         var sel = _fieldSelections[fKey] || "remote";
         var localSelected = sel === "local" ? " selected" : "";
         var remoteSelected = sel === "remote" ? " selected" : "";
-        var localDisplay =
-          ch.localVal != null && ch.localVal !== "" ? String(ch.localVal) : "\u2014";
-        var remoteDisplay =
-          ch.remoteVal != null && ch.remoteVal !== "" ? String(ch.remoteVal) : "\u2014";
+        var localDisplay = _fieldDisplay(ch.field, ch.localVal);
+        var remoteDisplay = _fieldDisplay(ch.field, ch.remoteVal);
 
         // \u2500\u2500 STRK-167 (AC-10): 3-way quantity reconciliation (Keep / Replace / Add) \u2500\u2500
         // Numista's "Quantity owned" is authoritative, so REPLACE is the default, but
@@ -1078,7 +1225,7 @@
             i +
             '" title="Keep your existing quantity (' +
             _esc(localDisplay) +
-            ')"><span class="dm-qty-verb">Keep</span><span class="dm-qty-num">' +
+            ')"><span class="dm-pick-tag">&#10003; Chosen</span><span class="dm-qty-verb">Keep</span><span class="dm-qty-num">' +
             _esc(localDisplay) +
             "</span></div>";
           html +=
@@ -1090,7 +1237,7 @@
             i +
             '" title="Replace with the imported quantity (' +
             _esc(remoteDisplay) +
-            ')"><span class="dm-qty-verb">Replace</span><span class="dm-qty-num">' +
+            ')"><span class="dm-pick-tag">&#10003; Chosen</span><span class="dm-qty-verb">Replace</span><span class="dm-qty-num">' +
             _esc(remoteDisplay) +
             "</span></div>";
           html +=
@@ -1106,7 +1253,7 @@
             _esc(remoteDisplay) +
             " = " +
             sumVal +
-            ')"><span class="dm-qty-verb">Add to existing</span><span class="dm-qty-num">' +
+            ')"><span class="dm-pick-tag">&#10003; Chosen</span><span class="dm-qty-verb">Add to existing</span><span class="dm-qty-num">' +
             _esc(localDisplay) +
             " + " +
             _esc(remoteDisplay) +
@@ -1118,34 +1265,14 @@
           continue;
         }
 
-        html += '<div class="dm-field-diff">';
-        html += '<div class="dm-field-label">' + _esc(ch.field) + "</div>";
-        html +=
-          '<div class="dm-field-value local' +
-          localSelected +
-          '" data-field="' +
-          _esc(ch.field) +
-          '" data-card="' +
-          i +
-          '" title="' +
-          _esc(localDisplay) +
-          '">' +
-          _esc(localDisplay) +
-          "</div>";
-        html += '<div class="dm-field-arrow">&#10231;</div>';
-        html +=
-          '<div class="dm-field-value remote' +
-          remoteSelected +
-          '" data-field="' +
-          _esc(ch.field) +
-          '" data-card="' +
-          i +
-          '" title="' +
-          _esc(remoteDisplay) +
-          '">' +
-          _esc(remoteDisplay) +
-          "</div>";
-        html += "</div>";
+        html += _renderPickRow(
+          _fieldLabel(ch.field),
+          ch.field,
+          i,
+          sel,
+          localDisplay,
+          remoteDisplay
+        );
       }
       // Card actions
       html += '<div class="dm-card-actions">';
@@ -1367,10 +1494,8 @@
             localItemCount != null ? String(localItemCount) : "—"
           );
         }
-        sourceHtml += _metaCell(
-          "Device",
-          meta.deviceId ? meta.deviceId.slice(0, 8) + "\u2026" : "unknown"
-        );
+        sourceHtml += _metaCell("From", _sourceDeviceName(meta.deviceId));
+        sourceHtml += _metaCell("Synced", _metaDate(meta.timestamp, true) || "\u2014");
         sourceHtml += _metaCell("Version", meta.appVersion ? "v" + meta.appVersion : "\u2014");
         sourceHtml += "</div>";
       }
@@ -1424,6 +1549,13 @@
 
     // Apply button
     _updateApplyButton();
+  }
+
+  /** "This device" when the sync came from here, else "Another device"; the app stores no device names. */
+  function _sourceDeviceName(deviceId) {
+    if (!deviceId) return "Unknown device";
+    var own = typeof getSyncDeviceId === "function" ? getSyncDeviceId() : null;
+    return deviceId === own ? "This device" : "Another device";
   }
 
   /** Render a meta cell for the source info row */
