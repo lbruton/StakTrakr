@@ -4,7 +4,7 @@ description: "Spec process step — classify /spec-review marks for one phase, a
 user-invocable: true
 allowed-tools: >-
   Bash, Read, Write, Edit, Glob, Grep, AskUserQuestion
-library-version: 8892b468822f
+library-version: 4b65e212cbd7
 ---
 
 # /spec-reconcile ISSUE PHASE

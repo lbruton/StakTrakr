@@ -5,6 +5,7 @@ ignorecase: true
 nonword: true
 tokens:
   - '\b(?:is|are|was|were|has|have|had|do|does|did|ca|wo|would|should|could|must|need)n[''’]t\b'
-  - '\b(?:it|that|there|here|what|who|let)[''’]s\b'
+  - '\b(?:it|that|there|here|what|who|let|he|she)[''’]s\b'
+  - '\b(?:it|that|there|what|who|he|she)[''’](?:ll|d)\b'
   - '\b(?:you|we|they)[''’](?:re|ve|ll|d)\b'
   - '\bI[''’](?:m|ve|ll|d)\b'
