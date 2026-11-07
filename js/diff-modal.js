@@ -758,6 +758,27 @@
     });
   }
 
+  /**
+   * The full Item behind a conflict card. Manifest stubs carry only an itemKey, so the
+   * matching local inventory Item supplies the uuid, metal and purchase details.
+   */
+  function _conflictDetailItem(item) {
+    if (
+      item.uuid ||
+      !item.itemKey ||
+      typeof inventory === "undefined" ||
+      !Array.isArray(inventory) ||
+      typeof DiffEngine === "undefined" ||
+      !DiffEngine.computeItemKey
+    ) {
+      return item;
+    }
+    for (var ri = 0; ri < inventory.length; ri++) {
+      if (DiffEngine.computeItemKey(inventory[ri]) === item.itemKey) return inventory[ri];
+    }
+    return item;
+  }
+
   /** The detail line under an item's metal and weight. Empty when there is nothing to show. */
   function _renderItemDetail(item, entryLabel) {
     var parts = _itemDetailParts(item);
@@ -1091,31 +1112,18 @@
     // Section body
     html += '<div class="dm-section-body' + (collapsed ? " collapsed" : "") + '">';
 
+    var detailItems = modifiedItems.map(function (m) {
+      return _conflictDetailItem(m.item);
+    });
+    var entryLabels = _entryLabels(detailItems);
+
     for (var i = 0; i < modifiedItems.length; i++) {
       var mod = modifiedItems[i];
       var item = mod.item;
       var changes = mod.changes || [];
-      var mColor = window.DiffModalSettings.metalColor(item.metal);
-      var uuid = item.uuid || "";
-      var detailItem = item;
-      // Manifest stubs lack uuid/metal — resolve from local inventory by itemKey
-      if (
-        !uuid &&
-        item.itemKey &&
-        typeof inventory !== "undefined" &&
-        Array.isArray(inventory) &&
-        typeof DiffEngine !== "undefined" &&
-        DiffEngine.computeItemKey
-      ) {
-        for (var ri = 0; ri < inventory.length; ri++) {
-          if (DiffEngine.computeItemKey(inventory[ri]) === item.itemKey) {
-            uuid = inventory[ri].uuid || "";
-            detailItem = inventory[ri];
-            if (!item.metal) mColor = window.DiffModalSettings.metalColor(inventory[ri].metal);
-            break;
-          }
-        }
-      }
+      var detailItem = detailItems[i];
+      var uuid = item.uuid || detailItem.uuid || "";
+      var mColor = window.DiffModalSettings.metalColor(item.metal || detailItem.metal);
       var isResolved = _resolvedConflicts[i];
 
       html +=
@@ -1141,7 +1149,7 @@
           _esc(item.weightUnit || "oz") +
           "</span>";
       html += "</div>";
-      html += _renderItemDetail(detailItem, null);
+      html += _renderItemDetail(detailItem, entryLabels[i]);
       html += "</div>";
       // Field count pill
       if (isResolved) {

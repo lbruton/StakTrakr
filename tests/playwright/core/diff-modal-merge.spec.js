@@ -481,6 +481,35 @@ test.describe("DiffModal row clarity", () => {
     expect(rows.details[3]).toContain("Entry 2 of 2");
   });
 
+  test("conflict cards for matching modified Items show an entry number", async ({ page }) => {
+    const details = await page.evaluate((eagle) => {
+      const twin = { ...eagle, name: "Maple Leaf", date: "2024-05-01", price: 33 };
+      const change = [{ field: "storageLocation", localVal: "Safe", remoteVal: "Bank box" }];
+      window.DiffModal.show({
+        source: { type: "csv", label: "inventory.csv" },
+        diff: {
+          added: [],
+          deleted: [],
+          modified: [
+            { item: { ...twin, uuid: "rc-m1" }, changes: change },
+            { item: { ...twin, uuid: "rc-m2" }, changes: change },
+            { item: { ...twin, uuid: "rc-m3", name: "Krugerrand" }, changes: change },
+          ],
+        },
+        onApply: () => {},
+        onCancel: () => {},
+      });
+      return Array.from(
+        document.querySelectorAll("#diffSectionModified .dm-conflict-card .dm-item-detail")
+      ).map((el) => el.textContent.replace(/\s+/g, " ").trim());
+    }, EAGLE);
+
+    expect(details).toHaveLength(3);
+    expect(details[0]).toContain("Entry 1 of 2");
+    expect(details[1]).toContain("Entry 2 of 2");
+    expect(details[2]).not.toContain("Entry");
+  });
+
   test("conflict fields carry column headers, plain labels, formatted prices and a chosen tag", async ({
     page,
   }) => {
