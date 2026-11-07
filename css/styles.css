@@ -17446,7 +17446,7 @@ button.vp-price:hover {
 
 /* ── Best Price Highlight ── */
 .vp-best {
-  background: color-mix(in srgb, var(--success) 12%, transparent);
+  background: color-mix(in srgb, var(--success) 8%, transparent);
   font-weight: 700;
 }
 
@@ -22321,9 +22321,12 @@ button.vp-price:hover {
   padding: 0.75rem 1rem;
   cursor: pointer;
 }
+/* State cards keep full-strength text; a fade would pull it under 4.5:1. */
 #diffReviewModal .dm-orphan-card.skipped {
-  opacity: 0.4;
-  transition: opacity 0.3s;
+  border-style: dashed;
+}
+#diffReviewModal .dm-orphan-card.skipped .dm-item-name {
+  text-decoration: line-through;
 }
 #diffReviewModal .dm-orphan-actions {
   display: flex;
@@ -22794,7 +22797,7 @@ button.vp-price:hover {
   background: color-mix(in oklch, var(--success) 8%, transparent);
 }
 #diffReviewModal .dm-card.resolved {
-  opacity: 0.5;
+  border-color: var(--success);
   transform: scale(0.98);
   transition: all 0.3s;
 }
@@ -22821,7 +22824,7 @@ button.vp-price:hover {
   font-weight: 500;
   padding: var(--spacing-xs) 0.55rem;
   border-radius: 6px;
-  background: color-mix(in oklch, var(--primary) 8%, transparent);
+  background: color-mix(in oklch, var(--primary) 8%, var(--bg-card));
   color: var(--primary-text);
 }
 /* The id outranks the per-theme .cloud-sync-update-meta backgrounds in css/styles.css. */

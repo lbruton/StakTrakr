@@ -197,9 +197,9 @@ The label meets 4.5:1 on both fills in every theme, and dark and slate use a dar
 Keep the base `--primary`, `--secondary`, `--success`, `--info`, `--warning` and `--danger` tokens for unlabelled marks: bars, dots, borders, tints and icons.
 Do not darken `--secondary` for a button: `--col-weight` and the filter chip colours read it.
 `status-colour-tokens.spec.js` fails on a text colour or a labelled fill that uses a base role token.
-Sepia `--text-muted` measures 4.1:1 on the `--bg-secondary` zebra rows that every `<table>` inherits.
-The vendor price table maps `--text-muted` to `--text-secondary` in sepia; a new striped table needs the same.
-`tests/unit/js-theme-tokens.test.js` fails when `js/` reads a custom property that no stylesheet defines.
+`--text-muted` meets 4.5:1 on all five frame surfaces in every theme, so a striped table needs no override.
+Do not fade a card with `opacity` to show its state: the faded text falls below 4.5:1.
+`tests/unit/js-theme-tokens.test.js` fails when `js/`, `css/` or `index.html` reads a custom property that no stylesheet defines.
 
 ## `--success` color — non-text contrast fail on sepia icons
 

@@ -39,21 +39,25 @@ export function measureText(page, selector, { ancestorOpacity = false } = {}) {
       const mix = (top, base, a) => [0, 1, 2].map((i) => a * top[i] + (1 - a) * base[i]);
       // Walks up from `from` to the first opaque surface. A faded opaque surface fades text and
       // surface together, so `flatten` composites a colour painted on it over its own backdrop.
+      // `colour` is that surface with every translucent fill between it and `from` laid on top.
       const walk = (from, start) => {
         let opacity = start;
+        const tints = [];
+        const lay = (base) => tints.reduceRight((under, tint) => [...over(tint, under), 255], base);
         for (let node = from.parentElement; node; node = node.parentElement) {
           const cs = getComputedStyle(node);
           const c = toRgba(cs.backgroundColor);
           const own = withAncestors ? Number(cs.opacity) : 1;
           if (c[3] === 255) {
-            if (own === 1) return { colour: c, opacity, flatten: (x) => x };
+            if (own === 1) return { colour: lay(c), opacity, flatten: (x) => x };
             const behind = walk(node, own);
             const flatten = (x) => behind.flatten(mix(x, behind.colour, behind.opacity));
-            return { colour: c, opacity, flatten };
+            return { colour: lay(c), opacity, flatten };
           }
+          if (c[3] > 0) tints.push(c);
           opacity *= own;
         }
-        return { colour: [255, 255, 255, 255], opacity, flatten: (x) => x };
+        return { colour: lay([255, 255, 255, 255]), opacity, flatten: (x) => x };
       };
       const surfaceBehind = (el) => walk(el, Number(getComputedStyle(el).opacity));
       const STOP = /(?:rgba?|oklch|oklab|lab|lch|color)\([^()]*\)/g;

@@ -982,25 +982,53 @@ test.describe("theme token gaps", () => {
       "Add to existing",
     ]);
     // Marks every rendered element that holds its own text, so one selector measures them all.
-    await page.evaluate(() => {
-      for (const el of document.querySelectorAll("#diffReviewModal .modal-content *")) {
-        const ownText = [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim());
-        if (ownText && el.getClientRects().length && !el.matches(":disabled")) {
-          el.dataset.dmText = "";
+    const markText = () =>
+      page.evaluate(() => {
+        for (const el of document.querySelectorAll("#diffReviewModal [data-dm-text]")) {
+          delete el.dataset.dmText;
         }
-      }
-    });
-    const selectors = {
-      "Keep and Replace labels": "#diffReviewModal .dm-qty-verb",
-      "diff review text": "#diffReviewModal [data-dm-text]",
-    };
-    for (const theme of THEMES) {
-      await applyTheme(page, theme);
-      const failures = (await contrastFailures(page, selectors)).filter(
-        (f) => !f.includes(" inline ")
+        for (const el of document.querySelectorAll("#diffReviewModal .modal-content *")) {
+          const ownText = [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim());
+          const shown = el.getClientRects().length && !el.closest(".collapsed");
+          if (ownText && shown && !el.matches(":disabled")) {
+            el.dataset.dmText = "";
+          }
+        }
+      });
+    const allText = { "diff review text": "#diffReviewModal [data-dm-text]" };
+    const expectAA = async (state, selectors) => {
+      // Open and fade-in animations start near opacity 0; measure their end state.
+      await page.evaluate(() =>
+        Promise.all(
+          document
+            .getAnimations()
+            .filter((a) => a.effect?.getComputedTiming().iterations !== Infinity)
+            .map((a) => a.finished)
+        )
       );
-      expect(failures, `${theme} diff review`).toEqual([]);
-    }
+      await markText();
+      for (const theme of THEMES) {
+        await applyTheme(page, theme);
+        const failures = (
+          await contrastFailures(page, selectors, { ancestorOpacity: true })
+        ).filter((f) => !f.includes(" inline "));
+        expect(failures, `${theme} diff review ${state}`).toEqual([]);
+      }
+    };
+    await expectAA("on open", {
+      "Keep and Replace labels": "#diffReviewModal .dm-qty-verb",
+      ...allText,
+    });
+    // A skipped Item card and a confirmed conflict card keep their text at AA.
+    await page.evaluate(() => {
+      const modal = document.getElementById("diffReviewModal");
+      modal.querySelector('.dm-orphan-card [data-set-action="skip"]').click();
+      modal.querySelector('[data-card-action="keep-remote"]').click();
+      modal.querySelector('[data-card-action="resolve"]').click();
+    });
+    await expect(page.locator("#diffReviewModal .dm-orphan-card.skipped")).toHaveCount(1);
+    await expect(page.locator("#diffReviewModal .dm-conflict-card.resolved")).toHaveCount(1);
+    await expectAA("after Skip and Confirm", allText);
   });
 });
 
@@ -1017,5 +1045,16 @@ test.describe("contrast measure", () => {
     // White over 50% black on white renders white on mid-grey.
     expect(faded.ratio).toBeLessThan(AA_NORMAL_TEXT);
     expect(faded.ratio).toBeCloseTo(4, 0);
+  });
+
+  test("a translucent ancestor fill darkens the surface behind the text", async ({ page }) => {
+    await page.setContent(
+      `<body style="margin:0;background:#fff">
+        <div style="background:rgba(0,0,0,0.5)"><span id="t" style="color:#777">Tinted</span></div>
+      </body>`
+    );
+    const [tinted] = await measureText(page, "#t");
+    // Grey text over 50% black on white sits on mid-grey, not on white.
+    expect(tinted.ratio).toBeLessThan(2);
   });
 });
