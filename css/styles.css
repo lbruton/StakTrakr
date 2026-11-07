@@ -22377,9 +22377,10 @@ button.vp-price:hover {
   flex-shrink: 0;
 }
 #diffReviewModal .dm-item-thumb-pair .dm-item-thumb {
-  width: 40px;
-  height: 40px;
-  font-size: var(--font-size-sm);
+  /* The box grows with the label when the user font size is large. */
+  width: max(40px, 3.25em);
+  height: max(40px, 3.25em);
+  font-size: max(12px, var(--font-size-sm));
   color: var(--text-muted);
   text-align: center;
   line-height: 1.2;
@@ -22397,7 +22398,7 @@ button.vp-price:hover {
   text-overflow: ellipsis;
 }
 #diffReviewModal .dm-item-meta {
-  font-size: var(--font-size-sm);
+  font-size: max(12px, var(--font-size-sm));
   color: var(--text-muted);
   display: flex;
   gap: 0.5rem;
@@ -22416,7 +22417,7 @@ button.vp-price:hover {
   border-bottom: none;
 }
 #diffReviewModal .dm-field-label {
-  font-size: var(--font-size-sm);
+  font-size: max(12px, var(--font-size-sm));
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -22426,7 +22427,7 @@ button.vp-price:hover {
   padding: 0.35rem 0.6rem;
   border-radius: 8px;
   min-height: 1.8rem;
-  font-size: 0.82rem;
+  font-size: max(12px, 0.82rem);
   cursor: pointer;
   transition: all 0.15s;
   border: 2px solid transparent;
@@ -22474,7 +22475,7 @@ button.vp-price:hover {
   text-align: left;
 }
 #diffReviewModal .dm-qty-opt .dm-qty-verb {
-  font-size: var(--font-size-sm);
+  font-size: max(12px, var(--font-size-sm));
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.03em;
@@ -22494,7 +22495,7 @@ button.vp-price:hover {
   gap: 0.35rem;
   margin: 0.25rem 0;
   padding: 0.2rem 0.5rem;
-  font-size: var(--font-size-sm);
+  font-size: max(12px, var(--font-size-sm));
   font-weight: 600;
   border-radius: 6px;
   color: var(--warning-text);
@@ -22502,7 +22503,7 @@ button.vp-price:hover {
   border: 1px solid color-mix(in srgb, var(--warning) 40%, transparent);
 }
 #diffReviewModal .dm-dup-flag .dm-dup-icon {
-  font-size: 0.85rem;
+  font-size: max(12px, 0.85rem);
   line-height: 1;
 }
 #diffReviewModal .dm-dup-flag .dm-dup-text {
@@ -22511,7 +22512,7 @@ button.vp-price:hover {
 /* The duplicate flag's screen-reader sentence uses the global .sr-only rule. */
 #diffReviewModal .dm-field-arrow {
   color: var(--text-muted);
-  font-size: 0.8rem;
+  font-size: max(12px, 0.8rem);
   text-align: center;
 }
 #diffReviewModal .dm-card-actions {
@@ -22543,7 +22544,7 @@ button.vp-price:hover {
 }
 #diffReviewModal .dm-collapse-toggle {
   cursor: pointer;
-  font-size: var(--font-size-sm);
+  font-size: max(12px, var(--font-size-sm));
   color: var(--text-muted);
   transition: transform 0.2s;
   user-select: none;
@@ -22570,7 +22571,7 @@ button.vp-price:hover {
   gap: 0.25rem;
   padding: 0.2rem 0.5rem;
   border-radius: 999px;
-  font-size: var(--font-size-sm);
+  font-size: max(12px, var(--font-size-sm));
   background: var(--bg-tertiary);
   color: var(--text-secondary);
 }
@@ -22580,7 +22581,7 @@ button.vp-price:hover {
   gap: 0.3rem;
   padding: 0.25rem 0.65rem;
   border-radius: 999px;
-  font-size: 0.75rem;
+  font-size: max(12px, 0.75rem);
   font-weight: 600;
 }
 #diffReviewModal .dm-pill-warning {
@@ -22599,7 +22600,7 @@ button.vp-price:hover {
   background: var(--bg-secondary);
   border-radius: 999px;
   margin-bottom: 1rem;
-  font-size: 0.8rem;
+  font-size: max(12px, 0.8rem);
 }
 #diffReviewModal .dm-status-text {
   flex: 1;
@@ -22622,7 +22623,7 @@ button.vp-price:hover {
   padding: 0.5rem 1.1rem;
   border: none;
   border-radius: 999px;
-  font-size: 0.82rem;
+  font-size: max(12px, 0.82rem);
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
@@ -22632,7 +22633,7 @@ button.vp-price:hover {
 }
 #diffReviewModal .dm-btn-sm {
   padding: 0.3rem 0.7rem;
-  font-size: 0.75rem;
+  font-size: max(12px, 0.75rem);
 }
 #diffReviewModal .dm-btn-primary {
   background: var(--primary-fill);
@@ -22687,14 +22688,14 @@ button.vp-price:hover {
   min-width: 0;
 }
 #diffReviewModal .dm-setting-side-label {
-  font-size: var(--font-size-sm);
+  font-size: max(12px, var(--font-size-sm));
   font-weight: 600;
   margin-bottom: 0.25rem;
 }
 #diffReviewModal .dm-setting-arrow {
   padding-top: 1.2rem;
   color: var(--text-muted);
-  font-size: 0.8rem;
+  font-size: max(12px, 0.8rem);
 }
 #diffReviewModal .dm-chip-matched {
   display: inline-flex;
@@ -22702,7 +22703,7 @@ button.vp-price:hover {
   gap: 0.2rem;
   padding: 0.15rem 0.45rem;
   border-radius: 999px;
-  font-size: var(--font-size-sm);
+  font-size: max(12px, var(--font-size-sm));
   background: var(--bg-tertiary);
   color: var(--text-muted);
 }
@@ -22713,7 +22714,7 @@ button.vp-price:hover {
   gap: 0.2rem;
   padding: 0.15rem 0.45rem;
   border-radius: 999px;
-  font-size: var(--font-size-sm);
+  font-size: max(12px, var(--font-size-sm));
   cursor: pointer;
   transition: all 0.15s;
   border: 1px solid transparent;
@@ -22746,7 +22747,7 @@ button.vp-price:hover {
   gap: 0.2rem;
   padding: 0.15rem 0.45rem;
   border-radius: 999px;
-  font-size: var(--font-size-sm);
+  font-size: max(12px, var(--font-size-sm));
   cursor: pointer;
   transition: all 0.15s;
   border: 1px solid transparent;
@@ -22770,7 +22771,7 @@ button.vp-price:hover {
 }
 #diffReviewModal .dm-show-more {
   display: inline-block;
-  font-size: var(--font-size-sm);
+  font-size: max(12px, var(--font-size-sm));
   color: var(--primary-text);
   cursor: pointer;
   padding: 0.15rem 0.3rem;
@@ -22792,7 +22793,7 @@ button.vp-price:hover {
   flex-wrap: wrap;
 }
 #diffReviewModal .dm-count-summary .dm-count-badge {
-  font-size: 0.75rem;
+  font-size: max(12px, 0.75rem);
   padding: 0.2rem 0.5rem;
   border-radius: 4px;
   background: var(--bg-tertiary);
@@ -22802,7 +22803,7 @@ button.vp-price:hover {
   padding: 0.25rem 0.6rem;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 0.75rem;
+  font-size: max(12px, 0.75rem);
   border: 1px solid transparent;
   transition: all 0.15s;
 }
@@ -22834,7 +22835,7 @@ button.vp-price:hover {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  font-size: 0.78rem;
+  font-size: max(12px, 0.78rem);
   font-weight: 500;
   padding: var(--spacing-xs) 0.55rem;
   border-radius: 6px;
@@ -22850,7 +22851,7 @@ button.vp-price:hover {
   padding: var(--spacing-md) 0.65rem;
   border-radius: var(--radius);
   background: var(--bg-secondary);
-  font-size: 0.8rem;
+  font-size: max(12px, 0.8rem);
 }
 #diffReviewModal .dm-meta-cell {
   display: flex;
@@ -22858,7 +22859,7 @@ button.vp-price:hover {
   gap: 0.1rem;
 }
 #diffReviewModal .dm-meta-label {
-  font-size: var(--font-size-sm);
+  font-size: max(12px, var(--font-size-sm));
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -22892,7 +22893,7 @@ button.vp-price:hover {
   color: var(--warning-text);
 }
 #diffReviewModal .dm-summary-label {
-  font-size: var(--font-size-sm);
+  font-size: max(12px, var(--font-size-sm));
   color: var(--text-secondary);
 }
 #diffReviewModal .dm-section-spaced {
@@ -22908,7 +22909,7 @@ button.vp-price:hover {
   color: var(--warning-text);
 }
 #diffReviewModal .dm-item-thumb-label {
-  font-size: var(--font-size-sm);
+  font-size: max(12px, var(--font-size-sm));
   color: var(--text-secondary);
 }
 #diffReviewModal .dm-item-thumb-img {
@@ -22918,19 +22919,19 @@ button.vp-price:hover {
   border-radius: var(--radius);
 }
 #diffReviewModal .dm-chip.dm-chip-id {
-  font-size: var(--font-size-sm);
+  font-size: max(12px, var(--font-size-sm));
 }
 #diffReviewModal .dm-show-more.dm-show-more--block {
   text-align: center;
   padding: var(--spacing-md);
-  font-size: 0.78rem;
+  font-size: max(12px, 0.78rem);
   color: var(--primary-text);
 }
 #diffReviewModal .dm-empty-state {
   padding: 2rem;
   text-align: center;
   color: var(--text-muted);
-  font-size: 0.85rem;
+  font-size: max(12px, 0.85rem);
 }
 #diffReviewModal .dm-settings-divider {
   margin: 1.2rem 0 0.8rem;
@@ -22938,7 +22939,7 @@ button.vp-price:hover {
   padding-top: 0.6rem;
 }
 #diffReviewModal .dm-settings-eyebrow {
-  font-size: var(--font-size-sm);
+  font-size: max(12px, var(--font-size-sm));
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--text-muted);
@@ -22954,10 +22955,10 @@ button.vp-price:hover {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 0.78rem;
+  font-size: max(12px, 0.78rem);
 }
 #diffReviewModal .dm-hint {
-  font-size: var(--font-size-sm);
+  font-size: max(12px, var(--font-size-sm));
   color: var(--text-muted);
 }
 #diffReviewModal .dm-card.dm-settings-card {
@@ -22966,6 +22967,8 @@ button.vp-price:hover {
 }
 #diffReviewModal .dm-settings-card-head {
   display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
   align-items: center;
   justify-content: space-between;
   margin-bottom: var(--spacing-md);
@@ -22977,14 +22980,15 @@ button.vp-price:hover {
 }
 #diffReviewModal .dm-settings-card-name {
   font-weight: 600;
-  font-size: 0.85rem;
+  font-size: max(12px, 0.85rem);
 }
 #diffReviewModal .dm-settings-card-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.3rem;
 }
 #diffReviewModal .dm-btn.dm-btn-xs {
-  font-size: var(--font-size-sm);
+  font-size: max(12px, var(--font-size-sm));
   padding: 0.15rem var(--spacing-sm);
 }
 /* Follows .dm-field-diff so its padding wins on the fallback setting row. */
@@ -22993,12 +22997,12 @@ button.vp-price:hover {
   border-top: 1px solid var(--border);
 }
 #diffReviewModal .dm-setting-row-label {
-  font-size: 0.78rem;
+  font-size: max(12px, 0.78rem);
   font-weight: 500;
   margin-bottom: 0.3rem;
 }
 #diffReviewModal .dm-matched-toggle {
-  font-size: var(--font-size-sm);
+  font-size: max(12px, var(--font-size-sm));
   cursor: pointer;
   color: var(--primary-text);
   margin-top: var(--spacing-sm);
@@ -23011,7 +23015,7 @@ button.vp-price:hover {
   gap: var(--spacing-sm);
   padding: var(--spacing-xs) 0;
   color: var(--text-muted);
-  font-size: 0.78rem;
+  font-size: max(12px, 0.78rem);
 }
 #diffReviewModal .dm-matched-label {
   min-width: 120px;
@@ -23213,6 +23217,35 @@ button.vp-price:hover {
   #diffReviewModal .dm-btn {
     min-height: 44px;
   }
+  /* Setting choices and field values are clickable spans and divs, so each takes a real 44px box. */
+  #diffReviewModal
+    :is(.dm-chip-local, .dm-chip-remote, .dm-kv-pill.local, .dm-kv-pill.remote, .dm-count-btn) {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    min-width: 44px;
+    min-height: 44px;
+  }
+  /* Their rounded corners clip the box, so a square ::after holds the hit area. It starts at the
+     padding box, so it extends over the border. */
+  #diffReviewModal
+    :is(
+      .dm-chip-local,
+      .dm-chip-remote,
+      .dm-kv-pill.local,
+      .dm-kv-pill.remote,
+      .dm-count-btn
+    )::after {
+    content: "";
+    position: absolute;
+    inset: -2px;
+  }
+  #diffReviewModal .dm-field-value:not(.dm-qty-opt) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+  }
   /* The section actions move under the title rather than squeeze its count chip. */
   #diffReviewModal .dm-section-header {
     flex-wrap: wrap;
@@ -23220,6 +23253,10 @@ button.vp-price:hover {
   }
   #diffReviewModal .dm-section-title .dm-chip {
     white-space: nowrap;
+  }
+  /* Card rows wrap their buttons and status pills so a large font size stays inside the card. */
+  #diffReviewModal :is(.dm-orphan-card, .dm-orphan-actions, .dm-conflict-card-header) {
+    flex-wrap: wrap;
   }
 
   /* Text links and round icon buttons keep their size; a square ::after holds the hit area. The

@@ -1,9 +1,10 @@
 /**
  * Opens the diff review modal on a sync diff: one deleted, one modified (name, qty and
  * price) and one added Item. `extra` merges into the DiffModal.show options, for example a
- * settingsDiff or the backup and local counts.
+ * settingsDiff or the backup and local counts. It crosses into the page as JSON, so it
+ * cannot carry callbacks; onApply and onCancel stay no-ops.
  * @param {import('@playwright/test').Page} page - Playwright page with the app loaded.
- * @param {object} [extra] - Additional DiffModal.show options.
+ * @param {object} [extra] - Additional serializable DiffModal.show options.
  * @returns {Promise<void>}
  */
 export async function showSampleDiffReview(page, extra = {}) {

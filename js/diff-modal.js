@@ -2404,7 +2404,7 @@
 
     // Pill buttons
     var btnStyle =
-      "display:inline-flex;align-items:center;gap:0.3rem;border-radius:999px;font-size:var(--font-size-sm);font-weight:500;cursor:pointer;transition:all 0.15s;";
+      "display:inline-flex;align-items:center;gap:0.3rem;border-radius:999px;font-size:max(12px, var(--font-size-sm));font-weight:500;cursor:pointer;transition:all 0.15s;";
 
     if (selectAllBtn) {
       if (hasBackupCount) {
@@ -2457,7 +2457,7 @@
       cancelBtn.setAttribute(
         "style",
         btnStyle +
-          "padding:0.45rem 1rem;font-size:0.8rem;background:none;border:1.5px solid var(--border);color:var(--text-muted)"
+          "padding:0.45rem 1rem;font-size:max(12px, 0.8rem);background:none;border:1.5px solid var(--border);color:var(--text-muted)"
       );
     }
     if (applyBtn) {
@@ -2465,7 +2465,7 @@
       applyBtn.setAttribute(
         "style",
         btnStyle +
-          "padding:0.45rem 1.2rem;font-size:0.8rem;font-weight:600;background:var(--warning-fill);color:var(--on-warning);border:1.5px solid var(--warning-fill)"
+          "padding:0.45rem 1.2rem;font-size:max(12px, 0.8rem);font-weight:600;background:var(--warning-fill);color:var(--on-warning);border:1.5px solid var(--warning-fill)"
       );
     }
     if (dismissX) {

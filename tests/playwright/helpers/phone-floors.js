@@ -7,9 +7,10 @@
  * so a smaller box, a short ::after, or a neighbour's hit area all show as a miss.
  * @param {import('@playwright/test').Page} page - Playwright page.
  * @param {string} rootSelector - CSS selector of the surface root.
+ * @param {string} [extraControls] - Selector for clickable elements that carry no control role.
  * @returns {Promise<{tested:number, smallText:string[], smallInputs:string[], smallTargets:string[]}>}
  */
-export async function readPhoneFloors(page, rootSelector) {
+export async function readPhoneFloors(page, rootSelector, extraControls = "") {
   const root = page.locator(rootSelector);
   // An opening fade reads as hidden to checkVisibility, so finite animations finish first.
   await page.evaluate(() =>
@@ -20,7 +21,7 @@ export async function readPhoneFloors(page, rootSelector) {
         .map((a) => a.finished.catch(() => null))
     )
   );
-  return root.evaluate((root) => {
+  return root.evaluate((root, extraControls) => {
     const shown = (el) =>
       el.checkVisibility({ visibilityProperty: true, opacityProperty: true }) &&
       !el.closest(".sr-only") &&
@@ -53,7 +54,8 @@ export async function readPhoneFloors(page, rootSelector) {
 
     const controls = [
       ...root.querySelectorAll(
-        "button, a[href], select, input:not([type='hidden']), textarea, summary, [role='button'], [role='tab'], [tabindex='0']"
+        "button, a[href], select, input:not([type='hidden']), textarea, summary, [role='button'], [role='tab'], [tabindex='0']" +
+          (extraControls ? `, ${extraControls}` : "")
       ),
     ].filter(shown);
     const accepts = (el, hit) => {
@@ -85,5 +87,5 @@ export async function readPhoneFloors(page, rootSelector) {
       }
     }
     return { tested, smallText: [...smallText], smallInputs, smallTargets };
-  });
+  }, extraControls);
 }
