@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.114] - 2026-11-06
+
+### Fixed — STRK-524: Filled buttons and active chips meet 4.5:1 in every theme
+
+- **Fill tokens**: Each theme defines `--<role>-fill`, `--<role>-fill-hover` and `--on-<role>` for primary, secondary, success, info, warning and danger. The label meets 4.5:1 on both fills. Before, white labels on gold, blue, green, sky and grey fills measured 2.1 to 3.8:1 (STRK-524).
+- **Shared buttons and chips**: `.btn` and its variants, active sort, range and nav chips, count badges, modal header gradients and hover-filled buttons use the fill tokens. Dark and slate use a dark label on bright fills. The scoped Clear Cache rule is gone (STRK-524).
+- **Text colours**: Text set in `--primary`, `--success`, `--warning`, `--danger` or `--info` uses the matching `-text` token, and the new `--info-text` covers sky text. Links in Settings panels use `--primary-text` in place of the browser blue (STRK-524).
+- **Fades**: The tags chip and the chip confirm hover keep full opacity, because a fade lowered their label contrast (STRK-524).
+
+---
+
 ## [3.36.113] - 2026-11-06
 
 ### Fixed — STRK-536: Destructive confirms name their action and start on Cancel

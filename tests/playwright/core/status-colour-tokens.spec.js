@@ -642,6 +642,234 @@ test.describe("card chart colours from theme tokens", () => {
   });
 });
 
+const FILL_ROLES = ["primary", "secondary", "success", "info", "warning", "danger"];
+
+// Each entry renders one filled control, or one control that fills on hover, with its own
+// selector context. The element marked data-probe is measured at rest and on hover.
+const FILLED_CONTROLS = {
+  "primary button": '<button class="btn" data-probe>Save</button>',
+  "secondary button": '<button class="btn secondary" data-probe>Cancel</button>',
+  "success button": '<button class="btn success" data-probe>Export</button>',
+  "info button": '<button class="btn info" data-probe>Print</button>',
+  "warning button": '<button class="btn warning" data-probe>Review</button>',
+  "premium button": '<button class="btn premium" data-probe>Premium</button>',
+  "filters button": '<button class="btn filters" data-probe>Filters</button>',
+  "danger button": '<button class="btn danger" data-probe>Delete</button>',
+  "collection pill": '<button class="btn collections-btn-pill" data-probe>Create</button>',
+  "active sort chip": '<button class="chip-sort-btn active" data-probe>A-Z</button>',
+  "active settings nav": '<div class="settings-nav-item active" data-probe>Appearance</div>',
+  "active theme option": '<button class="theme-option active" data-probe>Dark</button>',
+  "active pattern mode": '<button class="pattern-mode-btn active" data-probe>Pattern</button>',
+  "active chart range": '<button class="view-chart-range-pill active" data-probe>1Y</button>',
+  "active retail range": '<button class="retail-tf-btn active" data-probe>7D</button>',
+  "active chart metric": '<button class="chart-metric-btn active" data-probe>Value</button>',
+  "active date N/A": '<button class="date-na-btn active" data-probe>N/A</button>',
+  "active market pill":
+    '<button class="market-filter-pill active" data-metal="all" data-probe>All</button>',
+  "grade chip": '<span class="cv-chip-grade" data-probe>MS70</span>',
+  "tags chip": '<span class="cv-chip-tags" data-probe>3 tags</span>',
+  "bulk count badge": '<span class="bulk-edit-count-badge" data-probe>4</span>',
+  "attachment count": '<span class="attach-panel-count" data-probe>2</span>',
+  "form section count": '<span class="form-section-count" data-probe>5</span>',
+  "toggle all": '<button class="toggle-all-btn" data-probe>Toggle all</button>',
+  "save all": '<button class="save-all-btn" data-probe>Save all</button>',
+  "cancel all": '<button class="cancel-all-btn" data-probe>Cancel all</button>',
+  "clear filters": '<button class="filter-clear-btn" data-probe>Clear</button>',
+  "chip confirm": '<button class="chip-confirm-yes" data-probe>Yes</button>',
+  "recovery restore":
+    '<button class="inventory-recovery-banner__btn--primary" data-probe>Restore</button>',
+  "trade save":
+    '<div class="trade-edit-actions"><button class="btn-sm save" data-probe>Save</button></div>',
+  "provider badge": '<span class="provider-badge free" data-probe>Free</span>',
+  "view footer primary":
+    '<div class="view-modal-footer"><button class="view-footer-btn primary" data-probe>Edit</button></div>',
+  "view footer danger":
+    '<div class="view-modal-footer"><button class="view-footer-btn danger" data-probe>Remove</button></div>',
+  "settings action": '<button class="settings-action-btn" data-probe>Run</button>',
+  "save filter": '<button class="save-filter-btn" data-probe>Save filter</button>',
+  "search add": '<button class="search-action-btn add-btn" data-probe>Add</button>',
+  "search clear": '<button class="search-action-btn clear-btn" data-probe>Clear</button>',
+  "search log": '<button class="search-action-btn log-btn" data-probe>Log</button>',
+  "api action": '<button class="btn api-action-btn" data-probe>Test</button>',
+  "history button": '<button class="btn api-action-btn btn-history" data-probe>History</button>',
+  "action primary":
+    '<button class="btn api-action-btn btn-action-primary" data-probe>Sync</button>',
+  "numista tag": '<button class="numista-tag" data-probe>Bullion</button>',
+  "toggle key": '<button class="btn-toggle-key" data-probe>Show</button>',
+  "settings link":
+    '<div class="settings-section-panel"><a href="#sample" data-probe>Download sample CSV</a></div>',
+};
+
+/** Renders every filled control in one fixed host above the app, with transitions off. */
+async function renderFilledControls(page) {
+  await page.addStyleTag({
+    content: "#fillProbeHost, #fillProbeHost * { transition: none !important; }",
+  });
+  await page.evaluate((controls) => {
+    const host = document.createElement("div");
+    host.id = "fillProbeHost";
+    host.style.cssText =
+      "position:fixed;inset:0;z-index:99999;display:flex;flex-wrap:wrap;gap:8px;" +
+      "align-content:flex-start;padding:8px;overflow:auto;background:var(--bg-primary)";
+    for (const [name, html] of Object.entries(controls)) {
+      const cell = document.createElement("div");
+      cell.dataset.control = name;
+      cell.innerHTML = html;
+      host.appendChild(cell);
+    }
+    document.body.appendChild(host);
+  }, FILLED_CONTROLS);
+}
+
+/** Returns the label and fill colours resolved from one theme's fill tokens. */
+function readFillTokens(page) {
+  return page.evaluate((roles) => {
+    const probe = document.createElement("span");
+    probe.textContent = "probe";
+    document.body.appendChild(probe);
+    const read = (fill, ink) => {
+      probe.style.cssText = `color: var(${ink}); background-color: var(${fill});`;
+      return getComputedStyle(probe).backgroundColor + " | " + getComputedStyle(probe).color;
+    };
+    const out = {};
+    for (const role of roles) {
+      out[role] = {
+        rest: read(`--${role}-fill`, `--on-${role}`),
+        hover: read(`--${role}-fill-hover`, `--on-${role}`),
+      };
+    }
+    probe.remove();
+    return out;
+  }, FILL_ROLES);
+}
+
+test.describe("filled controls from fill tokens", () => {
+  test.beforeEach(async ({ page }) => {
+    await gotoApp(page);
+  });
+
+  test("each fill token pair meets AA at rest and on hover in all four themes", async ({
+    page,
+  }) => {
+    const pairs = Object.fromEntries(
+      FILL_ROLES.flatMap((role) => [
+        [`${role} rest`, `#fillTokenProbe [data-role="${role}"][data-state="rest"]`],
+        [`${role} hover`, `#fillTokenProbe [data-role="${role}"][data-state="hover"]`],
+      ])
+    );
+    await page.evaluate((roles) => {
+      const host = document.createElement("div");
+      host.id = "fillTokenProbe";
+      host.style.cssText = "transition:none;background:var(--bg-primary)";
+      for (const role of roles) {
+        for (const [state, fill] of [
+          ["rest", `--${role}-fill`],
+          ["hover", `--${role}-fill-hover`],
+        ]) {
+          const el = document.createElement("span");
+          el.dataset.role = role;
+          el.dataset.state = state;
+          el.textContent = `${role} ${state}`;
+          el.style.cssText = `transition:none;color:var(--on-${role});background-color:var(${fill})`;
+          host.appendChild(el);
+        }
+      }
+      document.body.appendChild(host);
+    }, FILL_ROLES);
+    for (const theme of THEMES) {
+      await page.evaluate((name) => window.setTheme(name), theme);
+      await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+      // An inline style is set on the probes themselves, so ignore that column of the report.
+      const failures = (await contrastFailures(page, pairs)).filter((f) => !f.includes(" inline "));
+      expect(failures, `${theme} fill token pairs`).toEqual([]);
+      const tokens = await readFillTokens(page);
+      for (const role of FILL_ROLES) {
+        expect(tokens[role].hover, `${theme} ${role} hover differs from rest`).not.toBe(
+          tokens[role].rest
+        );
+      }
+    }
+  });
+
+  test("filled buttons, active chips and badges meet AA at rest and on hover in all four themes", async ({
+    page,
+  }) => {
+    test.setTimeout(test.info().timeout * 2);
+    await renderFilledControls(page);
+    const names = Object.keys(FILLED_CONTROLS);
+    for (const theme of THEMES) {
+      await test.step(theme, async () => {
+        await page.evaluate((name) => window.setTheme(name), theme);
+        await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+        const failures = [];
+        for (const name of names) {
+          const selector = `#fillProbeHost [data-control="${name}"] [data-probe]`;
+          await page.mouse.move(0, 0);
+          const [rest] = await measureText(page, selector);
+          await page.locator(selector).hover();
+          const [hover] = await measureText(page, selector);
+          if (rest.ratio < AA_NORMAL_TEXT) failures.push(`${name} rest ${rest.ratio.toFixed(2)}`);
+          if (hover.ratio < AA_NORMAL_TEXT)
+            failures.push(`${name} hover ${hover.ratio.toFixed(2)}`);
+        }
+        expect(failures, `${theme} filled controls`).toEqual([]);
+      });
+    }
+  });
+
+  test("no rule colours text with a fill token or puts a label on a raw fill", async ({ page }) => {
+    const offences = await page.evaluate(() => {
+      const rawText = /^var\(--(?:primary|secondary|success|info|warning|danger)(?:-hover)?\)$/;
+      // A solid or gradient fill painted straight from a role token, outside color-mix().
+      const rawFill =
+        /(?:^|[\s,(])var\(--(?:primary|secondary|success|info|warning|danger)(?:-hover)?\)/;
+      // Drops each color-mix(...) call, nested parentheses included.
+      const withoutColorMix = (value) => {
+        let out = "";
+        let i = 0;
+        while (i < value.length) {
+          if (!value.startsWith("color-mix(", i)) {
+            out += value[i++];
+            continue;
+          }
+          i += "color-mix".length;
+          let depth = 0;
+          do {
+            if (value[i] === "(") depth++;
+            else if (value[i] === ")") depth--;
+            i++;
+          } while (depth > 0 && i < value.length);
+        }
+        return out;
+      };
+      const walk = (rules) =>
+        rules.flatMap((rule) => [rule, ...(rule.cssRules ? walk([...rule.cssRules]) : [])]);
+      const rules = [...document.styleSheets].flatMap((sheet) => {
+        try {
+          return walk([...sheet.cssRules]);
+        } catch {
+          return [];
+        }
+      });
+      const out = [];
+      for (const rule of rules) {
+        if (!rule.style) continue;
+        const color = rule.style.getPropertyValue("color").trim();
+        if (rawText.test(color)) out.push(`${rule.selectorText}: color ${color}`);
+        const background =
+          rule.style.getPropertyValue("background-image") ||
+          rule.style.getPropertyValue("background-color") ||
+          rule.style.getPropertyValue("background");
+        if (rawFill.test(withoutColorMix(background)) && color === "var(--text-inverse)") {
+          out.push(`${rule.selectorText}: label on ${background.trim()}`);
+        }
+      }
+      return out;
+    });
+    expect(offences).toEqual([]);
+  });
+});
+
 test.describe("contrast measure", () => {
   test("a faded opaque ancestor fades its text and its surface together", async ({ page }) => {
     await page.setContent(

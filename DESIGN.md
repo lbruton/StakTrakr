@@ -13,6 +13,25 @@ colors:
   warning-text: "oklch(0.78 0.15 80)"
   danger-text: "oklch(0.72 0.17 25)"
   primary-text: "oklch(0.72 0.16 75)"
+  info-text: "oklch(0.72 0.12 220)"
+  primary-fill: "oklch(0.72 0.16 75)"
+  primary-fill-hover: "oklch(0.79 0.14 78)"
+  on-primary: "oklch(0.18 0.02 75)"
+  secondary-fill: "oklch(0.5 0.01 85)"
+  secondary-fill-hover: "oklch(0.43 0.01 85)"
+  on-secondary: "oklch(0.98 0 0)"
+  success-fill: "oklch(0.64 0.17 155)"
+  success-fill-hover: "oklch(0.71 0.16 155)"
+  on-success: "oklch(0.18 0.02 75)"
+  info-fill: "oklch(0.72 0.12 220)"
+  info-fill-hover: "oklch(0.79 0.1 220)"
+  on-info: "oklch(0.18 0.02 75)"
+  warning-fill: "oklch(0.72 0.16 80)"
+  warning-fill-hover: "oklch(0.79 0.14 82)"
+  on-warning: "oklch(0.18 0.02 75)"
+  danger-fill: "oklch(0.55 0.22 25)"
+  danger-fill-hover: "oklch(0.49 0.21 25)"
+  on-danger: "oklch(0.98 0 0)"
   gunmetal-base: "oklch(0.18 0.008 85)"
   gunmetal-raised: "oklch(0.22 0.008 85)"
   gunmetal-high: "oklch(0.28 0.007 85)"
@@ -39,6 +58,25 @@ colors:
   light-warning-text: "oklch(0.49 0.13 55)"
   light-danger-text: "oklch(0.5 0.19 27)"
   light-primary-text: "oklch(0.52 0.2 262)"
+  light-info-text: "oklch(0.5 0.12 240)"
+  light-primary-fill: "oklch(0.546 0.215 262.9)"
+  light-primary-fill-hover: "oklch(0.48 0.2 264)"
+  light-on-primary: "oklch(1 0 0)"
+  light-secondary-fill: "oklch(0.551 0.023 264.4)"
+  light-secondary-fill-hover: "oklch(0.47 0.02 264)"
+  light-on-secondary: "oklch(1 0 0)"
+  light-success-fill: "oklch(0.508 0.105 165.6)"
+  light-success-fill-hover: "oklch(0.44 0.09 166)"
+  light-on-success: "oklch(1 0 0)"
+  light-info-fill: "oklch(0.53 0.13 243)"
+  light-info-fill-hover: "oklch(0.46 0.12 244)"
+  light-on-info: "oklch(1 0 0)"
+  light-warning-fill: "oklch(0.666 0.157 58.3)"
+  light-warning-fill-hover: "oklch(0.72 0.15 62)"
+  light-on-warning: "oklch(0.2 0.02 60)"
+  light-danger-fill: "oklch(0.577 0.215 27.3)"
+  light-danger-fill-hover: "oklch(0.505 0.19 27.5)"
+  light-on-danger: "oklch(1 0 0)"
   light-bg: "oklch(0.929 0.013 255.5)"
   light-bg-raised: "oklch(0.96 0.008 253.9)"
   light-bg-high: "oklch(0.869 0.02 252.9)"
@@ -95,20 +133,20 @@ spacing:
   xl: "1.5rem"
 components:
   button-primary:
-    backgroundColor: "{colors.primary}"
-    textColor: "{colors.text-inverse}"
+    backgroundColor: "{colors.primary-fill}"
+    textColor: "{colors.on-primary}"
     rounded: "{rounded.md}"
     padding: "0.75rem 1.5rem"
     height: "2.75rem"
   button-primary-hover:
-    backgroundColor: "{colors.primary-hover}"
+    backgroundColor: "{colors.primary-fill-hover}"
   button-danger:
-    backgroundColor: "{colors.danger}"
-    textColor: "{colors.text-inverse}"
+    backgroundColor: "{colors.danger-fill}"
+    textColor: "{colors.on-danger}"
     rounded: "{rounded.md}"
   button-secondary:
-    backgroundColor: "{colors.secondary}"
-    textColor: "{colors.text-inverse}"
+    backgroundColor: "{colors.secondary-fill}"
+    textColor: "{colors.on-secondary}"
     rounded: "{rounded.md}"
   input:
     backgroundColor: "{colors.gunmetal-base}"
@@ -323,16 +361,21 @@ Borders are 1px on surfaces and 2px on form fields.
 ### Buttons
 
 - **Shape:** gently squared corners (8px), minimum height 2.75rem.
-- **Primary:** primary fill with inverse text, 0.75rem by 1.5rem padding, weight 500.
-- **Variants:** danger, success, info and secondary swap the fill token. Filter toggles use the pill
-  shape.
-- **Hover / Focus:** the fill deepens to the hover token with a 1px lift and the lifted shadow. The light
-  sweep on hover (`.btn::before`) is debt and is not added to new buttons.
+- **Primary:** `--primary-fill` with an `--on-primary` label, 0.75rem by 1.5rem padding, weight 500.
+- **Variants:** secondary, success, info, warning and danger swap to their own `--<role>-fill` and
+  `--on-<role>` pair. Filter toggles use the pill shape.
+- **Label colour:** each theme picks the label per fill. Light and sepia use white labels. Dark and slate
+  use a dark label on the bright fills and a white label on grey, red and slate blue.
+- **Hover / Focus:** the fill moves to `--<role>-fill-hover` with a 1px lift and the lifted shadow. The
+  label meets 4.5:1 on both fill tokens, so a gradient between them passes too. The light sweep on hover
+  (`.btn::before`) is debt and is not added to new buttons.
+- **No fades:** a filled control keeps full opacity; a fade lowers the label contrast.
 
 ### Chips
 
 - **Style:** pill-shaped filter chips for metal, type and tag filters. Metal chips use the metal tokens.
-- **State:** the active chip takes the primary fill or the active outline token.
+- **State:** the active chip takes `--primary-fill` with an `--on-primary` label, or the active outline
+  token.
 
 ### Cards / Containers
 
