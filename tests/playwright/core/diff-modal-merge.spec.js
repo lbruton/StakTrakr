@@ -481,28 +481,29 @@ test.describe("DiffModal row clarity", () => {
     expect(rows.details[3]).toContain("Entry 2 of 2");
   });
 
-  test("conflict cards for matching modified Items show an entry number", async ({ page }) => {
-    const details = await page.evaluate((eagle) => {
-      const twin = { ...eagle, name: "Maple Leaf", date: "2024-05-01", price: 33 };
-      const change = [{ field: "storageLocation", localVal: "Safe", remoteVal: "Bank box" }];
+  const TWIN = { ...EAGLE, name: "Maple Leaf", date: "2024-05-01", price: 33 };
+
+  /** Opens Review Changes with modified Items only; returns each conflict card's detail text. */
+  const showModified = (page, modified) =>
+    page.evaluate((mods) => {
       window.DiffModal.show({
         source: { type: "csv", label: "inventory.csv" },
-        diff: {
-          added: [],
-          deleted: [],
-          modified: [
-            { item: { ...twin, uuid: "rc-m1" }, changes: change },
-            { item: { ...twin, uuid: "rc-m2" }, changes: change },
-            { item: { ...twin, uuid: "rc-m3", name: "Krugerrand" }, changes: change },
-          ],
-        },
+        diff: { added: [], deleted: [], modified: mods },
         onApply: () => {},
         onCancel: () => {},
       });
       return Array.from(
         document.querySelectorAll("#diffSectionModified .dm-conflict-card .dm-item-detail")
       ).map((el) => el.textContent.replace(/\s+/g, " ").trim());
-    }, EAGLE);
+    }, modified);
+
+  test("conflict cards for matching modified Items show an entry number", async ({ page }) => {
+    const changes = [{ field: "storageLocation", localVal: "Safe", remoteVal: "Bank box" }];
+    const details = await showModified(page, [
+      { item: { ...TWIN, uuid: "rc-m1" }, changes },
+      { item: { ...TWIN, uuid: "rc-m2" }, changes },
+      { item: { ...TWIN, uuid: "rc-m3", name: "Krugerrand" }, changes },
+    ]);
 
     expect(details).toHaveLength(3);
     expect(details[0]).toContain("Entry 1 of 2");
@@ -511,26 +512,11 @@ test.describe("DiffModal row clarity", () => {
   });
 
   test("conflict cards name each Item's storage location", async ({ page }) => {
-    const details = await page.evaluate((eagle) => {
-      const twin = { ...eagle, name: "Maple Leaf", date: "2024-05-01", price: 33 };
-      const change = [{ field: "notes", localVal: "Graded", remoteVal: "Raw" }];
-      window.DiffModal.show({
-        source: { type: "csv", label: "inventory.csv" },
-        diff: {
-          added: [],
-          deleted: [],
-          modified: [
-            { item: { ...twin, uuid: "rc-l1", storageLocation: "Home safe" }, changes: change },
-            { item: { ...twin, uuid: "rc-l2", storageLocation: "Bank box" }, changes: change },
-          ],
-        },
-        onApply: () => {},
-        onCancel: () => {},
-      });
-      return Array.from(
-        document.querySelectorAll("#diffSectionModified .dm-conflict-card .dm-item-detail")
-      ).map((el) => el.textContent.replace(/\s+/g, " ").trim());
-    }, EAGLE);
+    const changes = [{ field: "notes", localVal: "Graded", remoteVal: "Raw" }];
+    const details = await showModified(page, [
+      { item: { ...TWIN, uuid: "rc-l1", storageLocation: "Home safe" }, changes },
+      { item: { ...TWIN, uuid: "rc-l2", storageLocation: "Bank box" }, changes },
+    ]);
 
     expect(details).toHaveLength(2);
     expect(details[0]).toContain("Stored in Home safe");
@@ -539,24 +525,13 @@ test.describe("DiffModal row clarity", () => {
   });
 
   test("a price stored as text with a thousands separator shows as stored", async ({ page }) => {
-    const remote = await page.evaluate((eagle) => {
-      window.DiffModal.show({
-        source: { type: "csv", label: "inventory.csv" },
-        diff: {
-          added: [],
-          deleted: [],
-          modified: [
-            {
-              item: { ...eagle, uuid: "rc-txt", name: "Gold Bar" },
-              changes: [{ field: "price", localVal: "1,200", remoteVal: 1200 }],
-            },
-          ],
-        },
-        onApply: () => {},
-        onCancel: () => {},
-      });
-      return formatCurrency(1200);
-    }, EAGLE);
+    await showModified(page, [
+      {
+        item: { ...EAGLE, uuid: "rc-txt", name: "Gold Bar" },
+        changes: [{ field: "price", localVal: "1,200", remoteVal: 1200 }],
+      },
+    ]);
+    const remote = await page.evaluate(() => formatCurrency(1200));
 
     const priceRow = page.locator("#diffSectionModified .dm-field-diff").first();
     await expect(priceRow.locator(".dm-field-value.local .dm-pick-val")).toHaveText("1,200");
