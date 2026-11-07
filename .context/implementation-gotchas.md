@@ -189,10 +189,14 @@ Do not re-add `#detailsModal` canvas-hiding rules or any `.details-grid`/breakdo
 
 `--warning` (oklch L≈0.666) on `--bg-secondary` produces ≈1.4:1 contrast in light (L≈0.96) and sepia (L≈0.892) themes.
 That fails WCAG level AA for small text.
-Color status words with the text tokens `--success-text`, `--warning-text` and `--danger-text`.
+Color status words with the text tokens `--success-text`, `--warning-text`, `--danger-text` and `--info-text`.
 Color accent words, such as the collection card count, with `--primary-text`.
-Each of the four theme blocks in `css/styles.css` sets all four at 4.5:1 or more on `--bg-secondary`.
-Keep the base `--primary`, `--success`, `--warning` and `--danger` tokens for fills, borders and icons.
+Each of the four theme blocks in `css/styles.css` sets all five at 4.5:1 or more on `--bg-secondary`.
+A control that puts a label on a fill uses the `--<role>-fill`, `--<role>-fill-hover` and `--on-<role>` set.
+The label meets 4.5:1 on both fills in every theme, and dark and slate use a dark label on bright fills.
+Keep the base `--primary`, `--secondary`, `--success`, `--info`, `--warning` and `--danger` tokens for unlabelled marks: bars, dots, borders, tints and icons.
+Do not darken `--secondary` for a button: `--col-weight` and the filter chip colours read it.
+`status-colour-tokens.spec.js` fails on a text colour or a labelled fill that uses a base role token.
 Sepia `--text-muted` measures 4.1:1 on the `--bg-secondary` zebra rows that every `<table>` inherits.
 The vendor price table maps `--text-muted` to `--text-secondary` in sepia; a new striped table needs the same.
 `tests/unit/js-theme-tokens.test.js` fails when `js/` reads a custom property that no stylesheet defines.

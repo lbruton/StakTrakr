@@ -166,3 +166,24 @@ test("the sweep finds a known-undefined token, so it is not vacuous", () => {
   assert.ok(defined.has("--success"), "--success is a defined theme token");
   assert.ok(!defined.has("--strk-450-never-defined"), "an invented name stays undefined");
 });
+
+// A status colour as text fails 4.5:1 on some surface; text takes the --<role>-text token.
+const RAW_ROLE_TEXT =
+  /(?:\bcolor\s*:\s*|\.style\.color\s*=\s*["'`])var\(--(?:primary|success|info|warning|danger)\)/;
+// A text-inverse label over a raw status fill fails 4.5:1; fills take --<role>-fill and --on-<role>.
+const INVERSE_ON_RAW_FILL =
+  /background\s*:\s*var\(--(?:primary|secondary|success|info|warning|danger)\)[^"'`]*color\s*:\s*var\(--text-inverse\)/;
+
+test("inline styles in js/ and index.html colour text and labels from text and fill tokens", () => {
+  const offenders = [];
+  for (const file of [...listDir("js/", ".js"), "index.html"]) {
+    read(file)
+      .split("\n")
+      .forEach((line, i) => {
+        if (RAW_ROLE_TEXT.test(line) || INVERSE_ON_RAW_FILL.test(line)) {
+          offenders.push(`${file}:${i + 1}: ${line.trim()}`);
+        }
+      });
+  }
+  assert.deepEqual(offenders, []);
+});

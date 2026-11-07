@@ -2470,7 +2470,7 @@
       applyBtn.setAttribute(
         "style",
         btnStyle +
-          "padding:0.45rem 1.2rem;font-size:0.8rem;font-weight:600;background:var(--warning);color:var(--text-inverse);border:1.5px solid var(--warning)"
+          "padding:0.45rem 1.2rem;font-size:0.8rem;font-weight:600;background:var(--warning-fill);color:var(--on-warning);border:1.5px solid var(--warning-fill)"
       );
     }
     if (dismissX) {

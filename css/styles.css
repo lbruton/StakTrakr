@@ -57,12 +57,34 @@
   --danger: oklch(0.577 0.215 27.3);
   --danger-hover: oklch(0.505 0.19 27.5);
 
-  /* Status and accent text: each theme sets all four, at 4.5:1 or more on --bg-secondary
+  /* Status and accent text: each theme sets all five, at 4.5:1 or more on --bg-secondary
      and --bg-on-frame. Use these for words; the base tokens above are for fills and icons. */
   --success-text: oklch(0.48 0.11 163);
   --warning-text: oklch(0.49 0.13 55);
   --danger-text: oklch(0.5 0.19 27);
   --primary-text: oklch(0.52 0.2 262);
+  --info-text: oklch(0.5 0.12 240);
+
+  /* Filled controls: a label in --on-<role> over --<role>-fill and --<role>-fill-hover meets
+     4.5:1 in every theme, so gradients between the two stops pass too. Each theme sets all. */
+  --primary-fill: oklch(0.546 0.215 262.9);
+  --primary-fill-hover: oklch(0.48 0.2 264);
+  --on-primary: oklch(1 0 0);
+  --secondary-fill: oklch(0.551 0.023 264.4);
+  --secondary-fill-hover: oklch(0.47 0.02 264);
+  --on-secondary: oklch(1 0 0);
+  --success-fill: oklch(0.508 0.105 165.6);
+  --success-fill-hover: oklch(0.44 0.09 166);
+  --on-success: oklch(1 0 0);
+  --info-fill: oklch(0.53 0.13 243);
+  --info-fill-hover: oklch(0.46 0.12 244);
+  --on-info: oklch(1 0 0);
+  --warning-fill: oklch(0.666 0.157 58.3);
+  --warning-fill-hover: oklch(0.72 0.15 62);
+  --on-warning: oklch(0.2 0.02 60);
+  --danger-fill: oklch(0.577 0.215 27.3);
+  --danger-fill-hover: oklch(0.505 0.19 27.5);
+  --on-danger: oklch(1 0 0);
 
   /* Disclaimer warning color */
   --disclaimer-color: var(--warning);
@@ -257,6 +279,27 @@
   --warning-text: oklch(0.78 0.15 80);
   --danger-text: oklch(0.72 0.17 25);
   --primary-text: var(--primary);
+  --info-text: var(--info);
+
+  /* Bright fills carry a dark label; grey and red carry a light one. */
+  --primary-fill: oklch(0.72 0.16 75);
+  --primary-fill-hover: oklch(0.79 0.14 78);
+  --on-primary: oklch(0.18 0.02 75);
+  --secondary-fill: oklch(0.5 0.01 85);
+  --secondary-fill-hover: oklch(0.43 0.01 85);
+  --on-secondary: oklch(0.98 0 0);
+  --success-fill: oklch(0.64 0.17 155);
+  --success-fill-hover: oklch(0.71 0.16 155);
+  --on-success: oklch(0.18 0.02 75);
+  --info-fill: oklch(0.72 0.12 220);
+  --info-fill-hover: oklch(0.79 0.1 220);
+  --on-info: oklch(0.18 0.02 75);
+  --warning-fill: oklch(0.72 0.16 80);
+  --warning-fill-hover: oklch(0.79 0.14 82);
+  --on-warning: oklch(0.18 0.02 75);
+  --danger-fill: oklch(0.55 0.22 25);
+  --danger-fill-hover: oklch(0.49 0.21 25);
+  --on-danger: oklch(0.98 0 0);
 
   /* Disclaimer warning color */
   --disclaimer-color: var(--danger);
@@ -407,6 +450,27 @@
   --warning-text: #fbbf24;
   --danger-text: #f87171;
   --primary-text: #60a5fa;
+  --info-text: #38bdf8;
+
+  /* Blue, grey and red carry a white label; green, sky and amber a dark one. */
+  --primary-fill: #2563eb;
+  --primary-fill-hover: #1d4ed8;
+  --on-primary: #ffffff;
+  --secondary-fill: #6b7280;
+  --secondary-fill-hover: #4b5563;
+  --on-secondary: #ffffff;
+  --success-fill: #10b981;
+  --success-fill-hover: #34d399;
+  --on-success: #0f172a;
+  --info-fill: #38bdf8;
+  --info-fill-hover: #7dd3fc;
+  --on-info: #0f172a;
+  --warning-fill: #f59e0b;
+  --warning-fill-hover: #fbbf24;
+  --on-warning: #0f172a;
+  --danger-fill: #dc2626;
+  --danger-fill-hover: #b91c1c;
+  --on-danger: #ffffff;
 
   /* Disclaimer warning color */
   --disclaimer-color: var(--danger);
@@ -549,6 +613,26 @@
   --warning-text: oklch(0.48 0.12 55);
   --danger-text: oklch(0.48 0.18 27);
   --primary-text: oklch(0.5 0.12 51);
+  --info-text: oklch(0.46 0.075 212);
+
+  --primary-fill: oklch(0.54 0.125 51);
+  --primary-fill-hover: oklch(0.47 0.11 51);
+  --on-primary: oklch(1 0 0);
+  --secondary-fill: oklch(0.484 0.048 80.5);
+  --secondary-fill-hover: oklch(0.42 0.045 80);
+  --on-secondary: oklch(1 0 0);
+  --success-fill: oklch(0.52 0.105 131);
+  --success-fill-hover: oklch(0.46 0.095 131);
+  --on-success: oklch(1 0 0);
+  --info-fill: oklch(0.535 0.085 212.1);
+  --info-fill-hover: oklch(0.455 0.072 212.2);
+  --on-info: oklch(1 0 0);
+  --warning-fill: oklch(0.666 0.157 58.3);
+  --warning-fill-hover: oklch(0.72 0.15 62);
+  --on-warning: oklch(0.2 0.02 60);
+  --danger-fill: oklch(0.577 0.215 27.3);
+  --danger-fill-hover: oklch(0.505 0.19 27.5);
+  --on-danger: oklch(1 0 0);
 
   /* Metal-specific Colors - Sepia tone (darkened for WCAG AA text contrast on warm bg) */
   --silver: oklch(0.531 0.01 67.6);
@@ -704,7 +788,7 @@ h1 {
   font-family: var(--font-heading);
   font-size: var(--font-size-3xl);
   font-weight: 400;
-  color: var(--primary);
+  color: var(--primary-text);
   margin-bottom: var(--spacing);
   letter-spacing: -0.025em;
 }
@@ -1159,7 +1243,7 @@ section {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: var(--primary);
+  color: var(--primary-text);
 }
 .trade-value-summary {
   font-size: var(--font-size-sm);
@@ -1284,7 +1368,7 @@ section {
   background: var(--glass-input-bg, rgba(0, 0, 0, 0.03));
   border: 1.5px dashed var(--border);
   border-radius: var(--radius);
-  color: var(--primary);
+  color: var(--primary-text);
   font-size: var(--font-size-sm);
   font-weight: 600;
   cursor: pointer;
@@ -1325,7 +1409,7 @@ section {
 }
 .trade-spot-label.auto {
   background: color-mix(in oklch, var(--success) 15%, transparent);
-  color: var(--success);
+  color: var(--success-text);
 }
 .trade-spot-label.custom {
   background: color-mix(in oklch, var(--warning) 15%, transparent);
@@ -1396,7 +1480,7 @@ section {
 }
 .trade-items-table .item-name {
   font-weight: 500;
-  color: var(--primary);
+  color: var(--primary-text);
   cursor: pointer;
   text-decoration: none;
   background: none;
@@ -1466,10 +1550,10 @@ section {
   font-weight: 700;
 }
 .trade-comparison-verdict .comp-value.gain {
-  color: var(--success);
+  color: var(--success-text);
 }
 .trade-comparison-verdict .comp-value.loss {
-  color: var(--danger);
+  color: var(--danger-text);
 }
 
 /* View modal: provenance line (received item) */
@@ -1490,7 +1574,7 @@ section {
   flex-shrink: 0;
 }
 .trade-provenance-line .prov-link {
-  color: var(--primary);
+  color: var(--primary-text);
   text-decoration: none;
   font-weight: 500;
   cursor: pointer;
@@ -1507,7 +1591,7 @@ section {
 .trade-unlink-btn {
   font-size: var(--font-size-xs);
   font-weight: 600;
-  color: var(--danger);
+  color: var(--danger-text);
   background: none;
   border: 1px solid color-mix(in oklch, var(--danger) 30%, transparent);
   border-radius: var(--radius-pill);
@@ -1527,7 +1611,7 @@ section {
 .trade-edit-toggle {
   font-size: var(--font-size-xs);
   font-weight: 600;
-  color: var(--primary);
+  color: var(--primary-text);
   background: none;
   border: none;
   cursor: pointer;
@@ -1560,8 +1644,8 @@ section {
   transition: filter 0.15s;
 }
 .trade-edit-actions .btn-sm.save {
-  background: var(--primary);
-  color: var(--text-inverse);
+  background: var(--primary-fill);
+  color: var(--on-primary);
 }
 .trade-edit-actions .btn-sm.save:hover {
   filter: brightness(1.1);
@@ -1665,6 +1749,7 @@ section {
 .modal-footer .btn.secondary:hover {
   background: var(--glass-input-focus-bg, rgba(0, 0, 0, 0.07));
   border-color: var(--primary);
+  color: var(--text-primary);
 }
 .modal-footer .btn.danger {
   border: 1px solid var(--danger);
@@ -1969,8 +2054,8 @@ textarea:focus {
   height: 1.25rem;
   padding: 0 0.35rem;
   border-radius: var(--radius-pill);
-  background: var(--primary);
-  color: var(--text-inverse);
+  background: var(--primary-fill);
+  color: var(--on-primary);
   font-size: var(--font-size-xs);
   font-weight: 700;
   line-height: 1;
@@ -2097,12 +2182,12 @@ input[type="submit"] {
   position: relative;
   overflow: hidden;
   min-height: 2.75rem;
-  background: var(--primary);
-  color: var(--text-inverse);
+  background: var(--primary-fill);
+  color: var(--on-primary);
 }
 
 .btn:hover {
-  background: var(--primary-hover);
+  background: var(--primary-fill-hover);
   transform: translateY(-1px);
   box-shadow: var(--shadow);
 }
@@ -2132,62 +2217,73 @@ input[type="submit"] {
 }
 
 .btn.danger {
-  background: var(--danger);
+  background: var(--danger-fill);
+  color: var(--on-danger);
 }
 
 .btn.danger:hover {
-  background: var(--danger-hover);
+  background: var(--danger-fill-hover);
+  color: var(--on-danger);
 }
 
 .btn.success {
-  background: var(--success);
+  background: var(--success-fill);
+  color: var(--on-success);
 }
 
 .btn.success:hover {
-  background: var(--success-hover);
+  background: var(--success-fill-hover);
+  color: var(--on-success);
 }
 
 .btn.info {
-  background: var(--info);
+  background: var(--info-fill);
+  color: var(--on-info);
 }
 
 .btn.info:hover {
-  background: var(--info-hover);
+  background: var(--info-fill-hover);
+  color: var(--on-info);
 }
 
 .btn.secondary {
-  background: var(--secondary);
+  background: var(--secondary-fill);
+  color: var(--on-secondary);
 }
 
 .btn.secondary:hover {
-  background: var(--secondary-hover);
+  background: var(--secondary-fill-hover);
+  color: var(--on-secondary);
 }
 
 .btn.warning {
-  background: var(--warning);
-  color: var(--text-primary);
+  background: var(--warning-fill);
+  color: var(--on-warning);
 }
 
 .btn.warning:hover {
-  background: var(--warning-hover);
+  background: var(--warning-fill-hover);
+  color: var(--on-warning);
 }
 
 .btn.premium {
-  background: var(--warning);
-  color: var(--text-primary);
+  background: var(--warning-fill);
+  color: var(--on-warning);
 }
 
 .btn.premium:hover {
-  background: var(--warning-hover);
+  background: var(--warning-fill-hover);
+  color: var(--on-warning);
 }
 
 .btn.filters {
-  background: var(--warning);
-  color: var(--text-primary);
+  background: var(--warning-fill);
+  color: var(--on-warning);
 }
 
 .btn.filters:hover {
-  background: var(--warning-hover);
+  background: var(--warning-fill-hover);
+  color: var(--on-warning);
 }
 
 /* =============================================================================
@@ -2624,7 +2720,7 @@ input[type="submit"] {
 
 .spot-sync-icon:hover:not(:disabled),
 .spot-edit-btn:hover {
-  color: var(--primary);
+  color: var(--primary-text);
   border-color: var(--primary);
 }
 
@@ -2657,17 +2753,17 @@ input[type="submit"] {
    Deliberately lower specificity (0,1,0) than `.spot-sync-icon:hover:not(:disabled)`
    (0,3,0), so hover still wins and the button keeps its normal affordance. */
 .spot-sync-icon--fresh {
-  color: var(--success);
+  color: var(--success-text);
   border-color: var(--success);
 }
 
 .spot-sync-icon--stale {
-  color: var(--warning);
+  color: var(--warning-text);
   border-color: var(--warning);
 }
 
 .spot-sync-icon--expired {
-  color: var(--danger);
+  color: var(--danger-text);
   border-color: var(--danger);
 }
 
@@ -2775,7 +2871,7 @@ input[type="submit"] {
   border: 2px solid var(--primary);
   border-radius: var(--radius-sm, 4px);
   background: var(--bg-primary);
-  color: var(--primary);
+  color: var(--primary-text);
   padding: 0.1rem 0.25rem;
   outline: none;
 }
@@ -2842,8 +2938,8 @@ input[type="submit"] {
 }
 
 .provider-badge.free {
-  background: var(--success);
-  color: var(--text-inverse);
+  background: var(--success-fill);
+  color: var(--on-success);
   font-size: var(--font-size-xs);
   padding: 2px 8px;
   border-radius: var(--radius-lg);
@@ -2856,7 +2952,7 @@ input[type="submit"] {
   font-weight: 400;
   opacity: 0.7;
   text-decoration: none;
-  color: var(--primary);
+  color: var(--primary-text);
 }
 .provider-doc-link:hover {
   opacity: 1;
@@ -3006,7 +3102,7 @@ input[type="submit"] {
 
 .provider-settings h4 {
   margin: 0 0 var(--spacing) 0;
-  color: var(--primary);
+  color: var(--primary-text);
   font-size: var(--font-size-md);
   font-weight: 600;
   border-bottom: 1px solid var(--border);
@@ -3105,7 +3201,7 @@ input[type="submit"] {
 }
 
 .provider-status .status-text {
-  color: var(--warning);
+  color: var(--warning-text);
 }
 
 .provider-status.status-connected .status-dot {
@@ -3113,7 +3209,7 @@ input[type="submit"] {
 }
 
 .provider-status.status-connected .status-text {
-  color: var(--success);
+  color: var(--success-text);
 }
 
 .provider-status.status-error .status-dot {
@@ -3121,7 +3217,7 @@ input[type="submit"] {
 }
 
 .provider-status.status-error .status-text {
-  color: var(--danger);
+  color: var(--danger-text);
 }
 
 .settings-actions {
@@ -3382,8 +3478,8 @@ input[type="submit"] {
 }
 
 #apiHistoryModal .modal-header {
-  background: linear-gradient(135deg, var(--primary), var(--primary-hover));
-  color: var(--text-inverse);
+  background: linear-gradient(135deg, var(--primary-fill), var(--primary-fill-hover));
+  color: var(--on-primary);
   padding: var(--spacing-xl);
   position: relative;
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
@@ -3392,7 +3488,7 @@ input[type="submit"] {
 
 #apiHistoryModal .modal-header h2 {
   margin: 0;
-  color: var(--text-inverse);
+  color: var(--on-primary);
   text-align: center;
 }
 
@@ -3568,7 +3664,7 @@ input[type="submit"] {
 
 .settings-nav-item.active {
   background: var(--bg-card);
-  color: var(--primary);
+  color: var(--primary-text);
   border-left: 3px solid var(--primary);
   font-weight: 600;
 }
@@ -3604,6 +3700,11 @@ input[type="submit"] {
 .settings-section-panel h3 {
   margin: 0 0 1rem 0;
   font-size: var(--font-size-xl);
+}
+
+/* Plain links in a Settings panel; the browser default blue fails on the dark surfaces. */
+.settings-section-panel a:not(.btn) {
+  color: var(--primary-text);
 }
 
 /* Settings groups (Site section) */
@@ -3701,8 +3802,8 @@ input[type="submit"] {
   position: absolute;
   top: 4px;
   right: 4px;
-  background: var(--danger);
-  color: var(--text-inverse);
+  background: var(--danger-fill);
+  color: var(--on-danger);
   border: none;
   border-radius: 50%;
   width: 20px;
@@ -3833,13 +3934,13 @@ input[type="submit"] {
   border: none;
   padding: 0;
   font-size: var(--font-size-base);
-  color: var(--primary);
+  color: var(--primary-text);
   cursor: pointer;
   text-decoration: underline;
 }
 
 .storage-toggle-tiny:hover {
-  color: var(--primary-hover);
+  color: var(--primary-text);
 }
 
 /* Key data table */
@@ -3955,15 +4056,15 @@ input[type="submit"] {
 
 .storage-type-badge--array {
   background: color-mix(in srgb, var(--primary) 15%, transparent);
-  color: var(--primary);
+  color: var(--primary-text);
 }
 .storage-type-badge--object {
   background: color-mix(in srgb, var(--info) 15%, transparent);
-  color: var(--info);
+  color: var(--info-text);
 }
 .storage-type-badge--idb {
   background: color-mix(in srgb, var(--success) 15%, transparent);
-  color: var(--success);
+  color: var(--success-text);
 }
 
 .storage-minor-note {
@@ -4017,8 +4118,8 @@ input[type="submit"] {
   line-height: 1.4;
 }
 .pattern-mode-btn.active {
-  background: var(--primary);
-  color: var(--text-inverse);
+  background: var(--primary-fill);
+  color: var(--on-primary);
   border-color: var(--primary);
 }
 .pattern-rule-tip {
@@ -4233,7 +4334,7 @@ input[type="submit"] {
 }
 .ife [data-ife-swap] .btn-icon:hover:not(:disabled),
 .ife [data-ife-swap] .btn-icon:focus-visible {
-  color: var(--primary);
+  color: var(--primary-text);
   background: color-mix(in oklch, var(--primary), transparent 88%);
 }
 .ife [data-ife-swap] .btn-icon:disabled {
@@ -4328,19 +4429,19 @@ input[type="submit"] {
 }
 
 .btn.img-btn-upload {
-  background: var(--primary);
-  color: var(--text-inverse);
+  background: var(--primary-fill);
+  color: var(--on-primary);
   border-color: var(--primary);
 }
 
 .btn.img-btn-upload:hover {
-  opacity: 0.85;
-  background: var(--primary);
+  background: var(--primary-fill-hover);
+  color: var(--on-primary);
 }
 
 .btn.img-btn-url {
   background: color-mix(in oklch, var(--success), transparent 85%);
-  color: var(--success);
+  color: var(--success-text);
   border-color: color-mix(in oklch, var(--success), transparent 70%);
 }
 
@@ -4360,7 +4461,7 @@ input[type="submit"] {
 
 .btn.img-btn-remove {
   background: color-mix(in oklch, var(--danger), transparent 88%);
-  color: var(--danger);
+  color: var(--danger-text);
   border-color: color-mix(in oklch, var(--danger), transparent 75%);
 }
 
@@ -4591,7 +4692,7 @@ input[type="submit"] {
 .ife-link:hover,
 .ife-link:focus-visible {
   border-color: var(--primary);
-  color: var(--primary);
+  color: var(--primary-text);
 }
 
 /* Touch targets: a true 44px square centred on the icon or badge, without growing either. It is
@@ -4830,7 +4931,7 @@ input[type="submit"] {
 .chip-grouping-delete {
   background: none;
   border: none;
-  color: var(--danger);
+  color: var(--danger-text);
   cursor: pointer;
   font-size: var(--font-size-lg);
   font-weight: 700;
@@ -4867,12 +4968,12 @@ input[type="submit"] {
 }
 
 .chip-grouping-edit:hover {
-  color: var(--info);
+  color: var(--info-text);
   background: color-mix(in oklch, var(--info) 12%, transparent);
 }
 
 .chip-grouping-save {
-  color: var(--success);
+  color: var(--success-text);
 }
 
 .chip-grouping-save:hover {
@@ -4884,7 +4985,7 @@ input[type="submit"] {
 }
 
 .chip-grouping-cancel:hover {
-  color: var(--danger);
+  color: var(--danger-text);
   background: color-mix(in oklch, var(--danger) 12%, transparent);
 }
 
@@ -4945,7 +5046,7 @@ input.spot-lookup-flash {
 
 .inline-chip-move:hover:not(:disabled) {
   background: var(--bg-tertiary);
-  color: var(--primary);
+  color: var(--primary-text);
 }
 
 .inline-chip-move:disabled {
@@ -5022,8 +5123,8 @@ input.spot-lookup-flash {
 
 .theme-option.active {
   border-color: var(--primary);
-  background: var(--primary);
-  color: var(--text-inverse);
+  background: var(--primary-fill);
+  color: var(--on-primary);
 }
 
 /* Provider tabs */
@@ -5057,7 +5158,7 @@ input.spot-lookup-flash {
 }
 
 .settings-provider-tab.active {
-  color: var(--primary);
+  color: var(--primary-text);
   border-bottom-color: var(--primary);
   font-weight: 600;
 }
@@ -5069,14 +5170,14 @@ input.spot-lookup-flash {
 /* Settings action button — outlined style for in-panel actions */
 .settings-action-btn {
   background: transparent;
-  color: var(--primary);
+  color: var(--primary-text);
   border: 1px solid var(--primary);
   padding: 0.5rem 1.25rem;
   min-height: 2.25rem;
 }
 .settings-action-btn:hover {
-  background: var(--primary);
-  color: var(--text-inverse);
+  background: var(--primary-fill);
+  color: var(--on-primary);
 }
 
 /* Info icon tooltip next to labels */
@@ -5480,7 +5581,7 @@ input.spot-lookup-flash {
 .inventory-recovery-banner__icon {
   font-size: var(--font-size-2xl);
   flex-shrink: 0;
-  color: var(--warning);
+  color: var(--warning-text);
 }
 
 .inventory-recovery-banner__copy {
@@ -5511,14 +5612,15 @@ input.spot-lookup-flash {
 }
 
 .inventory-recovery-banner__btn--primary {
-  background: var(--primary);
-  color: var(--text-inverse);
+  background: var(--primary-fill);
+  color: var(--on-primary);
   border-color: var(--primary);
 }
 
 .inventory-recovery-banner__btn--primary:hover {
-  background: var(--primary-hover);
+  background: var(--primary-fill-hover);
   border-color: var(--primary-hover);
+  color: var(--on-primary);
 }
 
 @media (max-width: 640px) {
@@ -5681,8 +5783,8 @@ input.spot-lookup-flash {
 
   .settings-nav-item.active {
     border-left: none;
-    background: var(--primary);
-    color: var(--text-inverse);
+    background: var(--primary-fill);
+    color: var(--on-primary);
   }
 
   .settings-content-area {
@@ -5876,7 +5978,7 @@ input.spot-lookup-flash {
   color: var(--text-secondary);
 }
 .about-disclaimer a {
-  color: var(--primary);
+  color: var(--primary-text);
 }
 
 /* F) Troubleshooting card */
@@ -5897,18 +5999,6 @@ input.spot-lookup-flash {
   margin-top: 8px;
   font-size: var(--font-size-sm);
   padding: 4px 12px;
-}
-/* The fill holds one tone at rest and on hover. Dark and slate keep --secondary, since their
-   lighter hover tone is under 4.5:1. White on the light and sepia --secondary is under 4.5:1;
-   their darker hover tone passes, so the button uses it there. The theme rule follows the
-   hover rule so it wins the tie. */
-.about-troubleshooting .btn.secondary:hover {
-  background: var(--secondary);
-}
-:root:not([data-theme]) .about-troubleshooting .btn.secondary,
-[data-theme="light"] .about-troubleshooting .btn.secondary,
-[data-theme="sepia"] .about-troubleshooting .btn.secondary {
-  background: var(--secondary-hover);
 }
 
 /* F) Sidebar separator */
@@ -6017,8 +6107,8 @@ input.spot-lookup-flash {
 }
 
 #cloudSyncModal .modal-header {
-  background: linear-gradient(135deg, var(--primary), var(--primary-hover));
-  color: var(--text-inverse);
+  background: linear-gradient(135deg, var(--primary-fill), var(--primary-fill-hover));
+  color: var(--on-primary);
   padding: var(--spacing-xl);
   position: relative;
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
@@ -6027,7 +6117,7 @@ input.spot-lookup-flash {
 
 #cloudSyncModal .modal-header h2 {
   margin: 0;
-  color: var(--text-inverse);
+  color: var(--on-primary);
   text-align: center;
 }
 
@@ -6328,7 +6418,7 @@ td.totals-col-gain {
   border-radius: var(--radius-sm, 4px);
 }
 .total-title-btn:hover {
-  color: var(--primary);
+  color: var(--primary-text);
 }
 .total-title-btn:focus-visible {
   outline: 2px solid var(--primary);
@@ -6606,33 +6696,36 @@ table {
 }
 
 .toggle-all-btn {
-  background: var(--primary);
-  color: var(--text-inverse);
+  background: var(--primary-fill);
+  color: var(--on-primary);
 }
 
 .toggle-all-btn:hover {
-  background: var(--primary-hover);
+  background: var(--primary-fill-hover);
   transform: translateY(-1px);
+  color: var(--on-primary);
 }
 
 .save-all-btn {
-  background: var(--success);
-  color: var(--text-inverse);
+  background: var(--success-fill);
+  color: var(--on-success);
 }
 
 .save-all-btn:hover {
-  background: var(--success-hover);
+  background: var(--success-fill-hover);
   transform: translateY(-1px);
+  color: var(--on-success);
 }
 
 .cancel-all-btn {
-  background: var(--danger);
-  color: var(--text-inverse);
+  background: var(--danger-fill);
+  color: var(--on-danger);
 }
 
 .cancel-all-btn:hover {
-  background: var(--danger-hover);
+  background: var(--danger-fill-hover);
   transform: translateY(-1px);
+  color: var(--on-danger);
 }
 
 .bulk-edit-btn:active {
@@ -6887,7 +6980,7 @@ tr:hover {
 .sort-indicator {
   margin-left: 0.25rem;
   font-weight: bold;
-  color: var(--primary);
+  color: var(--primary-text);
   font-size: var(--font-size-xs);
 }
 
@@ -6924,7 +7017,7 @@ tr:hover {
 }
 
 .name-text:hover {
-  color: var(--primary);
+  color: var(--primary-text);
   text-decoration: underline;
 }
 
@@ -6957,12 +7050,12 @@ td .action-icon {
 }
 
 td .action-icon.danger {
-  color: var(--danger);
+  color: var(--danger-text);
 }
 
 /* Enhanced delete button styling */
 td .action-icon.delete-btn {
-  color: var(--danger);
+  color: var(--danger-text);
   border-radius: var(--radius);
   padding: 0.25rem;
   /* Removed transition: var(--transition); */
@@ -6971,7 +7064,7 @@ td .action-icon.delete-btn {
 /* Removed hover effect to prevent flooding into other cells */
 
 td .action-icon.success {
-  color: var(--success);
+  color: var(--success-text);
 }
 
 td .filter-text {
@@ -7012,7 +7105,7 @@ td .inline-edit-icon {
 }
 
 td .inline-edit-icon:hover {
-  color: var(--primary);
+  color: var(--primary-text);
   background: var(--bg-secondary);
   transform: scale(1.1);
 }
@@ -7085,23 +7178,23 @@ td.editing .cancel-inline {
 
 td.editing .save-inline {
   right: 1.5rem;
-  color: var(--success);
+  color: var(--success-text);
 }
 
 td.editing .save-inline:hover {
-  background: var(--success);
-  color: var(--text-inverse);
+  background: var(--success-fill);
+  color: var(--on-success);
   transform: translateY(-50%) scale(1.2);
 }
 
 td.editing .cancel-inline {
   right: 0.2rem;
-  color: var(--danger);
+  color: var(--danger-text);
 }
 
 td.editing .cancel-inline:hover {
-  background: var(--danger);
-  color: var(--text-inverse);
+  background: var(--danger-fill);
+  color: var(--on-danger);
   transform: translateY(-50%) scale(1.2);
 }
 
@@ -7682,10 +7775,10 @@ td input:checked + .slider:before {
   background: var(--bg-tertiary);
 }
 .view-cert-verify-inline.pcgs-verified {
-  color: var(--success);
+  color: var(--success-text);
 }
 .view-cert-verify-inline.pcgs-verify-failed {
-  color: var(--danger);
+  color: var(--danger-text);
 }
 .view-cert-verify:hover {
   color: color-mix(in oklch, var(--text-inverse), transparent 30%);
@@ -7695,15 +7788,16 @@ td input:checked + .slider:before {
   color: color-mix(in oklch, var(--text-inverse), transparent 70%);
   animation: pcgs-pulse 1s ease-in-out infinite;
 }
+/* The badge sits on the same dark scrim in every theme, so its status colours are fixed. */
 .view-cert-verify.pcgs-verified {
-  color: var(--success); /* green — passed */
+  color: #86efac;
 }
 .view-cert-verify.pcgs-verified:hover {
-  color: var(--success-hover);
+  color: #86efac;
   background: color-mix(in oklch, var(--success), transparent 90%);
 }
 .view-cert-verify.pcgs-verify-failed {
-  color: var(--danger); /* red — failed */
+  color: #fca5a5;
 }
 
 /* Sepia theme — adjust colors on dark image bg */
@@ -7715,9 +7809,6 @@ td input:checked + .slider:before {
 }
 [data-theme="sepia"] .view-cert-badge[data-authority="ANACS"] .view-cert-grade {
   color: #6ee7b7;
-}
-[data-theme="sepia"] .view-cert-verify.pcgs-verified {
-  color: #86efac;
 }
 
 /* --- Data sections --- */
@@ -7735,7 +7826,7 @@ td input:checked + .slider:before {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: var(--primary);
+  color: var(--primary-text);
   margin: 0 0 var(--spacing-sm) 0;
   padding-bottom: 2px;
 }
@@ -7784,12 +7875,12 @@ td input:checked + .slider:before {
 }
 
 .view-detail-value.gain {
-  color: var(--success);
+  color: var(--success-text);
   font-weight: 600;
 }
 
 .view-detail-value.loss {
-  color: var(--danger);
+  color: var(--danger-text);
   font-weight: 600;
 }
 
@@ -7829,8 +7920,8 @@ td input:checked + .slider:before {
 }
 
 .view-chart-range-pill.active {
-  background: var(--primary);
-  color: var(--text-inverse);
+  background: var(--primary-fill);
+  color: var(--on-primary);
   border-color: var(--primary);
 }
 
@@ -7997,8 +8088,8 @@ td input:checked + .slider:before {
 }
 
 .view-modal-footer .view-footer-btn.primary {
-  background: var(--warning);
-  color: var(--bg-primary);
+  background: var(--warning-fill);
+  color: var(--on-warning);
   border: 1px solid transparent;
   box-shadow: 0 2px 8px color-mix(in oklch, var(--warning), transparent 75%);
 }
@@ -8008,8 +8099,8 @@ td input:checked + .slider:before {
 }
 
 .view-modal-footer .view-footer-btn.danger {
-  background: var(--danger);
-  color: var(--text-inverse);
+  background: var(--danger-fill);
+  color: var(--on-danger);
   border: 1px solid transparent;
 }
 
@@ -8192,7 +8283,7 @@ td input:checked + .slider:before {
 }
 
 .about-title #aboutAppName {
-  color: var(--primary);
+  color: var(--primary-text);
 }
 
 .about-title #aboutVersion {
@@ -8221,6 +8312,13 @@ td input:checked + .slider:before {
 .modal-close:hover {
   color: var(--text-primary);
   background: var(--bg-primary);
+}
+
+/* On a primary-gradient header the resting glyph takes the fill label; hover keeps the rule above. */
+#apiHistoryModal .modal-header .modal-close:not(:hover),
+#cloudSyncModal .modal-header .modal-close:not(:hover),
+.bulk-edit-content .modal-header .modal-close:not(:hover) {
+  color: var(--on-primary);
 }
 
 .about-modal-body {
@@ -8316,7 +8414,7 @@ a.about-badge:hover {
   align-items: center;
   margin-bottom: var(--spacing);
   font-weight: 600;
-  color: var(--danger);
+  color: var(--danger-text);
 }
 
 .alert-icon {
@@ -8349,14 +8447,14 @@ a.about-badge:hover {
   background: none;
   border: none;
   padding: 0;
-  color: var(--primary);
+  color: var(--primary-text);
   cursor: pointer;
   font-size: inherit;
   text-decoration: underline;
 }
 
 .about-alert-link:hover {
-  color: var(--primary-hover);
+  color: var(--primary-text);
 }
 
 .about-section-footer {
@@ -8370,14 +8468,14 @@ a.about-badge:hover {
   background: none;
   border: none;
   padding: 0;
-  color: var(--primary);
+  color: var(--primary-text);
   cursor: pointer;
   font-size: var(--font-size-md);
   text-decoration: none;
 }
 
 .about-card-link:hover {
-  color: var(--primary-hover);
+  color: var(--primary-text);
   text-decoration: underline;
 }
 
@@ -8414,7 +8512,7 @@ a.about-badge:hover {
 .about-section .section-title {
   font-size: var(--font-size-xl);
   font-weight: 600;
-  color: var(--primary);
+  color: var(--primary-text);
   margin-bottom: var(--spacing);
   padding-bottom: var(--spacing-sm);
   border-bottom: 2px solid var(--border);
@@ -8439,7 +8537,7 @@ a.about-badge:hover {
 
 .changelog-list li::before {
   content: "•";
-  color: var(--primary);
+  color: var(--primary-text);
   font-weight: bold;
   font-size: var(--font-size-xl);
   margin-right: var(--spacing-sm);
@@ -8471,7 +8569,7 @@ a.about-badge:hover {
 .resource-btn:hover {
   background: var(--bg-tertiary);
   border-color: var(--primary);
-  color: var(--primary);
+  color: var(--primary-text);
   transform: translateY(-2px);
   box-shadow: var(--shadow);
 }
@@ -8486,29 +8584,6 @@ a.about-badge:hover {
   margin-left: auto;
   margin-right: auto;
   text-align: center;
-}
-
-.about-accept-btn {
-  background: linear-gradient(135deg, var(--success), var(--success-hover));
-  color: var(--text-inverse);
-  font-size: var(--font-size-xl);
-  padding: var(--spacing) var(--spacing-xl);
-  border: none;
-  border-radius: var(--radius);
-  font-weight: 600;
-  cursor: pointer;
-  transition: var(--transition);
-  box-shadow: var(--shadow);
-}
-
-.about-accept-btn:hover {
-  background: linear-gradient(
-    135deg,
-    var(--success-hover),
-    color-mix(in oklch, var(--success-hover), var(--hover-mix) 15%)
-  );
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-lg);
 }
 
 /* Responsive adjustments for about modal */
@@ -9271,7 +9346,7 @@ table.dm-ledger {
   margin-top: var(--spacing-xs);
 }
 .dm-link {
-  color: var(--primary);
+  color: var(--primary-text);
   cursor: pointer;
   font-weight: 600;
   background: none;
@@ -9404,8 +9479,8 @@ table.dm-ledger {
   background: color-mix(in oklch, var(--text-primary), transparent 96%);
 }
 .chart-metric-btn.active {
-  background: var(--primary);
-  color: var(--text-inverse);
+  background: var(--primary-fill);
+  color: var(--on-primary);
 }
 
 /* =============================================================================
@@ -9417,7 +9492,7 @@ table.dm-ledger {
 
 .change-log-label {
   font-weight: 700;
-  color: var(--primary);
+  color: var(--primary-text);
   cursor: pointer;
 }
 
@@ -9490,8 +9565,8 @@ table.dm-ledger {
 }
 
 .save-filter-btn:hover {
-  background: var(--primary);
-  color: var(--text-inverse);
+  background: var(--primary-fill);
+  color: var(--on-primary);
   border-color: var(--primary);
 }
 
@@ -9515,8 +9590,8 @@ table.dm-ledger {
 }
 
 .modern-icon-btn:hover {
-  background: var(--primary);
-  color: var(--text-inverse);
+  background: var(--primary-fill);
+  color: var(--on-primary);
   border-color: var(--primary);
   transform: translateY(-1px);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
@@ -9548,7 +9623,7 @@ table.dm-ledger {
 }
 
 :is([data-theme="dark"], [data-theme="slate"]) .modern-icon-btn:hover {
-  background: var(--primary);
+  background: var(--primary-fill);
   box-shadow: 0 2px 12px color-mix(in srgb, var(--primary) 30%, transparent);
 }
 
@@ -9558,8 +9633,9 @@ table.dm-ledger {
 }
 
 [data-theme="sepia"] .modern-icon-btn:hover {
-  background: var(--primary);
+  background: var(--primary-fill);
   box-shadow: 0 2px 8px rgba(139, 69, 19, 0.2);
+  color: var(--on-primary);
 }
 
 /* Enhanced search action buttons with text labels */
@@ -9583,8 +9659,8 @@ table.dm-ledger {
 }
 
 .search-action-btn:hover {
-  background: var(--primary);
-  color: var(--text-inverse);
+  background: var(--primary-fill);
+  color: var(--on-primary);
   border-color: var(--primary);
   transform: translateY(-1px);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
@@ -9612,18 +9688,21 @@ table.dm-ledger {
 
 /* Specific button color variations */
 .search-action-btn.add-btn:hover {
-  background: var(--success);
+  background: var(--success-fill);
   border-color: var(--success);
+  color: var(--on-success);
 }
 
 .search-action-btn.clear-btn:hover {
-  background: var(--warning);
+  background: var(--warning-fill);
   border-color: var(--warning);
+  color: var(--on-warning);
 }
 
 .search-action-btn.log-btn:hover {
-  background: var(--info);
+  background: var(--info-fill);
   border-color: var(--info);
+  color: var(--on-info);
 }
 
 /* Theme-specific adjustments for search action buttons */
@@ -9633,17 +9712,17 @@ table.dm-ledger {
 }
 
 :is([data-theme="dark"], [data-theme="slate"]) .search-action-btn.add-btn:hover {
-  background: var(--success);
+  background: var(--success-fill);
   box-shadow: 0 2px 12px rgba(34, 197, 94, 0.3);
 }
 
 :is([data-theme="dark"], [data-theme="slate"]) .search-action-btn.clear-btn:hover {
-  background: var(--warning);
+  background: var(--warning-fill);
   box-shadow: 0 2px 12px rgba(245, 158, 11, 0.3);
 }
 
 :is([data-theme="dark"], [data-theme="slate"]) .search-action-btn.log-btn:hover {
-  background: var(--info);
+  background: var(--info-fill);
   box-shadow: 0 2px 12px color-mix(in srgb, var(--info) 30%, transparent);
 }
 
@@ -9653,18 +9732,21 @@ table.dm-ledger {
 }
 
 [data-theme="sepia"] .search-action-btn.add-btn:hover {
-  background: var(--success);
+  background: var(--success-fill);
   box-shadow: 0 2px 8px rgba(34, 197, 94, 0.2);
+  color: var(--on-success);
 }
 
 [data-theme="sepia"] .search-action-btn.clear-btn:hover {
-  background: var(--warning);
+  background: var(--warning-fill);
   box-shadow: 0 2px 8px rgba(245, 158, 11, 0.2);
+  color: var(--on-warning);
 }
 
 [data-theme="sepia"] .search-action-btn.log-btn:hover {
-  background: var(--info);
+  background: var(--info-fill);
   box-shadow: 0 2px 8px color-mix(in srgb, var(--info) 20%, transparent);
+  color: var(--on-info);
 }
 
 .autocomplete-dropdown {
@@ -9690,7 +9772,7 @@ table.dm-ledger {
 
 .autocomplete-item mark {
   background: transparent;
-  color: var(--info);
+  color: var(--info-text);
   font-weight: 600;
 }
 
@@ -9938,8 +10020,8 @@ table.dm-ledger {
 }
 
 .chip-sort-btn.active {
-  background: var(--primary);
-  color: var(--text-inverse);
+  background: var(--primary-fill);
+  color: var(--on-primary);
 }
 
 /* STRK-4: Purchase Price label row — label on the left, compact Lot/Each
@@ -10054,13 +10136,13 @@ table.dm-ledger {
 }
 
 .chip-confirm-yes {
-  background: var(--danger);
-  color: var(--text-inverse);
+  background: var(--danger-fill);
+  color: var(--on-danger);
   border-color: var(--danger);
 }
 
 .chip-confirm-yes:hover {
-  opacity: 0.85;
+  background: var(--danger-fill-hover);
 }
 
 .chip-confirm-no {
@@ -10089,8 +10171,8 @@ table.dm-ledger {
   align-items: center;
   justify-content: center;
   gap: var(--spacing-xs);
-  background: var(--danger);
-  color: var(--text-inverse);
+  background: var(--danger-fill);
+  color: var(--on-danger);
   padding: 0.25rem 0.75rem;
   border: none;
   border-radius: var(--radius);
@@ -10111,9 +10193,10 @@ table.dm-ledger {
 }
 
 .filter-clear-btn:hover {
-  background: var(--danger-hover);
+  background: var(--danger-fill-hover);
   transform: translateY(-1px);
   box-shadow: var(--shadow);
+  color: var(--on-danger);
 }
 
 .filter-clear-btn:active {
@@ -10128,7 +10211,7 @@ table.dm-ledger {
   text-align: center;
   font-weight: 600;
   margin-bottom: var(--spacing);
-  color: var(--primary);
+  color: var(--primary-text);
   font-size: var(--font-size-xl);
 }
 
@@ -10290,8 +10373,8 @@ input:disabled + .slider {
 }
 
 #filtersModal .modal-header {
-  background: linear-gradient(135deg, var(--warning), var(--warning-hover));
-  color: var(--text-primary);
+  background: linear-gradient(135deg, var(--warning-fill), var(--warning-fill-hover));
+  color: var(--on-warning);
   padding: var(--spacing-xl);
   position: relative;
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
@@ -10573,7 +10656,7 @@ input:disabled + .slider {
 
 /* Enhanced styling for edit icons - no hover effects for clean interface */
 #inventoryTable td.icon-col .action-icon.edit-icon {
-  color: var(--primary);
+  color: var(--primary-text);
   font-weight: bold;
 }
 
@@ -10582,7 +10665,7 @@ input:disabled + .slider {
 }
 
 #inventoryTable td.icon-col .action-icon.view-icon:hover {
-  color: var(--primary);
+  color: var(--primary-text);
 }
 
 /* Actions column styling */
@@ -10597,11 +10680,11 @@ input:disabled + .slider {
 
 /* Style the edit toggle button based on mode */
 #inventoryTable td[data-column="actions"] .edit-toggle {
-  color: var(--primary);
+  color: var(--primary-text);
 }
 
 #inventoryTable td[data-column="actions"] .edit-toggle:hover {
-  color: var(--primary-hover);
+  color: var(--primary-text);
 }
 
 /* Actions header styling */
@@ -10630,11 +10713,11 @@ input:disabled + .slider {
 }
 
 #inventoryTable tbody tr.editing-row .save-row {
-  color: var(--success);
+  color: var(--success-text);
 }
 
 #inventoryTable tbody tr.editing-row .cancel-row {
-  color: var(--danger);
+  color: var(--danger-text);
 }
 
 #inventoryTable th.icon-col {
@@ -11113,8 +11196,8 @@ th {
   padding: 0.1rem 0.3rem;
   margin-left: 0.25rem;
   border-radius: var(--radius);
-  background: var(--bg-tertiary);
-  color: var(--primary);
+  background: var(--bg-secondary);
+  color: var(--primary-text);
   cursor: pointer;
   text-decoration: none;
   transition: var(--transition);
@@ -11125,8 +11208,8 @@ th {
 
 .numista-tag:hover,
 .numista-tag:focus-visible {
-  background: var(--primary);
-  color: var(--text-inverse);
+  background: var(--primary-fill);
+  color: var(--on-primary);
   outline: none;
 }
 
@@ -11503,7 +11586,7 @@ th {
 }
 
 .notes-indicator:hover {
-  color: var(--primary);
+  color: var(--primary-text);
 }
 
 .notes-indicator svg {
@@ -11543,12 +11626,12 @@ th {
 
 .pcgs-verify-btn.pcgs-verified {
   opacity: 1;
-  color: var(--success);
+  color: var(--success-text);
 }
 
 .pcgs-verify-btn.pcgs-verify-failed {
   opacity: 1;
-  color: var(--danger);
+  color: var(--danger-text);
 }
 
 @keyframes pcgs-pulse {
@@ -11562,18 +11645,18 @@ th {
 }
 
 :is([data-theme="dark"], [data-theme="slate"]) .pcgs-verify-btn.pcgs-verified {
-  color: var(--success);
+  color: var(--success-text);
 }
 
 [data-theme="sepia"] .pcgs-verify-btn.pcgs-verified {
-  color: var(--success);
+  color: var(--success-text);
 }
 
 :is([data-theme="dark"], [data-theme="slate"]) #certVerifiedIcon {
-  color: var(--success);
+  color: var(--success-text);
 }
 [data-theme="sepia"] #certVerifiedIcon {
-  color: var(--success);
+  color: var(--success-text);
 }
 
 /* =============================================================================
@@ -11791,7 +11874,7 @@ th {
 
 #inventoryForm .form-section-icon,
 .collections-builder-form .form-section-icon {
-  color: var(--primary);
+  color: var(--primary-text);
 }
 
 /* --- Action bar — pill buttons with icons ------------------------------- */
@@ -11839,6 +11922,7 @@ th {
 .collections-builder-footer .collections-builder-cancel:hover {
   background: var(--glass-input-focus-bg, rgba(0, 0, 0, 0.07));
   border-color: var(--primary);
+  color: var(--text-primary);
 }
 
 /* Cancel button */
@@ -11902,7 +11986,7 @@ th {
 }
 
 .inline-search-btn:hover {
-  color: var(--primary);
+  color: var(--primary-text);
   background: var(--glass-input-focus-bg, rgba(0, 0, 0, 0.05));
 }
 
@@ -11956,8 +12040,8 @@ th {
   padding: 0 0.6rem;
 }
 .date-na-btn.active {
-  color: var(--text-inverse);
-  background: var(--primary);
+  color: var(--on-primary);
+  background: var(--primary-fill);
   border-color: var(--primary);
 }
 
@@ -12004,7 +12088,7 @@ th {
 .clone-picker-count {
   font-size: var(--font-size-sm);
   font-weight: 700;
-  color: var(--primary);
+  color: var(--primary-text);
   padding: 0.15rem 0.5rem;
   background: var(--glass-input-bg, rgba(0, 0, 0, 0.04));
   border-radius: var(--radius-pill);
@@ -12255,7 +12339,7 @@ th {
 
 .numista-result-id {
   font-size: var(--font-size-xs);
-  color: var(--primary);
+  color: var(--primary-text);
   font-weight: 600;
 }
 
@@ -12436,7 +12520,7 @@ th {
 .numista-tag-actions {
   font-size: var(--font-size-sm);
   cursor: pointer;
-  color: var(--primary);
+  color: var(--primary-text);
   margin-left: 0.5rem;
 }
 
@@ -12535,7 +12619,7 @@ th {
 
 .quick-pick-id {
   font-weight: 600;
-  color: var(--primary);
+  color: var(--primary-text);
   font-size: var(--font-size-md);
   min-width: 5rem;
 }
@@ -12717,7 +12801,7 @@ th {
   color: var(--text-primary);
 }
 #constitutional-silver-preview .melt {
-  color: var(--warning);
+  color: var(--warning-text);
   font-weight: 700;
 }
 #constitutional-silver-preview .oz {
@@ -12973,19 +13057,19 @@ th {
 
 .status-item.status-success {
   background: var(--success) 20;
-  color: var(--success);
+  color: var(--success-text);
   border: 1px solid var(--success) 40;
 }
 
 .status-item.status-warning {
   background: var(--warning) 20;
-  color: var(--warning);
+  color: var(--warning-text);
   border: 1px solid var(--warning) 40;
 }
 
 .status-item.status-info {
   background: var(--info) 20;
-  color: var(--info);
+  color: var(--info-text);
   border: 1px solid var(--info) 40;
 }
 
@@ -12999,7 +13083,7 @@ th {
 }
 
 .encryption-warning strong {
-  color: var(--warning);
+  color: var(--warning-text);
 }
 
 .change-password-section {
@@ -13214,7 +13298,7 @@ th {
 
 /* Enhanced delete button styling - restore red */
 #inventoryTable td.icon-col .action-icon.danger {
-  color: var(--danger) !important;
+  color: var(--danger-text) !important;
   border-radius: var(--radius-sm);
   padding: 0.25rem;
   /* Removed transition: var(--transition); */
@@ -13269,8 +13353,8 @@ th {
 }
 
 .price-toggle:hover {
-  background: var(--primary);
-  color: var(--text-inverse) !important;
+  background: var(--primary-fill);
+  color: var(--on-primary) !important;
   transform: translateY(-1px);
   box-shadow: var(--shadow-sm);
 }
@@ -13283,7 +13367,7 @@ th {
 }
 
 .purchase-link {
-  color: var(--primary);
+  color: var(--primary-text);
   text-decoration: none;
   display: inline-flex;
   align-items: center;
@@ -13292,7 +13376,7 @@ th {
 }
 
 .purchase-link:hover {
-  color: var(--primary-hover);
+  color: var(--primary-text);
 }
 
 .purchase-link-icon {
@@ -13448,17 +13532,17 @@ th {
 
 .source-badge.api {
   background: color-mix(in oklch, var(--primary), transparent 86%);
-  color: var(--primary-hover);
+  color: var(--primary-text);
 }
 
 .source-badge.spot {
   background: color-mix(in oklch, var(--warning), transparent 84%);
-  color: var(--warning-hover);
+  color: var(--warning-text);
 }
 
 .source-badge.manual {
   background: color-mix(in oklch, var(--success), transparent 84%);
-  color: var(--success-hover);
+  color: var(--success-text);
 }
 
 .source-badge.off {
@@ -13601,8 +13685,8 @@ th {
 }
 
 .gb-source-btn.active {
-  background: linear-gradient(135deg, var(--primary), var(--primary-hover));
-  color: var(--text-inverse);
+  background: linear-gradient(135deg, var(--primary-fill), var(--primary-fill-hover));
+  color: var(--on-primary);
   border-color: transparent;
 }
 
@@ -13739,7 +13823,7 @@ th {
   height: 48px;
   border-radius: var(--radius-lg);
   background: color-mix(in oklch, var(--success), transparent 80%);
-  color: var(--success);
+  color: var(--success-text);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -13762,7 +13846,7 @@ th {
   font-style: italic;
 }
 .provider-attribution a {
-  color: var(--primary);
+  color: var(--primary-text);
 }
 
 /* Spot provider accordion */
@@ -13817,7 +13901,7 @@ th {
   font-size: var(--font-size-sm);
 }
 .spot-panel-footer .disclaimer {
-  color: var(--warning);
+  color: var(--warning-text);
   font-style: italic;
 }
 
@@ -13887,7 +13971,7 @@ th {
 /* API-tab action button — outlined, compact (REQ-8.2 visual QA) */
 .api-action-btn {
   background: transparent;
-  color: var(--primary);
+  color: var(--primary-text);
   border: 1px solid var(--primary);
   padding: 0.3rem 0.75rem;
   min-height: unset;
@@ -13895,8 +13979,8 @@ th {
   font-weight: 500;
 }
 .api-action-btn:hover {
-  background: var(--primary);
-  color: var(--text-inverse);
+  background: var(--primary-fill);
+  color: var(--on-primary);
   transform: none;
   box-shadow: none;
 }
@@ -13904,12 +13988,12 @@ th {
   left: -100%;
 }
 .btn-history {
-  color: var(--info);
+  color: var(--info-text);
   border-color: var(--info);
 }
 .btn-history:hover {
-  background: var(--info);
-  color: var(--text-inverse);
+  background: var(--info-fill);
+  color: var(--on-info);
 }
 
 /* Bulk Sync modal — narrower than Settings (1100px) */
@@ -13919,12 +14003,12 @@ th {
 
 /* Button color variants — composable with .btn / .api-action-btn */
 .btn-action-primary {
-  color: var(--success);
+  color: var(--success-text);
   border-color: var(--success);
 }
 .btn-action-primary:hover {
-  background: var(--success);
-  color: var(--surface-alt, #fff);
+  background: var(--success-fill);
+  color: var(--on-success);
 }
 .btn-action-neutral {
   color: var(--text-secondary);
@@ -14025,7 +14109,7 @@ th {
   color: var(--text-primary);
 }
 .bulk-tab.active {
-  color: var(--primary);
+  color: var(--primary-text);
   border-bottom-color: var(--primary);
 }
 .bulk-panel {
@@ -14282,10 +14366,10 @@ th {
   color: var(--text-secondary);
 }
 .bulk-log-line.warn span {
-  color: var(--warning);
+  color: var(--warning-text);
 }
 .bulk-log-line.err span {
-  color: var(--danger);
+  color: var(--danger-text);
 }
 .bulk-log-line.ok::before,
 .bulk-log-line.warn::before,
@@ -14341,7 +14425,7 @@ th {
 /* API-tab help links — no default blue underline */
 .gb-input-shell a,
 .provider-attribution a {
-  color: var(--primary);
+  color: var(--primary-text);
   text-decoration: none;
   border-bottom: 1px dashed var(--primary);
   transition:
@@ -14350,7 +14434,7 @@ th {
 }
 .gb-input-shell a:hover,
 .provider-attribution a:hover {
-  color: var(--primary-hover);
+  color: var(--primary-text);
   border-bottom-style: solid;
 }
 
@@ -14358,7 +14442,7 @@ th {
 .btn-toggle-key {
   background: transparent;
   border: 1px solid var(--primary);
-  color: var(--primary);
+  color: var(--primary-text);
   padding: 0.35rem 0.5rem;
   min-height: unset;
   font-size: 0;
@@ -14373,8 +14457,8 @@ th {
   height: 16px;
 }
 .btn-toggle-key:hover {
-  background: var(--primary);
-  color: var(--text-inverse);
+  background: var(--primary-fill);
+  color: var(--on-primary);
   transform: none;
   box-shadow: none;
 }
@@ -14514,7 +14598,7 @@ th {
 }
 
 .settings-log-tab.active {
-  color: var(--primary);
+  color: var(--primary-text);
   border-bottom-color: var(--primary);
   font-weight: 600;
 }
@@ -14628,8 +14712,8 @@ th {
 }
 
 .bulk-edit-content .modal-header {
-  background: linear-gradient(135deg, var(--primary), var(--primary-hover));
-  color: var(--text-inverse);
+  background: linear-gradient(135deg, var(--primary-fill), var(--primary-fill-hover));
+  color: var(--on-primary);
   padding: var(--spacing) var(--spacing-xl);
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   flex-shrink: 0;
@@ -14637,7 +14721,7 @@ th {
 
 .bulk-edit-content .modal-header h2 {
   margin: 0;
-  color: var(--text-inverse);
+  color: var(--on-primary);
   text-align: center;
 }
 
@@ -14832,8 +14916,8 @@ th {
   font-weight: 600;
   padding: 0.2rem 0.6rem;
   border-radius: var(--radius-pill);
-  background: var(--primary);
-  color: var(--text-inverse);
+  background: var(--primary-fill);
+  color: var(--on-primary);
   white-space: nowrap;
 }
 
@@ -15109,7 +15193,7 @@ th {
 
 .bulk-edit-numista-btn:hover {
   border-color: var(--primary);
-  color: var(--primary);
+  color: var(--primary-text);
 }
 
 /* Sortable column headers */
@@ -15660,8 +15744,8 @@ th {
   color: var(--text-muted);
 }
 .cv-chip-grade {
-  background: var(--primary);
-  color: var(--text-inverse);
+  background: var(--primary-fill);
+  color: var(--on-primary);
 }
 .cv-chip-qty {
   background: var(--bg-tertiary);
@@ -15672,9 +15756,8 @@ th {
   color: var(--text-muted);
 }
 .cv-chip-tags {
-  background: var(--info);
-  color: var(--text-inverse);
-  opacity: 0.85;
+  background: var(--info-fill);
+  color: var(--on-info);
 }
 .cv-chip-type {
   font-size: var(--font-size-xs);
@@ -15750,7 +15833,7 @@ th {
 }
 .cv-chip-attach {
   background: color-mix(in oklch, var(--primary) 14%, var(--bg-tertiary));
-  color: var(--primary);
+  color: var(--primary-text);
   border: 1px solid color-mix(in oklch, var(--primary) 25%, var(--border));
   gap: 0.25rem;
   cursor: pointer;
@@ -15761,10 +15844,10 @@ th {
 }
 
 .cv-gain {
-  color: var(--success);
+  color: var(--success-text);
 }
 .cv-loss {
-  color: var(--danger);
+  color: var(--danger-text);
 }
 
 .cv-images-row {
@@ -16222,7 +16305,7 @@ input[type="number"] {
 }
 :is([data-theme="dark"], [data-theme="slate"]) .tag-chip {
   background: color-mix(in srgb, var(--info) 12%, transparent);
-  color: var(--info);
+  color: var(--info-text);
   border-color: color-mix(in srgb, var(--info) 22%, transparent);
 }
 [data-theme="sepia"] .tag-chip {
@@ -16496,9 +16579,9 @@ input[type="number"] {
 }
 
 .retail-tf-btn.active {
-  background: var(--primary);
+  background: var(--primary-fill);
   border-color: var(--primary);
-  color: var(--text-inverse);
+  color: var(--on-primary);
 }
 
 .retail-history-table-wrap {
@@ -16752,8 +16835,8 @@ input[type="number"] {
   color: var(--text-primary);
 }
 .market-filter-pill.active[data-metal="all"] {
-  background: var(--primary);
-  color: var(--text-inverse);
+  background: var(--primary-fill);
+  color: var(--on-primary);
   border-color: var(--primary);
 }
 .market-filter-pill.active[data-metal="gold"] {
@@ -16797,18 +16880,15 @@ input[type="number"] {
   background: color-mix(in oklch, var(--success), transparent 90%);
 }
 .market-sync-btn.stale {
-  background: linear-gradient(135deg, var(--warning), var(--warning-hover));
+  background: linear-gradient(135deg, var(--warning-fill), var(--warning-fill-hover));
   border-color: transparent;
-  color: var(--text-inverse);
+  color: var(--on-warning);
   box-shadow: 0 1px 3px color-mix(in oklch, var(--warning-hover), transparent 70%);
 }
 .market-sync-btn.stale:hover {
-  background: linear-gradient(
-    135deg,
-    color-mix(in oklch, var(--warning), var(--hover-mix) 12%),
-    var(--warning)
-  );
+  background: linear-gradient(135deg, var(--warning-fill-hover), var(--warning-fill));
   box-shadow: 0 2px 6px color-mix(in oklch, var(--warning-hover), transparent 60%);
+  color: var(--on-warning);
 }
 /* Market Filter Matrix (STAK-515) */
 .market-settings-header {
@@ -17057,7 +17137,7 @@ input[type="number"] {
   display: none;
 }
 .ticker-pause-btn:hover {
-  color: var(--primary);
+  color: var(--primary-text);
   border-color: var(--primary);
 }
 .ticker-pause-btn:focus-visible {
@@ -17410,7 +17490,7 @@ button.vp-price:hover {
 }
 
 .vp-coin-link:hover {
-  color: var(--primary);
+  color: var(--primary-text);
   text-decoration: underline;
 }
 
@@ -18125,7 +18205,7 @@ button.vp-price:hover {
 }
 .attachment-browse-btn:hover {
   border-color: var(--primary);
-  color: var(--primary);
+  color: var(--primary-text);
 }
 
 /* Attachment list items */
@@ -18252,7 +18332,7 @@ button.vp-price:hover {
 }
 .attach-btn.danger:hover {
   background: color-mix(in oklch, var(--danger) 12%, transparent);
-  color: var(--danger);
+  color: var(--danger-text);
 }
 
 /* Missing-binary warning badge */
@@ -18261,7 +18341,7 @@ button.vp-price:hover {
   align-items: center;
   gap: 0.25rem;
   font-size: var(--font-size-xs);
-  color: var(--warning);
+  color: var(--warning-text);
   background: color-mix(in oklch, var(--warning) 12%, transparent);
   border-radius: var(--radius-pill);
   padding: 0.1rem 0.5rem;
@@ -18289,7 +18369,7 @@ button.vp-price:hover {
   font-size: var(--font-size-xs);
   font-weight: 600;
   background: color-mix(in oklch, var(--primary) 12%, transparent);
-  color: var(--primary);
+  color: var(--primary-text);
   border: 1px solid color-mix(in oklch, var(--primary) 25%, transparent);
   cursor: pointer;
 }
@@ -18320,8 +18400,8 @@ button.vp-price:hover {
 .attach-panel-count {
   font-size: var(--font-size-xs);
   font-weight: 700;
-  background: var(--primary);
-  color: var(--text-inverse);
+  background: var(--primary-fill);
+  color: var(--on-primary);
   border-radius: var(--radius-pill);
   padding: 0.1rem 0.4rem;
 }
@@ -18375,13 +18455,13 @@ button.vp-price:hover {
   text-align: center;
 }
 .diff-sign--added {
-  color: var(--success);
+  color: var(--success-text);
 }
 .diff-sign--removed {
-  color: var(--danger);
+  color: var(--danger-text);
 }
 .diff-sign--changed {
-  color: var(--warning);
+  color: var(--warning-text);
 }
 .diff-attach-text {
   flex: 1;
@@ -18500,7 +18580,7 @@ button.vp-price:hover {
 .spot-ratio-chip .est {
   font-size: 9px;
   font-weight: 700;
-  color: var(--warning);
+  color: var(--warning-text);
   margin-left: 1px;
   text-transform: uppercase;
 }
@@ -18549,7 +18629,7 @@ button.vp-price:hover {
   transform: translateY(0);
 }
 #chipTip b {
-  color: var(--primary);
+  color: var(--primary-text);
 }
 
 /* Responsive timestamp: provider + "Last API Sync" on a wide card; a card too narrow for
@@ -18670,7 +18750,7 @@ button.vp-price:hover {
   border-radius: var(--radius-pill, 999px);
   border: 1px solid color-mix(in oklch, var(--success), transparent 55%);
   background: color-mix(in oklch, var(--success), transparent 88%);
-  color: var(--success);
+  color: var(--success-text);
   font-size: 10.5px;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -18718,10 +18798,10 @@ button.vp-price:hover {
   font-weight: 700;
 }
 .gsr-delta[data-dir="up"] {
-  color: var(--danger);
+  color: var(--danger-text);
 }
 .gsr-delta[data-dir="down"] {
-  color: var(--success);
+  color: var(--success-text);
 }
 
 /* Trend tiles */
@@ -19206,7 +19286,7 @@ button.vp-price:hover {
   padding: 0 var(--spacing-sm);
   border-radius: var(--radius-pill);
   border: 1px solid color-mix(in oklch, var(--primary), transparent 55%);
-  color: var(--primary);
+  color: var(--primary-text);
   font: 700 var(--font-size-xs) / 1.6 var(--font-body);
   letter-spacing: 0.08em;
 }
@@ -19279,7 +19359,7 @@ button.vp-price:hover {
 }
 
 .collections-stat.is-accent .collections-stat-label {
-  color: var(--primary);
+  color: var(--primary-text);
 }
 
 /* ---- Toolbars ---- */
@@ -19383,7 +19463,7 @@ button.vp-price:hover {
   padding: 0;
   border: 0;
   background: transparent;
-  color: var(--primary);
+  color: var(--primary-text);
   font: inherit;
   font-weight: 500;
   cursor: pointer;
@@ -19596,13 +19676,13 @@ button.vp-price:hover {
 .collections-tag.is-done {
   border-color: color-mix(in oklch, var(--success), transparent 60%);
   background: color-mix(in oklch, var(--success), transparent 82%);
-  color: var(--success);
+  color: var(--success-text);
 }
 
 .collections-tag.is-variant {
   border-color: color-mix(in oklch, var(--primary), transparent 55%);
   background: transparent;
-  color: var(--primary);
+  color: var(--primary-text);
 }
 
 /* ---- Hub cards ---- */
@@ -19809,7 +19889,7 @@ button.vp-price:hover {
   padding: var(--spacing-sm);
   border: 0;
   border-radius: var(--radius-sm);
-  color: var(--primary);
+  color: var(--primary-text);
   background: transparent;
   font: inherit;
   text-decoration: underline;
@@ -19839,7 +19919,7 @@ button.vp-price:hover {
   border: none;
   background: none;
   font-size: inherit;
-  color: var(--primary);
+  color: var(--primary-text);
 }
 
 .collections-crumb button:hover,
@@ -20100,7 +20180,7 @@ button.vp-price:hover {
   vertical-align: middle;
   font: 600 var(--font-size-xs) / 1 var(--font-body);
   letter-spacing: 0.06em;
-  color: var(--primary);
+  color: var(--primary-text);
 }
 
 .collections-slot-meta {
@@ -20150,11 +20230,11 @@ button.vp-price:hover {
 }
 
 .collections-up {
-  color: var(--success);
+  color: var(--success-text);
 }
 
 .collections-down {
-  color: var(--danger);
+  color: var(--danger-text);
 }
 
 /* Percentage gains and losses are small text on the album surface. */
@@ -20188,7 +20268,7 @@ button.vp-price:hover {
 
 .collections-match {
   font-size: var(--font-size-xs);
-  color: var(--primary);
+  color: var(--primary-text);
 }
 
 .collections-linkbtn {
@@ -20221,8 +20301,8 @@ button.vp-price:hover {
 .collections-check {
   right: var(--spacing);
   width: 20px;
-  background: var(--primary);
-  color: var(--text-inverse);
+  background: var(--primary-fill);
+  color: var(--on-primary);
 }
 
 .collections-check .collections-icon svg {
@@ -20508,7 +20588,7 @@ button.vp-price:hover {
 
 .collections-menu-item .collections-icon {
   margin-top: 2px;
-  color: var(--primary);
+  color: var(--primary-text);
 }
 
 .collections-menu-item .collections-icon svg {
@@ -20518,7 +20598,7 @@ button.vp-price:hover {
 
 .collections-menu-item.is-danger,
 .collections-menu-item.is-danger .collections-icon {
-  color: var(--danger);
+  color: var(--danger-text);
 }
 
 .collections-menu-heading {
@@ -20835,7 +20915,7 @@ button.vp-price:hover {
   font: inherit;
   font-size: var(--font-size-sm);
   font-weight: 600;
-  color: var(--primary);
+  color: var(--primary-text);
 }
 
 .collections-textlink:hover {
@@ -20916,7 +20996,7 @@ button.vp-price:hover {
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--primary);
+  color: var(--primary-text);
 }
 
 .collections-pick-group.is-muted {
@@ -20991,7 +21071,7 @@ button.vp-price:hover {
 }
 
 .collections-pick-why {
-  color: var(--primary);
+  color: var(--primary-text);
 }
 
 .collections-pick-price {
@@ -21058,7 +21138,7 @@ button.vp-price:hover {
 
 .collections-builder-error {
   margin-top: 0.2rem;
-  color: var(--danger);
+  color: var(--danger-text);
   font-size: var(--font-size-sm);
 }
 
@@ -21187,7 +21267,7 @@ button.vp-price:hover {
 
 .collections-builder-slots-head .collections-builder-caption {
   margin: 0;
-  color: var(--primary);
+  color: var(--primary-text);
 }
 
 .collections-builder-divider {
@@ -21237,8 +21317,8 @@ button.vp-price:hover {
 }
 
 .segmented-option input:checked + span {
-  background: var(--primary);
-  color: var(--text-inverse);
+  background: var(--primary-fill);
+  color: var(--on-primary);
 }
 
 .segmented-option input:focus-visible + span {
@@ -21317,7 +21397,7 @@ button.vp-price:hover {
 
 .collections-image-pick:hover {
   border-color: var(--primary);
-  color: var(--primary);
+  color: var(--primary-text);
 }
 
 .collections-image-pick img {
@@ -21366,12 +21446,12 @@ button.vp-price:hover {
 }
 
 .collections-builder-grip:hover {
-  color: var(--primary);
+  color: var(--primary-text);
 }
 
 .collections-builder-mintage-error {
   grid-column: 2 / -1;
-  color: var(--danger);
+  color: var(--danger-text);
   font-size: var(--font-size-sm);
 }
 
@@ -21400,12 +21480,12 @@ button.vp-price:hover {
 }
 
 .collections-builder-insert:hover {
-  color: var(--primary);
+  color: var(--primary-text);
   border-color: var(--primary);
 }
 
 .collections-builder-remove:hover {
-  color: var(--danger);
+  color: var(--danger-text);
 }
 
 .collections-builder-grip:focus-visible,
@@ -21580,7 +21660,7 @@ button.vp-price:hover {
 
 .collections-settings-type.is-custom {
   border-color: color-mix(in oklch, var(--primary), var(--border) 40%);
-  color: var(--primary);
+  color: var(--primary-text);
 }
 
 .collections-settings-handle,
@@ -21648,7 +21728,7 @@ button.vp-price:hover {
 }
 
 .collections-settings-status.is-error {
-  color: var(--danger);
+  color: var(--danger-text);
 }
 
 .collections-settings-reason,

@@ -620,7 +620,7 @@ function _appendSourceField(container, sourceValue) {
     srcLink.href = "#";
     const srcHref = /^https?:\/\//i.test(sourceValue) ? sourceValue : `https://${sourceValue}`;
     srcLink.title = srcHref;
-    srcLink.style.color = "var(--primary)";
+    srcLink.style.color = "var(--primary-text)";
     srcLink.style.textDecoration = "none";
     srcLink.textContent = sourceValue
       .replace(/^(https?:\/\/)?(www\.)?/i, "")
@@ -1622,7 +1622,7 @@ function _attachGradingCertLink(certItem, item) {
   link.target = "_blank";
   link.rel = "noopener noreferrer";
   link.textContent = item.certNumber;
-  link.style.color = "var(--primary)";
+  link.style.color = "var(--primary-text)";
   link.title = `Verify on ${item.gradingAuthority}`;
   valEl.appendChild(link);
 }
