@@ -10,14 +10,18 @@ Only you. StakTrakr stores your inventory on your own device, in browser localSt
 
 ### Can the developer see my data?
 
-No. StakTrakr has no accounts, no user database and no analytics that send inventory data. The app makes these outbound requests, and none of them carry inventory data:
+No. StakTrakr has no accounts, no user database and no analytics that send inventory data. The app makes these outbound requests:
 
 - Spot prices, Market prices and Goldback rates from the StakTrakr API at api.staktrakr.com.
 - Spot prices from another provider, if you set one up with your own API key.
 - Exchange rates from open.er-api.com.
-- Numista and PCGS catalog lookups, when you run one.
+- Numista and PCGS catalog lookups, which send the search text or catalog number you enter.
+- Item images from a catalog or from an image address you enter.
 - A version check against staktrakr.com/version.json.
+- The Lightweight Charts library from cdn.jsdelivr.net, and cdnjs copies of bundled libraries that fail to load.
 - Dropbox, when you connect Cloud Sync.
+
+Only Dropbox requests carry your inventory, as an encrypted file that Dropbox cannot read. The other requests carry no inventory data.
 
 ### Does StakTrakr use cookies or tracking?
 
@@ -31,7 +35,7 @@ Clearing history leaves your data in place. Clearing site data or browser storag
 
 ### Is the app safe to run?
 
-The full source is public at [github.com/lbruton/StakTrakr](https://github.com/lbruton/StakTrakr). The libraries it uses (Chart.js, PapaParse, jsPDF, JSZip, Forge and LZ-String) ship inside the app. If a local copy fails to load, the app fetches the same version from cdnjs with an integrity check.
+The full source is public at [github.com/lbruton/StakTrakr](https://github.com/lbruton/StakTrakr). Chart.js, PapaParse, jsPDF, JSZip, Forge and LZ-String ship inside the app, with their plugins. If a local copy fails to load, the app fetches the same version from cdnjs with an integrity check. The Market charts use Lightweight Charts, which loads from cdn.jsdelivr.net.
 
 ## Backups and export
 
