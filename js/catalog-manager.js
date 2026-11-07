@@ -566,15 +566,7 @@ const openBulkSyncModal = (provider) => {
     }
   }
 
-  modal.style.display = "flex";
-  if (typeof window.trapFocus === "function") {
-    try {
-      window.trapFocus(modal, closeBulkSyncModal);
-      window.focusIntoModal(modal);
-    } catch (e) {
-      console.error("trapFocus failed", e);
-    }
-  }
+  openModalById("bulkSyncModal", closeBulkSyncModal);
 };
 
 /**
@@ -583,14 +575,7 @@ const openBulkSyncModal = (provider) => {
 const closeBulkSyncModal = () => {
   const modal = safeGetElement("bulkSyncModal");
   if (!modal || !modal.id) return;
-  if (typeof window.releaseFocus === "function") {
-    try {
-      window.releaseFocus(modal);
-    } catch (e) {
-      console.error("releaseFocus failed", e);
-    }
-  }
-  modal.style.display = "none";
+  closeModalById("bulkSyncModal");
 };
 
 /**

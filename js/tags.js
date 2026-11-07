@@ -623,7 +623,10 @@ const showTagInput = (container, uuid, renderTags, onChanged) => {
 
   input.addEventListener("input", updateDropdown);
 
+  let finished = false;
   const commitTag = () => {
+    if (finished) return;
+    finished = true;
     const val = input.value.trim();
     if (val) {
       let addedTags = false;
@@ -643,7 +646,10 @@ const showTagInput = (container, uuid, renderTags, onChanged) => {
       commitTag();
     } else if (e.key === "Escape") {
       e.preventDefault();
+      finished = true;
       renderTags();
+      const tagAddBtn = container.querySelector(".tag-add-btn");
+      if (tagAddBtn) tagAddBtn.focus();
     }
   });
 

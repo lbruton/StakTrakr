@@ -1862,6 +1862,7 @@ const openMarketDetailModal = async (slug, { preservePeriod = false } = {}) => {
   if (isFreshOpen) {
     _activeModalOpener =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    document.body.style.overflow = "hidden";
     if (typeof trapFocus === "function") trapFocus(overlay, closeMarketDetailModal);
     if (dialog instanceof HTMLElement) dialog.focus();
   }

@@ -126,8 +126,7 @@
       hasOption ? { value: inputEl.value, checked: optionEl.checked } : inputEl.value;
 
     const cleanup = () => {
-      if (typeof window.releaseFocus === "function") window.releaseFocus(modal);
-      modal.style.display = "none";
+      closeModalById("appDialogModal");
       closeBtn.onclick = null;
       cancelBtn.onclick = null;
       okBtn.onclick = null;
@@ -195,12 +194,11 @@
     };
     document.addEventListener("keydown", onKeyDown);
 
-    modal.style.display = "flex";
-    if (typeof window.trapFocus === "function") {
-      window.trapFocus(modal, () => {
-        if (!actionInFlight) finish(dismissValue());
-      });
-    }
+    // modal.onclick owns the backdrop: an alert ignores a backdrop click.
+    modal.dataset.initialized = "true";
+    openModalById("appDialogModal", () => {
+      if (!actionInFlight) finish(dismissValue());
+    });
     if (mode === "prompt") inputEl.focus();
     else if (mode === "action") cancelBtn.focus();
     else okBtn.focus();

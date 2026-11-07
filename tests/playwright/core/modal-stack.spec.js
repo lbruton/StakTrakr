@@ -1,4 +1,5 @@
 import { test, expect } from "../helpers/mocks/extended-test.js";
+import { suppressWhatsNewPopup } from "../helpers/seed.js";
 
 // The open-modal stack: Escape closes only the top modal, focus moves into a modal on open,
 // stays inside on Tab and returns to the opener on close, and the body scroll lock holds
@@ -13,19 +14,17 @@ const OPENER_ID = "modalStackTestOpener";
  * @returns {Promise<void>}
  */
 const bootWithOpener = async (page) => {
-  await page.addInitScript(() => {
-    document.addEventListener(
-      "DOMContentLoaded",
-      () => {
-        if (typeof APP_VERSION !== "undefined") localStorage.setItem("ackVersion", APP_VERSION);
-      },
-      { once: true }
-    );
-  });
+  const seed = structuredClone((await import("../../fixtures/seed-inventory.js")).default);
+  seed.metalInventory[0].notes = "First line\nSecond line";
+  await page.addInitScript((data) => {
+    Object.entries(data).forEach(([key, value]) => {
+      localStorage.setItem(key, JSON.stringify(value));
+    });
+  }, seed);
+  await suppressWhatsNewPopup(page);
   await page.goto("/index.html#/inventory");
   await page.waitForFunction(() => Array.isArray(window.inventory) && window.inventory.length > 0);
   await page.evaluate((id) => {
-    window.inventory[0].notes = "First line\nSecond line";
     const opener = document.createElement("button");
     opener.id = id;
     opener.type = "button";
@@ -70,6 +69,54 @@ const activeId = (page) =>
 
 const bodyOverflow = (page) => page.evaluate(() => document.body.style.overflow);
 
+/**
+ * Focus the first or last visible control in a modal and return its index in that list.
+ * @param {import("@playwright/test").Page} page - Playwright page
+ * @param {string} selector - Modal selector
+ * @param {"first"|"last"} edge - Which end of the Tab order to focus
+ * @returns {Promise<number>} Index of the focused control, or -1 when the modal holds none
+ */
+const focusEdge = (page, selector, edge) =>
+  page.evaluate(
+    ({ sel, which }) => {
+      const controls = [
+        ...document
+          .querySelector(sel)
+          .querySelectorAll(
+            'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+          ),
+      ].filter((el) => el.getClientRects().length > 0);
+      if (controls.length === 0) return -1;
+      const index = which === "first" ? 0 : controls.length - 1;
+      controls[index].focus();
+      return index;
+    },
+    { sel: selector, which: edge }
+  );
+
+/**
+ * Report whether focus sits on the first or last visible control in a modal.
+ * @param {import("@playwright/test").Page} page - Playwright page
+ * @param {string} selector - Modal selector
+ * @param {"first"|"last"} edge - Which end of the Tab order to check
+ * @returns {Promise<boolean>}
+ */
+const focusOnEdge = (page, selector, edge) =>
+  page.evaluate(
+    ({ sel, which }) => {
+      const controls = [
+        ...document
+          .querySelector(sel)
+          .querySelectorAll(
+            'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+          ),
+      ].filter((el) => el.getClientRects().length > 0);
+      const target = which === "first" ? controls[0] : controls[controls.length - 1];
+      return document.activeElement === target;
+    },
+    { sel: selector, which: edge }
+  );
+
 const MODALS = [
   { name: "Settings", open: "showSettingsModal()", modal: "#settingsModal" },
   { name: "Edit Item", open: "editItem(0)", modal: "#itemModal" },
@@ -110,10 +157,22 @@ test.describe("modal stack", () => {
         await expect
           .poll(() => focusInside(page, entry.modal), "focus moves into the modal")
           .toBe(true);
+        expect(await bodyOverflow(page), "the page behind is locked").toBe("hidden");
 
         for (let i = 0; i < 6; i += 1) {
           await page.keyboard.press("Tab");
           expect(await focusInside(page, entry.modal), `Tab ${i + 1} stays inside`).toBe(true);
+        }
+
+        if ((await focusEdge(page, entry.modal, "last")) !== -1) {
+          await page.keyboard.press("Tab");
+          expect(await focusOnEdge(page, entry.modal, "first"), "Tab wraps to the first").toBe(
+            true
+          );
+          await page.keyboard.press("Shift+Tab");
+          expect(await focusOnEdge(page, entry.modal, "last"), "Shift+Tab wraps to the last").toBe(
+            true
+          );
         }
 
         await page.keyboard.press("Escape");

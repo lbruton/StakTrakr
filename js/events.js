@@ -5163,7 +5163,7 @@ const setupApiEvents = () => {
       safeAttachListener(
         quotaClose,
         "click",
-        () => (elements.apiQuotaModal.style.display = "none"),
+        () => closeModalById("apiQuotaModal"),
         "API quota close"
       );
     }
@@ -5181,7 +5181,7 @@ const setupApiEvents = () => {
             if (!cfg.usage[qp]) cfg.usage[qp] = { quota: val, used: 0 };
             cfg.usage[qp].quota = val;
             saveApiConfig(cfg);
-            elements.apiQuotaModal.style.display = "none";
+            closeModalById("apiQuotaModal");
             updateProviderHistoryTables();
           }
         },

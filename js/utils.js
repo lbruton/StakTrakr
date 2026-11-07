@@ -1281,7 +1281,7 @@ const closeModalById = (id) => {
   } catch (e) {
     /* ignore */
   }
-  _unlockBodyScrollIfNoModal();
+  unlockBodyScrollIfNoModal();
 };
 // ---------------------------------------------------------------------------
 // Focus trap — confines Tab/Shift+Tab within the topmost open modal
@@ -1324,7 +1324,7 @@ const _pruneClosedModals = () => {
 };
 
 /** Clear the body scroll lock once no modal is open. */
-const _unlockBodyScrollIfNoModal = () => {
+const unlockBodyScrollIfNoModal = () => {
   _pruneClosedModals();
   if (_focusTrapStack.length > 0) return;
   try {
@@ -1344,18 +1344,20 @@ const _canTakeFocus = (el) =>
 
 /**
  * Focus the element that stands in for an opener that was re-rendered away:
- * the open modal below, else the selected tab button, else the header Settings button.
+ * a control inside the open modal below, else the selected tab button, else the header
+ * Settings button.
  */
 const _focusModalFallback = () => {
   const below = _focusTrapStack[_focusTrapStack.length - 1];
-  const candidates = below
-    ? [below.previousFocus, below.modal.querySelector(_FOCUSABLE_SELECTOR)]
-    : [
-        document.querySelector('.tab-nav [role="tab"][aria-selected="true"]'),
-        document.querySelector('.bottom-nav-btn[aria-selected="true"]'),
-        document.getElementById("settingsBtn"),
-      ];
-  const target = candidates.find(_canTakeFocus);
+  if (below) {
+    focusIntoModal(below.modal);
+    return;
+  }
+  const target = [
+    document.querySelector('.tab-nav [role="tab"][aria-selected="true"]'),
+    document.querySelector('.bottom-nav-btn[aria-selected="true"]'),
+    document.getElementById("settingsBtn"),
+  ].find(_canTakeFocus);
   if (target) target.focus();
 };
 
@@ -1396,14 +1398,13 @@ if (typeof window !== "undefined" && typeof window.addEventListener === "functio
  * @param {Function} [onClose] - Closes the modal; Escape calls it when the modal is on top
  */
 const trapFocus = (modal, onClose) => {
-  // Idempotency: a re-registered modal keeps its first opener.
-  const existingIdx = _focusTrapStack.findIndex((entry) => entry.modal === modal);
-  let previousFocus = document.activeElement;
-  if (existingIdx !== -1) {
-    const stale = _focusTrapStack.splice(existingIdx, 1)[0];
-    modal.removeEventListener("keydown", stale.handler);
-    previousFocus = stale.previousFocus;
+  // A refresh of an open modal keeps its opener and its place in the stack.
+  const existing = _focusTrapStack.find((entry) => entry.modal === modal);
+  if (existing) {
+    if (onClose) existing.onClose = onClose;
+    return;
   }
+  const previousFocus = document.activeElement;
 
   const handler = (e) => {
     if (e.key !== "Tab") return;
@@ -1436,8 +1437,8 @@ const trapFocus = (modal, onClose) => {
 };
 
 /**
- * Release the focus trap on a modal. When it was the top modal, focus returns to its opener,
- * or to _focusModalFallback when the opener is gone.
+ * Release the focus trap on a modal and clear the scroll lock when no modal is left. When it
+ * was the top modal, focus returns to its opener, or to _focusModalFallback when it is gone.
  * @param {HTMLElement} modal
  * @param {{restoreFocus?: boolean}} [options] - restoreFocus false leaves focus to the caller
  */
@@ -1447,8 +1448,8 @@ const releaseFocus = (modal, options) => {
   const wasTop = idx === _focusTrapStack.length - 1;
   const entry = _focusTrapStack.splice(idx, 1)[0];
   modal.removeEventListener("keydown", entry.handler);
+  unlockBodyScrollIfNoModal();
   if (!wasTop || (options && options.restoreFocus === false)) return;
-  _pruneClosedModals();
   try {
     if (_canTakeFocus(entry.previousFocus) && !modal.contains(entry.previousFocus)) {
       entry.previousFocus.focus();
@@ -1500,8 +1501,10 @@ const openModalById = (id, onClose) => {
       if (document && document.body) document.body.style.overflow = "hidden";
     } catch (e) {}
     trapFocus(modal, onClose);
+    // A refresh of a modal under another one leaves focus in the top modal.
+    const top = _focusTrapStack[_focusTrapStack.length - 1];
     try {
-      focusIntoModal(modal);
+      if (top && top.modal === modal) focusIntoModal(modal);
     } catch (e) {}
   } catch (e) {
     /* ignore */
@@ -1744,6 +1747,7 @@ if (typeof window !== "undefined") {
   window.openModalById = openModalById;
   window.registerModalClose = registerModalClose;
   window.focusIntoModal = focusIntoModal;
+  window.unlockBodyScrollIfNoModal = unlockBodyScrollIfNoModal;
   window.debounce = debounce;
   window.openEbayBuySearch = openEbayBuySearch;
   window.openEbaySoldSearch = openEbaySoldSearch;
