@@ -1042,18 +1042,22 @@ Wire with `wireStorageToggle(elementId, storageKey, opts)` for raw localStorage 
 
 ### Button variants
 
-All buttons use the `.btn` base class with an optional modifier:
+All buttons use the `.btn` base class with an optional modifier. A filled button paints
+`--<role>-fill`, takes `--<role>-fill-hover` on hover and labels in `--on-<role>`. Each pair
+meets 4.5:1 in all four themes.
 
-| Class            | Purpose                | Background token |
-| ---------------- | ---------------------- | ---------------- |
-| `.btn`           | Primary action         | `--primary`      |
-| `.btn.secondary` | Secondary / cancel     | `--secondary`    |
-| `.btn.success`   | Positive confirmation  | `--success`      |
-| `.btn.danger`    | Destructive action     | `--danger`       |
-| `.btn.warning`   | Caution                | `--warning`      |
-| `.btn.info`      | Informational          | `--info`         |
-| `.btn.premium`   | Premium / paid feature | `--warning`      |
-| `.btn.btn-sm`    | Small variant          | (same as parent) |
+| Class            | Purpose                | Fill and label tokens                |
+| ---------------- | ---------------------- | ------------------------------------ |
+| `.btn`           | Primary action         | `--primary-fill`, `--on-primary`     |
+| `.btn.secondary` | Secondary / cancel     | `--secondary-fill`, `--on-secondary` |
+| `.btn.success`   | Positive confirmation  | `--success-fill`, `--on-success`     |
+| `.btn.danger`    | Destructive action     | `--danger-fill`, `--on-danger`       |
+| `.btn.warning`   | Caution                | `--warning-fill`, `--on-warning`     |
+| `.btn.info`      | Informational          | `--info-fill`, `--on-info`           |
+| `.btn.premium`   | Premium / paid feature | `--warning-fill`, `--on-warning`     |
+| `.btn.btn-sm`    | Small variant          | (same as parent)                     |
+
+Text in a status colour takes `--<role>-text`, never the raw role token.
 
 ### Settings group pattern
 

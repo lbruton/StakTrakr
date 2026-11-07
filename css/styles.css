@@ -1749,6 +1749,7 @@ section {
 .modal-footer .btn.secondary:hover {
   background: var(--glass-input-focus-bg, rgba(0, 0, 0, 0.07));
   border-color: var(--primary);
+  color: var(--text-primary);
 }
 .modal-footer .btn.danger {
   border: 1px solid var(--danger);
@@ -4434,8 +4435,7 @@ input[type="submit"] {
 }
 
 .btn.img-btn-upload:hover {
-  opacity: 0.85;
-  background: var(--primary-fill);
+  background: var(--primary-fill-hover);
   color: var(--on-primary);
 }
 
@@ -8581,30 +8581,6 @@ a.about-badge:hover {
   text-align: center;
 }
 
-.about-accept-btn {
-  background: linear-gradient(135deg, var(--success-fill), var(--success-fill-hover));
-  color: var(--on-success);
-  font-size: var(--font-size-xl);
-  padding: var(--spacing) var(--spacing-xl);
-  border: none;
-  border-radius: var(--radius);
-  font-weight: 600;
-  cursor: pointer;
-  transition: var(--transition);
-  box-shadow: var(--shadow);
-}
-
-.about-accept-btn:hover {
-  background: linear-gradient(
-    135deg,
-    var(--success-fill-hover),
-    color-mix(in oklch, var(--success-fill-hover), var(--hover-mix) 15%)
-  );
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-lg);
-  color: var(--on-success);
-}
-
 /* Responsive adjustments for about modal */
 @media (max-width: 768px) {
   .about-modal-content {
@@ -9642,7 +9618,7 @@ table.dm-ledger {
 }
 
 :is([data-theme="dark"], [data-theme="slate"]) .modern-icon-btn:hover {
-  background: var(--primary);
+  background: var(--primary-fill);
   box-shadow: 0 2px 12px color-mix(in srgb, var(--primary) 30%, transparent);
 }
 
@@ -9731,17 +9707,17 @@ table.dm-ledger {
 }
 
 :is([data-theme="dark"], [data-theme="slate"]) .search-action-btn.add-btn:hover {
-  background: var(--success);
+  background: var(--success-fill);
   box-shadow: 0 2px 12px rgba(34, 197, 94, 0.3);
 }
 
 :is([data-theme="dark"], [data-theme="slate"]) .search-action-btn.clear-btn:hover {
-  background: var(--warning);
+  background: var(--warning-fill);
   box-shadow: 0 2px 12px rgba(245, 158, 11, 0.3);
 }
 
 :is([data-theme="dark"], [data-theme="slate"]) .search-action-btn.log-btn:hover {
-  background: var(--info);
+  background: var(--info-fill);
   box-shadow: 0 2px 12px color-mix(in srgb, var(--info) 30%, transparent);
 }
 
@@ -11941,6 +11917,7 @@ th {
 .collections-builder-footer .collections-builder-cancel:hover {
   background: var(--glass-input-focus-bg, rgba(0, 0, 0, 0.07));
   border-color: var(--primary);
+  color: var(--text-primary);
 }
 
 /* Cancel button */
@@ -16904,11 +16881,7 @@ input[type="number"] {
   box-shadow: 0 1px 3px color-mix(in oklch, var(--warning-hover), transparent 70%);
 }
 .market-sync-btn.stale:hover {
-  background: linear-gradient(
-    135deg,
-    color-mix(in oklch, var(--warning-fill), var(--hover-mix) 12%),
-    var(--warning-fill)
-  );
+  background: linear-gradient(135deg, var(--warning-fill-hover), var(--warning-fill));
   box-shadow: 0 2px 6px color-mix(in oklch, var(--warning-hover), transparent 60%);
   color: var(--on-warning);
 }

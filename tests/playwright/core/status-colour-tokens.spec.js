@@ -696,9 +696,46 @@ const FILLED_CONTROLS = {
     '<button class="btn api-action-btn btn-action-primary" data-probe>Sync</button>',
   "numista tag": '<button class="numista-tag" data-probe>Bullion</button>',
   "toggle key": '<button class="btn-toggle-key" data-probe>Show</button>',
+  "image upload": '<button class="btn img-btn-upload" data-probe>Upload</button>',
+  "stale sync": '<button class="market-sync-btn stale" data-probe>Sync</button>',
+  "footer secondary":
+    '<div class="modal-footer"><button class="btn secondary" data-probe>Cancel</button></div>',
   "settings link":
     '<div class="settings-section-panel"><a href="#sample" data-probe>Download sample CSV</a></div>',
 };
+
+/**
+ * Returns the lowest contrast of the element label over each colour stop of its background
+ * gradient, or null when it has none. measureText reads only background-color, so a
+ * gradient control is measured by its stops alone.
+ * @param {import("@playwright/test").Page} page - Playwright page.
+ * @param {string} selector - CSS selector for one element.
+ * @returns {Promise<number|null>} The lowest stop ratio.
+ */
+function lowestGradientStopRatio(page, selector) {
+  return page.evaluate((sel) => {
+    const cs = getComputedStyle(document.querySelector(sel));
+    const stops = cs.backgroundImage.match(/(?:rgba?|oklch|oklab|lab|lch|color)\([^()]*\)/g);
+    if (!stops) return null;
+    const ctx = document.createElement("canvas").getContext("2d", { willReadFrequently: true });
+    const rgb = (css) => {
+      ctx.clearRect(0, 0, 1, 1);
+      ctx.fillStyle = css;
+      ctx.fillRect(0, 0, 1, 1);
+      return Array.from(ctx.getImageData(0, 0, 1, 1).data).slice(0, 3);
+    };
+    const channel = (v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+    const lum = (c) =>
+      0.2126 * channel(c[0] / 255) + 0.7152 * channel(c[1] / 255) + 0.0722 * channel(c[2] / 255);
+    const label = lum(rgb(cs.color));
+    return Math.min(
+      ...stops.map((stop) => {
+        const [hi, lo] = [lum(rgb(stop)), label].sort((a, b) => b - a);
+        return (hi + 0.05) / (lo + 0.05);
+      })
+    );
+  }, selector);
+}
 
 /** Renders every filled control in one fixed host above the app, with transitions off. */
 async function renderFilledControls(page) {
@@ -714,7 +751,7 @@ async function renderFilledControls(page) {
     for (const [name, html] of Object.entries(controls)) {
       const cell = document.createElement("div");
       cell.dataset.control = name;
-      cell.innerHTML = html;
+      cell.append(...new DOMParser().parseFromString(html, "text/html").body.childNodes);
       host.appendChild(cell);
     }
     document.body.appendChild(host);
@@ -804,13 +841,14 @@ test.describe("filled controls from fill tokens", () => {
         const failures = [];
         for (const name of names) {
           const selector = `#fillProbeHost [data-control="${name}"] [data-probe]`;
-          await page.mouse.move(0, 0);
-          const [rest] = await measureText(page, selector);
-          await page.locator(selector).hover();
-          const [hover] = await measureText(page, selector);
-          if (rest.ratio < AA_NORMAL_TEXT) failures.push(`${name} rest ${rest.ratio.toFixed(2)}`);
-          if (hover.ratio < AA_NORMAL_TEXT)
-            failures.push(`${name} hover ${hover.ratio.toFixed(2)}`);
+          for (const state of ["rest", "hover"]) {
+            if (state === "rest") await page.mouse.move(0, 0);
+            else await page.locator(selector).hover();
+            const [{ ratio }] = await measureText(page, selector);
+            const stopRatio = await lowestGradientStopRatio(page, selector);
+            const lowest = stopRatio === null ? ratio : stopRatio;
+            if (lowest < AA_NORMAL_TEXT) failures.push(`${name} ${state} ${lowest.toFixed(2)}`);
+          }
         }
         expect(failures, `${theme} filled controls`).toEqual([]);
       });
