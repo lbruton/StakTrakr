@@ -721,12 +721,13 @@
     return String(value);
   }
 
-  /** Purchase date, price paid, and a serial or notes excerpt: the details that tell twins apart. */
+  /** Purchase date, price paid, storage location, and a serial or notes excerpt: what tells twins apart. */
   function _itemDetailParts(item) {
     var parts = [];
     if (item.date) parts.push("Bought " + String(item.date));
     if (item.price != null && item.price !== "")
       parts.push("Paid " + _fieldDisplay("price", item.price));
+    if (item.storageLocation) parts.push("Stored in " + String(item.storageLocation));
     if (item.serialNumber) {
       parts.push("Serial " + String(item.serialNumber));
     } else if (item.notes) {

@@ -310,6 +310,11 @@ test.describe("core/cloud-backup-restore", () => {
     await page.evaluate(() => {
       window.__retryCalls = [];
       window.__fallbackCalls = [];
+      window.__passwordPrompts = [];
+      window.getSyncPassword = (forcePrompt) => {
+        window.__passwordPrompts.push(forcePrompt === true);
+        return Promise.resolve("corrected-password:account");
+      };
       window.__realPullWithPreview = window.pullWithPreview;
       window.pullWithPreview = (meta) => window.__retryCalls.push(meta.syncId);
       window.pullSyncVault = (meta) => {
@@ -319,7 +324,8 @@ test.describe("core/cloud-backup-restore", () => {
     });
     await actions.first().click();
     await expect(modal).toBeHidden();
-    expect(await page.evaluate(() => window.__retryCalls)).toEqual(["preview-fail"]);
+    await expect.poll(() => page.evaluate(() => window.__retryCalls)).toEqual(["preview-fail"]);
+    expect(await page.evaluate(() => window.__passwordPrompts)).toEqual([true]);
     expect(await page.evaluate(() => window.__fallbackCalls)).toEqual([]);
 
     await page.evaluate(() => {

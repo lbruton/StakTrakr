@@ -4951,7 +4951,10 @@ function _showRestorePreviewFailure(remoteMeta) {
       return;
     }
     close();
-    pullWithPreview(remoteMeta);
+    // Ask for the password again: a wrong saved password fails the same way on every retry.
+    getSyncPassword(true).then(function (password) {
+      if (password) pullWithPreview(remoteMeta);
+    });
   };
   fallbackBtn.onclick = function () {
     close();

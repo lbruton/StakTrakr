@@ -510,6 +510,34 @@ test.describe("DiffModal row clarity", () => {
     expect(details[2]).not.toContain("Entry");
   });
 
+  test("conflict cards name each Item's storage location", async ({ page }) => {
+    const details = await page.evaluate((eagle) => {
+      const twin = { ...eagle, name: "Maple Leaf", date: "2024-05-01", price: 33 };
+      const change = [{ field: "notes", localVal: "Graded", remoteVal: "Raw" }];
+      window.DiffModal.show({
+        source: { type: "csv", label: "inventory.csv" },
+        diff: {
+          added: [],
+          deleted: [],
+          modified: [
+            { item: { ...twin, uuid: "rc-l1", storageLocation: "Home safe" }, changes: change },
+            { item: { ...twin, uuid: "rc-l2", storageLocation: "Bank box" }, changes: change },
+          ],
+        },
+        onApply: () => {},
+        onCancel: () => {},
+      });
+      return Array.from(
+        document.querySelectorAll("#diffSectionModified .dm-conflict-card .dm-item-detail")
+      ).map((el) => el.textContent.replace(/\s+/g, " ").trim());
+    }, EAGLE);
+
+    expect(details).toHaveLength(2);
+    expect(details[0]).toContain("Stored in Home safe");
+    expect(details[1]).toContain("Stored in Bank box");
+    expect(details.join(" ")).not.toContain("Entry");
+  });
+
   test("a price stored as text with a thousands separator shows as stored", async ({ page }) => {
     const remote = await page.evaluate((eagle) => {
       window.DiffModal.show({
