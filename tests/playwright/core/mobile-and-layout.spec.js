@@ -3,6 +3,23 @@ import { injectSeedInventory } from "../helpers/seed.js";
 import { installStakTrakrNetworkMocks } from "../helpers/mocks/routes.js";
 import { readPhoneFloors } from "../helpers/phone-floors.js";
 import { showSampleDiffReview } from "../helpers/diff-review.js";
+import { readHorizontalOverflow } from "../helpers/horizontal-overflow.js";
+
+const SETTINGS_TABS = [
+  "site",
+  "system",
+  "cloud",
+  "about",
+  "api",
+  "changelog",
+  "collections",
+  "currency",
+  "faq",
+  "grouping",
+  "images",
+  "market",
+  "storage",
+];
 
 const BASE_ITEM = {
   uuid: "core-mobile-layout-item",
@@ -1550,21 +1567,7 @@ test.describe("Phone floors in Collections, Item modals and Settings", () => {
       // Setting choices are clickable spans with no control role.
       "[data-field][data-side], [data-setting-resolution]",
     ]),
-    ...[
-      "site",
-      "system",
-      "cloud",
-      "about",
-      "api",
-      "changelog",
-      "collections",
-      "currency",
-      "faq",
-      "grouping",
-      "images",
-      "market",
-      "storage",
-    ].map((tab) => [
+    ...SETTINGS_TABS.map((tab) => [
       `Settings ${tab} panel`,
       "#settingsModal .modal-content",
       (page) => page.evaluate((t) => window.showSettingsModal(t), tab),
@@ -1595,5 +1598,105 @@ test.describe("Phone floors in Collections, Item modals and Settings", () => {
           .toEqual({ smallText: [], smallInputs: [], smallTargets: [] });
       });
     }
+  });
+
+  const LONG_NAME = " 1 oz Brilliant Uncirculated with Original Mint Packaging and Certificate";
+  const overflowSurfaces = [
+    ...SETTINGS_TABS.map((tab) => [
+      `Settings ${tab} panel`,
+      "#settingsModal .modal-content",
+      [".modal-content", ".settings-content-area"],
+      (page) => page.evaluate((t) => window.showSettingsModal(t), tab),
+    ]),
+    [
+      "Privacy policy modal",
+      "#privacyModal .modal-content",
+      [".modal-content", ".modal-body"],
+      (page) => page.evaluate(() => window.openModalById("privacyModal")),
+    ],
+    [
+      "Diff review modal with long Item names",
+      "#diffReviewModal .modal-content",
+      [".modal-content", ".modal-body"],
+      (page) => showSampleDiffReview(page, {}, LONG_NAME),
+    ],
+  ];
+
+  test("no Settings panel or sub-modal overflows sideways at 390px and 1440px", async ({
+    page,
+  }) => {
+    const viewports = [
+      { width: 390, height: 844 },
+      { width: 1440, height: 900 },
+    ];
+    test.setTimeout(test.info().timeout * overflowSurfaces.length * viewports.length);
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await seedInventory(page, BULK_ITEMS);
+    await page.addInitScript((longName) => {
+      const now = Date.parse("2026-11-01T12:00:00Z");
+      const changeLog = Array.from({ length: 3 }, (_, i) => ({
+        timestamp: now - i * 3600000,
+        itemName: `Core Mobile Layout Eagle${longName}`,
+        field: "purchaseLocation",
+        oldValue: `https://www.example-dealer.com/products/silver/${"x".repeat(40)}`,
+        newValue: `Local coin shop on Main Street${longName}`,
+        idx: 0,
+        undone: false,
+      }));
+      localStorage.setItem("changeLog", JSON.stringify(changeLog));
+      const prices = {};
+      for (const weight of [0.25, 0.5, 1, 2, 5, 10, 25, 50, 100]) {
+        prices[String(weight)] = { price: 5.12 * weight, source: "api", updatedAt: now };
+      }
+      localStorage.setItem("goldback-prices", JSON.stringify(prices));
+      localStorage.setItem("goldback-pricing-source", JSON.stringify("api"));
+      localStorage.setItem("goldback-enabled", "true");
+    }, LONG_NAME);
+    for (const viewport of viewports) {
+      await page.setViewportSize(viewport);
+      for (const [label, root, bodies, open] of overflowSurfaces) {
+        await test.step(`${label} at ${viewport.width}px`, async () => {
+          await page.goto("about:blank");
+          await gotoApp(page);
+          await open(page);
+          await expect(page.locator(root)).toBeVisible();
+          await expect.soft(page.locator("#settingsModal .stk-nav-separator")).toHaveCount(0);
+          const overflow = await readHorizontalOverflow(page, root, bodies);
+          expect(overflow.tested).toBeGreaterThan(0);
+          const { tested, ...found } = overflow;
+          expect.soft(found).toEqual({
+            scrollingBodies: [],
+            pastEdge: [],
+            clipped: [],
+            ellipsis: [],
+            narrowSelects: [],
+          });
+        });
+      }
+    }
+  });
+
+  test("the Privacy policy scrolls as one surface that fills the phone screen", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await gotoApp(page);
+    await page.evaluate(() => window.openModalById("privacyModal"));
+    const content = page.locator("#privacyModal .modal-content");
+    await expect(content).toBeVisible();
+    const layout = await content.evaluate((el) => {
+      const body = el.querySelector(".modal-body");
+      return {
+        bodyScrolls: body.scrollHeight > body.clientHeight + 1,
+        contentScrolls: el.scrollHeight > el.clientHeight + 1,
+        gapBelowBody: Math.round(
+          el.getBoundingClientRect().bottom - body.getBoundingClientRect().bottom
+        ),
+      };
+    });
+    expect(layout.bodyScrolls).toBe(false);
+    expect(layout.contentScrolls).toBe(true);
+    expect(layout.gapBelowBody).toBeLessThanOrEqual(48);
   });
 });
