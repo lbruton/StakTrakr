@@ -1,0 +1,8 @@
+extends: existence
+message: "State the constraint; '%s' is a note to a person (prose-core Comments and docstrings)."
+level: warning
+ignorecase: true
+tokens:
+  - make sure
+  - makes sure
+  - making sure
