@@ -1403,14 +1403,26 @@ test.describe("Dashboard at phone width", () => {
               onScreen: btn.top >= 0 && btn.bottom <= window.innerHeight,
             };
           });
-        await expect.poll(read).toEqual({
-          tabs: expect.any(Number),
-          overlapping: 0,
-          blocked: [],
-          size: true,
-          onScreen: true,
-        });
-        expect((await read()).tabs).toBeGreaterThanOrEqual(4);
+        // Larger roots grow the nav. Above 20px the tab row overflows 390px and the
+        // last tabs leave the screen, so tab taps are checked up to 20px only.
+        for (const [rootSize, tapsChecked] of [
+          ["", true],
+          ["20px", true],
+          ["32px", false],
+        ]) {
+          await page.evaluate((size) => {
+            document.documentElement.style.fontSize = size;
+          }, rootSize);
+          await showBackToTop();
+          await expect.poll(read, { message: `root font ${rootSize || "default"}` }).toEqual({
+            tabs: expect.any(Number),
+            overlapping: 0,
+            blocked: tapsChecked ? [] : expect.any(Array),
+            size: true,
+            onScreen: true,
+          });
+          expect((await read()).tabs).toBeGreaterThanOrEqual(4);
+        }
       });
     }
 
