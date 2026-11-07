@@ -1359,6 +1359,74 @@ test.describe("Dashboard at phone width", () => {
     expect(result.misses).toEqual([]);
   });
 
+  test("Back to top floats clear of the bottom nav on phones and keeps its corner at 1440", async ({
+    page,
+  }) => {
+    // Scrolls on every poll: the page grows as the Dashboard renders.
+    const showBackToTop = () =>
+      expect
+        .poll(() =>
+          page.evaluate(() => {
+            window.scrollTo(0, document.documentElement.scrollHeight);
+            return document.getElementById("backToTopBtn").classList.contains("visible");
+          })
+        )
+        .toBe(true);
+    for (const [width, height] of [
+      [390, 844],
+      [768, 1024],
+    ]) {
+      await test.step(`${width}x${height}`, async () => {
+        await page.goto("about:blank");
+        await gotoPhoneDashboard(page, { width });
+        await page.setViewportSize({ width, height });
+        await showBackToTop();
+        const read = () =>
+          page.evaluate(() => {
+            const btn = document.getElementById("backToTopBtn").getBoundingClientRect();
+            const overlaps = (r) =>
+              btn.left < r.right && r.left < btn.right && btn.top < r.bottom && r.top < btn.bottom;
+            const tabs = [...document.querySelectorAll("#appBottomNav .bottom-nav-btn")].filter(
+              (el) => el.getClientRects().length > 0
+            );
+            return {
+              tabs: tabs.length,
+              overlapping: tabs.filter((el) => overlaps(el.getBoundingClientRect())).length,
+              blocked: tabs
+                .filter((el) => {
+                  const r = el.getBoundingClientRect();
+                  const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+                  return !hit || !el.contains(hit);
+                })
+                .map((el) => el.textContent.trim()),
+              size: Math.min(btn.width, btn.height) >= 44,
+              onScreen: btn.top >= 0 && btn.bottom <= window.innerHeight,
+            };
+          });
+        await expect.poll(read).toEqual({
+          tabs: expect.any(Number),
+          overlapping: 0,
+          blocked: [],
+          size: true,
+          onScreen: true,
+        });
+        expect((await read()).tabs).toBeGreaterThanOrEqual(4);
+      });
+    }
+
+    await test.step("1440x900", async () => {
+      await page.goto("about:blank");
+      // The seeded Dashboard at 900px tall scrolls less than the 300px reveal threshold.
+      await gotoDesktopDashboard(page);
+      expect(
+        await page.locator("#backToTopBtn").evaluate((el) => {
+          const s = getComputedStyle(el);
+          return [s.bottom, s.right, s.width, s.height];
+        })
+      ).toEqual(["32px", "32px", "40px", "40px"]);
+    });
+  });
+
   test("Dashboard and bottom-nav text is at least 12px at 390px", async ({ page }) => {
     await gotoPhoneDashboard(page);
     const small = await page.evaluate(() => {
