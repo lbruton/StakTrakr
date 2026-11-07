@@ -1,5 +1,5 @@
 /**
- * Opens the diff review modal on a sync diff: one unchanged, one changed (name, qty and
+ * Opens the diff review modal on a sync diff: one deleted, one modified (name, qty and
  * price) and one added Item. `extra` merges into the DiffModal.show options, for example a
  * settingsDiff or the backup and local counts.
  * @param {import('@playwright/test').Page} page - Playwright page with the app loaded.
