@@ -40,7 +40,7 @@ colors:
   border-hover: "oklch(0.4 0.01 85)"
   text-primary: "oklch(0.95 0.005 85)"
   text-secondary: "oklch(0.8 0.008 85)"
-  text-muted: "oklch(0.65 0.012 85)"
+  text-muted: "oklch(0.67 0.012 85)"
   text-inverse: "oklch(0.98 0 0)"
   metal-silver: "oklch(0.851 0.011 248.8)"
   metal-gold: "oklch(0.811 0.157 79)"
@@ -454,8 +454,8 @@ The header, spot cards, ticker, Your stack card and footer share the secondary b
 Dashboard reads as one set of frames one step off the page. The tab panels on Inventory, Market and
 Collections (search, table, vendor prices and collections) use the same frame surface, flat at rest and
 on hover. A surface set on a frame takes `--bg-on-frame`, one step off the frame and away from its text:
-the card token in light and sepia, the primary token in dark and slate. On the tertiary token, the muted
-labels and vendor colours fall below 4.5:1 in slate. The collection cards and the Market table header use
+the card token in light and sepia, the primary token in dark and slate. On the tertiary token, the vendor
+colours fall below 4.5:1 in slate. The collection cards and the Market table header use
 it. The inventory header is darker than the frame through its inset tint. The ratio chips on the spot
 cards take an opaque fill one step lighter than the card: the card token in light and sepia, the tertiary
 token in dark and slate.

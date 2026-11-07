@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.115] - 2026-11-07
+
+### Fixed — STRK-537: Theme token gaps in muted text, status titles and the diff review modal
+
+- **Muted text**: Sepia `--text-muted` darkens to L 0.45 and slate lightens to `#a3b1c4`; dark moves to L 0.67. Muted text meets 4.5:1 on `--bg-primary`, `--bg-secondary`, `--bg-tertiary`, `--bg-card` and `--bg-on-frame` in all four themes. Sepia had measured 3.55:1 on the Collections ledger head row and slate 4.04:1. The sepia Market override that swapped in `--text-secondary` is gone (STRK-537).
+- **Sepia text tones**: Sepia `--success-text`, `--warning-text` and `--primary-text` darken so tinted badges and links on `--bg-secondary` meet 4.5:1 (STRK-537).
+- **Status words**: The Honest Limitations and Danger Zone titles, the Owned tag, cloud and Numista warnings, the form info icon, FAQ links and delete buttons use `--*-text` tokens in place of fill tokens. The Danger Zone loses its inline styles and its 0.9 fade. The unused `.table-disclaimer` rule and `--disclaimer-color` token are removed (STRK-537).
+- **Diff review modal**: The `#diffReviewModal` style block moves from index.html into css/styles.css. The undefined `--border-color`, `--gain` and `--loss` become `--border`, `--success` and `--danger` tokens; hex and rgba literals become tokens and `color-mix()` tints; buttons use the fill tokens; faded labels use `--text-muted` or `--text-secondary` in place of opacity. Thumbnail labels use `--text-secondary` in place of the metal colour. In light theme the Replace label had measured 1.8:1 (STRK-537).
+- **Tests**: The undefined-token unit test covers index.html. The fill-token-as-text check covers rules with a fallback and inline `style` attributes. New four-theme tests measure muted text on every frame surface, the status titles and Owned tag, and every text in the diff review modal (STRK-537).
+
+---
+
 ## [3.36.114] - 2026-11-06
 
 ### Fixed — STRK-524: Filled buttons and active chips meet 4.5:1 in every theme
