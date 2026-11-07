@@ -4444,7 +4444,7 @@ const renderMarketFilterMatrix = () => {
   masterCb.type = "checkbox";
   masterCb.title = "Toggle everything";
   masterCb.className = "mfm-master-toggle";
-  masterTd.appendChild(masterCb);
+  masterTd.appendChild(wrapCheckHit(masterCb));
   allRow.appendChild(masterTd);
 
   vendors.forEach((v) => {
@@ -4453,7 +4453,7 @@ const renderMarketFilterMatrix = () => {
     cb.type = "checkbox";
     cb.setAttribute("data-col-toggle", v.id);
     cb.title = "Toggle all " + v.name;
-    td.appendChild(cb);
+    td.appendChild(wrapCheckHit(cb));
     allRow.appendChild(td);
   });
   tbody.appendChild(allRow);
@@ -4492,7 +4492,7 @@ const renderMarketFilterMatrix = () => {
     rowCb.type = "checkbox";
     rowCb.setAttribute("data-row-toggle", slug);
     rowCb.title = "Toggle all for " + meta.name;
-    rowAllTd.appendChild(rowCb);
+    rowAllTd.appendChild(wrapCheckHit(rowCb));
     tr.appendChild(rowAllTd);
 
     let rowTotal = 0;
@@ -4519,7 +4519,7 @@ const renderMarketFilterMatrix = () => {
         rowTotal++;
         if (isEnabled) rowChecked++;
       }
-      td.appendChild(cb);
+      td.appendChild(wrapCheckHit(cb));
       tr.appendChild(td);
     });
 

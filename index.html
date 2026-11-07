@@ -5031,7 +5031,7 @@
                     "
                   >
                     <button
-                      class="btn settings-action-btn"
+                      class="btn settings-action-btn settings-compact-btn"
                       id="bulkEditBtn"
                       type="button"
                       style="font-size: 0.82rem; padding: 0.4rem 0.9rem"
@@ -5137,28 +5137,28 @@
                         style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.4rem"
                       >
                         <button
-                          class="btn warning"
+                          class="btn warning settings-compact-btn"
                           id="importCsvOverride"
                           style="font-size: 0.82rem; padding: 0.4rem 0.6rem"
                         >
                           Import CSV
                         </button>
                         <button
-                          class="btn warning"
+                          class="btn warning settings-compact-btn"
                           id="importJsonOverride"
                           style="font-size: 0.82rem; padding: 0.4rem 0.6rem"
                         >
                           Import JSON
                         </button>
                         <button
-                          class="btn warning"
+                          class="btn warning settings-compact-btn"
                           id="importZipBtn"
                           style="font-size: 0.82rem; padding: 0.4rem 0.6rem; grid-column: span 2"
                         >
                           Restore ZIP Backup
                         </button>
                         <button
-                          class="btn warning"
+                          class="btn warning settings-compact-btn"
                           id="importCollectionsBtn"
                           title="Merge a Collections file — adds what is missing, never overwrites"
                           style="font-size: 0.82rem; padding: 0.4rem 0.6rem; grid-column: span 2"
@@ -5214,7 +5214,7 @@
                         style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.4rem"
                       >
                         <button
-                          class="btn info"
+                          class="btn info settings-compact-btn"
                           id="exportCsvBtn"
                           aria-describedby="exportCsvDesc"
                           title="Inventory items, CSV (includes metadata header)"
@@ -5226,7 +5226,7 @@
                           >Inventory items, CSV (includes metadata header)</span
                         >
                         <button
-                          class="btn info"
+                          class="btn info settings-compact-btn"
                           id="exportJsonBtn"
                           aria-describedby="exportJsonDesc"
                           title="Inventory items and Collections definitions — no image files"
@@ -5238,7 +5238,7 @@
                           >Inventory items and Collections definitions — no image files</span
                         >
                         <button
-                          class="btn info"
+                          class="btn info settings-compact-btn"
                           id="exportPdfBtn"
                           aria-describedby="exportPdfDesc"
                           title="Inventory items only — printable report"
@@ -5250,7 +5250,7 @@
                           >Inventory items only — printable report</span
                         >
                         <button
-                          class="btn info"
+                          class="btn info settings-compact-btn"
                           id="exportZipBtn"
                           aria-describedby="exportZipDesc"
                           title="Full backup — inventory, settings, price history, and images"
@@ -5262,7 +5262,7 @@
                           >Full backup — inventory, settings, price history, and images</span
                         >
                         <button
-                          class="btn info"
+                          class="btn info settings-compact-btn"
                           id="exportCollectionsBtn"
                           aria-describedby="exportCollectionsDesc"
                           title="Collections only — definitions and which items fill each slot"
@@ -5279,7 +5279,7 @@
                           >Collections only — definitions and which items fill each slot</span
                         >
                         <button
-                          class="btn success"
+                          class="btn success settings-compact-btn"
                           id="printBtn"
                           aria-describedby="printDesc"
                           title="Direct browser print of your full inventory"
@@ -5334,7 +5334,7 @@
                     <div class="third-party-block">
                       <div style="display: grid; grid-template-columns: 1fr; gap: 0.4rem">
                         <button
-                          class="btn warning"
+                          class="btn warning settings-compact-btn"
                           id="importNumistaBtn"
                           style="font-size: 0.82rem; padding: 0.4rem 0.6rem"
                         >
@@ -5380,7 +5380,7 @@
                   >
                     <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.4rem">
                       <button
-                        class="btn"
+                        class="btn settings-compact-btn"
                         id="vaultExportBtn"
                         aria-describedby="vaultExportDesc"
                         title="Encrypted full backup — inventory, settings, price history, and images"
@@ -5393,7 +5393,7 @@
                         images</span
                       >
                       <button
-                        class="btn info"
+                        class="btn info settings-compact-btn"
                         id="vaultImportBtn"
                         style="font-size: 0.82rem; padding: 0.4rem 0.6rem"
                       >
@@ -5414,7 +5414,7 @@
                 <div class="settings-btn-row">
                   <button
                     type="button"
-                    class="btn danger"
+                    class="btn danger settings-compact-btn"
                     id="removeInventoryDataBtn"
                     style="font-size: 0.82rem; padding: 0.4rem 0.6rem"
                   >
@@ -5422,7 +5422,7 @@
                   </button>
                   <button
                     type="button"
-                    class="btn danger"
+                    class="btn danger settings-compact-btn"
                     id="boatingAccidentBtn"
                     style="font-size: 0.82rem; padding: 0.4rem 0.6rem"
                   >
@@ -5485,7 +5485,7 @@
                     style="margin-top: 0.5rem; display: flex; gap: 0.4rem; flex-wrap: wrap"
                   >
                     <button
-                      class="btn cloud-connect-btn"
+                      class="btn cloud-connect-btn settings-compact-btn"
                       data-provider="dropbox"
                       style="font-size: 0.82rem; padding: 0.4rem 0.9rem"
                     >
@@ -5508,7 +5508,7 @@
                     </button>
                     <button
                       id="cloudSwitchAccountBtn_dropbox"
-                      class="btn cloud-switch-account-btn"
+                      class="btn cloud-switch-account-btn settings-compact-btn"
                       data-provider="dropbox"
                       style="display: none; font-size: 0.82rem; padding: 0.4rem 0.9rem"
                     >
@@ -5536,7 +5536,7 @@
                       target="_blank"
                       rel="noopener noreferrer"
                       style="
-                        font-size: 0.72rem;
+                        font-size: var(--font-size-xs);
                         color: var(--text-secondary);
                         text-decoration: underline;
                       "
@@ -5590,7 +5590,7 @@
                     </div>
                     <div style="margin-top: 0.4rem">
                       <button
-                        class="btn"
+                        class="btn settings-compact-btn"
                         id="cloudSyncNowBtn"
                         disabled
                         onclick="
@@ -5651,7 +5651,7 @@
                     "
                   >
                     <button
-                      class="btn success cloud-backup-btn"
+                      class="btn success cloud-backup-btn settings-compact-btn"
                       data-provider="dropbox"
                       disabled
                       style="font-size: 0.82rem; padding: 0.4rem 0.9rem"
@@ -5674,7 +5674,7 @@
                       Backup
                     </button>
                     <button
-                      class="btn cloud-restore-btn"
+                      class="btn cloud-restore-btn settings-compact-btn"
                       data-provider="dropbox"
                       disabled
                       style="font-size: 0.82rem; padding: 0.4rem 0.9rem"
@@ -5734,7 +5734,7 @@
                   <!-- View Sync Log + Advanced -->
                   <div style="display: flex; gap: 0.5rem; margin-top: 0.6rem; align-items: center">
                     <button
-                      class="btn"
+                      class="btn settings-compact-btn"
                       style="font-size: 0.8rem; padding: 0.35rem 0.75rem; flex: 1"
                       onclick="
                         if (typeof switchLogTab === 'function') {
@@ -5765,7 +5765,7 @@
                       View Sync Log
                     </button>
                     <button
-                      class="btn"
+                      class="btn settings-compact-btn"
                       id="cloudSyncAdvancedBtn"
                       onclick="
                         if (typeof openModalById === 'function')
@@ -7328,7 +7328,7 @@
                 "
               />
               <button
-                class="btn"
+                class="btn settings-compact-btn"
                 id="cloudAdvancedSavePasswordBtn"
                 style="font-size: 0.82rem; padding: 0.35rem 0.75rem; white-space: nowrap"
                 onclick="
@@ -7366,7 +7366,7 @@
               Dropbox are not deleted.
             </p>
             <button
-              class="btn danger cloud-disconnect-btn"
+              class="btn danger cloud-disconnect-btn settings-compact-btn"
               data-provider="dropbox"
               style="font-size: 0.82rem; padding: 0.4rem 0.9rem"
             >

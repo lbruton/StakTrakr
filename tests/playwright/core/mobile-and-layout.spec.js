@@ -1454,6 +1454,13 @@ test.describe("Dashboard at phone width", () => {
 });
 
 test.describe("Phone floors in Collections, Item modals and Settings", () => {
+  /** Links the seeded silver coin to the 2024 Slot of the American Silver Eagle Collection. */
+  const linkBaseItem = (page) =>
+    page.evaluate(
+      (uuid) => window.collectionsStore.link("ase-type2", "2024", uuid),
+      BASE_ITEM.uuid
+    );
+
   const surfaces = [
     [
       "Collections hub",
@@ -1462,7 +1469,55 @@ test.describe("Phone floors in Collections, Item modals and Settings", () => {
     ],
     ["Edit Item modal", "#itemModal .modal-content", (page) => openEditModal(page)],
     ["Item view modal", "#viewItemModal .modal-content", (page) => openViewModal(page)],
-    ...["site", "system", "cloud"].map((tab) => [
+    [
+      "Collection album with a linked Slot",
+      "#collectionsSectionEl",
+      async (page) => {
+        await linkBaseItem(page);
+        await page.evaluate(() => {
+          window.activateTab("collections");
+          window.collectionsUI.openCollection("ase-type2");
+        });
+      },
+    ],
+    [
+      "Item view modal of a Collection member",
+      "#viewItemModal .modal-content",
+      async (page) => {
+        await linkBaseItem(page);
+        await openViewModal(page);
+      },
+    ],
+    [
+      "Settings cloud panel with the Dropbox sign-out link",
+      "#settingsModal .modal-content",
+      async (page) => {
+        await page.evaluate(() => window.showSettingsModal("cloud"));
+        await page.locator("#cloudDropboxSignoutLink").evaluate((el) => {
+          el.style.display = "block";
+        });
+      },
+    ],
+    [
+      "Metal details modal",
+      "#detailsModal .modal-content",
+      (page) => page.evaluate(() => window.showDetailsModal("Silver")),
+    ],
+    ...[
+      "site",
+      "system",
+      "cloud",
+      "about",
+      "api",
+      "changelog",
+      "collections",
+      "currency",
+      "faq",
+      "grouping",
+      "images",
+      "market",
+      "storage",
+    ].map((tab) => [
       `Settings ${tab} panel`,
       "#settingsModal .modal-content",
       (page) => page.evaluate((t) => window.showSettingsModal(t), tab),
