@@ -3943,6 +3943,29 @@ input[type="submit"] {
   padding: var(--spacing);
 }
 
+/* Wide Settings tables scroll inside this wrapper so the panel itself never scrolls sideways. */
+.settings-table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+/* Two columns while both fit, one column on a narrow panel. */
+.settings-display-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  gap: 0.75rem 1.5rem;
+  align-items: end;
+}
+
+.settings-display-grid > * {
+  min-width: 0;
+}
+
+.settings-display-grid-narrow {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
+  gap: 0.75rem 1rem;
+}
+
 .storage-data-table {
   width: 100%;
   border-collapse: collapse;
@@ -4152,15 +4175,11 @@ input[type="submit"] {
   font-family: var(--font-mono);
   font-size: var(--font-size-sm);
   color: var(--text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
 }
 .pattern-rule-info .rule-replacement {
   font-size: var(--font-size-base);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
 }
 .pattern-cell {
   font-family: var(--font-mono);
@@ -5998,13 +6017,6 @@ input.spot-lookup-flash {
   margin-top: 8px;
   font-size: var(--font-size-sm);
   padding: 4px 12px;
-}
-
-/* F) Sidebar separator */
-.stk-nav-separator {
-  border: 0;
-  border-top: 1px solid var(--border);
-  margin: 4px 8px;
 }
 
 /* G) What's New toast card (STAK-547 — replaces modal) */
@@ -13647,15 +13659,14 @@ th {
   font-weight: 400;
   line-height: 1.45;
   pointer-events: none;
-  opacity: 0;
-  visibility: hidden;
+  /* A hidden tip stays out of layout so it never widens the panel's scroll area. */
+  display: none;
 }
 
 .settings-info-icon:hover::after,
 .settings-info-icon:focus::after,
 .settings-info-icon:focus-visible::after {
-  opacity: 1;
-  visibility: visible;
+  display: block;
 }
 
 /* Goldback pricing source — pill radio buttons */
@@ -14573,7 +14584,9 @@ th {
 /* Log sub-tabs (inside Activity Log panel) */
 .settings-log-tabs {
   display: flex;
-  gap: 0;
+  flex-wrap: wrap;
+  /* The row gap offsets each tab's -2px bottom margin, so wrapped rows do not overlap. */
+  gap: 2px 0;
   border-bottom: 2px solid var(--border);
   margin: 1rem 0 0 0;
 }
@@ -21582,7 +21595,7 @@ button.vp-price:hover {
   display: grid;
   grid-template-columns:
     1.75rem minmax(0, 1fr) minmax(8.5rem, 9.375rem) 7.375rem
-    minmax(12.5rem, 13.5rem);
+    minmax(12.5rem, 14rem);
   gap: var(--spacing);
   align-items: center;
 }
@@ -21810,6 +21823,7 @@ button.vp-price:hover {
 }
 
 .collections-settings-action {
+  flex-shrink: 0;
   gap: var(--spacing-sm);
 }
 
@@ -22391,11 +22405,10 @@ button.vp-price:hover {
   min-width: 0;
 }
 #diffReviewModal .dm-item-name {
+  min-width: 0;
   font-weight: 600;
   font-size: 0.9rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
 }
 #diffReviewModal .dm-item-meta {
   font-size: max(12px, var(--font-size-sm));
@@ -23041,6 +23054,9 @@ button.vp-price:hover {
 @media (max-width: 768px) {
   :is(.modal, .collections-section) :is(input, select, textarea) {
     font-size: max(16px, 1rem);
+  }
+  .settings-log-tab {
+    min-height: 44px;
   }
   :is(.modal, .collections-section)
     :is(

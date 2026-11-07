@@ -4072,7 +4072,7 @@ const renderStorageSection = async (silent = false) => {
     .join("");
 
   keyTable.innerHTML = `
-    <table class="storage-data-table">
+    <div class="settings-table-scroll"><table class="storage-data-table">
       <thead><tr>
         <th></th>
         <th>Key</th>
@@ -4083,7 +4083,7 @@ const renderStorageSection = async (silent = false) => {
         <th>Records</th>
       </tr></thead>
       <tbody>${rowsHtml}</tbody>
-    </table>
+    </table></div>
     ${minor.length > 0 ? `<p class="storage-minor-note">${_storageTinyVisible ? "" : `${minor.length} minor keys hidden. `}<button class="btn-link storage-toggle-tiny" id="storageToggleTinyBottom">${_storageTinyVisible ? "Hide minor keys" : "Show all"}</button></p>` : ""}
   `;
 
@@ -4161,7 +4161,7 @@ const renderStorageSection = async (silent = false) => {
         idbLimitKB >= 1024 ? `${(idbLimitKB / 1024).toFixed(0)} MB` : `${idbLimitKB.toFixed(0)} KB`;
 
       idbTable.innerHTML = `
-        <table class="storage-data-table">
+        <div class="settings-table-scroll"><table class="storage-data-table">
           <thead><tr>
             <th></th>
             <th>Store</th>
@@ -4172,7 +4172,7 @@ const renderStorageSection = async (silent = false) => {
             <th>Records</th>
           </tr></thead>
           <tbody>${idbRowsHtml}</tbody>
-        </table>
+        </table></div>
         <p class="storage-minor-note">Total: ${idbTotalStr} / ${idbLimitStr} &nbsp;·&nbsp; Size per store is estimated proportionally from record count.</p>
       `;
     }
