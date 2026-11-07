@@ -1007,7 +1007,7 @@ theme-reactive expression. Let the stylesheet do the rest:
   to show state instead.
 - **Markup built in JS takes its static styles from classes.** A template `style=` or
   `style.cssText` carries only a per-instance runtime value: a metal tint, a measured or
-  data-driven width, a show/hide toggle. The `#diffReviewModal` style block in `index.html` holds the diff
+  data-driven width, a show/hide toggle. The `#diffReviewModal` rules in `css/styles.css` hold the diff
   modal classes. A test in `tests/playwright/core/diff-modal-merge.spec.js` fails on any
   other inline property.
   The settings tables, image lists and Numista tag blacklist that `js/settings.js` builds

@@ -675,26 +675,21 @@
   /** Shared card header: dual OBV/REV thumbnails + item identity. Used by orphan and conflict cards. */
   function _renderCardHeader(item, uuid) {
     var grad = window.DiffModalSettings.metalBgGradient(item.metal);
-    var mColor = window.DiffModalSettings.metalColor(item.metal);
     var html = "";
-    // Dual OBV/REV thumbnails
+    // Dual OBV/REV thumbnails. The gradient carries the metal; label text stays on a text token.
     html += '<div class="dm-item-thumb-pair">';
     html +=
       '<div class="dm-item-thumb" style="background:' +
       grad +
       '"' +
       (uuid ? ' data-uuid="' + _esc(uuid) + '" data-side="obverse"' : "") +
-      '><span class="dm-item-thumb-label" style="color:' +
-      mColor +
-      '">OBV</span></div>';
+      '><span class="dm-item-thumb-label">OBV</span></div>';
     html +=
       '<div class="dm-item-thumb" style="background:' +
       grad +
       '"' +
       (uuid ? ' data-uuid="' + _esc(uuid) + '" data-side="reverse"' : "") +
-      '><span class="dm-item-thumb-label" style="color:' +
-      mColor +
-      '">REV</span></div>';
+      '><span class="dm-item-thumb-label">REV</span></div>';
     html += "</div>";
     return html;
   }

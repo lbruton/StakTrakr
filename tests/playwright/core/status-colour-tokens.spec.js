@@ -832,7 +832,8 @@ test.describe("filled controls from fill tokens", () => {
 
   test("no rule colours text with a fill token or puts a label on a raw fill", async ({ page }) => {
     const offences = await page.evaluate(() => {
-      const rawText = /^var\(--(?:primary|secondary|success|info|warning|danger)(?:-hover)?\)$/;
+      // A fill token as the colour, with or without a fallback.
+      const rawText = /^var\(--(?:primary|secondary|success|info|warning|danger)(?:-hover)?\s*[,)]/;
       // A solid or gradient fill painted straight from a role token, outside color-mix().
       const rawFill =
         /(?:^|[\s,(])var\(--(?:primary|secondary|success|info|warning|danger)(?:-hover)?\)/;
@@ -877,9 +878,129 @@ test.describe("filled controls from fill tokens", () => {
           out.push(`${rule.selectorText}: label on ${background.trim()}`);
         }
       }
+      for (const el of document.querySelectorAll("[style]")) {
+        const color = el.style.getPropertyValue("color").trim();
+        if (rawText.test(color)) out.push(`${el.id || el.className || el.tagName}: color ${color}`);
+      }
       return out;
     });
     expect(offences).toEqual([]);
+  });
+});
+
+/** Turns transitions off so a read after a theme switch sees the new theme's colours. */
+async function stopTransitions(page) {
+  await page.addStyleTag({ content: "*, *::before, *::after { transition: none !important; }" });
+}
+
+const FRAME_SURFACES = ["bg-primary", "bg-secondary", "bg-tertiary", "bg-card", "bg-on-frame"];
+
+test.describe("theme token gaps", () => {
+  test.beforeEach(async ({ page }) => {
+    await gotoApp(page);
+    await stopTransitions(page);
+  });
+
+  test("muted text meets AA on every frame surface in all four themes", async ({ page }) => {
+    await page.evaluate((surfaces) => {
+      const host = document.createElement("div");
+      host.id = "mutedProbe";
+      for (const surface of surfaces) {
+        const cell = document.createElement("div");
+        cell.style.background = `var(--${surface})`;
+        const text = document.createElement("span");
+        text.dataset.surface = surface;
+        text.className = "muted-probe";
+        text.textContent = `muted on ${surface}`;
+        cell.appendChild(text);
+        host.appendChild(cell);
+      }
+      document.body.appendChild(host);
+    }, FRAME_SURFACES);
+    await page.addStyleTag({ content: "#mutedProbe .muted-probe { color: var(--text-muted); }" });
+    const selectors = Object.fromEntries(
+      FRAME_SURFACES.map((s) => [s, `#mutedProbe [data-surface="${s}"]`])
+    );
+    for (const theme of THEMES) {
+      await applyTheme(page, theme);
+      expect(await contrastFailures(page, selectors), `${theme} muted text`).toEqual([]);
+    }
+  });
+
+  test("status titles and the Owned tag meet AA in all four themes", async ({ page }) => {
+    await page.evaluate(() => {
+      const host = document.createElement("div");
+      host.id = "ownedTagProbe";
+      for (const surface of ["bg-card", "bg-secondary"]) {
+        const cell = document.createElement("div");
+        cell.style.background = `var(--${surface})`;
+        cell.innerHTML = '<span class="collections-tag is-done">Owned</span>';
+        host.appendChild(cell);
+      }
+      document.body.appendChild(host);
+    });
+    const selectors = {
+      "Honest Limitations title": ".faq-limitations-title",
+      "Danger Zone title": ".danger-zone-title",
+      "Owned tag": "#ownedTagProbe .collections-tag.is-done",
+    };
+    for (const theme of THEMES) {
+      await applyTheme(page, theme);
+      expect(await contrastFailures(page, selectors), `${theme} status titles`).toEqual([]);
+    }
+  });
+
+  test("diff review text meets AA in all four themes", async ({ page }) => {
+    test.setTimeout(test.info().timeout * 2);
+    await page.evaluate(() => {
+      const base = {
+        metal: "Silver",
+        type: "Coin",
+        weight: 1,
+        price: 30,
+        purchaseDate: "2026-01-02",
+      };
+      const local = [
+        { ...base, uuid: "dm-kept", name: "Kept Eagle", qty: 1 },
+        { ...base, uuid: "dm-changed", name: "Old Maple", qty: 2 },
+      ];
+      const remote = [
+        { ...base, uuid: "dm-changed", name: "New Maple", qty: 5, price: 32 },
+        { ...base, uuid: "dm-added", name: "Added Britannia", qty: 3 },
+      ];
+      window.DiffModal.show({
+        source: { type: "sync", label: "Dropbox" },
+        diff: window.DiffEngine.compareItems(local, remote),
+        onApply: () => {},
+        onCancel: () => {},
+      });
+    });
+    await expect(page.locator("#diffReviewModal")).toBeVisible();
+    await expect(page.locator("#diffReviewModal .dm-qty-verb")).toHaveText([
+      "Keep",
+      "Replace",
+      "Add to existing",
+    ]);
+    // Marks every rendered element that holds its own text, so one selector measures them all.
+    await page.evaluate(() => {
+      for (const el of document.querySelectorAll("#diffReviewModal .modal-content *")) {
+        const ownText = [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim());
+        if (ownText && el.getClientRects().length && !el.matches(":disabled")) {
+          el.dataset.dmText = "";
+        }
+      }
+    });
+    const selectors = {
+      "Keep and Replace labels": "#diffReviewModal .dm-qty-verb",
+      "diff review text": "#diffReviewModal [data-dm-text]",
+    };
+    for (const theme of THEMES) {
+      await applyTheme(page, theme);
+      const failures = (await contrastFailures(page, selectors)).filter(
+        (f) => !f.includes(" inline ")
+      );
+      expect(failures, `${theme} diff review`).toEqual([]);
+    }
   });
 });
 

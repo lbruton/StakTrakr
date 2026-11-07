@@ -29,11 +29,11 @@ function definedTokens(jsFiles) {
   return defined;
 }
 
-test("js/ and css/ read no undefined CSS custom properties", () => {
+test("js/, css/ and index.html read no undefined CSS custom properties", () => {
   const jsFiles = listDir("js/", ".js");
   const defined = definedTokens(jsFiles);
   const undefinedReads = [];
-  for (const file of [...jsFiles, ...listDir("css/", ".css")]) {
+  for (const file of [...jsFiles, ...listDir("css/", ".css"), "index.html"]) {
     for (const [, name] of read(file).matchAll(VAR_READ)) {
       if (!defined.has(name)) undefinedReads.push(`${file}: ${name}`);
     }

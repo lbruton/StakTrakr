@@ -86,9 +86,6 @@
   --danger-fill-hover: oklch(0.505 0.19 27.5);
   --on-danger: oklch(1 0 0);
 
-  /* Disclaimer warning color */
-  --disclaimer-color: var(--warning);
-
   /* Background Tokens - Slate/Blue-Gray Mode */
   --bg: oklch(0.929 0.013 255.5); /* Slate 200 — lightened from Slate 300 */
   --bg-elev-1: oklch(0.96 0.008 253.9); /* Slate 100/200 blend — elevated surfaces */
@@ -301,9 +298,6 @@
   --danger-fill-hover: oklch(0.49 0.21 25);
   --on-danger: oklch(0.98 0 0);
 
-  /* Disclaimer warning color */
-  --disclaimer-color: var(--danger);
-
   /* Metal-specific Colors - metallic dark */
   /* Metals — slate-parity oklch values (cool silver/platinum/palladium hues
      contrast against warm-gunmetal bg, producing visible tint when blended in
@@ -349,7 +343,7 @@
   /* Text Colors - Warm neutrals */
   --text-primary: oklch(0.95 0.005 85);
   --text-secondary: oklch(0.8 0.008 85);
-  --text-muted: oklch(0.65 0.012 85);
+  --text-muted: oklch(0.67 0.012 85);
   --chip-text: oklch(0.95 0.005 85);
   /* Bright vendor hues remain legible on the dark card and table surfaces. */
   --vendor-apmex: #60a5fa;
@@ -472,9 +466,6 @@
   --danger-fill-hover: #b91c1c;
   --on-danger: #ffffff;
 
-  /* Disclaimer warning color */
-  --disclaimer-color: var(--danger);
-
   /* Metal-specific Colors - slate */
   --silver: #d1d5db;
   --gold: #fbbf24;
@@ -515,7 +506,7 @@
   /* Text Colors - Slate */
   --text-primary: #f8fafc;
   --text-secondary: #cbd5e1;
-  --text-muted: #94a3b8;
+  --text-muted: #a3b1c4;
   --chip-text: #f8fafc;
   /* Keep the original slate palette while meeting AA on slate surfaces. */
   --vendor-apmex: #60a5fa;
@@ -609,10 +600,10 @@
   --warning-hover: oklch(0.555 0.146 49);
   --danger: oklch(0.577 0.215 27.3);
   --danger-hover: oklch(0.505 0.19 27.5);
-  --success-text: oklch(0.47 0.1 130);
-  --warning-text: oklch(0.48 0.12 55);
+  --success-text: oklch(0.44 0.1 130);
+  --warning-text: oklch(0.45 0.12 55);
   --danger-text: oklch(0.48 0.18 27);
-  --primary-text: oklch(0.5 0.12 51);
+  --primary-text: oklch(0.46 0.12 51);
   --info-text: oklch(0.46 0.075 212);
 
   --primary-fill: oklch(0.54 0.125 51);
@@ -674,7 +665,7 @@
   /* Text Colors - Sepia Mode */
   --text-primary: oklch(0.314 0.039 86.7);
   --text-secondary: oklch(0.403 0.039 85.2);
-  --text-muted: oklch(0.514 0.033 84.5);
+  --text-muted: oklch(0.45 0.035 84.5);
   --chip-text: oklch(0.314 0.039 86.7);
   /* Warm, darkened vendor hues preserve identity on parchment surfaces. */
   --vendor-apmex: #1d4ed8;
@@ -5214,7 +5205,7 @@ input.spot-lookup-flash {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--success, #198754);
+  color: var(--success-text);
   padding: 0.15rem 0.5rem;
   border: 1px solid var(--success, #198754);
   border-radius: var(--radius-lg);
@@ -5348,12 +5339,18 @@ input.spot-lookup-flash {
   margin-left: 0.5rem;
   opacity: 0.8;
 }
+.settings-fieldset.danger-zone {
+  border-color: var(--danger);
+}
+.settings-fieldset-title.danger-zone-title {
+  color: var(--danger-text);
+}
 .cloud-backup-delete-btn {
   flex-shrink: 0;
   padding: 0.3rem 0.5rem;
   border: none;
   background: transparent;
-  color: var(--danger, #e74c3c);
+  color: var(--danger-text);
   cursor: pointer;
   font-size: var(--font-size-lg);
   line-height: 1;
@@ -8694,7 +8691,7 @@ a.about-badge:hover {
 }
 
 .faq-answer a {
-  color: var(--primary, #3b82f6);
+  color: var(--primary-text);
 }
 
 .faq-list {
@@ -8754,7 +8751,7 @@ a.about-badge:hover {
 }
 
 .faq-limitations-title {
-  color: var(--warning, #b45309) !important;
+  color: var(--warning-text) !important;
 }
 
 .faq-limitations-intro {
@@ -9503,13 +9500,6 @@ table.dm-ledger {
 
 .btn.silver:hover {
   background: color-mix(in oklch, var(--silver), var(--hover-mix) 12%);
-}
-
-.table-disclaimer {
-  font-size: var(--font-size-sm);
-  color: var(--disclaimer-color);
-  font-style: italic;
-  text-align: center;
 }
 
 .table-subtitle {
@@ -11663,7 +11653,7 @@ th {
    FORM INFO ICON — Always-visible (i) link icon in form labels
    ============================================================================= */
 .form-info-icon {
-  color: var(--warning, #f59e0b);
+  color: var(--warning-text);
   text-decoration: none;
   display: inline-flex;
   vertical-align: middle;
@@ -11673,7 +11663,7 @@ th {
 .form-info-icon:hover,
 .form-info-icon:active,
 .form-info-icon:link {
-  color: var(--warning, #f59e0b);
+  color: var(--warning-text);
 }
 .form-info-icon:hover {
   opacity: 0.8;
@@ -12464,7 +12454,7 @@ th {
 .numista-field-warn {
   grid-column: 1 / -1;
   font-size: var(--font-size-xs);
-  color: var(--danger, #f44336);
+  color: var(--danger-text);
   font-style: italic;
   margin-top: -0.2rem;
   padding-left: 1.5rem;
@@ -16244,7 +16234,7 @@ input[type="number"] {
     background 0.2s ease;
 }
 .price-history-delete-btn:hover {
-  color: var(--danger, #dc3545);
+  color: var(--danger-text);
   border-color: var(--danger, #dc3545);
   background: rgba(220, 53, 69, 0.08);
 }
@@ -18020,12 +18010,6 @@ button.vp-price:hover {
   background: color-mix(in srgb, var(--success) 18%, transparent);
 }
 
-/* Sepia muted ink falls below 4.5:1 on the striped --bg-secondary rows and the panel surface. */
-[data-theme="sepia"]
-  :is(.vendor-prices-table, .market-block-header, .vp-message, .vp-cards, .market-disclaimer) {
-  --text-muted: var(--text-secondary);
-}
-
 [data-theme="light"] .market-detail-modal,
 :root .market-detail-modal {
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
@@ -19675,7 +19659,7 @@ button.vp-price:hover {
 
 .collections-tag.is-done {
   border-color: color-mix(in oklch, var(--success), transparent 60%);
-  background: color-mix(in oklch, var(--success), transparent 82%);
+  background: color-mix(in oklch, var(--success), transparent 90%);
   color: var(--success-text);
 }
 
@@ -22296,5 +22280,733 @@ button.vp-price:hover {
   .ticker-item .coin,
   .ticker-item .price {
     font-size: max(13px, var(--font-size-base));
+  }
+}
+
+/* =============================================================================
+   DIFF REVIEW MODAL: change review for sync, backup restore and imports
+   ============================================================================= */
+#diffReviewModal .modal-content {
+  max-height: 90vh;
+  overflow-y: auto;
+}
+@media (max-width: 768px) {
+  #diffReviewModal .modal-content {
+    width: 100vw;
+    height: 100dvh;
+    max-width: none;
+    max-height: none;
+    border-radius: 0;
+  }
+}
+/* Item cards: one card per added, deleted or changed Item. */
+#diffReviewModal .dm-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1rem;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
+}
+#diffReviewModal .dm-card:hover {
+  border-color: color-mix(in oklch, var(--primary) 40%, transparent);
+  box-shadow: var(--shadow);
+}
+#diffReviewModal .dm-orphan-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+}
+#diffReviewModal .dm-orphan-card.skipped {
+  opacity: 0.4;
+  transition: opacity 0.3s;
+}
+#diffReviewModal .dm-orphan-actions {
+  display: flex;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+#diffReviewModal .dm-conflict-card {
+  margin-bottom: 0.75rem;
+}
+#diffReviewModal .dm-conflict-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding-bottom: 0.75rem;
+  margin-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+}
+#diffReviewModal .dm-item-thumb {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  background: var(--bg-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+}
+#diffReviewModal .dm-item-thumb-pair {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+#diffReviewModal .dm-item-thumb-pair .dm-item-thumb {
+  width: 40px;
+  height: 40px;
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  text-align: center;
+  line-height: 1.2;
+  padding: 2px;
+}
+#diffReviewModal .dm-item-identity {
+  flex: 1;
+  min-width: 0;
+}
+#diffReviewModal .dm-item-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#diffReviewModal .dm-item-meta {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.15rem;
+}
+#diffReviewModal .dm-field-diff {
+  display: grid;
+  grid-template-columns: 120px 1fr auto 1fr;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border);
+}
+#diffReviewModal .dm-field-diff:last-child {
+  border-bottom: none;
+}
+#diffReviewModal .dm-field-label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 500;
+}
+#diffReviewModal .dm-field-value {
+  padding: 0.35rem 0.6rem;
+  border-radius: 8px;
+  min-height: 1.8rem;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  border: 2px solid transparent;
+  text-align: center;
+  word-break: break-word;
+}
+#diffReviewModal .dm-field-value.local {
+  background: color-mix(in oklch, var(--primary) 12%, transparent);
+}
+#diffReviewModal .dm-field-value.remote {
+  background: color-mix(in oklch, var(--info) 12%, transparent);
+}
+#diffReviewModal .dm-field-value.selected {
+  border-color: var(--success);
+  box-shadow: 0 0 0 1px var(--success);
+  background: color-mix(in oklch, var(--success) 12%, transparent);
+  color: var(--success-text);
+  font-weight: 600;
+}
+#diffReviewModal .dm-field-value:hover:not(.selected) {
+  border-color: var(--text-muted);
+}
+/* Quantity reconciliation: Keep, Replace or Add to existing.
+   Each option also carries .dm-field-value, so the selected state
+   reuses #diffReviewModal .dm-field-value.selected above. */
+#diffReviewModal .dm-field-diff-qty {
+  display: block;
+}
+#diffReviewModal .dm-qty-options {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  margin-top: 0.25rem;
+}
+#diffReviewModal .dm-qty-opt {
+  flex: 1 1 8rem;
+  min-height: 44px; /* iOS touch target */
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+  padding: 0.45rem 0.6rem;
+  line-height: 1.15;
+  text-align: left;
+}
+#diffReviewModal .dm-qty-opt .dm-qty-verb {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+#diffReviewModal .dm-qty-opt .dm-qty-num {
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+}
+#diffReviewModal .dm-qty-opt.sum .dm-qty-verb {
+  color: var(--info-text);
+}
+/* Possible-duplicate flag. A raw --warning fill fails 4.5:1 on small text
+   in light and sepia, so the badge tints the surface and uses --warning-text. */
+#diffReviewModal .dm-dup-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0.25rem 0;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.74rem;
+  font-weight: 600;
+  border-radius: 6px;
+  color: var(--warning-text);
+  background: color-mix(in srgb, var(--warning) 15%, var(--bg-secondary));
+  border: 1px solid color-mix(in srgb, var(--warning) 40%, transparent);
+}
+#diffReviewModal .dm-dup-flag .dm-dup-icon {
+  font-size: 0.85rem;
+  line-height: 1;
+}
+#diffReviewModal .dm-dup-flag .dm-dup-text {
+  line-height: 1.2;
+}
+/* The duplicate flag's screen-reader sentence uses the global .sr-only rule. */
+#diffReviewModal .dm-field-arrow {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  text-align: center;
+}
+#diffReviewModal .dm-card-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+  justify-content: flex-end;
+}
+#diffReviewModal .dm-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+#diffReviewModal .dm-section-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+#diffReviewModal .dm-section-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+#diffReviewModal .dm-collapse-toggle {
+  cursor: pointer;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  transition: transform 0.2s;
+  user-select: none;
+}
+#diffReviewModal .dm-collapse-toggle.collapsed {
+  transform: rotate(-90deg);
+}
+#diffReviewModal .dm-section-body.collapsed {
+  display: none;
+}
+#diffReviewModal .dm-conflict-details {
+  transition: all 0.3s ease;
+}
+#diffReviewModal .dm-conflict-details.collapsed {
+  max-height: 0;
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
+  opacity: 0;
+}
+#diffReviewModal .dm-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+}
+#diffReviewModal .dm-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+#diffReviewModal .dm-pill-warning {
+  background: color-mix(in oklch, var(--warning) 12%, transparent);
+  color: var(--warning-text);
+}
+#diffReviewModal .dm-pill-gain {
+  background: color-mix(in oklch, var(--success) 12%, transparent);
+  color: var(--success-text);
+}
+#diffReviewModal .dm-resolve-status {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 1rem;
+  background: var(--bg-secondary);
+  border-radius: 999px;
+  margin-bottom: 1rem;
+  font-size: 0.8rem;
+}
+#diffReviewModal .dm-status-text {
+  flex: 1;
+  color: var(--text-secondary);
+}
+#diffReviewModal .dm-progress-bar {
+  height: 4px;
+  background: var(--bg-tertiary);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+#diffReviewModal .dm-progress-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.4s ease;
+  background: linear-gradient(90deg, var(--primary), var(--success));
+}
+#diffReviewModal .dm-btn {
+  padding: 0.5rem 1.1rem;
+  border: none;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+#diffReviewModal .dm-btn-sm {
+  padding: 0.3rem 0.7rem;
+  font-size: 0.75rem;
+}
+#diffReviewModal .dm-btn-primary {
+  background: var(--primary-fill);
+  color: var(--on-primary);
+}
+#diffReviewModal .dm-btn-primary:hover {
+  background: var(--primary-fill-hover);
+  box-shadow: var(--shadow-sm);
+}
+#diffReviewModal .dm-btn-secondary {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+#diffReviewModal .dm-btn-secondary:hover {
+  background: color-mix(in oklch, var(--bg-tertiary), var(--hover-mix) 12%);
+  color: var(--text-primary);
+}
+#diffReviewModal .dm-btn-loss {
+  background: var(--danger-fill);
+  color: var(--on-danger);
+}
+#diffReviewModal .dm-btn-gain {
+  background: var(--success-fill);
+  color: var(--on-success);
+}
+#diffReviewModal .dm-btn-gain:hover {
+  background: var(--success-fill-hover);
+  box-shadow: var(--shadow-sm);
+}
+#diffReviewModal .dm-btn-muted {
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+#diffReviewModal .dm-btn-muted:hover {
+  color: var(--text-primary);
+}
+#diffReviewModal .dm-setting-expanded {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-bottom: 0.4rem;
+}
+#diffReviewModal .dm-setting-sides {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+#diffReviewModal .dm-setting-side {
+  flex: 1;
+  min-width: 0;
+}
+#diffReviewModal .dm-setting-side-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+#diffReviewModal .dm-setting-arrow {
+  padding-top: 1.2rem;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+#diffReviewModal .dm-chip-matched {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+}
+#diffReviewModal .dm-chip-local,
+#diffReviewModal .dm-chip-remote {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  border: 1px solid transparent;
+}
+#diffReviewModal .dm-chip-local.dm-chip-enabled {
+  background: color-mix(in oklch, var(--primary) 10%, transparent);
+  color: var(--primary-text);
+}
+#diffReviewModal .dm-chip-local.dm-chip-disabled {
+  background: color-mix(in oklch, var(--primary) 5%, transparent);
+  color: var(--text-muted);
+}
+#diffReviewModal .dm-chip-remote.dm-chip-enabled {
+  background: color-mix(in oklch, var(--info) 10%, transparent);
+  color: var(--info-text);
+}
+#diffReviewModal .dm-chip-remote.dm-chip-disabled {
+  background: color-mix(in oklch, var(--info) 5%, transparent);
+  color: var(--text-muted);
+}
+#diffReviewModal .dm-chip-local.dm-selected,
+#diffReviewModal .dm-chip-remote.dm-selected {
+  border-color: var(--success);
+  background: color-mix(in oklch, var(--success) 8%, transparent);
+  opacity: 1;
+}
+#diffReviewModal .dm-kv-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  border: 1px solid transparent;
+}
+#diffReviewModal .dm-kv-pill.local {
+  background: color-mix(in oklch, var(--primary) 10%, transparent);
+  color: var(--primary-text);
+}
+#diffReviewModal .dm-kv-pill.remote {
+  background: color-mix(in oklch, var(--info) 10%, transparent);
+  color: var(--info-text);
+}
+#diffReviewModal .dm-kv-pill.matched {
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+  cursor: default;
+}
+#diffReviewModal .dm-kv-pill.dm-selected {
+  border-color: var(--success);
+  background: color-mix(in oklch, var(--success) 8%, transparent);
+}
+#diffReviewModal .dm-show-more {
+  display: inline-block;
+  font-size: 0.68rem;
+  color: var(--primary-text);
+  cursor: pointer;
+  padding: 0.15rem 0.3rem;
+  margin-top: 0.2rem;
+}
+#diffReviewModal .dm-show-more:hover {
+  text-decoration: underline;
+}
+#diffReviewModal .dm-expandable {
+  display: none;
+}
+#diffReviewModal .dm-expandable.expanded {
+  display: contents;
+}
+#diffReviewModal .dm-count-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+#diffReviewModal .dm-count-summary .dm-count-badge {
+  font-size: 0.75rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+}
+#diffReviewModal .dm-count-summary .dm-count-btn {
+  padding: 0.25rem 0.6rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.75rem;
+  border: 1px solid transparent;
+  transition: all 0.15s;
+}
+#diffReviewModal .dm-count-summary .dm-count-btn.active {
+  border-color: var(--success);
+  background: color-mix(in oklch, var(--success) 8%, transparent);
+}
+#diffReviewModal .dm-card.resolved {
+  opacity: 0.5;
+  transform: scale(0.98);
+  transition: all 0.3s;
+}
+#diffReviewModal .fade-in {
+  animation: dmFadeIn 0.3s ease;
+}
+@keyframes dmFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+/* Renderer markup in js/diff-modal.js. Inline styles there carry only per-item
+   runtime values: the metal tint, the progress width and show/hide. */
+#diffReviewModal .dm-source-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 500;
+  padding: var(--spacing-xs) 0.55rem;
+  border-radius: 6px;
+  background: color-mix(in oklch, var(--primary) 8%, transparent);
+  color: var(--primary-text);
+}
+/* The id outranks the per-theme .cloud-sync-update-meta backgrounds in css/styles.css. */
+#diffReviewModal .dm-source-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: var(--spacing-md);
+  margin-top: 0.6rem;
+  padding: var(--spacing-md) 0.65rem;
+  border-radius: var(--radius);
+  background: var(--bg-secondary);
+  font-size: 0.8rem;
+}
+#diffReviewModal .dm-meta-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+#diffReviewModal .dm-meta-label {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+#diffReviewModal .dm-meta-value {
+  font-weight: 600;
+}
+#diffReviewModal .dm-summary {
+  display: flex;
+  gap: var(--spacing-md);
+  flex-wrap: wrap;
+  margin: var(--spacing) 0;
+}
+#diffReviewModal .dm-summary-card {
+  flex: 1;
+  min-width: 120px;
+  border-radius: var(--radius);
+  padding: 0.6rem;
+  background: var(--bg-secondary);
+  cursor: pointer;
+  text-align: center;
+}
+#diffReviewModal .dm-summary-num {
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+#diffReviewModal .dm-summary-num--muted {
+  color: var(--text-muted);
+}
+#diffReviewModal .dm-summary-num--warning {
+  color: var(--warning-text);
+}
+#diffReviewModal .dm-summary-label {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+}
+#diffReviewModal .dm-section-spaced {
+  margin-top: 1rem;
+}
+#diffReviewModal .dm-section-icon--added {
+  color: var(--info-text);
+}
+#diffReviewModal .dm-section-icon--deleted {
+  color: var(--danger-text);
+}
+#diffReviewModal .dm-section-icon--modified {
+  color: var(--warning-text);
+}
+#diffReviewModal .dm-item-thumb-label {
+  font-size: 0.55rem;
+  color: var(--text-secondary);
+}
+#diffReviewModal .dm-item-thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: var(--radius);
+}
+#diffReviewModal .dm-chip.dm-chip-id {
+  font-size: 0.65rem;
+}
+#diffReviewModal .dm-show-more.dm-show-more--block {
+  text-align: center;
+  padding: var(--spacing-md);
+  font-size: 0.78rem;
+  color: var(--primary-text);
+}
+#diffReviewModal .dm-empty-state {
+  padding: 2rem;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+#diffReviewModal .dm-settings-divider {
+  margin: 1.2rem 0 0.8rem;
+  border-top: 2px solid var(--border);
+  padding-top: 0.6rem;
+}
+#diffReviewModal .dm-settings-eyebrow {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-bottom: var(--spacing-sm);
+}
+#diffReviewModal .dm-settings-summary {
+  background: var(--bg-secondary);
+  border-radius: var(--radius);
+  padding: var(--spacing-md) var(--spacing);
+  margin: var(--spacing-sm) 0;
+}
+#diffReviewModal .dm-settings-summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.78rem;
+}
+#diffReviewModal .dm-hint {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+#diffReviewModal .dm-card.dm-settings-card {
+  margin-bottom: var(--spacing);
+  padding: var(--spacing);
+}
+#diffReviewModal .dm-settings-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-md);
+}
+#diffReviewModal .dm-settings-card-title {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+#diffReviewModal .dm-settings-card-name {
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+#diffReviewModal .dm-settings-card-actions {
+  display: flex;
+  gap: 0.3rem;
+}
+#diffReviewModal .dm-btn.dm-btn-xs {
+  font-size: 0.68rem;
+  padding: 0.15rem var(--spacing-sm);
+}
+/* Follows .dm-field-diff so its padding wins on the fallback setting row. */
+#diffReviewModal .dm-setting-row {
+  padding: var(--spacing-sm) 0;
+  border-top: 1px solid var(--border);
+}
+#diffReviewModal .dm-setting-row-label {
+  font-size: 0.78rem;
+  font-weight: 500;
+  margin-bottom: 0.3rem;
+}
+#diffReviewModal .dm-matched-toggle {
+  font-size: 0.73rem;
+  cursor: pointer;
+  color: var(--primary-text);
+  margin-top: var(--spacing-sm);
+  padding-top: 0.3rem;
+  border-top: 1px solid var(--border);
+}
+#diffReviewModal .dm-matched-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-xs) 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+#diffReviewModal .dm-matched-label {
+  min-width: 120px;
+}
+@media (max-width: 700px) {
+  #diffReviewModal .dm-field-diff {
+    grid-template-columns: 80px 1fr auto 1fr;
+  }
+}
+@media (max-width: 480px) {
+  #diffReviewModal .dm-field-diff {
+    grid-template-columns: 1fr;
+    gap: 0.25rem;
   }
 }
