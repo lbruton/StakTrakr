@@ -1857,6 +1857,8 @@ function closeVaultModal() {
   closeModalById("vaultModal");
 }
 
+if (typeof registerModalClose === "function") registerModalClose("vaultModal", closeVaultModal);
+
 /**
  * Handle the vault modal action button (export or import).
  */

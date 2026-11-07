@@ -160,6 +160,27 @@ test.describe("modal stack", () => {
     await expect.poll(() => focusInside(page, "#itemModal")).toBe(true);
   });
 
+  test("Escape on the sync review cancels the pending review", async ({ page }) => {
+    await bootWithOpener(page);
+    await page.evaluate(() => {
+      window.__diffResult = null;
+      window.DiffModal.show({
+        diff: { added: [], modified: [], deleted: [], unchanged: [] },
+        onApply: () => {
+          window.__diffResult = "applied";
+        },
+        onCancel: () => {
+          window.__diffResult = "cancelled";
+        },
+      });
+    });
+    await expect(page.locator("#diffReviewModal")).toBeVisible();
+
+    await page.keyboard.press("Escape");
+    await expect(page.locator("#diffReviewModal")).toBeHidden();
+    expect(await page.evaluate(() => window.__diffResult)).toBe("cancelled");
+  });
+
   test("the scroll lock holds while a parent modal is open, and close buttons return focus", async ({
     page,
   }) => {
