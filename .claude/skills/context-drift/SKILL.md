@@ -12,7 +12,7 @@ description: >-
   "context-drift", "audit .context", "check context docs", "foundation drift", "verify foundation",
   "what should be in .context".
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Skill, Agent
-library-version: f0ca78a2b4c9
+library-version: 8892b468822f
 ---
 
 # Context Drift
@@ -176,7 +176,7 @@ repo's normal branch policy — **NOT** a direct commit.
 1. Confirm scope with the user (which drift items, which promotion candidates).
 2. Worktree off the repo's default branch:
    `git -C /Volumes/DATA/GitHub/{project} worktree add -b {project-prefix}-context-drift <path> origin/<default-branch>`
-   (respect per-project default branch — e.g. WhoseOnFirst targets `dev`, Forge targets `main`).
+   (respect per-project default branch — e.g. WhoIsOnFirst targets `dev`, Forge targets `main`).
 3. Edit the `.context/` docs (claim → truth; add promoted content). Bump each doc's frontmatter
    `updated` date.
 4. If a promotion candidate also warrants a CLAUDE.md pointer, add it.

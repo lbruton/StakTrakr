@@ -1,0 +1,10 @@
+extends: existence
+message: "Write '%s' in full (prose-core Sentences)."
+level: warning
+ignorecase: true
+nonword: true
+tokens:
+  - '\b(?:is|are|was|were|has|have|had|do|does|did|ca|wo|would|should|could|must|need)n[''’]t\b'
+  - '\b(?:it|that|there|here|what|who|let)[''’]s\b'
+  - '\b(?:you|we|they)[''’](?:re|ve|ll|d)\b'
+  - '\bI[''’](?:m|ve|ll|d)\b'

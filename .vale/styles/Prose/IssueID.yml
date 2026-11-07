@@ -10,3 +10,5 @@ exceptions:
   - '\bUTF-\d+'
   - '\bISO-\d+'
   - '\bINC-\d+'
+  - '\bHTTP-\d+'
+  - '\bEARS-\d+'

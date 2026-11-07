@@ -1,7 +1,7 @@
 ---
 name: code-core
 description: Workflow rules shared by every code repo - DocVault, glossary, Plane, Infisical, debugging, memory, code search, editing, tests, spec gates, push rules, red flags, GitHub hygiene
-library-version: f0ca78a2b4c9
+library-version: 8892b468822f
 ---
 
 # Code-core rules
@@ -90,6 +90,11 @@ needs no secrets. Never hard-code an Infisical project ID anywhere else; read it
 ## Debugging
 
 - Do not rationalize a discrepancy without evidence. Reproduce it from data or code first, then explain it.
+- Before you state a cause, list two or three candidates with one check each, and run the checks. Call a
+  workaround a workaround; the user wants the root cause fixed.
+- Never write an identifier (commit SHA, UUID, issue ID, port, path) that no tool output in this context
+  printed. Look it up first.
+- Do not advise a new session or an app restart unless a check shows it will help.
 - Dates and times: check whether a computation uses the UTC date or the local date (America/Chicago).
   Never slice ISO strings for day bucketing.
 - DNS: `nslookup`/`dig` bypass the macOS resolver cache. Use `dscacheutil -q host -a name <host>` to test

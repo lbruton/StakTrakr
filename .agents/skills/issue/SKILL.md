@@ -6,7 +6,7 @@ description: >
   Triggers on: "create issue", "issue", "new issue", "new bug", "file a bug",
   "track this".
 user-invocable: false
-library-version: f0ca78a2b4c9
+library-version: 8892b468822f
 ---
 
 # Issue Management
@@ -38,7 +38,8 @@ If there is no `plane` block, stop and tell the user the project isn't wired to 
    mcp__plane__label   action: "list", project_id: {plane_project_id}
    ```
 
-   Map names → uuids. Cache for the rest of the session.
+   Map names → uuids. Use a UUID only from a list result still in your context; after a compaction, list
+   again. Never type a state or label UUID from memory or from another project.
 
 2. **Pick state and label from user intent:**
 
@@ -171,7 +172,7 @@ Authoritative source: each project's `.claude/project.json` (`issuePrefix` + `pl
 | `STRK` | StakTrakr |
 | `HXTR` | HexTrackr |
 | `FRGE` | Forge |
-| `WOF` | WhoseOnFirst |
+| `WOF` | WhoIsOnFirst |
 | `MELO` | MyMelo |
 | `CFLOW` | claude-context (retired) |
 | `PAPI` | PAPiTA |

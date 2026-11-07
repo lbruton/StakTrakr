@@ -2,7 +2,7 @@
 name: pr-resolve
 description: PR resolve — work through open PR review threads and Codacy issues to get a PR approved and merged.
 allowed-tools: Bash, Read, Write, Edit, Grep, Glob, mcp__infisical__get-secret, mcp__github__get_pull_request, mcp__github__list_pull_requests, mcp__github__get_pull_request_status, mcp__github__get_pull_request_reviews, mcp__github__get_pull_request_comments, mcp__github__get_pull_request_files
-library-version: f0ca78a2b4c9
+library-version: 8892b468822f
 ---
 
 # PR Resolve
@@ -216,13 +216,13 @@ Use the previously-resolved list above for duplicate detection: if a re-fetched 
 # (broad-add risks committing .env, untracked agent scratch, or unrelated edits).
 # Enumerate the file set from the cluster reports and pass them explicitly:
 git add path/to/file1 path/to/file2 ...
-git commit -m "fix: resolve PR review findings (PR #XX)
-
-Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>"
+git commit -m "fix: resolve PR review findings (PR #XX)"
 git push origin <branch>
+SHA=$(git rev-parse --short HEAD)
+git fetch origin <branch> && git merge-base --is-ancestor "$SHA" "origin/<branch>" && echo "$SHA on remote"
 ```
 
-4. **Post replies and resolve threads.** For each cluster's resolution report, post the reply and resolve the thread:
+4. **Post replies and resolve threads.** Replace every `{SHA}` placeholder in the cluster replies with `$SHA` from step 3. Do not post a reply whose SHA was not printed by git in this session. Then post the reply and resolve the thread:
 
 ```bash
 # Reply to thread
