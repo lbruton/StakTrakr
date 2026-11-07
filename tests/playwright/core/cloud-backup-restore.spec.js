@@ -332,6 +332,17 @@ test.describe("core/cloud-backup-restore", () => {
     expect(await page.evaluate(() => window.__fallbackCalls)).toEqual(["preview-fail"]);
 
     await openFailedPreview();
+    await page.evaluate(() => {
+      window._previewPullInFlight = true;
+    });
+    await page.locator("#restorePreviewApplyBtn").click();
+    await expect(modal).toBeVisible();
+    await expect(page.locator("#restorePreviewError")).toHaveText(
+      "A sync check is still running. Try again when it finishes."
+    );
+    await page.evaluate(() => {
+      window._previewPullInFlight = false;
+    });
     await page.locator("#restorePreviewCancelBtn").click();
     await expect(modal).toBeHidden();
     expect(await page.evaluate(() => window.__fallbackCalls)).toEqual(["preview-fail"]);

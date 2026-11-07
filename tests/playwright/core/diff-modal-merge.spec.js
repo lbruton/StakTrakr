@@ -510,6 +510,31 @@ test.describe("DiffModal row clarity", () => {
     expect(details[2]).not.toContain("Entry");
   });
 
+  test("a price stored as text with a thousands separator shows as stored", async ({ page }) => {
+    const remote = await page.evaluate((eagle) => {
+      window.DiffModal.show({
+        source: { type: "csv", label: "inventory.csv" },
+        diff: {
+          added: [],
+          deleted: [],
+          modified: [
+            {
+              item: { ...eagle, uuid: "rc-txt", name: "Gold Bar" },
+              changes: [{ field: "price", localVal: "1,200", remoteVal: 1200 }],
+            },
+          ],
+        },
+        onApply: () => {},
+        onCancel: () => {},
+      });
+      return formatCurrency(1200);
+    }, EAGLE);
+
+    const priceRow = page.locator("#diffSectionModified .dm-field-diff").first();
+    await expect(priceRow.locator(".dm-field-value.local .dm-pick-val")).toHaveText("1,200");
+    await expect(priceRow.locator(".dm-field-value.remote .dm-pick-val")).toHaveText(remote);
+  });
+
   test("conflict fields carry column headers, plain labels, formatted prices and a chosen tag", async ({
     page,
   }) => {

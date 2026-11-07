@@ -4945,6 +4945,11 @@ function _showRestorePreviewFailure(remoteMeta) {
     modal.style.display = "none";
   };
   retryBtn.onclick = function () {
+    // pullWithPreview drops a call while another pull runs, so keep the modal open.
+    if (_previewPullInFlight) {
+      errorEl.textContent = "A sync check is still running. Try again when it finishes.";
+      return;
+    }
     close();
     pullWithPreview(remoteMeta);
   };

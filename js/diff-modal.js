@@ -712,7 +712,9 @@
   /** Display text for one field value: prices through formatCurrency, empty as a dash. */
   function _fieldDisplay(field, value) {
     if (value == null || value === "") return "—";
-    if (PRICE_FIELDS[field] && typeof formatCurrency === "function") {
+    // Text such as "1,200" stays as stored: parseFloat would read it as 1.
+    var plainNumber = String(value).trim() !== "" && isFinite(Number(value));
+    if (PRICE_FIELDS[field] && plainNumber && typeof formatCurrency === "function") {
       var money = formatCurrency(value);
       if (money) return money;
     }
