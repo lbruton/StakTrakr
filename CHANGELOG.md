@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.119] - 2026-11-07
+
+### Fixed — STRK-561: In-app FAQ states facts the code contradicts
+
+- **Network requests**: The FAQ and the Privacy policy list the StakTrakr API for spot, Market and Goldback data, a user-keyed spot provider, open.er-api.com for exchange rates, Numista, PCGS, the version check and Dropbox (STRK-561).
+- **Encryption**: Cloud Sync answers state 600,000 PBKDF2-SHA256 iterations (`VAULT_PBKDF2_ITERATIONS`) and a key built from the vault password and the Dropbox account ID (STRK-561).
+- **Libraries**: The malware answer says the libraries ship in `vendor/` with integrity-checked cdnjs fallbacks; Bootstrap is gone from the list (STRK-561).
+- **Export**: The export answer points to Settings → Inventory (STRK-561).
+- **Costs**: The sponsor perks roadmap is removed; the free core app and the GitHub Sponsors note stay (STRK-561).
+- **Security checks**: Codacy grade A replaces A+, PMD is dropped, and the automated test suite and CodeRabbit reviews are listed. The README tech table matches (STRK-561).
+- **Reddit FAQ**: `docs/announcements/reddit-faq.md` holds the matching r/staktrakr FAQ post (STRK-561).
+
+---
+
 ## [3.36.118] - 2026-11-07
 
 ### Fixed — STRK-552: Settings overflows sideways at phone width
