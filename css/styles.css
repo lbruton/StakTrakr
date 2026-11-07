@@ -19224,6 +19224,13 @@ button.vp-price:hover {
   .app-bottom-nav {
     display: flex;
   }
+  /* The nav top sits about 38px + 1.93rem above the viewport bottom; the rem term tracks text zoom. */
+  .back-to-top {
+    bottom: calc(48px + 2rem);
+    right: 1rem;
+    width: 44px;
+    height: 44px;
+  }
 
   /* Keep scrollable content clear of the fixed bottom nav */
   main.container {

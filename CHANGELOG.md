@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.122] - 2026-11-07
+
+### Fixed — STRK-557: Back to top covers the Settings tab on phones
+
+- **Back to top button**: On screens 768px wide or less, the button floats above the bottom nav at a 44px size. Every nav tab, including Settings, takes a tap at its centre. The desktop position is unchanged (STRK-557).
+
+---
+
 ## [3.36.121] - 2026-11-07
 
 ### Fixed — STRK-562: Collection builder purity reopens blank
