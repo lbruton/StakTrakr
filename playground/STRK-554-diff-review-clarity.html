@@ -1,0 +1,417 @@
+<!doctype html>
+<!--
+  STRK-554 mockup: Diff review and Restore Preview clarity.
+  Loads the production stylesheet; the rules in <style> below are the proposed additions.
+  States: A sync review header, B Added rows that differ only by detail, C a Modified card
+  with column headers and a named choice, D Restore Preview when the backup cannot be read.
+-->
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>STRK-554 Diff Review Clarity</title>
+    <link rel="stylesheet" href="../css/styles.css" />
+    <style>
+      body {
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        padding: 16px;
+        margin: 0;
+      }
+      .mock-bar {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        align-items: center;
+        margin: 0 auto 1rem;
+        max-width: 860px;
+      }
+      /* The global section rule draws a card; the harness stays flat so the modal is the only frame. */
+      .mock-state {
+        max-width: 860px;
+        margin: 0 auto 2rem;
+        padding: 0;
+        background: none;
+        border: 0;
+        border-radius: 0;
+        box-shadow: none;
+      }
+      .mock-state > h3 {
+        font-size: 1rem;
+        margin: 0 0 0.25rem;
+      }
+      .mock-state > p.mock-note {
+        margin: 0 0 0.75rem;
+        color: var(--text-muted);
+        font-size: 0.85rem;
+      }
+      .mock-state .modal {
+        position: static;
+        display: block;
+        background: none;
+        backdrop-filter: none;
+        padding: 0;
+        inset: auto;
+        height: auto;
+        width: auto;
+        overflow: visible;
+      }
+      .mock-state .modal-content {
+        margin: 0;
+        max-height: none;
+        animation: none;
+      }
+
+      /* ── Proposed additions (move to css/styles.css) ── */
+
+      /* B: the line that tells two rows apart: purchase date, price paid, serial, notes. */
+      #diffReviewModal .dm-item-detail {
+        font-size: max(12px, var(--font-size-sm));
+        color: var(--text-secondary);
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        margin-top: 0.15rem;
+        font-variant-numeric: tabular-nums;
+      }
+      #diffReviewModal .dm-item-detail .dm-item-note {
+        font-style: italic;
+        overflow-wrap: anywhere;
+      }
+
+      /* C: column headers over the value cells, same grid as .dm-field-diff. */
+      #diffReviewModal .dm-field-head {
+        display: grid;
+        grid-template-columns: 120px 1fr auto 1fr;
+        gap: 0.5rem;
+        align-items: end;
+        padding: 0.25rem 0 0.35rem;
+        border-bottom: 1px solid var(--border);
+        font-size: max(12px, var(--font-size-sm));
+        font-weight: 600;
+        color: var(--text-secondary);
+        text-align: center;
+      }
+      #diffReviewModal .dm-field-head > :first-child {
+        text-align: left;
+      }
+      #diffReviewModal .dm-field-head .dm-col-sub {
+        display: block;
+        font-weight: 400;
+        color: var(--text-muted);
+      }
+      /* The arrow column stays as wide as the row arrow so the headers line up. */
+      #diffReviewModal .dm-field-head .dm-field-arrow {
+        visibility: hidden;
+      }
+
+      /* C: the chosen cell names itself in text, not only by its green border. */
+      #diffReviewModal .dm-field-value .dm-pick-tag {
+        display: none;
+      }
+      #diffReviewModal .dm-field-value.selected .dm-pick-tag {
+        display: block;
+        font-size: max(12px, var(--font-size-sm));
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      #diffReviewModal .dm-field-value .dm-pick-val {
+        display: block;
+        font-variant-numeric: tabular-nums;
+      }
+
+      /* D: .encryption-warning has no visible fill (its background value is invalid CSS),
+         so the error gets the same tinted box as the duplicate flag. */
+      #restorePreviewModal .restore-preview-error {
+        margin: 0 0 1rem;
+        color: var(--warning-text);
+        background: color-mix(in srgb, var(--warning) 15%, var(--bg-secondary));
+        border: 1px solid color-mix(in srgb, var(--warning) 40%, transparent);
+        font-weight: 600;
+      }
+      /* D: the snapshot line under the secondary action. */
+      #restorePreviewModal .restore-preview-fallback-note {
+        margin: 0.5rem 0 0;
+        font-size: max(12px, var(--font-size-sm));
+        color: var(--text-secondary);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="mock-bar" role="group" aria-label="Theme">
+      <strong>Theme</strong>
+      <button class="btn btn-sm" type="button" data-set-theme="light">Light</button>
+      <button class="btn btn-sm" type="button" data-set-theme="dark">Dark</button>
+      <button class="btn btn-sm" type="button" data-set-theme="slate">Slate</button>
+      <button class="btn btn-sm" type="button" data-set-theme="sepia">Sepia</button>
+    </div>
+
+    <!-- A + B + C: the sync review modal -->
+    <section class="mock-state">
+      <h3>A, B, C: Review Sync Changes</h3>
+      <p class="mock-note">
+        A: "Device a1b2c3d4…" becomes who sent the change and when. B: two Added rows for American
+        Silver Eagles show purchase date, price paid and a notes excerpt, so they no longer read the
+        same. C: the Modified card has headers over its value columns, field names in words,
+        formatted prices, and "Chosen" in the picked cell.
+      </p>
+      <div class="modal" id="diffReviewModal" role="dialog" aria-labelledby="mockDiffTitle">
+        <div class="modal-content" style="max-width: 860px">
+          <div class="modal-header">
+            <h2 id="mockDiffTitle">Review Sync Changes</h2>
+            <button aria-label="Close modal" class="modal-close" type="button">&times;</button>
+          </div>
+          <div class="modal-body">
+            <div class="cloud-sync-update-meta" id="diffReviewSource">
+              <div class="dm-source-badge">&#9729; Dropbox</div>
+              <div class="cloud-sync-update-meta dm-source-meta">
+                <div class="dm-meta-cell">
+                  <span class="dm-meta-label">Remote Items</span
+                  ><strong class="dm-meta-value">214</strong>
+                </div>
+                <div class="dm-meta-cell">
+                  <span class="dm-meta-label">Local Items</span
+                  ><strong class="dm-meta-value">212</strong>
+                </div>
+                <div class="dm-meta-cell">
+                  <span class="dm-meta-label">From</span
+                  ><strong class="dm-meta-value">Another device</strong>
+                </div>
+                <div class="dm-meta-cell">
+                  <span class="dm-meta-label">Synced</span
+                  ><strong class="dm-meta-value">2026-11-06 9:14 PM</strong>
+                </div>
+                <div class="dm-meta-cell">
+                  <span class="dm-meta-label">Version</span
+                  ><strong class="dm-meta-value">v3.36.119</strong>
+                </div>
+              </div>
+            </div>
+
+            <div class="dm-section-wrapper dm-section-spaced" data-section="added">
+              <div class="dm-section-header">
+                <div class="dm-section-title">
+                  <span class="dm-collapse-toggle">&#9660;</span>
+                  <span class="dm-section-icon--added">&#8595;</span> Added / Remote Only
+                  <span class="dm-chip">2 items</span>
+                </div>
+                <div class="dm-section-actions">
+                  <button class="dm-btn dm-btn-sm dm-btn-primary" type="button">Import All</button>
+                  <button class="dm-btn dm-btn-sm dm-btn-muted" type="button">Skip All</button>
+                </div>
+              </div>
+              <div class="dm-section-body">
+                <div class="dm-card dm-orphan-card" data-action="import">
+                  <div class="dm-item-thumb-pair">
+                    <div
+                      class="dm-item-thumb"
+                      style="background: linear-gradient(135deg, #c0c0c0, #8a8a8a)"
+                    >
+                      <span class="dm-item-thumb-label">OBV</span>
+                    </div>
+                    <div
+                      class="dm-item-thumb"
+                      style="background: linear-gradient(135deg, #c0c0c0, #8a8a8a)"
+                    >
+                      <span class="dm-item-thumb-label">REV</span>
+                    </div>
+                  </div>
+                  <div class="dm-item-identity">
+                    <div class="dm-item-name" style="color: var(--silver)">
+                      American Silver Eagle
+                    </div>
+                    <div class="dm-item-meta">
+                      <span style="color: var(--silver)">Silver</span><span>&#8226;</span
+                      ><span>1 oz</span><span>&#8226;</span><span>Qty: 1</span>
+                    </div>
+                    <div class="dm-item-detail">
+                      <span>Bought 2024-03-12</span><span>&#8226;</span><span>Paid $31.50</span
+                      ><span>&#8226;</span
+                      ><span class="dm-item-note">&ldquo;From the coin show tube&rdquo;</span>
+                    </div>
+                  </div>
+                  <div class="dm-orphan-actions">
+                    <button class="dm-btn dm-btn-sm dm-btn-primary dm-action-btn" type="button">
+                      &#8595; Import
+                    </button>
+                    <button class="dm-btn dm-btn-sm dm-btn-muted dm-skip-btn" type="button">
+                      Skip
+                    </button>
+                  </div>
+                </div>
+                <div class="dm-card dm-orphan-card" data-action="import">
+                  <div class="dm-item-thumb-pair">
+                    <div
+                      class="dm-item-thumb"
+                      style="background: linear-gradient(135deg, #c0c0c0, #8a8a8a)"
+                    >
+                      <span class="dm-item-thumb-label">OBV</span>
+                    </div>
+                    <div
+                      class="dm-item-thumb"
+                      style="background: linear-gradient(135deg, #c0c0c0, #8a8a8a)"
+                    >
+                      <span class="dm-item-thumb-label">REV</span>
+                    </div>
+                  </div>
+                  <div class="dm-item-identity">
+                    <div class="dm-item-name" style="color: var(--silver)">
+                      American Silver Eagle
+                    </div>
+                    <div class="dm-item-meta">
+                      <span style="color: var(--silver)">Silver</span><span>&#8226;</span
+                      ><span>1 oz</span><span>&#8226;</span><span>Qty: 1</span>
+                    </div>
+                    <div class="dm-item-detail">
+                      <span>Bought 2025-01-08</span><span>&#8226;</span><span>Paid $36.20</span
+                      ><span>&#8226;</span><span>Serial 4471</span>
+                    </div>
+                  </div>
+                  <div class="dm-orphan-actions">
+                    <button class="dm-btn dm-btn-sm dm-btn-primary dm-action-btn" type="button">
+                      &#8595; Import
+                    </button>
+                    <button class="dm-btn dm-btn-sm dm-btn-muted dm-skip-btn" type="button">
+                      Skip
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="dm-section-wrapper dm-section-spaced" data-section="modified">
+              <div class="dm-section-header">
+                <div class="dm-section-title">
+                  <span class="dm-collapse-toggle">&#9660;</span>
+                  <span class="dm-section-icon--modified">&#9888;</span> Modified / Conflicts
+                  <span class="dm-chip">1 item</span>
+                </div>
+              </div>
+              <div class="dm-section-body">
+                <div class="dm-card dm-conflict-card">
+                  <div class="dm-conflict-card-header">
+                    <div class="dm-item-thumb-pair">
+                      <div
+                        class="dm-item-thumb"
+                        style="background: linear-gradient(135deg, #f5d27a, #b8860b)"
+                      >
+                        <span class="dm-item-thumb-label">OBV</span>
+                      </div>
+                      <div
+                        class="dm-item-thumb"
+                        style="background: linear-gradient(135deg, #f5d27a, #b8860b)"
+                      >
+                        <span class="dm-item-thumb-label">REV</span>
+                      </div>
+                    </div>
+                    <div class="dm-item-identity">
+                      <div class="dm-item-name">Gold Buffalo</div>
+                      <div class="dm-item-meta">
+                        <span style="color: var(--gold)">Gold</span><span>&#8226;</span
+                        ><span>1 oz</span>
+                      </div>
+                      <div class="dm-item-detail">
+                        <span>Bought 2023-06-30</span><span>&#8226;</span
+                        ><span>Paid $2,051.00</span>
+                      </div>
+                    </div>
+                    <span class="dm-pill dm-pill-warning">2 fields changed</span>
+                  </div>
+                  <div class="dm-conflict-details">
+                    <div class="dm-field-head">
+                      <span>Field</span>
+                      <span>This device</span>
+                      <span class="dm-field-arrow" aria-hidden="true">&#10231;</span>
+                      <span>Dropbox<span class="dm-col-sub">synced 2026-11-06</span></span>
+                    </div>
+                    <div class="dm-field-diff">
+                      <div class="dm-field-label">Purchase price</div>
+                      <div class="dm-field-value local">
+                        <span class="dm-pick-tag">&#10003; Chosen</span
+                        ><span class="dm-pick-val">$2,051.00</span>
+                      </div>
+                      <div class="dm-field-arrow">&#10231;</div>
+                      <div class="dm-field-value remote selected">
+                        <span class="dm-pick-tag">&#10003; Chosen</span
+                        ><span class="dm-pick-val">$2,015.00</span>
+                      </div>
+                    </div>
+                    <div class="dm-field-diff">
+                      <div class="dm-field-label">Storage location</div>
+                      <div class="dm-field-value local selected">
+                        <span class="dm-pick-tag">&#10003; Chosen</span
+                        ><span class="dm-pick-val">Safe, top shelf</span>
+                      </div>
+                      <div class="dm-field-arrow">&#10231;</div>
+                      <div class="dm-field-value remote">
+                        <span class="dm-pick-tag">&#10003; Chosen</span
+                        ><span class="dm-pick-val">Bank box</span>
+                      </div>
+                    </div>
+                    <div class="dm-card-actions">
+                      <button class="dm-btn dm-btn-sm dm-btn-secondary" type="button">
+                        Keep All Local
+                      </button>
+                      <button class="dm-btn dm-btn-sm dm-btn-secondary" type="button">
+                        Keep All Remote
+                      </button>
+                      <button class="dm-btn dm-btn-sm dm-btn-primary" type="button">
+                        &#10003; Confirm
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="encryption-actions" style="gap: 0.5rem; flex-wrap: wrap">
+              <button class="btn success" type="button">Apply Changes</button>
+              <button class="btn secondary" type="button">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- D: Restore Preview when the backup cannot be read -->
+    <section class="mock-state">
+      <h3>D: Restore Preview, backup cannot be read</h3>
+      <p class="mock-note">
+        The raw WebCrypto text goes to the debug log only. Try again leads. Restore without preview
+        is secondary and says a snapshot of this device is saved first. Cancel uses the same
+        secondary style as the other restore modals.
+      </p>
+      <div class="modal" id="restorePreviewModal" role="dialog" aria-labelledby="mockRestoreTitle">
+        <div class="modal-content" style="max-width: 600px">
+          <div class="modal-header">
+            <h2 id="mockRestoreTitle">Restore Preview</h2>
+            <button aria-label="Close modal" class="modal-close" type="button">&times;</button>
+          </div>
+          <div class="modal-body">
+            <div class="encryption-warning restore-preview-error" role="alert">
+              Could not read this backup. Check the vault password and try again.
+            </div>
+            <div class="encryption-actions" style="gap: 0.5rem; flex-wrap: wrap">
+              <button class="btn success" type="button">Try again</button>
+              <button class="btn secondary" type="button">Restore without preview</button>
+              <button class="btn secondary" type="button">Cancel</button>
+            </div>
+            <p class="restore-preview-fallback-note">
+              Restore without preview saves a snapshot of this device first. Restore it from
+              Settings &rarr; Cloud.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <script>
+      document.querySelectorAll("[data-set-theme]").forEach(function (b) {
+        b.addEventListener("click", function () {
+          document.documentElement.setAttribute("data-theme", b.getAttribute("data-set-theme"));
+        });
+      });
+    </script>
+  </body>
+</html>
