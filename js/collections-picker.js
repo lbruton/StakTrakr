@@ -1264,14 +1264,17 @@
     const updatePurity = () => {
       purityCustomField.hidden = puritySelect.value !== "custom";
     };
-    puritySelect.value =
+    // Option values carry trailing zeros ("0.900"), so select the matching option's own value.
+    const presetPurity =
       seed.purity == null
-        ? ""
-        : Array.from(puritySelect.options).some(
-              (option) => option.value !== "" && Number(option.value) === Number(seed.purity)
-            )
-          ? String(seed.purity)
-          : "custom";
+        ? null
+        : Array.from(puritySelect.options).find(
+            (option) =>
+              option.value !== "" &&
+              option.value !== "custom" &&
+              Number(option.value) === Number(seed.purity)
+          );
+    puritySelect.value = seed.purity == null ? "" : presetPurity ? presetPurity.value : "custom";
     if (puritySelect.value === "custom") purityCustom.value = String(seed.purity ?? "");
     puritySelect.addEventListener("change", updatePurity);
     updatePurity();

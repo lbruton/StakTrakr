@@ -2324,6 +2324,38 @@ test.describe("core/collections — link picker, builder, item view", () => {
     expect(Object.hasOwn(definition, "purity")).toBe(false);
   });
 
+  test("a saved preset purity with trailing zeros reopens selected and survives a re-save", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    for (const [purity, optionValue] of [
+      [1, "1.0"],
+      [0.9, "0.900"],
+      [0.35, "0.350"],
+    ]) {
+      const id = await page.evaluate((value) => {
+        const created = window.collectionsStore.createCustom({
+          name: `Preset ${value}`,
+          metal: "Silver",
+          purity: value,
+          slots: [{ label: "One" }],
+        });
+        window.collectionsPicker.openBuilder({ editId: created.collection.id });
+        return created.collection.id;
+      }, purity);
+      const builder = builderModal(page);
+      await expect(builder.getByLabel("Purity", { exact: true })).toHaveValue(optionValue);
+      await builder.getByRole("button", { name: "Save changes" }).click();
+      await expect(builder).toBeHidden();
+      const saved = await page.evaluate(
+        (collectionId) =>
+          window.collectionsStore.getState().collections[collectionId].definition.purity,
+        id
+      );
+      expect(saved).toBe(purity);
+    }
+  });
+
   test("a Custom Collection side choice persists and drives reverse images plus Slot notes", async ({
     page,
   }) => {

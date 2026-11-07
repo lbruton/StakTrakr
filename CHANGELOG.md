@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.121] - 2026-11-07
+
+### Fixed — STRK-562: Collection builder purity reopens blank
+
+- **Purity select**: A Custom Collection saved at 100%, .900, .800, .600, .500, .400 or .350 reopens with that purity selected. A save without touching the field keeps the purity (STRK-562).
+
+---
+
 ## [3.36.120] - 2026-11-07
 
 ### Fixed — STRK-554: Review Changes rows and Restore Preview failures are hard to read
