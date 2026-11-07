@@ -8,7 +8,13 @@
 
 import { test, expect } from "../helpers/mocks/extended-test.js";
 import { suppressWhatsNewPopup } from "../helpers/seed.js";
-import { THEMES, AA_NORMAL_TEXT, measureText, contrastFailures } from "../helpers/contrast.js";
+import {
+  THEMES,
+  AA_NORMAL_TEXT,
+  applyTheme,
+  measureText,
+  contrastFailures,
+} from "../helpers/contrast.js";
 
 async function gotoApp(page) {
   await suppressWhatsNewPopup(page);
@@ -79,8 +85,7 @@ test.describe("status colours from theme tokens", () => {
     const statusCells = "#numistaSyncTableContainer tbody td:nth-child(3)";
     await expect(page.locator(statusCells)).toHaveText([/Synced/, /Needs sync/, /Failed/]);
     for (const theme of THEMES) {
-      await page.evaluate((name) => window.setTheme(name), theme);
-      await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+      await applyTheme(page, theme);
       expectDistinctAa(await measureText(page, statusCells), theme, "status");
     }
   });
@@ -88,8 +93,7 @@ test.describe("status colours from theme tokens", () => {
   test("sync log lines meet AA and differ by type in all four themes", async ({ page }) => {
     await writeLogLines(page);
     for (const theme of THEMES) {
-      await page.evaluate((name) => window.setTheme(name), theme);
-      await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+      await applyTheme(page, theme);
       expectDistinctAa(await measureText(page, "#numistaSyncLog .cache-log-line"), theme, "log");
     }
   });
@@ -97,8 +101,7 @@ test.describe("status colours from theme tokens", () => {
   test("spot lookup flash is visible, keeps the input text AA, and clears", async ({ page }) => {
     await page.addStyleTag({ content: "#itemPrice { transition: none !important; }" });
     for (const theme of THEMES) {
-      await page.evaluate((name) => window.setTheme(name), theme);
-      await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+      await applyTheme(page, theme);
       const [rest] = await measureText(page, "#itemPrice");
       await page.evaluate(() => flashSpotLookupTarget(document.getElementById("itemPrice")));
       const [flash] = await measureText(page, "#itemPrice");
@@ -196,8 +199,7 @@ async function expectAaViewHeadersInEveryTheme(page, { inlineTitleColour }) {
     await page.evaluate((i) => window.showViewModal(i), index);
     await expect(page.locator("#viewModalTitle")).toHaveText(`${metal} Round`);
     for (const theme of THEMES) {
-      await page.evaluate((name) => window.setTheme(name), theme);
-      await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+      await applyTheme(page, theme);
       const what = `${theme} ${metal} header`;
       await expect
         .poll(async () => Math.min(...(await measureViewHeader(page)).ratios), {
@@ -507,8 +509,7 @@ test.describe("Dashboard status text from theme tokens", () => {
     await expect(page.locator("#totalsLedger .totals-col-gain > .gl-gain").first()).toBeVisible();
     await expect(page.locator("#totalsLedger .totals-col-gain > .gl-loss").first()).toBeVisible();
     for (const theme of THEMES) {
-      await page.evaluate((name) => window.setTheme(name), theme);
-      await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+      await applyTheme(page, theme);
       await expect
         .poll(() => contrastFailures(page, DASHBOARD_STATUS_TEXT), {
           message: `${theme} Dashboard status text`,
@@ -523,8 +524,7 @@ test.describe("Dashboard status text from theme tokens", () => {
     const values = "#tabViewDashboard .spot-card-value";
     await expect(page.locator(values).first()).toContainText(/[▲▼=] \$/);
     for (const theme of THEMES) {
-      await page.evaluate((name) => window.setTheme(name), theme);
-      await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+      await applyTheme(page, theme);
       const textPrimary = await page.evaluate(() => {
         const probe = document.createElement("span");
         probe.style.color = "var(--text-primary)";
@@ -706,48 +706,15 @@ const FILLED_CONTROLS = {
     '<div id="cloudSyncModal"><div class="modal-header"><h2 data-probe>Cloud Sync</h2></div></div>',
   "bulk edit title":
     '<div class="bulk-edit-content"><div class="modal-header"><h2 data-probe>Bulk Edit</h2></div></div>',
+  "history close":
+    '<div id="apiHistoryModal" style="position:relative;width:96px"><div class="modal-header"><button class="modal-close" data-probe>×</button></div></div>',
+  "cloud sync close":
+    '<div id="cloudSyncModal" style="position:relative;width:96px"><div class="modal-header"><button class="modal-close" data-probe>×</button></div></div>',
+  "bulk edit close":
+    '<div class="bulk-edit-content" style="position:relative;width:96px"><div class="modal-header"><button class="modal-close" data-probe>×</button></div></div>',
   "settings link":
     '<div class="settings-section-panel"><a href="#sample" data-probe>Download sample CSV</a></div>',
 };
-
-/**
- * Returns the lowest contrast of the element label over each colour stop of the gradient
- * behind it (its own or the nearest ancestor), or null when an opaque fill comes first. measureText reads only background-color, so a
- * gradient control is measured by its stops alone.
- * @param {import("@playwright/test").Page} page - Playwright page.
- * @param {string} selector - CSS selector for one element.
- * @returns {Promise<number|null>} The lowest stop ratio.
- */
-function lowestGradientStopRatio(page, selector) {
-  return page.evaluate((sel) => {
-    const el = document.querySelector(sel);
-    const cs = getComputedStyle(el);
-    let stops = null;
-    for (let node = el; node && !stops; node = node.parentElement) {
-      const own = getComputedStyle(node);
-      stops = own.backgroundImage.match(/(?:rgba?|oklch|oklab|lab|lch|color)\([^()]*\)/g);
-      if (!stops && !/rgba\(|transparent/.test(own.backgroundColor)) return null;
-    }
-    if (!stops) return null;
-    const ctx = document.createElement("canvas").getContext("2d", { willReadFrequently: true });
-    const rgb = (css) => {
-      ctx.clearRect(0, 0, 1, 1);
-      ctx.fillStyle = css;
-      ctx.fillRect(0, 0, 1, 1);
-      return Array.from(ctx.getImageData(0, 0, 1, 1).data).slice(0, 3);
-    };
-    const channel = (v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
-    const lum = (c) =>
-      0.2126 * channel(c[0] / 255) + 0.7152 * channel(c[1] / 255) + 0.0722 * channel(c[2] / 255);
-    const label = lum(rgb(cs.color));
-    return Math.min(
-      ...stops.map((stop) => {
-        const [hi, lo] = [lum(rgb(stop)), label].sort((a, b) => b - a);
-        return (hi + 0.05) / (lo + 0.05);
-      })
-    );
-  }, selector);
-}
 
 /** Renders every filled control in one fixed host above the app, with transitions off. */
 async function renderFilledControls(page) {
@@ -826,8 +793,7 @@ test.describe("filled controls from fill tokens", () => {
       document.body.appendChild(host);
     }, FILL_ROLES);
     for (const theme of THEMES) {
-      await page.evaluate((name) => window.setTheme(name), theme);
-      await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+      await applyTheme(page, theme);
       // An inline style is set on the probes themselves, so ignore that column of the report.
       const failures = (await contrastFailures(page, pairs)).filter((f) => !f.includes(" inline "));
       expect(failures, `${theme} fill token pairs`).toEqual([]);
@@ -848,8 +814,7 @@ test.describe("filled controls from fill tokens", () => {
     const names = Object.keys(FILLED_CONTROLS);
     for (const theme of THEMES) {
       await test.step(theme, async () => {
-        await page.evaluate((name) => window.setTheme(name), theme);
-        await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+        await applyTheme(page, theme);
         const failures = [];
         for (const name of names) {
           const selector = `#fillProbeHost [data-control="${name}"] [data-probe]`;
@@ -857,9 +822,7 @@ test.describe("filled controls from fill tokens", () => {
             if (state === "rest") await page.mouse.move(0, 0);
             else await page.locator(selector).hover();
             const [{ ratio }] = await measureText(page, selector);
-            const stopRatio = await lowestGradientStopRatio(page, selector);
-            const lowest = stopRatio === null ? ratio : stopRatio;
-            if (lowest < AA_NORMAL_TEXT) failures.push(`${name} ${state} ${lowest.toFixed(2)}`);
+            if (ratio < AA_NORMAL_TEXT) failures.push(`${name} ${state} ${ratio.toFixed(2)}`);
           }
         }
         expect(failures, `${theme} filled controls`).toEqual([]);

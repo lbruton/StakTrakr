@@ -1,12 +1,15 @@
 // WCAG text contrast measured in the page, for theme colour tests.
 
+import { expect } from "@playwright/test";
+
 export const THEMES = ["light", "dark", "slate", "sepia"];
 export const AA_NORMAL_TEXT = 4.5;
 
 /**
  * Returns { text, color, background, inlineColor, ratio } for each selector match: the computed
  * text colour and its WCAG 2.x contrast over the element's background composited onto the
- * nearest opaque ancestor. The text colour is faded by the element's own opacity; with
+ * nearest opaque ancestor. Over a gradient (its own or an ancestor below that surface) the
+ * ratio is the lowest across the colour stops. The text colour is faded by the element's own opacity; with
  * `ancestorOpacity`, also by each ancestor below that surface, so a dimmed parent cell counts.
  * @param {import('@playwright/test').Page} page - Playwright page.
  * @param {string} selector - CSS selector for the text elements to measure.
@@ -53,6 +56,21 @@ export function measureText(page, selector, { ancestorOpacity = false } = {}) {
         return { colour: [255, 255, 255, 255], opacity, flatten: (x) => x };
       };
       const surfaceBehind = (el) => walk(el, Number(getComputedStyle(el).opacity));
+      const STOP = /(?:rgba?|oklch|oklab|lab|lch|color)\([^()]*\)/g;
+      // Colour stops of the first gradient between the element and its first opaque fill.
+      const gradientStops = (el) => {
+        for (let node = el; node; node = node.parentElement) {
+          const cs = getComputedStyle(node);
+          const stops = cs.backgroundImage.match(STOP);
+          if (stops) return stops.map(toRgba);
+          if (toRgba(cs.backgroundColor)[3] === 255) return [];
+        }
+        return [];
+      };
+      const contrast = (a, b) => {
+        const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+        return (hi + 0.05) / (lo + 0.05);
+      };
       return Array.from(document.querySelectorAll(sel)).map((el) => {
         const cs = getComputedStyle(el);
         const surface = surfaceBehind(el);
@@ -61,13 +79,16 @@ export function measureText(page, selector, { ancestorOpacity = false } = {}) {
         text[3] *= surface.opacity;
         const back = surface.flatten(local);
         const fore = surface.flatten(over(text, local));
-        const [hi, lo] = [luminance(back), luminance(fore)].sort((a, b) => b - a);
+        const stops = gradientStops(el).map((stop) => {
+          const base = surface.flatten(over(stop, surface.colour));
+          return contrast(base, surface.flatten(over(text, over(stop, surface.colour))));
+        });
         return {
           text: el.textContent.trim(),
           color: cs.color,
           background: `rgb(${back.map(Math.round).join(", ")})`,
           inlineColor: el.style.color,
-          ratio: (hi + 0.05) / (lo + 0.05),
+          ratio: stops.length ? Math.min(...stops) : contrast(back, fore),
         };
       });
     },
@@ -82,6 +103,16 @@ export function measureText(page, selector, { ancestorOpacity = false } = {}) {
  * @param {{ancestorOpacity?: boolean}} [options] - Passed to measureText.
  * @returns {Promise<string[]>} One line per failure; empty when every text passes.
  */
+/**
+ * Switches the app theme and waits until the root element carries it.
+ * @param {import("@playwright/test").Page} page - Playwright page.
+ * @param {string} theme - One of THEMES.
+ */
+export async function applyTheme(page, theme) {
+  await page.evaluate((name) => window.setTheme(name), theme);
+  await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+}
+
 export async function contrastFailures(page, selectors, options = {}) {
   const failures = [];
   for (const [what, selector] of Object.entries(selectors)) {

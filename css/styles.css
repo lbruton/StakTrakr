@@ -8314,6 +8314,13 @@ td input:checked + .slider:before {
   background: var(--bg-primary);
 }
 
+/* On a primary-gradient header the resting glyph takes the fill label; hover keeps the rule above. */
+#apiHistoryModal .modal-header .modal-close:not(:hover),
+#cloudSyncModal .modal-header .modal-close:not(:hover),
+.bulk-edit-content .modal-header .modal-close:not(:hover) {
+  color: var(--on-primary);
+}
+
 .about-modal-body {
   padding: var(--spacing-xl);
   overflow-y: auto;
