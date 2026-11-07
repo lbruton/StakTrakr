@@ -1140,7 +1140,6 @@ function getSyncPassword(forcePrompt) {
     };
     var onKeydown = function (e) {
       if (e.key === "Enter") onConfirm();
-      if (e.key === "Escape") onCancel();
     };
 
     confirmBtn.addEventListener("click", onConfirm);
@@ -1149,7 +1148,7 @@ function getSyncPassword(forcePrompt) {
     input.addEventListener("keydown", onKeydown);
 
     _syncPasswordPromptActive = true;
-    if (typeof openModalById === "function") openModalById("cloudSyncPasswordModal");
+    if (typeof openModalById === "function") openModalById("cloudSyncPasswordModal", onCancel);
     else modal.style.display = "flex";
     setTimeout(function () {
       input.focus();

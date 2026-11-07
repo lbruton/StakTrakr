@@ -169,7 +169,6 @@
 
     const onKeyDown = (event) => {
       if (actionInFlight) return;
-      if (event.key === "Escape") finish(dismissValue());
       if (event.key === "Enter" && document.activeElement !== cancelBtn) {
         if (mode === "prompt") finish(promptResult());
         else if (mode === "confirm") finish(true);
@@ -197,7 +196,11 @@
     document.addEventListener("keydown", onKeyDown);
 
     modal.style.display = "flex";
-    if (typeof window.trapFocus === "function") window.trapFocus(modal);
+    if (typeof window.trapFocus === "function") {
+      window.trapFocus(modal, () => {
+        if (!actionInFlight) finish(dismissValue());
+      });
+    }
     if (mode === "prompt") inputEl.focus();
     else if (mode === "action") cancelBtn.focus();
     else okBtn.focus();

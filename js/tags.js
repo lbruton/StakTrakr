@@ -642,6 +642,7 @@ const showTagInput = (container, uuid, renderTags, onChanged) => {
       e.preventDefault();
       commitTag();
     } else if (e.key === "Escape") {
+      e.preventDefault();
       renderTags();
     }
   });

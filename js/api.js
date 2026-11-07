@@ -1232,15 +1232,14 @@ const showApiHistoryModal = () => {
     };
   }
   renderApiHistoryTable();
-  modal.style.display = "flex";
+  openModalById("apiHistoryModal");
 };
 
 /**
  * Closes the API history modal.
  */
 const hideApiHistoryModal = () => {
-  const modal = document.getElementById("apiHistoryModal");
-  if (modal) modal.style.display = "none";
+  closeModalById("apiHistoryModal");
 };
 
 /**
@@ -2913,17 +2912,14 @@ const showProviderInfo = (providerKey) => {
     `;
   }
 
-  modal.style.display = "flex";
+  openModalById("apiInfoModal");
 };
 
 /**
  * Hides provider information modal
  */
 const hideProviderInfo = () => {
-  const modal = document.getElementById("apiInfoModal");
-  if (modal) {
-    modal.style.display = "none";
-  }
+  closeModalById("apiInfoModal");
 };
 
 // Make modal controls available globally

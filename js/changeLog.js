@@ -1105,10 +1105,6 @@ window.clearChangeLog = clearChangeLog;
 window.getManifestEntries = getManifestEntries;
 window.markSynced = markSynced;
 window.editFromChangeLog = (idx, logIdx) => {
-  const modal = document.getElementById("changeLogModal");
-  if (modal) {
-    modal.style.display = "none";
-  }
-  document.body.style.overflow = "";
+  closeModalById("changeLogModal");
   editItem(idx, logIdx);
 };

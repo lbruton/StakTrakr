@@ -431,8 +431,7 @@ const openBulkEdit = () => {
   // Always start with a clean selection (STACK-55)
   bulkSelection = new Set();
 
-  modal.style.display = "flex";
-  document.body.style.overflow = "hidden";
+  openModalById("bulkEditModal", closeBulkEdit);
 
   renderBulkFieldPanel();
   renderBulkTable();
@@ -460,8 +459,7 @@ const closeBulkEdit = () => {
   });
   _bulkBlobUrls.clear();
 
-  modal.style.display = "none";
-  document.body.style.overflow = "";
+  closeModalById("bulkEditModal");
 };
 
 // =============================================================================
@@ -1481,10 +1479,9 @@ const showBulkConfirm = (message) => {
     }
 
     if (msgEl) msgEl.textContent = message;
-    modal.style.display = "flex";
 
     function cleanup(result) {
-      modal.style.display = "none";
+      closeModalById("bulkConfirmModal");
       okBtn.removeEventListener("click", onOk);
       canBtn.removeEventListener("click", onCancel);
       resolve(result);
@@ -1498,6 +1495,7 @@ const showBulkConfirm = (message) => {
 
     okBtn.addEventListener("click", onOk);
     canBtn.addEventListener("click", onCancel);
+    openModalById("bulkConfirmModal", onCancel);
   });
 };
 

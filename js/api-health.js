@@ -405,9 +405,6 @@ const hideApiHealthModal = () => {
   if (window.closeModalById) window.closeModalById("apiHealthModal");
 };
 
-// Guard to ensure the keydown listener is registered only once
-let _keydownRegistered = false;
-
 /**
  * Sets up event listeners for the health modal.
  * Uses document.getElementById directly — safeGetElement lives in init.js
@@ -421,12 +418,6 @@ const setupApiHealthModalEvents = () => {
     modal.addEventListener("click", (e) => {
       if (e.target === modal) hideApiHealthModal();
     });
-  }
-  if (!_keydownRegistered) {
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") hideApiHealthModal();
-    });
-    _keydownRegistered = true;
   }
 };
 

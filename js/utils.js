@@ -1268,7 +1268,7 @@ const downloadFile = (filename, content, mimeType = "text/plain") => {
 };
 
 /**
- * Globally close a modal by id and clear body overflow safely.
+ * Close a modal by id. The body scroll lock clears only when no other modal is open.
  * @param {string} id
  */
 const closeModalById = (id) => {
@@ -1281,9 +1281,7 @@ const closeModalById = (id) => {
   } catch (e) {
     /* ignore */
   }
-  try {
-    if (document && document.body) document.body.style.overflow = "";
-  } catch (e) {}
+  _unlockBodyScrollIfNoModal();
 };
 // ---------------------------------------------------------------------------
 // Focus trap — confines Tab/Shift+Tab within the topmost open modal
@@ -1291,22 +1289,121 @@ const closeModalById = (id) => {
 const _FOCUSABLE_SELECTOR =
   'a[href], area[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), summary, [tabindex]:not([tabindex="-1"]), [contenteditable]:not([contenteditable="false"])';
 
-/** Stack of { modal, previousFocus, handler } for nested modals */
+/** The open-modal stack, top last: { modal, previousFocus, handler, onClose }. */
 const _focusTrapStack = [];
 
+/** Close functions by modal id, for modals whose close does more than hide the element. */
+const _modalClosers = new Map();
+
 /**
- * Activate a focus trap on a modal element.
- * @param {HTMLElement} modal
+ * Register the function that closes a modal. Escape and the backdrop call it for that modal.
+ * @param {string} id - Modal element id
+ * @param {Function} close - Closes the modal and runs its cleanup
  */
-const trapFocus = (modal) => {
-  // Idempotency: remove stale entry for this modal before re-registering
+const registerModalClose = (id, close) => {
+  _modalClosers.set(id, close);
+};
+
+/**
+ * Report whether a modal element is on screen.
+ * @param {HTMLElement} modal
+ * @returns {boolean}
+ */
+const _isModalShown = (modal) =>
+  Boolean(modal && modal.isConnected && getComputedStyle(modal).display !== "none");
+
+/** Drop stack entries for modals that were hidden or removed without releaseFocus. */
+const _pruneClosedModals = () => {
+  for (let i = _focusTrapStack.length - 1; i >= 0; i -= 1) {
+    const entry = _focusTrapStack[i];
+    if (!_isModalShown(entry.modal)) {
+      entry.modal.removeEventListener("keydown", entry.handler);
+      _focusTrapStack.splice(i, 1);
+    }
+  }
+};
+
+/** Clear the body scroll lock once no modal is open. */
+const _unlockBodyScrollIfNoModal = () => {
+  _pruneClosedModals();
+  if (_focusTrapStack.length > 0) return;
+  try {
+    if (document && document.body) document.body.style.overflow = "";
+  } catch (e) {
+    /* ignore */
+  }
+};
+
+/**
+ * Report whether an element can take focus: connected, rendered and not disabled.
+ * @param {Element|null} el
+ * @returns {boolean}
+ */
+const _canTakeFocus = (el) =>
+  Boolean(el && el.isConnected && el.focus && !el.disabled && el.getClientRects().length > 0);
+
+/**
+ * Focus the element that stands in for an opener that was re-rendered away:
+ * the open modal below, else the selected tab button, else the header Settings button.
+ */
+const _focusModalFallback = () => {
+  const below = _focusTrapStack[_focusTrapStack.length - 1];
+  const candidates = below
+    ? [below.previousFocus, below.modal.querySelector(_FOCUSABLE_SELECTOR)]
+    : [
+        document.querySelector('.tab-nav [role="tab"][aria-selected="true"]'),
+        document.querySelector('.bottom-nav-btn[aria-selected="true"]'),
+        document.getElementById("settingsBtn"),
+      ];
+  const target = candidates.find(_canTakeFocus);
+  if (target) target.focus();
+};
+
+/**
+ * Close a modal through its registered close function, else by id.
+ * @param {HTMLElement} modal
+ * @param {Function} [onClose] - Close function recorded when the modal opened
+ */
+const _closeModalElement = (modal, onClose) => {
+  const close = onClose || _modalClosers.get(modal.id);
+  if (close) close();
+  else if (modal.id) closeModalById(modal.id);
+  else releaseFocus(modal);
+};
+
+/**
+ * Escape closes the top open modal only. A handler that consumes Escape for its own widget
+ * (a menu, a popover, an inline edit) calls preventDefault or stopPropagation first.
+ * @param {KeyboardEvent} e
+ */
+const _onModalStackEscape = (e) => {
+  if (e.key !== "Escape" || e.defaultPrevented) return;
+  _pruneClosedModals();
+  const top = _focusTrapStack[_focusTrapStack.length - 1];
+  if (!top) return;
+  e.preventDefault();
+  _closeModalElement(top.modal, top.onClose);
+};
+
+// Bubble phase on window: document and element handlers run first and can claim the key.
+if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
+  window.addEventListener("keydown", _onModalStackEscape);
+}
+
+/**
+ * Activate a focus trap on a modal element and push it on the open-modal stack.
+ * @param {HTMLElement} modal
+ * @param {Function} [onClose] - Closes the modal; Escape calls it when the modal is on top
+ */
+const trapFocus = (modal, onClose) => {
+  // Idempotency: a re-registered modal keeps its first opener.
   const existingIdx = _focusTrapStack.findIndex((entry) => entry.modal === modal);
+  let previousFocus = document.activeElement;
   if (existingIdx !== -1) {
     const stale = _focusTrapStack.splice(existingIdx, 1)[0];
     modal.removeEventListener("keydown", stale.handler);
+    previousFocus = stale.previousFocus;
   }
-
-  const previousFocus = document.activeElement;
 
   const handler = (e) => {
     if (e.key !== "Tab") return;
@@ -1335,41 +1432,65 @@ const trapFocus = (modal) => {
   };
 
   modal.addEventListener("keydown", handler);
-  _focusTrapStack.push({ modal, previousFocus, handler });
+  _focusTrapStack.push({ modal, previousFocus, handler, onClose });
 };
 
 /**
- * Release the focus trap on a modal and restore previous focus.
+ * Release the focus trap on a modal. When it was the top modal, focus returns to its opener,
+ * or to _focusModalFallback when the opener is gone.
  * @param {HTMLElement} modal
+ * @param {{restoreFocus?: boolean}} [options] - restoreFocus false leaves focus to the caller
  */
-const releaseFocus = (modal) => {
+const releaseFocus = (modal, options) => {
   const idx = _focusTrapStack.findIndex((entry) => entry.modal === modal);
   if (idx === -1) return;
+  const wasTop = idx === _focusTrapStack.length - 1;
   const entry = _focusTrapStack.splice(idx, 1)[0];
   modal.removeEventListener("keydown", entry.handler);
-  if (entry.previousFocus && entry.previousFocus.focus) {
-    try {
+  if (!wasTop || (options && options.restoreFocus === false)) return;
+  _pruneClosedModals();
+  try {
+    if (_canTakeFocus(entry.previousFocus) && !modal.contains(entry.previousFocus)) {
       entry.previousFocus.focus();
-    } catch (e) {
-      /* element may have been removed */
+    } else {
+      _focusModalFallback();
     }
+  } catch (e) {
+    /* element may have been removed */
   }
 };
 
 /**
- * Opens a modal by id and sets body overflow to hidden.
- * Also initializes a click-outside-to-close handler once.
- * @param {string} id
+ * Move focus into a modal that holds none: its first focusable element, else the modal itself.
+ * @param {HTMLElement} modal
  */
-const openModalById = (id) => {
+const focusIntoModal = (modal) => {
+  if (modal.contains(document.activeElement) && document.activeElement !== modal) return;
+  const first = Array.from(modal.querySelectorAll(_FOCUSABLE_SELECTOR)).find(_canTakeFocus);
+  if (first) {
+    first.focus();
+    return;
+  }
+  if (!modal.hasAttribute("tabindex")) modal.setAttribute("tabindex", "-1");
+  modal.focus();
+};
+
+/**
+ * Open a modal by id: show it, lock body scroll, trap focus and move focus inside.
+ * The backdrop click and Escape close it through its registerModalClose function.
+ * @param {string} id
+ * @param {Function} [onClose] - Close function for this opening; overrides the registered one
+ */
+const openModalById = (id, onClose) => {
   try {
     const modal = document.getElementById(id);
     if (!modal) return;
 
-    // initialize click-outside handler once per modal
     if (!modal.dataset.initialized) {
       modal.addEventListener("click", (e) => {
-        if (e.target === modal) closeModalById(id);
+        if (e.target !== modal) return;
+        const entry = _focusTrapStack.find((item) => item.modal === modal);
+        _closeModalElement(modal, entry && entry.onClose);
       });
       modal.dataset.initialized = "true";
     }
@@ -1378,12 +1499,9 @@ const openModalById = (id) => {
     try {
       if (document && document.body) document.body.style.overflow = "hidden";
     } catch (e) {}
-    // activate focus trap
-    trapFocus(modal);
-    // focus first focusable element for a11y
+    trapFocus(modal, onClose);
     try {
-      const focusable = modal.querySelector(_FOCUSABLE_SELECTOR);
-      if (focusable && focusable.focus) focusable.focus();
+      focusIntoModal(modal);
     } catch (e) {}
   } catch (e) {
     /* ignore */
@@ -1624,6 +1742,8 @@ if (typeof window !== "undefined") {
   window.releaseFocus = releaseFocus;
   window.closeModalById = closeModalById;
   window.openModalById = openModalById;
+  window.registerModalClose = registerModalClose;
+  window.focusIntoModal = focusIntoModal;
   window.debounce = debounce;
   window.openEbayBuySearch = openEbayBuySearch;
   window.openEbaySoldSearch = openEbaySoldSearch;

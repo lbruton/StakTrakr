@@ -177,11 +177,8 @@ async function showViewModal(index) {
 
   modal.style.display = "flex";
   document.body.style.overflow = "hidden";
-  if (typeof window.trapFocus === "function") window.trapFocus(modal);
-  const firstFocusable = modal.querySelector(
-    'button:not([disabled]), [tabindex]:not([tabindex="-1"]), input:not([disabled])'
-  );
-  if (firstFocusable) firstFocusable.focus();
+  if (typeof window.trapFocus === "function") window.trapFocus(modal, closeViewModal);
+  if (typeof window.focusIntoModal === "function") window.focusIntoModal(modal);
 
   // Load images from stored URLs / user uploads only — no API fallback.
   // STAK-489: Stored URLs are the single source of truth for images everywhere.
@@ -3017,21 +3014,6 @@ function _setSlotImage(slot, src) {
 // ---------------------------------------------------------------------------
 // Global exposure
 // ---------------------------------------------------------------------------
-
-// ESC key handler
-document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") {
-    const modal = document.getElementById("viewItemModal");
-    if (modal && modal.style.display !== "none") {
-      closeViewModal();
-      // PR #1494 review: this listener registers before events.js's shared
-      // ESC handler. Consume the keypress here, or that handler sees the Item
-      // View already hidden and falls through to closeDetailsModal() —
-      // dismissing both stacked layers on one Escape (STRK-352 ledger rows).
-      e.stopImmediatePropagation();
-    }
-  }
-});
 
 if (typeof window !== "undefined") {
   window.showViewModal = showViewModal;

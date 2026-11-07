@@ -566,15 +566,15 @@ const openBulkSyncModal = (provider) => {
     }
   }
 
+  modal.style.display = "flex";
   if (typeof window.trapFocus === "function") {
     try {
-      window.trapFocus(modal);
+      window.trapFocus(modal, closeBulkSyncModal);
+      window.focusIntoModal(modal);
     } catch (e) {
       console.error("trapFocus failed", e);
     }
   }
-
-  modal.style.display = "flex";
 };
 
 /**

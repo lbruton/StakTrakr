@@ -1185,15 +1185,14 @@ const showCatalogHistoryModal = () => {
     };
   }
   renderCatalogHistoryTable();
-  modal.style.display = "flex";
+  openModalById("catalogHistoryModal");
 };
 
 /**
  * Hides catalog history modal
  */
 const hideCatalogHistoryModal = () => {
-  const modal = document.getElementById("catalogHistoryModal");
-  if (modal) modal.style.display = "none";
+  closeModalById("catalogHistoryModal");
 };
 
 // =============================================================================

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.112] - 2026-11-06
+
+### Fixed — STRK-534: Escape, focus and scroll lock work the same in every modal
+
+- **Escape**: Escape closes only the top modal. Before, Escape on a modal opened over Settings or over Edit Item could close the wrong layer or leave the top one open (STRK-534).
+- **Focus**: Every modal moves focus inside when it opens, keeps Tab inside, and returns focus to the control that opened it when it closes. Several modals left focus on the page behind them (STRK-534).
+- **Scroll lock**: The page stays locked while any modal is open. Closing a modal over Settings unlocked the page behind Settings (STRK-534).
+
+---
+
 ## [3.36.111] - 2026-11-06
 
 ### Fixed — STRK-532: Notes keep their line breaks

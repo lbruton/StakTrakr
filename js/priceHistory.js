@@ -808,8 +808,12 @@ const openItemPriceHistoryModal = (uuid, itemName) => {
 
   renderItemPriceHistoryModalTable();
 
-  const modal = document.getElementById("itemPriceHistoryModal");
-  if (modal) modal.style.display = "flex";
+  openModalById("itemPriceHistoryModal");
+};
+
+/** Closes the per-item price history modal. */
+const closeItemPriceHistoryModal = () => {
+  closeModalById("itemPriceHistoryModal");
 };
 
 /**
@@ -932,6 +936,7 @@ window.renderItemPriceHistoryTable = renderItemPriceHistoryTable;
 window.filterItemPriceHistoryTable = filterItemPriceHistoryTable;
 window.clearItemPriceHistory = clearItemPriceHistory;
 window.openItemPriceHistoryModal = openItemPriceHistoryModal;
+window.closeItemPriceHistoryModal = closeItemPriceHistoryModal;
 window.renderItemPriceHistoryModalTable = renderItemPriceHistoryModalTable;
 window.deleteItemPriceEntry = deleteItemPriceEntry;
 window._setItemPriceModalFilter = (val) => {
