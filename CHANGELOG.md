@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.123] - 2026-11-07
+
+### Fixed — STRK-563: Toasts cover the bottom nav and Back to top on phones
+
+- **Toasts**: On screens 768px wide or less, message toasts and the What's New card sit above the Back to top button, with 16px side margins. Neither covers a nav tab. The desktop corner is unchanged (STRK-563).
+
+### Removed — STRK-564: Environment toast on beta, preview and local builds
+
+- **Environment notice**: The LOCAL, BETA or PREVIEW tag next to the title is the only environment notice. The toast that followed it at startup is gone (STRK-564).
+
+---
+
 ## [3.36.122] - 2026-11-07
 
 ### Fixed — STRK-557: Back to top covers the Settings tab on phones

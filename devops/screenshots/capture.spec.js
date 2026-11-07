@@ -77,7 +77,6 @@ async function seedDemoData(context) {
           localStorage.setItem(key, JSON.stringify(value));
         }
       }
-      sessionStorage.setItem("envToastShown", "1");
       document.addEventListener(
         "DOMContentLoaded",
         () => {

@@ -179,7 +179,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (aboutSiteLink) aboutSiteLink.href = `https://www.${siteDomain}`;
     if (aboutSiteDomain) aboutSiteDomain.textContent = siteDomain;
 
-    // Phase 0b: Environment badge + toast for non-production origins (STAK-376)
+    // Phase 0b: Environment badge for non-production origins; the badge is the only notice.
     const envLabel = typeof getEnvironmentLabel === "function" ? getEnvironmentLabel() : null;
     if (envLabel) {
       const envBadge = document.getElementById("envBadge");
@@ -187,20 +187,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         envBadge.textContent = envLabel.label;
         envBadge.className = "env-badge " + envLabel.className;
         envBadge.style.display = "";
-      }
-      // One-time toast per session explaining data isolation
-      const toastKey = "envToastShown"; // nosemgrep: codacy.javascript.security.hard-coded-password
-      if (!sessionStorage.getItem(toastKey)) {
-        sessionStorage.setItem(toastKey, "1");
-        const msg =
-          envLabel.label === "BETA"
-            ? "You are on the BETA site. Your data here is separate from the main site."
-            : envLabel.label === "PREVIEW"
-              ? "Preview deployment — data is separate from the main site."
-              : "Running locally — data is stored on this device only.";
-        setTimeout(() => {
-          if (typeof showToast === "function") showToast(msg, 5000);
-        }, 1500);
       }
     }
 

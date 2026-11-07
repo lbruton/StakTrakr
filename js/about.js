@@ -134,11 +134,11 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.36.123 &ndash; Toasts stay clear of the phone nav</strong>: On a phone or a narrow tablet, message toasts and the What&rsquo;s New card sit above the Back to top button and the bottom nav, so every tab takes a tap. On beta, preview and local builds, the tag next to the title is the only environment notice, with no startup toast (STRK-563, STRK-564).</li>
     <li><strong>v3.36.122 &ndash; Back to top stays clear of the phone nav</strong>: On a phone or a narrow tablet, the Back to top button floats above the bottom nav, clear of the Settings tab. It is a 44px target, and it keeps its distance from the nav at larger text sizes (STRK-557).</li>
     <li><strong>v3.36.121 &ndash; Collection purity stays set</strong>: A Custom Collection saved at 100%, .900, .800, .600, .500, .400 or .350 purity reopens in the builder with that purity selected. Saving again without touching the field keeps it. A Collection that lost its purity in an earlier save shows Not set, so pick the purity again (STRK-562).</li>
     <li><strong>v3.36.120 &ndash; Clearer Review Changes and Restore Preview</strong>: Rows for Items with the same name show the purchase date, the price paid and a serial or notes excerpt, so two coins never read the same. Conflict fields sit under &ldquo;This device&rdquo; and the remote side, prices use your currency, and the chosen value says &ldquo;Chosen&rdquo;. When a backup cannot be read, Restore Preview says so in plain words and offers Try again before Restore without preview (STRK-554).</li>
     <li><strong>v3.36.119 &ndash; FAQ answers match the app</strong>: The FAQ lists the services StakTrakr contacts: the StakTrakr API for spot, Market and Goldback prices, open.er-api.com for exchange rates, Numista, PCGS and Dropbox. Cloud Sync keys use 600,000 PBKDF2 iterations, libraries ship inside the app, and exports sit under Settings &rarr; Inventory. The cost answer drops the planned sponsor perks, and the security list names Codacy grade A, CodeQL, Semgrep, ESLint, the test suite and CodeRabbit (STRK-561).</li>
-    <li><strong>v3.36.118 &ndash; Settings fits a phone screen</strong>: Every Settings panel fits a 390px phone without scrolling sideways. Appearance stacks its controls in one column, wide tables such as Goldback prices and Storage scroll inside their own box, and the Activity Log tabs wrap onto two rows. The Privacy policy fills the screen and scrolls in one piece (STRK-552).</li>
       `;
 };
 

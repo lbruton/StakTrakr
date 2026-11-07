@@ -19225,11 +19225,23 @@ button.vp-price:hover {
     display: flex;
   }
   /* The nav top sits about 38px + 1.93rem above the viewport bottom; the rem term tracks text zoom. */
+  :root {
+    --phone-nav-clearance: calc(48px + 2rem);
+  }
+
   .back-to-top {
-    bottom: calc(48px + 2rem);
+    bottom: var(--phone-nav-clearance);
     right: 1rem;
     width: 44px;
     height: 44px;
+  }
+
+  /* Toasts stack above the 44px Back to top button so neither covers the other. */
+  .cloud-toast,
+  .whats-new-toast-card {
+    bottom: calc(var(--phone-nav-clearance) + 44px + 0.5rem);
+    right: 1rem;
+    max-width: calc(100vw - 2rem);
   }
 
   /* Keep scrollable content clear of the fixed bottom nav */

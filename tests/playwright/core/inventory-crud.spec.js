@@ -118,15 +118,15 @@ test.describe("core/inventory-crud", () => {
     await expect(page.locator("#itemType")).toHaveValue("Coin");
   });
 
-  // The environment toast shows for 5 s on localhost, beta and preview, and sits
-  // over the item modal's Save button. Clicks pass through it.
-  test("Save works while the environment toast is on screen", async ({ page }) => {
+  // A toast can sit over the item modal's Save button. Clicks pass through it.
+  test("Save works while a toast is on screen", async ({ page }) => {
     await seedAndGoto(page);
     await page.evaluate(() => window.editItem(0));
     await expect(page.locator("#itemModal")).toBeVisible();
 
-    const toast = page.locator(".cloud-toast", { hasText: "Running locally" });
-    await expect(toast).toBeVisible({ timeout: 5000 });
+    await page.evaluate(() => window.showToast("Toast over Save", 5000));
+    const toast = page.locator(".cloud-toast", { hasText: "Toast over Save" });
+    await expect(toast).toBeVisible();
     const hitsToast = await toast.evaluate((el) => {
       const box = el.getBoundingClientRect();
       const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
