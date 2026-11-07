@@ -3290,8 +3290,9 @@ const renderOrphanedPatternImages = async () => {
     const ok = await showAppConfirm(
       `Delete all ${orphans.length} orphaned pattern image${
         orphans.length === 1 ? "" : "s"
-      }? This cannot be undone.`,
-      "Delete Orphaned Images"
+      }? You cannot undo this.`,
+      "Delete Orphaned Images",
+      { confirmLabel: "Delete images", danger: true }
     );
     if (!ok) return;
     for (const rec of orphans) {
@@ -3766,7 +3767,11 @@ const renderUserImageGrid = async () => {
     deleteBtn.className = "btn img-btn img-btn-remove";
     deleteBtn.textContent = "Delete";
     deleteBtn.addEventListener("click", async () => {
-      const confirmed = await appConfirm(`Delete images for "${name}"?`, "User Images");
+      const confirmed = await appConfirm(
+        `Delete the images for "${name}"? You cannot undo this.`,
+        "User Images",
+        { confirmLabel: "Delete images", danger: true }
+      );
       if (!confirmed) return;
       await imageCache.deleteUserImage(rec.uuid);
       renderUserImageGrid();

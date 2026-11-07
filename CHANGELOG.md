@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.113] - 2026-11-06
+
+### Fixed — STRK-536: Destructive confirms name their action and start on Cancel
+
+- **Enter**: A confirm that deletes or overwrites data opens with focus on Cancel, so pressing Enter cancels it. Before, focus sat on OK and Enter ran Wipe All Data, a cloud restore or a bulk delete (STRK-536).
+- **Button labels**: The confirm button names its action, for example "Delete all data", "Overwrite local data" or "Delete 2 Items", in the red danger style. Before, every confirm said OK in gold (STRK-536).
+- **Wipe All Data**: The confirm states what it deletes and suggests a backup first, without the boating joke. Remove Inventory, Delete Selected and the image Remove buttons use the red danger style (STRK-536).
+
+---
+
 ## [3.36.112] - 2026-11-06
 
 ### Fixed — STRK-534: Escape, focus and scroll lock work the same in every modal

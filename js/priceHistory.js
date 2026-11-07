@@ -751,8 +751,9 @@ const clearItemPriceHistory = async () => {
   const confirmed =
     typeof showAppConfirm === "function"
       ? await showAppConfirm(
-          "Clear all item price history? This cannot be undone.",
-          "Price History"
+          "Delete all item price history? You cannot undo this.",
+          "Price History",
+          { confirmLabel: "Clear price history", danger: true }
         )
       : false;
   if (!confirmed) return;

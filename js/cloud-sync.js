@@ -847,10 +847,15 @@ async function syncRestoreOverrideBackup() {
     "App version: v" +
     (backup.appVersion || "?") +
     "\n\n" +
-    "This will overwrite your current inventory and cannot be undone.";
+    "The snapshot replaces your current inventory. You cannot undo this.";
 
   var confirmed =
-    typeof showAppConfirm === "function" ? await showAppConfirm(msg, "Restore Snapshot") : false;
+    typeof showAppConfirm === "function"
+      ? await showAppConfirm(msg, "Restore Snapshot", {
+          confirmLabel: "Restore snapshot",
+          danger: true,
+        })
+      : false;
   if (!confirmed) return;
 
   var priorScope = Object.create(null);
@@ -1814,9 +1819,9 @@ async function pushSyncVault() {
             var confirmBlindOverwrite = await appConfirm(
               "Your sync password was just changed.\n\n" +
                 "StakTrakr cannot verify whether the cloud copy of your vault is newer than this device. " +
-                "Continuing may overwrite newer remote data.\n\n" +
-                "Do you want to overwrite the cloud copy with the data from this device now?",
-              "Cloud Sync"
+                "Overwrite the cloud copy with the data from this device? Newer cloud data is lost.",
+              "Cloud Sync",
+              { confirmLabel: "Overwrite cloud copy", danger: true }
             );
             if (!confirmBlindOverwrite) {
               console.warn(

@@ -1206,8 +1206,9 @@ const bindCloudStorageListeners = () => {
                 "\n" +
                 localLine +
                 "\n\n" +
-                "Do you want to overwrite the remote backup with current local data?",
-              "Cloud Backup Conflict"
+                "Overwrite the cloud backup with the data on this device?",
+              "Cloud Backup Conflict",
+              { confirmLabel: "Overwrite cloud backup", danger: true }
             );
             if (!shouldOverwrite) {
               return;
@@ -1243,8 +1244,9 @@ const bindCloudStorageListeners = () => {
             ? (size / 1024).toFixed(0) + " KB"
             : (size / 1048576).toFixed(1) + " MB";
       const restoreConfirmed = await appConfirm(
-        `Restore "${filename}" (${sizeStr})?\n\nThis will overwrite all local data.`,
-        "Cloud Restore"
+        `Restore "${filename}" (${sizeStr})?\n\nThe backup replaces all local data.`,
+        "Cloud Restore",
+        { confirmLabel: "Overwrite local data", danger: true }
       );
       if (!restoreConfirmed) return;
       await _cloudBtnAction(
@@ -1277,7 +1279,8 @@ const bindCloudStorageListeners = () => {
       var delFilename = btn.dataset.filename;
       if (
         !(await showBulkConfirm(
-          'Delete "' + delFilename + '" from cloud storage?\n\nThis cannot be undone.'
+          'Delete "' + delFilename + '" from cloud storage? You cannot undo this.',
+          { title: "Delete Backup", confirmLabel: "Delete backup", danger: true }
         ))
       )
         return;

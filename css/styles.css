@@ -15090,7 +15090,7 @@ th {
   padding: 0.45rem 1rem;
 }
 
-.bulk-edit-footer .btn-danger {
+.bulk-edit-footer .btn.danger {
   margin-left: auto;
 }
 
