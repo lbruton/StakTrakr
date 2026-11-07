@@ -700,13 +700,19 @@ const FILLED_CONTROLS = {
   "stale sync": '<button class="market-sync-btn stale" data-probe>Sync</button>',
   "footer secondary":
     '<div class="modal-footer"><button class="btn secondary" data-probe>Cancel</button></div>',
+  "history title":
+    '<div id="apiHistoryModal"><div class="modal-header"><h2 data-probe>History</h2></div></div>',
+  "cloud sync title":
+    '<div id="cloudSyncModal"><div class="modal-header"><h2 data-probe>Cloud Sync</h2></div></div>',
+  "bulk edit title":
+    '<div class="bulk-edit-content"><div class="modal-header"><h2 data-probe>Bulk Edit</h2></div></div>',
   "settings link":
     '<div class="settings-section-panel"><a href="#sample" data-probe>Download sample CSV</a></div>',
 };
 
 /**
- * Returns the lowest contrast of the element label over each colour stop of its background
- * gradient, or null when it has none. measureText reads only background-color, so a
+ * Returns the lowest contrast of the element label over each colour stop of the gradient
+ * behind it (its own or the nearest ancestor), or null when an opaque fill comes first. measureText reads only background-color, so a
  * gradient control is measured by its stops alone.
  * @param {import("@playwright/test").Page} page - Playwright page.
  * @param {string} selector - CSS selector for one element.
@@ -714,8 +720,14 @@ const FILLED_CONTROLS = {
  */
 function lowestGradientStopRatio(page, selector) {
   return page.evaluate((sel) => {
-    const cs = getComputedStyle(document.querySelector(sel));
-    const stops = cs.backgroundImage.match(/(?:rgba?|oklch|oklab|lab|lch|color)\([^()]*\)/g);
+    const el = document.querySelector(sel);
+    const cs = getComputedStyle(el);
+    let stops = null;
+    for (let node = el; node && !stops; node = node.parentElement) {
+      const own = getComputedStyle(node);
+      stops = own.backgroundImage.match(/(?:rgba?|oklch|oklab|lab|lch|color)\([^()]*\)/g);
+      if (!stops && !/rgba\(|transparent/.test(own.backgroundColor)) return null;
+    }
     if (!stops) return null;
     const ctx = document.createElement("canvas").getContext("2d", { willReadFrequently: true });
     const rgb = (css) => {

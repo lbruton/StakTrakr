@@ -3488,7 +3488,7 @@ input[type="submit"] {
 
 #apiHistoryModal .modal-header h2 {
   margin: 0;
-  color: var(--text-inverse);
+  color: var(--on-primary);
   text-align: center;
 }
 
@@ -6117,7 +6117,7 @@ input.spot-lookup-flash {
 
 #cloudSyncModal .modal-header h2 {
   margin: 0;
-  color: var(--text-inverse);
+  color: var(--on-primary);
   text-align: center;
 }
 
@@ -7788,15 +7788,16 @@ td input:checked + .slider:before {
   color: color-mix(in oklch, var(--text-inverse), transparent 70%);
   animation: pcgs-pulse 1s ease-in-out infinite;
 }
+/* The badge sits on the same dark scrim in every theme, so its status colours are fixed. */
 .view-cert-verify.pcgs-verified {
-  color: var(--success-text); /* green — passed */
+  color: #86efac;
 }
 .view-cert-verify.pcgs-verified:hover {
-  color: var(--success-text);
+  color: #86efac;
   background: color-mix(in oklch, var(--success), transparent 90%);
 }
 .view-cert-verify.pcgs-verify-failed {
-  color: var(--danger-text); /* red — failed */
+  color: #fca5a5;
 }
 
 /* Sepia theme — adjust colors on dark image bg */
@@ -7808,9 +7809,6 @@ td input:checked + .slider:before {
 }
 [data-theme="sepia"] .view-cert-badge[data-authority="ANACS"] .view-cert-grade {
   color: #6ee7b7;
-}
-[data-theme="sepia"] .view-cert-verify.pcgs-verified {
-  color: #86efac;
 }
 
 /* --- Data sections --- */
@@ -14716,7 +14714,7 @@ th {
 
 .bulk-edit-content .modal-header h2 {
   margin: 0;
-  color: var(--text-inverse);
+  color: var(--on-primary);
   text-align: center;
 }
 
