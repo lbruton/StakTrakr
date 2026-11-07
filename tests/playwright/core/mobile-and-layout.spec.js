@@ -1601,12 +1601,23 @@ test.describe("Phone floors in Collections, Item modals and Settings", () => {
   });
 
   const LONG_NAME = " 1 oz Brilliant Uncirculated with Original Mint Packaging and Certificate";
+  const SCROLL_WRAPPERS = [
+    ".settings-table-scroll",
+    ".settings-changelog-wrap",
+    ".market-filter-matrix-wrap",
+  ];
   const overflowSurfaces = [
     ...SETTINGS_TABS.map((tab) => [
       `Settings ${tab} panel`,
       "#settingsModal .modal-content",
       [".modal-content", ".settings-content-area"],
-      (page) => page.evaluate((t) => window.showSettingsModal(t), tab),
+      async (page) => {
+        await page.evaluate((t) => window.showSettingsModal(t), tab);
+        // Storage renders its tables after an async usage read; measure the tables, not the placeholders.
+        if (tab === "storage") {
+          await expect(page.locator("#settingsModal .storage-data-table")).toHaveCount(2);
+        }
+      },
     ]),
     [
       "Privacy policy modal",
@@ -1661,7 +1672,7 @@ test.describe("Phone floors in Collections, Item modals and Settings", () => {
           await open(page);
           await expect(page.locator(root)).toBeVisible();
           await expect.soft(page.locator("#settingsModal .stk-nav-separator")).toHaveCount(0);
-          const overflow = await readHorizontalOverflow(page, root, bodies);
+          const overflow = await readHorizontalOverflow(page, root, bodies, SCROLL_WRAPPERS);
           expect(overflow.tested).toBeGreaterThan(0);
           const { tested, ...found } = overflow;
           expect.soft(found).toEqual({
@@ -1671,6 +1682,14 @@ test.describe("Phone floors in Collections, Item modals and Settings", () => {
             ellipsis: [],
             narrowSelects: [],
           });
+          for (const icon of await page.locator(`${root} .settings-info-icon`).all()) {
+            if (!(await icon.isVisible())) continue;
+            await icon.focus();
+            const shown = await readHorizontalOverflow(page, root, bodies, SCROLL_WRAPPERS);
+            expect
+              .soft(shown.scrollingBodies, `shown tip: ${await icon.getAttribute("aria-label")}`)
+              .toEqual([]);
+          }
         });
       }
     }

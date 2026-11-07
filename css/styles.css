@@ -23310,8 +23310,7 @@ button.vp-price:hover {
       .collections-textlink,
       .collections-view-chip
     )::after,
-  .collections-slot .collections-more::after,
-  .modal .settings-info-icon::before {
+  .collections-slot .collections-more::after {
     content: "";
     position: absolute;
     top: 50%;
@@ -23321,9 +23320,27 @@ button.vp-price:hover {
     transform: translate(-50%, -50%);
   }
 
-  /* The info icon's ::after holds its tooltip, so its ::before holds the hit area. */
+  /* The icon is its own 44px box, so its tooltip can anchor to the label row and span the
+     panel width instead of overflowing past the panel edge. */
+  .modal .settings-group-label:has(> .settings-info-icon) {
+    position: relative;
+  }
   .modal .settings-info-icon {
-    margin-inline: 15px;
+    position: static;
+    box-sizing: border-box;
+    min-width: 44px;
+    min-height: 44px;
+    margin-block: -15px;
+    margin-inline: 0;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal .settings-info-icon::after {
+    left: 0;
+    right: 0;
+    width: auto;
+    max-width: none;
+    transform: none;
   }
 
   /* The rule table and its scrolling frame clip at their rounded corners. The frame's padding
