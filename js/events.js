@@ -4500,7 +4500,7 @@ const setupVaultListeners = () => {
 };
 
 /**
- * Sets up data-destructive action listeners (remove data, boating accident).
+ * Sets up data-destructive action listeners (Remove Inventory, Wipe All Data).
  */
 const setupDataManagementListeners = () => {
   optionalListener(
@@ -4510,8 +4510,9 @@ const setupDataManagementListeners = () => {
       const confirmed =
         typeof showAppConfirm === "function"
           ? await showAppConfirm(
-              "Remove all inventory items? This cannot be undone.",
-              "Data Management"
+              "Delete all Items from this browser? Your settings stay. You cannot undo this. Export a backup first if you need one.",
+              "Remove Inventory",
+              { confirmLabel: "Delete all Items", danger: true }
             )
           : false;
       if (confirmed) {
@@ -4522,7 +4523,7 @@ const setupDataManagementListeners = () => {
         renderTable();
         renderActiveFilters();
         if (typeof showAppAlert === "function")
-          await showAppAlert("Inventory data cleared.", "Data Management");
+          await showAppAlert("All Items deleted.", "Remove Inventory");
       }
     },
     "Remove inventory data button"
@@ -4535,8 +4536,9 @@ const setupDataManagementListeners = () => {
       const confirmed =
         typeof showAppConfirm === "function"
           ? await showAppConfirm(
-              "Did you really lose it all in a boating accident? This will wipe all local data.",
-              "Data Management"
+              "Delete all Items, Collections and settings from this browser? You cannot undo this. Export a backup first if you need one.",
+              "Wipe All Data",
+              { confirmLabel: "Delete all data", danger: true }
             )
           : false;
       if (confirmed) {
@@ -4583,10 +4585,7 @@ const setupDataManagementListeners = () => {
         updateSyncButtonStates();
 
         if (typeof showAppAlert === "function")
-          await showAppAlert(
-            "All data has been erased. Hope your scuba gear is ready!",
-            "Data Management"
-          );
+          await showAppAlert("All local data deleted.", "Wipe All Data");
       }
     },
     "Boating accident button"
@@ -5196,8 +5195,13 @@ const setupApiEvents = () => {
         async () => {
           if (typeof clearApiCache === "function") {
             const warnMessage =
-              "This will delete the API cache and history. Click OK to continue or Cancel to keep it.";
-            if (await appConfirm(warnMessage, "Flush API Cache")) {
+              "Delete the API cache and the API history? The next sync pulls fresh data. You cannot undo this.";
+            if (
+              await appConfirm(warnMessage, "Flush API Cache", {
+                confirmLabel: "Flush cache",
+                danger: true,
+              })
+            ) {
               clearApiCache();
             }
           }

@@ -881,7 +881,9 @@ test.describe("payment-method", () => {
     await expect(page.locator("#viewItemModal")).toContainText("Credit Card");
   });
 
-  test("bulk edit sets and clears paymentMethod; clone preserves it", async ({ page }) => {
+  test("bulk edit sets and clears paymentMethod, Delete Selected confirms by name, and a clone keeps the method", async ({
+    page,
+  }) => {
     await seedData(page, [
       makeItem({ serial: 1, name: "STRK-50 Bulk 1", paymentMethod: "PayPal" }),
       makeItem({ serial: 2, name: "STRK-50 Bulk 2" }),
@@ -895,6 +897,8 @@ test.describe("payment-method", () => {
     await page.click("#bulkField_paymentMethod");
     await page.selectOption("#bulkFieldVal_paymentMethod", "Wire");
     await page.getByRole("button", { name: /Apply Changes/ }).click();
+    await expect(page.locator("#bulkConfirmOkBtn")).toHaveText("Apply to 2 Items");
+    await expect(page.locator("#bulkConfirmOkBtn")).not.toHaveClass(/danger/);
     await page.click("#bulkConfirmOkBtn");
     await expect(page.locator("#bulkConfirmModal")).toBeHidden();
 
@@ -909,6 +913,18 @@ test.describe("payment-method", () => {
     expect(
       stored.every((item) => !Object.prototype.hasOwnProperty.call(item, "paymentMethod"))
     ).toBe(true);
+
+    const deleteBtn = page
+      .locator("#bulkEditModal")
+      .getByRole("button", { name: /Delete Selected/ });
+    await expect(deleteBtn).toHaveClass(/(^|\s)danger(\s|$)/);
+    await deleteBtn.click();
+    await expect(page.locator("#bulkConfirmOkBtn")).toHaveText("Delete 2 Items");
+    await expect(page.locator("#bulkConfirmOkBtn")).toHaveClass(/(^|\s)danger(\s|$)/);
+    await expect(page.locator("#bulkConfirmCancelBtn")).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(page.locator("#bulkConfirmModal")).toBeHidden();
+    expect(await page.evaluate(() => window.inventory.length)).toBe(2);
 
     await page.evaluate(() => {
       window.inventory[0].paymentMethod = "PayPal";

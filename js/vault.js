@@ -1485,7 +1485,11 @@ async function exportEncryptedBackup(password) {
               "Attachment vault is " +
                 sizeMB +
                 " MB. Exporting this much data may use significant memory. Continue?",
-              { confirmLabel: "Export Anyway", cancelLabel: "Skip Attachments" }
+              {
+                title: "Large Attachment Export",
+                confirmLabel: "Export Anyway",
+                cancelLabel: "Skip Attachments",
+              }
             )
           : true;
       if (!continueExport) {

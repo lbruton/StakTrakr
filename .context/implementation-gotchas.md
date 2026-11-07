@@ -91,6 +91,23 @@ Tests start the async function via `page.evaluate` without awaiting it first, th
 `waitForSelector("#appDialogModal", {state:"visible"})`, then click `#appDialogOk` or
 `#appDialogCancel`. Use the same pattern for `showAppAlert` and `showAppPrompt`.
 
+## Destructive confirms — name the action, pass `danger`
+
+A confirm that deletes or overwrites data calls
+`showAppConfirm(message, title, { confirmLabel, danger: true })` (or `appConfirm` with the
+same third argument). The second argument may be the options object itself, with an
+optional `title`.
+
+- `danger` styles `#appDialogOk` as `.btn.danger` and puts initial focus on Cancel.
+- The dialog ignores Enter outside the focused button, so Enter on open cancels.
+- `confirmLabel` names the action ("Delete all data", "Overwrite local data"). Never leave
+  a destructive confirm on the default OK.
+- The Bulk Edit confirm, `showBulkConfirm(message, { title, confirmLabel, danger })` in
+  `js/bulkEdit.js`, follows the same rules.
+- A test of a danger confirm clicks `#appDialogOk` (or `#bulkConfirmOkBtn`). Pressing Enter
+  cancels it.
+- The red class is `.btn.danger`. `.btn-danger` has no fill and renders as the gold primary.
+
 ## `state.js` variable exposure — `let` needs `Object.defineProperty`
 
 Variables declared with `let` in `state.js` are not on `window`.

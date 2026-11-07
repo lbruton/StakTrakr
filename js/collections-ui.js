@@ -1215,7 +1215,8 @@
         typeof window.showAppConfirm === "function"
           ? await window.showAppConfirm(
               `Remove "${entry.name}"? Its slots and links are removed. The items stay in your inventory.`,
-              "Remove collection"
+              "Remove collection",
+              { confirmLabel: "Remove collection", danger: true }
             )
           : false;
       if (!confirmed) return;

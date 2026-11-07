@@ -3208,7 +3208,7 @@ function _openThumbPopover(cell, item) {
         <input type="file" id="thumbPop_${sideKey}_file" accept="image/jpeg,image/png,image/webp" style="display:none" />
         <button class="btn btn-sm" id="thumbPop_${sideKey}_upload" type="button">Upload</button>
         ${showCamera ? `<button class="btn btn-sm" id="thumbPop_${sideKey}_camera" type="button">📷</button>` : ""}
-        <button class="btn btn-sm btn-danger" id="thumbPop_${sideKey}_remove" type="button" style="display:none">Remove</button>
+        <button class="btn btn-sm danger" id="thumbPop_${sideKey}_remove" type="button" style="display:none">Remove</button>
       </div>
     </div>`;
 

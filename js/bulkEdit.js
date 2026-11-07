@@ -1450,7 +1450,7 @@ const renderBulkFooter = () => {
   // Delete Selected button (danger, pushed right)
   const deleteBtn = document.createElement("button");
   deleteBtn.type = "button";
-  deleteBtn.className = "btn btn-danger";
+  deleteBtn.className = "btn danger";
   deleteBtn.textContent = "Delete Selected" + (count ? " (" + count + ")" : "");
   deleteBtn.disabled = count === 0;
   deleteBtn.addEventListener("click", deleteSelectedItems);
@@ -1462,14 +1462,25 @@ const renderBulkFooter = () => {
 // =============================================================================
 
 /**
+ * Counts Items for a confirm button label: "1 Item", "3 Items".
+ * @param {number} count
+ * @returns {string}
+ */
+const bulkItemCountLabel = (count) => count + (count === 1 ? " Item" : " Items");
+
+/**
  * Show an inline confirmation modal and return a Promise<boolean>.
- * Resolves true on Confirm, false on Cancel or close.
+ * Resolves true on Confirm, false on Cancel or close. A danger confirm opens with focus on Cancel,
+ * any other on Confirm.
  * @param {string} message
+ * @param {{title?: string, confirmLabel?: string, danger?: boolean}} [options]
  * @returns {Promise<boolean>}
  */
-const showBulkConfirm = (message) => {
+const showBulkConfirm = (message, options) => {
+  const opts = options || {};
   return new Promise(function (resolve) {
     var modal = document.getElementById("bulkConfirmModal");
+    var titleEl = document.getElementById("bulkConfirmModalTitle");
     var msgEl = document.getElementById("bulkConfirmMessage");
     var okBtn = document.getElementById("bulkConfirmOkBtn");
     var canBtn = document.getElementById("bulkConfirmCancelBtn");
@@ -1478,7 +1489,10 @@ const showBulkConfirm = (message) => {
       return;
     }
 
+    if (titleEl) titleEl.textContent = opts.title || "Confirm";
     if (msgEl) msgEl.textContent = message;
+    okBtn.textContent = opts.confirmLabel || "Confirm";
+    okBtn.className = opts.danger ? "btn danger" : "btn premium";
 
     function cleanup(result) {
       closeModalById("bulkConfirmModal");
@@ -1496,6 +1510,7 @@ const showBulkConfirm = (message) => {
     okBtn.addEventListener("click", onOk);
     canBtn.addEventListener("click", onCancel);
     openModalById("bulkConfirmModal", onCancel);
+    (opts.danger ? canBtn : okBtn).focus();
   });
 };
 
@@ -1864,7 +1879,8 @@ const applyBulkEdit = async () => {
   const fieldNames = getBulkEnabledFieldNames();
   if (
     !(await showBulkConfirm(
-      "Apply " + enabledCount + " field(s) (" + fieldNames + ") to " + count + " item(s)?"
+      "Apply " + enabledCount + " field(s) (" + fieldNames + ") to " + count + " item(s)?",
+      { title: "Apply changes", confirmLabel: "Apply to " + bulkItemCountLabel(count) }
     ))
   ) {
     return;
@@ -1892,7 +1908,8 @@ const copySelectedItems = async () => {
 
   if (
     !(await showBulkConfirm(
-      "Copy " + count + " item(s)? New copies will be added to your inventory."
+      "Copy " + count + " item(s)? The copies go into your inventory as new Items.",
+      { title: "Copy Items", confirmLabel: "Copy " + bulkItemCountLabel(count) }
     ))
   ) {
     return;
@@ -1946,7 +1963,10 @@ const deleteSelectedItems = async () => {
 
   if (
     !(await showBulkConfirm(
-      "Delete " + count + " item(s)? You can undo deletions from the Change Log."
+      "Delete " +
+        count +
+        " item(s) from your inventory? You can undo each deletion from the Change Log.",
+      { title: "Delete Items", confirmLabel: "Delete " + bulkItemCountLabel(count), danger: true }
     ))
   ) {
     return;

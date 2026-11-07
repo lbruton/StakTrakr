@@ -117,7 +117,11 @@ async function restoreListedBackup(page, name) {
   await restoreBtn.click();
   await page.locator(`.cloud-backup-entry[data-filename="${name}"]`).click();
   await expect(page.locator("#appDialogModal")).toBeVisible();
-  await page.locator("#appDialogOk").click();
+  const okBtn = page.locator("#appDialogOk");
+  await expect(okBtn).toHaveText("Overwrite local data");
+  await expect(okBtn).toHaveClass(/(^|\s)danger(\s|$)/);
+  await expect(page.locator("#appDialogCancel")).toBeFocused();
+  await okBtn.click();
 }
 
 /**

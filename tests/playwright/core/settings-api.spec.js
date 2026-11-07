@@ -368,6 +368,60 @@ test.describe("core/settings-api", () => {
     await expect(storagePanel.locator("#boatingAccidentBtn")).toHaveCount(0);
   });
 
+  test("Remove Inventory and Wipe All Data confirm by name in the danger style, and Enter on open keeps the data", async ({
+    page,
+  }) => {
+    await injectSeedInventory(page);
+    await page.goto("/index.html", { waitUntil: "domcontentloaded" });
+    await openSettingsSection(page, "system");
+    const itemCount = await page.evaluate(() => window.inventory.length);
+    expect(itemCount).toBeGreaterThan(0);
+
+    const dialog = page.locator("#appDialogModal");
+    const okBtn = dialog.locator("#appDialogOk");
+    const cases = [
+      { id: "removeInventoryDataBtn", label: "Delete all Items" },
+      { id: "boatingAccidentBtn", label: "Delete all data" },
+    ];
+    for (const { id, label } of cases) {
+      await test.step(id, async () => {
+        const trigger = page.locator(`#settingsPanel_system #${id}`);
+        await expect(trigger).toHaveClass(/(^|\s)danger(\s|$)/);
+        await trigger.click();
+        await expect(dialog).toBeVisible();
+        await expect(okBtn).toHaveText(label);
+        await expect(okBtn).toHaveClass(/(^|\s)danger(\s|$)/);
+        await expect(okBtn).not.toHaveClass(/premium/);
+        await expect(dialog.locator("#appDialogCancel")).toBeFocused();
+        await expect(dialog.locator("#appDialogMessage")).toContainText("You cannot undo this.");
+        await expect(dialog.locator("#appDialogMessage")).not.toContainText(
+          /boating|are you sure/i
+        );
+
+        await page.keyboard.press("Enter");
+        await expect(dialog).toBeHidden();
+        expect(await page.evaluate(() => window.inventory.length)).toBe(itemCount);
+        expect(await page.evaluate(() => localStorage.getItem("metalInventory"))).not.toBeNull();
+      });
+    }
+
+    await test.step("an options object as the second argument sets the labels", async () => {
+      const result = page.evaluate(() =>
+        window.showAppConfirm("Export the attachments?", {
+          confirmLabel: "Export anyway",
+          cancelLabel: "Skip attachments",
+        })
+      );
+      await expect(dialog).toBeVisible();
+      await expect(dialog.locator("#appDialogTitle")).toHaveText("Confirm");
+      await expect(okBtn).toHaveText("Export anyway");
+      await expect(okBtn).toHaveClass(/premium/);
+      await expect(dialog.locator("#appDialogCancel")).toHaveText("Skip attachments");
+      await dialog.locator("#appDialogCancel").click();
+      expect(await result).toBe(false);
+    });
+  });
+
   test("System export actions keep print, PDF, and ZIP restore wiring in the right cards", async ({
     page,
   }) => {
