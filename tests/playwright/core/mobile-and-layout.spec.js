@@ -2,6 +2,7 @@ import { test, expect } from "../helpers/mocks/extended-test.js";
 import { injectSeedInventory } from "../helpers/seed.js";
 import { installStakTrakrNetworkMocks } from "../helpers/mocks/routes.js";
 import { readPhoneFloors } from "../helpers/phone-floors.js";
+import { showSampleDiffReview } from "../helpers/diff-review.js";
 
 const BASE_ITEM = {
   uuid: "core-mobile-layout-item",
@@ -1502,6 +1503,30 @@ test.describe("Phone floors in Collections, Item modals and Settings", () => {
       "Metal details modal",
       "#detailsModal .modal-content",
       (page) => page.evaluate(() => window.showDetailsModal("Silver")),
+    ],
+    [
+      "Diff review modal with Item and setting changes",
+      "#diffReviewModal .modal-content",
+      async (page) => {
+        await showSampleDiffReview(page, {
+          backupCount: 3,
+          localCount: 2,
+          settingsDiff: {
+            changed: [
+              { key: "displayCurrency", localVal: "USD", remoteVal: "EUR" },
+              {
+                key: "layoutSectionConfig",
+                localVal: [{ id: "a", label: "Alpha", enabled: true }],
+                remoteVal: [{ id: "a", label: "Alpha", enabled: false }],
+              },
+            ],
+            matched: [{ key: "appTheme", value: "dark" }],
+          },
+        });
+        // The settings section opens collapsed; expanded, its chips and pills are measured too.
+        await page.locator('#diffReviewModal [data-cat-toggle="settings"]').click();
+        await expect(page.locator("#diffReviewModal .dm-setting-side-label").first()).toBeVisible();
+      },
     ],
     ...[
       "site",

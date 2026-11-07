@@ -2404,7 +2404,7 @@
 
     // Pill buttons
     var btnStyle =
-      "display:inline-flex;align-items:center;gap:0.3rem;border-radius:999px;font-size:0.73rem;font-weight:500;cursor:pointer;transition:all 0.15s;";
+      "display:inline-flex;align-items:center;gap:0.3rem;border-radius:999px;font-size:var(--font-size-sm);font-weight:500;cursor:pointer;transition:all 0.15s;";
 
     if (selectAllBtn) {
       if (hasBackupCount) {

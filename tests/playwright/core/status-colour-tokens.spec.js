@@ -8,6 +8,7 @@
 
 import { test, expect } from "../helpers/mocks/extended-test.js";
 import { suppressWhatsNewPopup } from "../helpers/seed.js";
+import { showSampleDiffReview } from "../helpers/diff-review.js";
 import {
   THEMES,
   AA_NORMAL_TEXT,
@@ -952,29 +953,7 @@ test.describe("theme token gaps", () => {
 
   test("diff review text meets AA in all four themes", async ({ page }) => {
     test.setTimeout(test.info().timeout * 2);
-    await page.evaluate(() => {
-      const base = {
-        metal: "Silver",
-        type: "Coin",
-        weight: 1,
-        price: 30,
-        purchaseDate: "2026-01-02",
-      };
-      const local = [
-        { ...base, uuid: "dm-kept", name: "Kept Eagle", qty: 1 },
-        { ...base, uuid: "dm-changed", name: "Old Maple", qty: 2 },
-      ];
-      const remote = [
-        { ...base, uuid: "dm-changed", name: "New Maple", qty: 5, price: 32 },
-        { ...base, uuid: "dm-added", name: "Added Britannia", qty: 3 },
-      ];
-      window.DiffModal.show({
-        source: { type: "sync", label: "Dropbox" },
-        diff: window.DiffEngine.compareItems(local, remote),
-        onApply: () => {},
-        onCancel: () => {},
-      });
-    });
+    await showSampleDiffReview(page);
     await expect(page.locator("#diffReviewModal")).toBeVisible();
     await expect(page.locator("#diffReviewModal .dm-qty-verb")).toHaveText([
       "Keep",

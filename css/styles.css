@@ -22379,7 +22379,7 @@ button.vp-price:hover {
 #diffReviewModal .dm-item-thumb-pair .dm-item-thumb {
   width: 40px;
   height: 40px;
-  font-size: 0.6rem;
+  font-size: var(--font-size-sm);
   color: var(--text-muted);
   text-align: center;
   line-height: 1.2;
@@ -22397,7 +22397,7 @@ button.vp-price:hover {
   text-overflow: ellipsis;
 }
 #diffReviewModal .dm-item-meta {
-  font-size: 0.72rem;
+  font-size: var(--font-size-sm);
   color: var(--text-muted);
   display: flex;
   gap: 0.5rem;
@@ -22416,7 +22416,7 @@ button.vp-price:hover {
   border-bottom: none;
 }
 #diffReviewModal .dm-field-label {
-  font-size: 0.72rem;
+  font-size: var(--font-size-sm);
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -22474,7 +22474,7 @@ button.vp-price:hover {
   text-align: left;
 }
 #diffReviewModal .dm-qty-opt .dm-qty-verb {
-  font-size: 0.72rem;
+  font-size: var(--font-size-sm);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.03em;
@@ -22494,7 +22494,7 @@ button.vp-price:hover {
   gap: 0.35rem;
   margin: 0.25rem 0;
   padding: 0.2rem 0.5rem;
-  font-size: 0.74rem;
+  font-size: var(--font-size-sm);
   font-weight: 600;
   border-radius: 6px;
   color: var(--warning-text);
@@ -22543,7 +22543,7 @@ button.vp-price:hover {
 }
 #diffReviewModal .dm-collapse-toggle {
   cursor: pointer;
-  font-size: 0.7rem;
+  font-size: var(--font-size-sm);
   color: var(--text-muted);
   transition: transform 0.2s;
   user-select: none;
@@ -22570,7 +22570,7 @@ button.vp-price:hover {
   gap: 0.25rem;
   padding: 0.2rem 0.5rem;
   border-radius: 999px;
-  font-size: 0.7rem;
+  font-size: var(--font-size-sm);
   background: var(--bg-tertiary);
   color: var(--text-secondary);
 }
@@ -22687,7 +22687,7 @@ button.vp-price:hover {
   min-width: 0;
 }
 #diffReviewModal .dm-setting-side-label {
-  font-size: 0.7rem;
+  font-size: var(--font-size-sm);
   font-weight: 600;
   margin-bottom: 0.25rem;
 }
@@ -22702,7 +22702,7 @@ button.vp-price:hover {
   gap: 0.2rem;
   padding: 0.15rem 0.45rem;
   border-radius: 999px;
-  font-size: 0.68rem;
+  font-size: var(--font-size-sm);
   background: var(--bg-tertiary);
   color: var(--text-muted);
 }
@@ -22713,7 +22713,7 @@ button.vp-price:hover {
   gap: 0.2rem;
   padding: 0.15rem 0.45rem;
   border-radius: 999px;
-  font-size: 0.68rem;
+  font-size: var(--font-size-sm);
   cursor: pointer;
   transition: all 0.15s;
   border: 1px solid transparent;
@@ -22746,7 +22746,7 @@ button.vp-price:hover {
   gap: 0.2rem;
   padding: 0.15rem 0.45rem;
   border-radius: 999px;
-  font-size: 0.68rem;
+  font-size: var(--font-size-sm);
   cursor: pointer;
   transition: all 0.15s;
   border: 1px solid transparent;
@@ -22770,7 +22770,7 @@ button.vp-price:hover {
 }
 #diffReviewModal .dm-show-more {
   display: inline-block;
-  font-size: 0.68rem;
+  font-size: var(--font-size-sm);
   color: var(--primary-text);
   cursor: pointer;
   padding: 0.15rem 0.3rem;
@@ -22858,7 +22858,7 @@ button.vp-price:hover {
   gap: 0.1rem;
 }
 #diffReviewModal .dm-meta-label {
-  font-size: 0.65rem;
+  font-size: var(--font-size-sm);
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -22892,7 +22892,7 @@ button.vp-price:hover {
   color: var(--warning-text);
 }
 #diffReviewModal .dm-summary-label {
-  font-size: 0.7rem;
+  font-size: var(--font-size-sm);
   color: var(--text-secondary);
 }
 #diffReviewModal .dm-section-spaced {
@@ -22908,7 +22908,7 @@ button.vp-price:hover {
   color: var(--warning-text);
 }
 #diffReviewModal .dm-item-thumb-label {
-  font-size: 0.55rem;
+  font-size: var(--font-size-sm);
   color: var(--text-secondary);
 }
 #diffReviewModal .dm-item-thumb-img {
@@ -22918,7 +22918,7 @@ button.vp-price:hover {
   border-radius: var(--radius);
 }
 #diffReviewModal .dm-chip.dm-chip-id {
-  font-size: 0.65rem;
+  font-size: var(--font-size-sm);
 }
 #diffReviewModal .dm-show-more.dm-show-more--block {
   text-align: center;
@@ -22938,7 +22938,7 @@ button.vp-price:hover {
   padding-top: 0.6rem;
 }
 #diffReviewModal .dm-settings-eyebrow {
-  font-size: 0.7rem;
+  font-size: var(--font-size-sm);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--text-muted);
@@ -22957,7 +22957,7 @@ button.vp-price:hover {
   font-size: 0.78rem;
 }
 #diffReviewModal .dm-hint {
-  font-size: 0.7rem;
+  font-size: var(--font-size-sm);
   color: var(--text-muted);
 }
 #diffReviewModal .dm-card.dm-settings-card {
@@ -22984,7 +22984,7 @@ button.vp-price:hover {
   gap: 0.3rem;
 }
 #diffReviewModal .dm-btn.dm-btn-xs {
-  font-size: 0.68rem;
+  font-size: var(--font-size-sm);
   padding: 0.15rem var(--spacing-sm);
 }
 /* Follows .dm-field-diff so its padding wins on the fallback setting row. */
@@ -22998,7 +22998,7 @@ button.vp-price:hover {
   margin-bottom: 0.3rem;
 }
 #diffReviewModal .dm-matched-toggle {
-  font-size: 0.73rem;
+  font-size: var(--font-size-sm);
   cursor: pointer;
   color: var(--primary-text);
   margin-top: var(--spacing-sm);
@@ -23210,12 +23210,24 @@ button.vp-price:hover {
   .modal .market-filter-pill {
     min-width: 44px;
   }
+  #diffReviewModal .dm-btn {
+    min-height: 44px;
+  }
+  /* The section actions move under the title rather than squeeze its count chip. */
+  #diffReviewModal .dm-section-header {
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+  }
+  #diffReviewModal .dm-section-title .dm-chip {
+    white-space: nowrap;
+  }
 
   /* Text links and round icon buttons keep their size; a square ::after holds the hit area. The
      album note toggle is absolutely positioned already. */
   :is(.modal, .collections-section)
     :is(
       .btn,
+      .dm-btn,
       .about-card-link,
       .about-disclaimer a,
       .storage-toggle-tiny,
@@ -23232,6 +23244,7 @@ button.vp-price:hover {
   :is(.modal, .collections-section)
     :is(
       .btn,
+      .dm-btn,
       .about-card-link,
       .about-disclaimer a,
       .storage-toggle-tiny,

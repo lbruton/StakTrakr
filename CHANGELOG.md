@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.117] - 2026-11-07
+
+### Fixed — STRK-556: Diff review modal text below 12px
+
+- **Text floor**: Every Review Changes window size under 0.75rem is `var(--font-size-sm)`, so its chips, labels, hints, thumbnail labels and small buttons render at 12px or more. The Select All toggle drops its inline 0.73rem size (STRK-556).
+- **Hit areas**: Below 768px the window's pill buttons stand 44px tall and a square `::after` holds a 44px hit area, so rounded corners do not shrink it (STRK-556).
+- **Section headers**: Below 768px the section actions move under the title, and the count chip stays on one line (STRK-556).
+- **Tests**: The phone floors test reads the Review Changes window with Item and setting changes at 390x844, settings expanded. A shared `showSampleDiffReview` helper opens it for this test and the diff AA test (STRK-556).
+
+---
+
 ## [3.36.116] - 2026-11-07
 
 ### Fixed — STRK-535: Phone floors in Collections, the Item modals and Settings
