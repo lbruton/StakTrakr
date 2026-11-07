@@ -1,6 +1,7 @@
 import { test, expect } from "../helpers/mocks/extended-test.js";
 import { injectSeedInventory } from "../helpers/seed.js";
 import { installStakTrakrNetworkMocks } from "../helpers/mocks/routes.js";
+import { readPhoneFloors } from "../helpers/phone-floors.js";
 
 const BASE_ITEM = {
   uuid: "core-mobile-layout-item",
@@ -1449,5 +1450,48 @@ test.describe("Dashboard at phone width", () => {
       )
     );
     expect(blocking).toEqual([]);
+  });
+});
+
+test.describe("Phone floors in Collections, Item modals and Settings", () => {
+  const surfaces = [
+    [
+      "Collections hub",
+      "#collectionsSectionEl",
+      (page) => page.evaluate(() => window.activateTab("collections")),
+    ],
+    ["Edit Item modal", "#itemModal .modal-content", (page) => openEditModal(page)],
+    ["Item view modal", "#viewItemModal .modal-content", (page) => openViewModal(page)],
+    ...["site", "system", "cloud"].map((tab) => [
+      `Settings ${tab} panel`,
+      "#settingsModal .modal-content",
+      (page) => page.evaluate((t) => window.showSettingsModal(t), tab),
+    ]),
+  ];
+
+  test("text is 12px, inputs 16px and every control has its own 44px hit area at 390px", async ({
+    page,
+  }) => {
+    test.setTimeout(test.info().timeout * surfaces.length);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await seedInventory(page, BULK_ITEMS);
+    for (const [label, root, open] of surfaces) {
+      await test.step(label, async () => {
+        await page.goto("about:blank");
+        await gotoApp(page);
+        await open(page);
+        await expect(page.locator(root)).toBeVisible();
+        const floors = await readPhoneFloors(page, root);
+        expect(floors.tested).toBeGreaterThan(0);
+        expect
+          .soft({
+            smallText: floors.smallText,
+            smallInputs: floors.smallInputs,
+            smallTargets: floors.smallTargets,
+          })
+          .toEqual({ smallText: [], smallInputs: [], smallTargets: [] });
+      });
+    }
   });
 });

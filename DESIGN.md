@@ -306,10 +306,12 @@ The main breakpoints are 768px (tablet and phone landscape), 640px and 480px (ph
 desktop). The code holds other one-off values; new work uses 480px, 768px, 1024px and 1350px. Below
 768px, cards stack in one column and controls keep a 44px touch target.
 
-A control whose visible box is smaller than 44px gets a centred `::after` hit area of at least 44px,
-and neighbouring controls sit far enough apart that the hit areas do not overlap. Values never end in an
-ellipsis: a price, total or label wraps or moves to its own line. Below 768px, Dashboard and bottom-nav
-text is at least 12px, set with `max()` so a larger user font size still applies. Spot card timestamps
+A control whose visible box is smaller than 44px gets a centred, square `::after` hit area of at least
+44px, and neighbouring controls sit far enough apart that the hit areas do not overlap. A rounded or
+clipping parent cuts a hit area, so the control and its parent keep `overflow: visible` at phone width.
+Values never end in an ellipsis: a price, total or label wraps or moves to its own line. Below 768px,
+text is at least 12px (`--font-size-xs` is `max(12px, 0.6875rem)`), so a larger user font size still
+applies. Fields in modals and Collections use 16px text and stand 44px tall below 768px. Spot card timestamps
 keep the same 12px floor at every width; a card narrower than 20rem shows the short "Last Synced" label.
 
 ### Named Rules

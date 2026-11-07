@@ -932,15 +932,10 @@ label {
   }
 }
 
-/* Responsive scaling */
+/* Phone floor: text stays at 12px or more below 768px, and max() keeps a larger user font size. */
 @media (max-width: 768px) {
-}
-
-@media (max-width: 480px) {
-  html {
-    font-size: var(
-      --font-size-md
-    ); /* Down from 16px default — 12.5% global reduction for 360-412px phones */
+  :root {
+    --font-size-xs: max(12px, 0.6875rem);
   }
 }
 
@@ -21178,6 +21173,10 @@ button.vp-price:hover {
   .collections-builder-covers {
     gap: 0.5rem;
   }
+  /* The caption wraps inside the frame's width, so the 12px text does not widen the pair. */
+  .collections-builder-title-option {
+    width: min-content;
+  }
 }
 
 /* STRK-427 / STRK-434: every frame sizes itself from ITS OWN shape and orientation (set on the
@@ -23011,5 +23010,137 @@ button.vp-price:hover {
   #diffReviewModal .dm-field-diff {
     grid-template-columns: 1fr;
     gap: 0.25rem;
+  }
+}
+
+/* =============================================================================
+   MODALS AND COLLECTIONS AT PHONE WIDTH
+   Fields read at 16px and every control has its own 44px hit area. A control's
+   square ::after holds the hit area, so rounded corners do not shrink it. Kept
+   last so it outranks the base control rules of equal specificity.
+   ============================================================================= */
+@media (max-width: 768px) {
+  :is(.modal, .collections-section) :is(input, select, textarea) {
+    font-size: max(16px, 1rem);
+  }
+  :is(.modal, .collections-section)
+    :is(
+      select,
+      input:not([type="checkbox"], [type="radio"], [type="file"], [type="range"], [type="color"])
+    ) {
+    min-height: 44px;
+  }
+
+  :is(.modal, .collections-section)
+    :is(
+      .btn,
+      .view-footer-btn,
+      .view-ebay-btn,
+      .tag-add-btn,
+      .resource-btn,
+      summary.form-section-header
+    ),
+  #inventoryForm :is(.item-modal-actions-left, .item-modal-actions-right) .btn,
+  #inventoryForm #itemModalSubmit.premium,
+  :is(.collections-builder-footer, .collections-builder-actions) .btn {
+    min-height: 44px;
+  }
+
+  /* The segmented toggle clips its children at its rounded corners, which cuts the hit areas. */
+  :is(.modal, .collections-section) .chip-sort-toggle {
+    overflow: visible;
+  }
+  /* Segment borders sit between the buttons, so each segment is wider than its 44px hit area. */
+  .modal .chip-sort-toggle .chip-sort-btn {
+    min-width: 46px;
+  }
+  /* A round icon button clips its own hit area, so it shows no sheen and does not clip. */
+  :is(.modal, .collections-section) .btn.btn-icon {
+    overflow: visible;
+  }
+  :is(.modal, .collections-section) .btn.btn-icon::before {
+    content: none;
+  }
+
+  /* The close buttons are absolutely positioned already, which also anchors their ::after. */
+  .card-sort-dir-btn,
+  .inline-chip-move,
+  .inline-search-btn,
+  :is(.modal, .collections-section)
+    :is(.chip-sort-btn, .view-chart-range-pill, .view-footer-btn, .tag-add-btn, .btn-icon) {
+    position: relative;
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .modal-close,
+  .view-modal-close,
+  .card-sort-dir-btn {
+    width: 44px;
+    height: 44px;
+  }
+  /* The title row is as tall as the close button, so the badges row and its eBay button start below it. */
+  #viewItemModal .view-header-title-row {
+    min-height: 44px;
+    padding-right: 48px;
+  }
+  .modal-close::after,
+  .view-modal-close::after,
+  .card-sort-dir-btn::after,
+  .inline-chip-move::after,
+  .inline-search-btn::after,
+  :is(.modal, .collections-section)
+    :is(.chip-sort-btn, .view-chart-range-pill, .view-footer-btn, .tag-add-btn, .btn-icon)::after,
+  .settings-toggle-switch::after,
+  .chip-check-hit::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: max(100%, 44px);
+    height: max(100%, 44px);
+    transform: translate(-50%, -50%);
+  }
+
+  /* Checkbox hit areas: the wrapping label takes the taps around the box. The label's margin
+     keeps it off the collapsed table edge, which does not hit-test. */
+  .settings-toggle-switch,
+  .chip-check-hit {
+    position: relative;
+    display: inline-grid;
+    place-items: center;
+  }
+  .chip-check-hit {
+    min-width: 44px;
+    min-height: 44px;
+    margin: 2px;
+  }
+  .chip-grouping-table .chip-grouping-col-check {
+    width: 44px;
+    padding: 0;
+  }
+  .chip-grouping-table .chip-grouping-col-move {
+    width: auto;
+  }
+  .settings-checkbox-label {
+    min-height: 44px;
+  }
+  .settings-checkbox-label > input[type="checkbox"] {
+    margin-inline: 15px 8px;
+  }
+  .cloud-status-row {
+    min-height: 44px;
+  }
+
+  /* A link inside running text keeps one 44px line box. */
+  .settings-subtext a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+
+  /* The link icon straddles the frame's corner, so its hit area stays clear of the upload target. */
+  .ife-link {
+    right: -10px;
+    bottom: -10px;
   }
 }
