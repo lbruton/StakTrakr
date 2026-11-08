@@ -16,6 +16,7 @@ import {
   measureText,
   contrastFailures,
 } from "../helpers/contrast.js";
+import { collectionItem, seedCollectionsPage } from "../helpers/collections-fixtures.js";
 
 async function gotoApp(page) {
   await suppressWhatsNewPopup(page);
@@ -890,6 +891,18 @@ async function stopTransitions(page) {
   await page.addStyleTag({ content: "*, *::before, *::after { transition: none !important; }" });
 }
 
+/** Waits for open and fade-in animations, which start near opacity 0, to reach their end state. */
+function settleAnimations(page) {
+  return page.evaluate(() =>
+    Promise.all(
+      document
+        .getAnimations()
+        .filter((a) => a.effect?.getComputedTiming().iterations !== Infinity)
+        .map((a) => a.finished)
+    )
+  );
+}
+
 const FRAME_SURFACES = ["bg-primary", "bg-secondary", "bg-tertiary", "bg-card", "bg-on-frame"];
 
 test.describe("theme token gaps", () => {
@@ -972,15 +985,7 @@ test.describe("theme token gaps", () => {
       });
     const allText = { "diff review text": "#diffReviewModal [data-dm-text]" };
     const expectAA = async (state, selectors) => {
-      // Open and fade-in animations start near opacity 0; measure their end state.
-      await page.evaluate(() =>
-        Promise.all(
-          document
-            .getAnimations()
-            .filter((a) => a.effect?.getComputedTiming().iterations !== Infinity)
-            .map((a) => a.finished)
-        )
-      );
+      await settleAnimations(page);
       await markText();
       for (const theme of THEMES) {
         await applyTheme(page, theme);
@@ -1004,6 +1009,50 @@ test.describe("theme token gaps", () => {
     await expect(page.locator("#diffReviewModal .dm-orphan-card.skipped")).toHaveCount(1);
     await expect(page.locator("#diffReviewModal .dm-conflict-card.resolved")).toHaveCount(1);
     await expectAA("after Skip and Confirm", allText);
+  });
+});
+
+// STRK-558: the image section sits on a light surface in light and sepia, so its labels and the
+// grade chip must take theme tokens rather than fixed white and black fills.
+test.describe("Item view image section from theme tokens", () => {
+  test("OBVERSE and REVERSE labels and the PCGS grade chip meet AA in all four themes", async ({
+    page,
+  }) => {
+    test.setTimeout(test.info().timeout * 2);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.route("https://images.example/**", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "image/svg+xml",
+        body: '<svg xmlns="http://www.w3.org/2000/svg" width="80" height="40"><rect width="80" height="40" fill="#999"/></svg>',
+      })
+    );
+    const item = {
+      ...collectionItem("strk558-pcgs", "PCGS Round", "2024", 1),
+      gradingAuthority: "PCGS",
+      grade: "MS 70",
+      pcgsNumber: "1234",
+      certNumber: "5678",
+      obverseImageUrl: "https://images.example/frame.svg",
+      reverseImageUrl: "https://images.example/frame.svg",
+      ignorePatternImages: true,
+    };
+    await seedCollectionsPage(page, [item]);
+    await page.waitForFunction(
+      () => typeof window.showViewModal === "function" && window.inventory?.length > 0
+    );
+    await stopTransitions(page);
+    await page.evaluate(() => window.showViewModal(0));
+    await expect(page.locator("#viewItemModal .view-cert-badge")).toBeVisible();
+    await settleAnimations(page);
+    const selectors = {
+      "OBVERSE and REVERSE labels": "#viewItemModal .view-image-label",
+      "PCGS grade chip": "#viewItemModal .view-cert-badge span",
+    };
+    for (const theme of THEMES) {
+      await applyTheme(page, theme);
+      expect(await contrastFailures(page, selectors), `${theme} image section`).toEqual([]);
+    }
   });
 });
 
