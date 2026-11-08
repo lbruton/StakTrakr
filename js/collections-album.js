@@ -233,7 +233,7 @@
     };
 
     /**
-     * Album toolbar: slot filter, sort, view toggle, collection actions.
+     * Album toolbar: slot filter, sort, view toggle.
      * @param {Object} entry - Entry view model
      * @param {{owned: number, missing: number}} counts - Slot counts for the filter labels
      * @returns {HTMLElement} The toolbar
@@ -256,25 +256,45 @@
         )
       );
       const right = el("div", "collections-toolbar-right");
-      right.appendChild(el("span", "collections-toolbar-label", "Sort"));
+      const field = (modifier, label, control) => {
+        const wrap = el("span", `collections-toolbar-field ${modifier}`);
+        wrap.appendChild(el("span", "collections-toolbar-label", label));
+        wrap.appendChild(control);
+        return wrap;
+      };
       right.appendChild(
-        buildSegmented(
-          "Sort slots",
-          state.albumSort,
-          [
-            [SORT_OLDEST, entry.isCustom ? "Collection order" : "Oldest"],
-            [SORT_NEWEST, entry.isCustom ? "Reverse" : "Newest"],
-          ],
-          (value) => {
-            state.albumSort = value;
-            render();
-          }
+        field(
+          "is-sort",
+          "Sort",
+          buildSegmented(
+            "Sort slots",
+            state.albumSort,
+            [
+              [SORT_OLDEST, entry.isCustom ? "Collection order" : "Oldest"],
+              [SORT_NEWEST, entry.isCustom ? "Reverse" : "Newest"],
+            ],
+            (value) => {
+              state.albumSort = value;
+              render();
+            }
+          )
         )
       );
-      right.appendChild(el("span", "collections-toolbar-label", "View"));
-      right.appendChild(buildViewToggle());
+      right.appendChild(field("is-view", "View", buildViewToggle()));
+      toolbar.appendChild(right);
+      return toolbar;
+    };
+
+    /**
+     * Collection actions row below the Album body: Edit and Remove for a custom Collection,
+     * Clone & customize for a built-in one.
+     * @param {Object} entry - Entry view model
+     * @returns {HTMLElement} The actions row
+     */
+    const buildAlbumActions = (entry) => {
+      const row = el("div", "collections-album-actions");
       if (entry.isCustom) {
-        right.appendChild(
+        row.appendChild(
           buildPillButton({
             label: "Edit collection",
             icon: "edit",
@@ -283,7 +303,7 @@
             onClick: () => callPicker("openBuilder", { editId: entry.id }),
           })
         );
-        right.appendChild(
+        row.appendChild(
           buildPillButton({
             label: "Remove collection",
             icon: "trash",
@@ -293,7 +313,7 @@
           })
         );
       } else {
-        right.appendChild(
+        row.appendChild(
           buildPillButton({
             label: "Clone & customize",
             icon: "copy",
@@ -303,8 +323,7 @@
           })
         );
       }
-      toolbar.appendChild(right);
-      return toolbar;
+      return row;
     };
 
     /**
@@ -900,6 +919,7 @@
       album.appendChild(buildAlbumStats(entry));
       album.appendChild(buildAlbumToolbar(entry, described));
       album.appendChild(buildAlbumBody(entry, described.slots));
+      album.appendChild(buildAlbumActions(entry));
       return album;
     };
 

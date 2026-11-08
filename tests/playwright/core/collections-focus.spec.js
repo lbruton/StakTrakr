@@ -139,4 +139,30 @@ test.describe("core/collections — keyboard focus", () => {
     await backByKeyboard(page);
     await expectCardRestored(page);
   });
+
+  test("an Album re-render from a filter or sort change keeps focus on the control used", async ({
+    page,
+  }) => {
+    await openHub(page);
+    await openAlbumByKeyboard(page);
+    const controls = [
+      '[data-focus-key="Filter slots:owned"]',
+      '[data-focus-key="Sort slots:newest"]',
+    ];
+    for (const selector of controls) {
+      const control = page.locator(selector);
+      await focusByKeyboard(page, control);
+      await page.keyboard.press("Enter");
+      await expect(control).toHaveAttribute("aria-pressed", "true");
+      await expect(control).toBeFocused();
+    }
+  });
+
+  test("the Album actions row keeps the Clone & customize focus key", async ({ page }) => {
+    await openHub(page);
+    await openAlbumByKeyboard(page);
+    const clone = page.locator('.collections-album-actions [data-focus-key="album:clone"]');
+    await expect(clone).toBeVisible();
+    await expectRingOnFocus(page, clone, "Clone & customize");
+  });
 });

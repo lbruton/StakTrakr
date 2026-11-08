@@ -1,0 +1,252 @@
+<!doctype html>
+<!--
+  STRK-577 mockup: Album toolbar and actions row.
+  Each frame is an iframe at the real viewport width, so the app media queries run for real.
+  The app stylesheet supplies tokens, themes and the current rules ("Before"). "After" adds the
+  proposal CSS below. The proposal uses a 640px breakpoint.
+  Frames: custom Album at 1440 and 390 (light and dark), built-in Album Clone & customize at 390.
+-->
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>STRK-577 Album Toolbar</title>
+    <link rel="stylesheet" href="../css/styles.css" />
+    <style>
+      body {
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        padding: 16px;
+        margin: 0;
+        font-family: var(--font-family, sans-serif);
+      }
+      h1 {
+        font-size: 1.25rem;
+        margin: 0 0 0.25rem;
+      }
+      p.lede {
+        color: var(--text-muted);
+        margin: 0 0 1rem;
+        max-width: 70ch;
+      }
+      .mock-bar {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        align-items: center;
+        margin-bottom: 1rem;
+      }
+      .mock-set {
+        margin-bottom: 2.5rem;
+      }
+      .mock-set h2 {
+        font-size: 1rem;
+        margin: 0 0 0.5rem;
+      }
+      .mock-pair {
+        display: flex;
+        gap: 1.5rem;
+        align-items: flex-start;
+        flex-wrap: wrap;
+      }
+      .mock-col h3 {
+        font-size: 0.8125rem;
+        margin: 0 0 0.4rem;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+      iframe {
+        display: block;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--bg-primary);
+      }
+      .mock-wide .mock-pair {
+        flex-direction: column;
+      }
+      .mock-wide .mock-col {
+        max-width: 100%;
+        overflow-x: auto;
+      }
+      .mock-scale {
+        transform-origin: top left;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>STRK-577 Album toolbar and actions</h1>
+    <p class="lede">
+      Before: Edit and Remove collection sit in the toolbar, which wraps into four ragged rows at
+      390px. After: the toolbar has two rows at 640px and narrower, and the actions move to a row
+      below the Slots.
+    </p>
+    <div class="mock-bar">
+      <button class="btn secondary" id="themeBtn" type="button">Theme: dark</button>
+      <button class="btn secondary" id="viewBtn" type="button">View: Album</button>
+      <button class="btn secondary" id="rootBtn" type="button">Root font: 16px</button>
+    </div>
+
+    <section class="mock-set mock-wide">
+      <h2>Custom Album, 1440 wide</h2>
+      <div class="mock-pair" id="set-1440"></div>
+    </section>
+    <section class="mock-set">
+      <h2>Custom Album, 390 wide</h2>
+      <div class="mock-pair" id="set-390"></div>
+    </section>
+    <section class="mock-set">
+      <h2>Built-in Album (Clone &amp; customize), 390 wide</h2>
+      <div class="mock-pair" id="set-390-builtin"></div>
+    </section>
+
+    <script>
+      const PROPOSAL_CSS = `
+        /* Field = label kept with its control. */
+        .collections-toolbar-field { display: inline-flex; align-items: center; gap: var(--spacing-sm); }
+        .collections-album-actions {
+          display: flex; justify-content: flex-end; flex-wrap: wrap;
+          gap: var(--spacing-md); margin-top: var(--spacing);
+        }
+        @media (max-width: 640px) {
+          .collections-toolbar { flex-direction: column; align-items: stretch; gap: var(--spacing-md); }
+          .collections-toolbar > .chip-sort-toggle { display: flex; width: 100%; }
+          .collections-toolbar > .chip-sort-toggle .chip-sort-btn { flex: 1 1 0; }
+          .collections-toolbar-right {
+            display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center;
+            gap: var(--spacing-md); margin-left: 0;
+          }
+          .collections-toolbar-field > .collections-toolbar-label {
+            position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+          }
+          .collections-toolbar-field.is-sort, .collections-toolbar-field.is-sort .chip-sort-toggle { display: flex; width: 100%; }
+          .collections-toolbar-field.is-sort .chip-sort-btn { flex: 1 1 0; }
+          .collections-album-actions { flex-wrap: nowrap; }
+          .collections-album-actions .btn { flex: 1 1 0; justify-content: center; min-height: 2.75rem; }
+        }
+      `;
+
+      const ICONS = {
+        edit: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
+        trash:
+          '<path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6"/>',
+        copy: '<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/>',
+        grid: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
+        list: '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
+      };
+      const icon = (n) =>
+        `<span class="collections-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false">${ICONS[n]}</svg></span>`;
+      const pill = (label, ic, cls) =>
+        `<button type="button" class="btn collections-btn-pill ${cls}">${icon(ic)}<span>${label}</span></button>`;
+      const seg = (label, opts, on) =>
+        `<div class="chip-sort-toggle" role="group" aria-label="${label}">${opts
+          .map(
+            (o, i) =>
+              `<button type="button" class="chip-sort-btn${i === on ? " active" : ""}" aria-pressed="${i === on}">${o}</button>`
+          )
+          .join("")}</div>`;
+      const viewToggle = (mode) =>
+        `<div class="chip-sort-toggle collections-modetoggle" role="group" aria-label="View mode">
+          <button type="button" class="chip-sort-btn collections-iconbtn${mode === "album" ? " active" : ""}" aria-label="Album view" aria-pressed="${mode === "album"}">${icon("grid")}</button>
+          <button type="button" class="chip-sort-btn collections-iconbtn${mode === "ledger" ? " active" : ""}" aria-label="Ledger view" aria-pressed="${mode === "ledger"}">${icon("list")}</button>
+        </div>`;
+
+      const SLOTS = ["1999", "2000", "2001", "2002", "2003", "2004"];
+      const tile = (y, i) =>
+        `<div class="collections-slot ${i < 2 ? "is-owned" : "is-missing"}" role="listitem">
+          <span class="collections-slot-identity is-album"><span class="collections-slot-identity-copy"><span class="collections-slot-identity-name"><span class="collections-slot-label">${y}</span></span></span></span>
+          <span class="collections-slot-meta">${i < 2 ? "Linked item" : "Not owned yet"}</span>
+        </div>`;
+      const ledgerRow = (y, i) =>
+        `<div class="collections-slot ${i < 2 ? "is-owned" : "is-missing"}" role="listitem" style="display:flex;justify-content:space-between;padding:0.5rem 0.75rem"><b>${y}</b><span class="collections-slot-meta">${i < 2 ? "Linked item" : "Not owned yet"}</span></div>`;
+
+      function albumHtml(opts) {
+        const { after, custom, mode } = opts;
+        const title = custom ? "State Quarters 1999-2008" : "Silver American Eagle";
+        const sub = custom ? "Custom · 50 slots" : "1986 to date · US Mint";
+        const labelled = (cls, label, control) =>
+          after
+            ? `<span class="collections-toolbar-field ${cls}"><span class="collections-toolbar-label">${label}</span>${control}</span>`
+            : `<span class="collections-toolbar-label">${label}</span>${control}`;
+        const actions = custom
+          ? pill("Edit collection", "edit", "secondary") +
+            pill("Remove collection", "trash", "danger")
+          : pill("Clone &amp; customize", "copy", "secondary");
+        const sortOpts = custom ? ["Collection order", "Reverse"] : ["Oldest", "Newest"];
+        const toolbar = `<div class="collections-toolbar">
+          ${seg("Filter slots", ["All", "Owned 2", "Missing 4"], 0)}
+          <div class="collections-toolbar-right">
+            ${labelled("is-sort", "Sort", seg("Sort slots", sortOpts, 0))}
+            ${labelled("is-view", "View", viewToggle(mode))}
+            ${after ? "" : actions}
+          </div>
+        </div>`;
+        const body =
+          mode === "ledger"
+            ? `<div class="collections-ledger" role="list" style="display:grid;gap:var(--spacing-sm)">${SLOTS.map(ledgerRow).join("")}</div>`
+            : `<div class="collections-slots" role="list">${SLOTS.map(tile).join("")}</div>`;
+        return `<section class="collections-section" style="margin:0">
+          <div class="collections-album">
+            <nav class="collections-crumb"><button type="button"><span>Collections</span></button><span>/</span><span aria-current="page">${title}</span></nav>
+            <div class="collections-album-head"><div class="collections-album-info"><h2>${title}</h2><p class="collections-sub">${sub}</p></div></div>
+            ${toolbar}
+            ${body}
+            ${after ? `<div class="collections-album-actions">${actions}</div>` : ""}
+          </div>
+        </section>
+        ${opts.width < 700 ? '<div style="position:fixed;left:0;right:0;bottom:0;height:3.5rem;background:var(--bg-secondary);border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-around;color:var(--text-muted);font-size:12px"><span>Inventory</span><span>Market</span><span>Collections</span><span>Settings</span><span>More</span></div>' : ""}`;
+      }
+
+      const state = { theme: "dark", mode: "album", root: 16 };
+      const FRAMES = [
+        ["set-1440", 1440, true],
+        ["set-390", 390, true],
+        ["set-390-builtin", 390, false],
+      ];
+
+      function frameDoc(width, custom, after) {
+        const base = location.href.replace(/[^/]*$/, "");
+        return `<!doctype html><html lang="en" data-theme="${state.theme}" style="font-size:${state.root}px"><head><meta charset="utf-8"><meta name="viewport" content="width=${width}"><base href="${base}"><link rel="stylesheet" href="../css/styles.css">
+          ${after ? `<style>${PROPOSAL_CSS}</style>` : ""}
+          <style>body{background:var(--bg-primary);color:var(--text-primary);margin:0;padding:${width < 700 ? "12px 12px 5rem" : "16px"}}</style>
+          </head><body>${albumHtml({ after, custom, mode: state.mode, width })}</body></html>`;
+      }
+
+      function render() {
+        document.documentElement.dataset.theme = state.theme;
+        FRAMES.forEach(([id, width, custom]) => {
+          const host = document.getElementById(id);
+          host.innerHTML = "";
+          [false, true].forEach((after) => {
+            const col = document.createElement("div");
+            col.className = "mock-col";
+            col.innerHTML = `<h3>${after ? "After" : "Before"}</h3>`;
+            const f = document.createElement("iframe");
+            f.width = width;
+            f.height = width > 700 ? 560 : 760;
+            f.srcdoc = frameDoc(width, custom, after);
+            col.appendChild(f);
+            host.appendChild(col);
+          });
+        });
+      }
+      themeBtn.onclick = () => {
+        const order = ["dark", "light", "slate", "sepia"];
+        state.theme = order[(order.indexOf(state.theme) + 1) % order.length];
+        themeBtn.textContent = "Theme: " + state.theme;
+        render();
+      };
+      viewBtn.onclick = () => {
+        state.mode = state.mode === "album" ? "ledger" : "album";
+        viewBtn.textContent = "View: " + (state.mode === "album" ? "Album" : "Ledger");
+        render();
+      };
+      rootBtn.onclick = () => {
+        state.root = state.root === 16 ? 24 : 16;
+        rootBtn.textContent = "Root font: " + state.root + "px";
+        render();
+      };
+      render();
+    </script>
+  </body>
+</html>
