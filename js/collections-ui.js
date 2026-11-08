@@ -1767,8 +1767,10 @@
     // A background refresh keeps the open note; a new Collection closes it, because Slot
     // ids repeat across Collections.
     if (entry && !routeChanged) restoreSlotNotePopover(root, openNote);
-    // Opening an album from far down the hub must not leave the user mid-page.
-    if (routeChanged && root.getBoundingClientRect().top < 0)
+    // Opening an album from far down the hub must not leave the user mid-page. Going back
+    // reveals the restored card instead.
+    if (routeChanged && routeTarget && !entry) routeTarget.scrollIntoView({ block: "center" });
+    else if (routeChanged && root.getBoundingClientRect().top < 0)
       root.scrollIntoView({ block: "start" });
 
     void resolveImages(root, renderGeneration);

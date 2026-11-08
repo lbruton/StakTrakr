@@ -35,6 +35,17 @@ const openAlbumByKeyboard = async (page) => {
 };
 
 test.describe("core/collections — keyboard focus", () => {
+  test("Back reveals the restored card on a hub taller than the viewport", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 300 });
+    await openHub(page);
+    await page.addStyleTag({ content: `${CARD} { margin-top: 900px; }` });
+    await openAlbumByKeyboard(page);
+    await focusByKeyboard(page, page.locator('[data-focus-key="album:back"]'));
+    await page.keyboard.press("Enter");
+    await expect(page.locator(CARD)).toBeFocused();
+    await expect(page.locator(CARD)).toBeInViewport();
+  });
+
   test("hub cards, chips and pills show the shared ring in every theme", async ({ page }) => {
     test.setTimeout(test.info().timeout * THEMES.length);
     await openHub(page);
@@ -89,6 +100,7 @@ test.describe("core/collections — keyboard focus", () => {
     await focusByKeyboard(page, page.locator('[data-focus-key="album:back"]'));
     await page.keyboard.press("Enter");
     await expect(page.locator(CARD)).toBeFocused();
+    await expect(page.locator(CARD)).toBeInViewport();
 
     await test.step("the browser Back button follows the same rule", async () => {
       await page.keyboard.press("Enter");
