@@ -498,6 +498,7 @@ const createFieldInput = (field) => {
   }
   input.className = "field-input";
   input.id = "bulkFieldVal_" + field.id;
+  input.setAttribute("aria-label", field.label + " value");
   return input;
 };
 
@@ -562,6 +563,7 @@ const buildBulkItemRow = (item, isPinned, dataColumns) => {
   cbTd.setAttribute("data-column", "cb");
   const cb = document.createElement("input");
   cb.type = "checkbox";
+  cb.setAttribute("aria-label", "Select " + (item.name || "Item " + serial));
   cb.checked = isSelected;
   cb.addEventListener("change", () => toggleItemSelection(serial));
   cbTd.appendChild(cb);
@@ -828,6 +830,7 @@ const wireBulkWeightDenomPicker = (panel) => {
   const denomSelect = document.createElement("select");
   denomSelect.className = "field-input";
   denomSelect.id = "bulkFieldVal_weightDenom";
+  denomSelect.setAttribute("aria-label", "Weight denomination");
   denomSelect.style.display = "none";
   denomSelect.disabled = bwInput.disabled;
 
@@ -858,6 +861,7 @@ const wireBulkWeightDenomPicker = (panel) => {
   const cuVariantSelect = document.createElement("select");
   cuVariantSelect.className = "field-input";
   cuVariantSelect.id = "bulkFieldVal_constitutionalVariant";
+  cuVariantSelect.setAttribute("aria-label", "Constitutional silver variant");
   cuVariantSelect.style.display = "none";
   if (typeof CONSTITUTIONAL_VARIANTS !== "undefined") {
     CONSTITUTIONAL_VARIANTS.forEach((v) => {
@@ -1136,6 +1140,7 @@ const renderBulkToolbar = () => {
   searchInput.type = "search";
   searchInput.id = "bulkEditSearch";
   searchInput.placeholder = "Search items...";
+  searchInput.setAttribute("aria-label", "Search Items");
   searchInput.value = bulkSearchTerm || "";
   searchInput.addEventListener("input", () => {
     // Debounce: wait 250ms after last keystroke before filtering
@@ -1256,6 +1261,7 @@ const renderBulkTableBody = () => {
       const masterCb = document.createElement("input");
       masterCb.type = "checkbox";
       masterCb.title = "Toggle all visible";
+      masterCb.setAttribute("aria-label", "Select all visible Items");
       masterCb.checked = allFilteredSelected;
       masterCb.indeterminate = someFilteredSelected;
       masterCb.addEventListener("change", () => selectAllItems(masterCb.checked));

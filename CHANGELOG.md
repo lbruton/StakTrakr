@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.136] - 2026-11-08
+
+### Changed — STRK-548: Bulk Edit and PCGS field names
+
+- **Bulk Edit**: Every field value, the search box, the select-all checkbox and each Item row checkbox now has an accessible name. A row checkbox names its Item (STRK-548).
+- **PCGS field picker**: Each checkbox and value box names the field it fills (STRK-548).
+
 ## [3.36.135] - 2026-11-08
 
 ### Changed — STRK-560: Review Changes keyboard access
