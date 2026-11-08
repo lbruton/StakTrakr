@@ -6046,3 +6046,162 @@ test.describe("Collection title image links", () => {
     ).toHaveAttribute("src", front);
   });
 });
+
+test.describe("core/collections — Album toolbar and actions row", () => {
+  /**
+   * Opens an Album at a viewport width and root font size.
+   * @param {import('@playwright/test').Page} page - Browser page.
+   * @param {{custom: boolean, width: number, root?: number, ledger?: boolean}} spec - Album to open.
+   * @returns {Promise<void>} When the Album is visible.
+   */
+  const openToolbarAlbum = async (page, { custom, width, root = 16, ledger = false }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await seedAndGoto(page);
+    await page.evaluate(
+      ({ custom, root }) => {
+        document.documentElement.style.fontSize = `${root}px`;
+        window.activateTab("collections");
+        const made = custom
+          ? window.collectionsStore.createCustom({
+              name: "Toolbar fixture",
+              slots: [{ label: "One" }, { label: "Two" }, { label: "Three" }],
+            })
+          : null;
+        window.collectionsUI.openCollection(made ? made.collection.id : "ase-type2");
+      },
+      { custom, root }
+    );
+    await expect(panel(page).locator(".collections-album")).toBeVisible();
+    if (ledger) await panel(page).getByRole("button", { name: "Ledger view" }).click();
+    await expect(panel(page).locator(".collections-album")).toBeVisible();
+  };
+
+  /**
+   * Reads the toolbar rows, visible labels and actions row geometry.
+   * @param {import('@playwright/test').Page} page - Browser page.
+   * @returns {Promise<object>} Layout facts for the open Album.
+   */
+  const readToolbarLayout = async (page) => {
+    let layout = null;
+    // A re-render replaces the Album node, so a read of the old node measures 0 by 0.
+    await expect
+      .poll(async () => {
+        layout = await measureToolbar(page);
+        return layout.albumWidth;
+      })
+      .toBeGreaterThan(0);
+    return layout;
+  };
+
+  /**
+   * Measures the open Album once, without waiting for a re-render to settle.
+   * @param {import('@playwright/test').Page} page - Browser page.
+   * @returns {Promise<object>} Layout facts for the current Album node.
+   */
+  const measureToolbar = (page) =>
+    page.locator(".collections-album").evaluate((album) => {
+      const toolbar = album.querySelector(".collections-toolbar");
+      const box = (el) => el.getBoundingClientRect();
+      const centre = (el) => box(el).top + box(el).height / 2;
+      const rows = [...toolbar.querySelectorAll(".chip-sort-toggle")]
+        .map(centre)
+        .sort((a, b) => a - b)
+        .reduce((all, y) => (all.length && y - all[all.length - 1] < 12 ? all : [...all, y]), []);
+      const labels = [...toolbar.querySelectorAll(".collections-toolbar-label")].filter(
+        (label) => box(label).width > 2
+      );
+      const aloneLabels = labels
+        .filter((label) => Math.abs(centre(label) - centre(label.nextElementSibling)) > 12)
+        .map((label) => label.textContent);
+      const actions = album.querySelector(".collections-album-actions");
+      const buttons = actions ? [...actions.querySelectorAll("button")] : [];
+      return {
+        rowCount: rows.length,
+        fits: toolbar.scrollWidth <= toolbar.clientWidth,
+        labelCount: labels.length,
+        aloneLabels,
+        toolbarButtons: [...toolbar.querySelectorAll(".btn")].map((b) => b.textContent.trim()),
+        actionsIsLast: Boolean(actions) && album.lastElementChild === actions,
+        actionsBelowBody:
+          Boolean(actions) && box(actions).top >= box(actions.previousElementSibling).bottom,
+        actionsRightGap: actions
+          ? Math.round(box(album).right - Math.max(...buttons.map((b) => box(b).right)))
+          : null,
+        actionsLeftGap: actions
+          ? Math.round(Math.min(...buttons.map((b) => box(b).left)) - box(album).left)
+          : null,
+        buttons: buttons.map((b) => ({
+          name: b.textContent.trim(),
+          width: Math.round(box(b).width),
+          height: Math.round(box(b).height),
+          left: Math.round(box(b).left),
+        })),
+        albumWidth: Math.round(box(album).width),
+      };
+    });
+
+  for (const ledger of [false, true]) {
+    test(`at 1440 the actions row ends the Album, right-aligned, in ${ledger ? "Ledger" : "Album"} view`, async ({
+      page,
+    }) => {
+      for (const custom of [true, false]) {
+        await test.step(custom ? "custom" : "built-in", async () => {
+          await openToolbarAlbum(page, { custom, width: 1440, ledger });
+          const layout = await readToolbarLayout(page);
+          expect(layout.toolbarButtons).toEqual([]);
+          expect(layout.actionsIsLast).toBe(true);
+          expect(layout.actionsBelowBody).toBe(true);
+          expect(layout.actionsRightGap).toBeLessThanOrEqual(2);
+          expect(layout.actionsLeftGap).toBeGreaterThan(layout.albumWidth / 2);
+          expect(layout.buttons.map((b) => b.name)).toEqual(
+            custom ? ["Edit collection", "Remove collection"] : ["Clone & customize"]
+          );
+          expect(layout.labelCount).toBe(2);
+          expect(layout.aloneLabels).toEqual([]);
+        });
+      }
+    });
+  }
+
+  test("Edit collection opens the builder and Remove collection opens its confirm", async ({
+    page,
+  }) => {
+    await openToolbarAlbum(page, { custom: true, width: 1440 });
+    const actions = panel(page).locator(".collections-album-actions");
+    await actions.getByRole("button", { name: "Remove collection" }).click();
+    await expect(page.locator("#appDialogModal")).toContainText("Remove collection");
+    await page.locator("#appDialogCancel").click();
+    await expect(page.locator("#appDialogModal")).toBeHidden();
+    await actions.getByRole("button", { name: "Edit collection" }).click();
+    await expect(page.locator("#collectionsBuilderModal")).toBeVisible();
+  });
+
+  test("at 390 the toolbar has two rows and the actions fill the width, at 16px and 24px roots", async ({
+    page,
+  }) => {
+    const cases = [];
+    for (const root of [16, 24]) {
+      for (const custom of [true, false]) cases.push({ root, custom });
+    }
+    test.setTimeout(test.info().timeout * cases.length);
+    for (const { root, custom } of cases) {
+      await test.step(`${custom ? "custom" : "built-in"} at ${root}px`, async () => {
+        await page.goto("about:blank");
+        await openToolbarAlbum(page, { custom, width: 390, root });
+        const layout = await readToolbarLayout(page);
+        expect(layout.rowCount).toBe(2);
+        expect(layout.fits).toBe(true);
+        expect(layout.labelCount).toBe(0);
+        expect(layout.actionsIsLast).toBe(true);
+        expect(layout.buttons.every((b) => b.height >= 44)).toBe(true);
+        const span = layout.buttons.reduce((sum, b) => sum + b.width, 0);
+        expect(span).toBeGreaterThan(layout.albumWidth - 24);
+        if (custom) {
+          expect(Math.abs(layout.buttons[0].width - layout.buttons[1].width)).toBeLessThanOrEqual(
+            1
+          );
+        }
+      });
+    }
+  });
+});

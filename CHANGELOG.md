@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.133] - 2026-11-08
+
+### Changed — STRK-577: Album toolbar and actions row
+
+- **Actions row**: Edit collection and Remove collection (or Clone & customize on a built-in Collection) sit in a row below the Slots, right-aligned. At 640px and narrower the buttons fill the row (STRK-577).
+- **Phone toolbar**: At 640px and narrower the toolbar has two rows: the slot filter, then sort and the view toggle. The Sort and View words are hidden there, and the groups keep their accessible names (STRK-577).
+
 ## [3.36.132] - 2026-11-08
 
 ### Changed — STRK-565: Phone bottom nav at large text sizes

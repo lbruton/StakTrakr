@@ -19589,6 +19589,21 @@ button.vp-price:hover {
   margin-left: auto;
 }
 
+/* A label stays with its control, so a wrapped row never ends on a lone "Sort" or "View". */
+.collections-toolbar-field {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.collections-album-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--spacing-md);
+  margin-top: var(--spacing);
+}
+
 .collections-hub-sort {
   display: inline-flex;
   align-items: center;
@@ -20940,8 +20955,62 @@ button.vp-price:hover {
     display: none;
   }
 
+  /* Album toolbar: the filter takes row one; sort and the view toggle share row two. */
+  .collections-album .collections-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--spacing-md);
+  }
+
+  .collections-album .collections-toolbar > .chip-sort-toggle {
+    display: flex;
+    width: 100%;
+  }
+
+  .collections-album .collections-toolbar > .chip-sort-toggle .chip-sort-btn,
+  .collections-album .collections-toolbar-field.is-sort .chip-sort-btn {
+    flex: 1 1 0;
+  }
+
   .collections-toolbar-right {
     margin-left: 0;
+  }
+
+  .collections-album .collections-toolbar-right {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--spacing-md);
+  }
+
+  .collections-album .collections-toolbar-field.is-sort,
+  .collections-album .collections-toolbar-field.is-sort .chip-sort-toggle {
+    display: flex;
+    width: 100%;
+  }
+
+  /* The group keeps its aria-label; the visible word is redundant at this width. */
+  .collections-album .collections-toolbar-field > .collections-toolbar-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  /* Equal columns that stack when a large root font leaves no room for two. */
+  .collections-album-actions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr));
+  }
+
+  .collections-album-actions .btn.collections-btn-pill {
+    justify-content: center;
+    min-width: 0;
+    min-height: 2.75rem;
+    padding-inline: var(--spacing-md);
+    white-space: normal;
   }
 
   .collections-arrange-ledger-item {
