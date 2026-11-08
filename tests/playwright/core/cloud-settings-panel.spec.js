@@ -49,6 +49,34 @@ async function openCloudDisconnected(page) {
 }
 
 /**
+ * Render a Dropbox backup list of mixed Manual and Sync entries with B, KB and MB sizes.
+ * @param {import('@playwright/test').Page} page - Page with the cloud panel open.
+ * @param {number} count - Number of backups to render.
+ */
+async function renderBackups(page, count) {
+  await page.evaluate((n) => {
+    const sizes = [512, 48_000, 1_250_000];
+    const backups = Array.from({ length: n }, (_, i) => ({
+      name: `${i % 3 === 0 ? window.MANUAL_BACKUP_PREFIX : window.SYNC_BACKUP_PREFIX}${i}.stvault`,
+      server_modified: new Date(2026, 10, 1 + (i % 28), (i * 5) % 24, 5).toISOString(),
+      size: sizes[i % 3],
+    }));
+    renderCloudBackupList("dropbox", backups);
+  }, count);
+  await expect(page.locator("#cloudBackupList_dropbox .cloud-backup-row")).toHaveCount(count);
+}
+
+/**
+ * Read the delete button opacity of each backup row.
+ * @param {import('@playwright/test').Page} page - Page with a rendered backup list.
+ * @returns {Promise<number[]>} One opacity per row.
+ */
+const readDeleteOpacity = (page) =>
+  page
+    .locator("#cloudBackupList_dropbox .cloud-backup-delete-btn")
+    .evaluateAll((btns) => btns.map((b) => Number(getComputedStyle(b).opacity)));
+
+/**
  * Read the computed opacity and cursor of each action button.
  * @param {import('@playwright/test').Page} page - Page with the cloud panel open.
  * @returns {Promise<Object<string,{opacity:number,cursor:string}>>} Look per button name.
@@ -213,6 +241,139 @@ test.describe("Settings › Cloud panel controls", () => {
     await expect(panel.getByRole("status").filter({ hasText: "Connected" })).toHaveCount(1);
   });
 
+  test("a full backup list scrolls, keeps every row at its content height and aligns its columns", async ({
+    page,
+  }) => {
+    await bootApp(page);
+    await connectAndOpenCloud(page);
+    await renderBackups(page, 22);
+
+    await expect
+      .poll(() =>
+        page.locator("#cloudBackupList_dropbox").evaluate((list) => {
+          const rows = [...list.querySelectorAll(".cloud-backup-row")];
+          const box = (row, sel) => row.querySelector(sel).getBoundingClientRect();
+          const edges = (sel, side) => new Set(rows.map((r) => Math.round(box(r, sel)[side])));
+          return {
+            scrolls: list.scrollHeight > list.clientHeight + 1,
+            short: rows
+              .map((r, i) => ({
+                i,
+                row: r.getBoundingClientRect().height,
+                entry: box(r, ".cloud-backup-entry").height,
+              }))
+              .filter(({ row, entry }) => row + 0.5 < entry || row < 24)
+              .map(({ i, row }) => `row ${i} ${row.toFixed(1)}px`),
+            overlaps: rows
+              .slice(1)
+              .filter(
+                (r, i) =>
+                  r.getBoundingClientRect().top + 0.5 < rows[i].getBoundingClientRect().bottom
+              ).length,
+            typeLeft: edges(".cloud-backup-type", "left").size,
+            dateLeft: edges(".cloud-backup-name", "left").size,
+            sizeRight: edges(".cloud-backup-size", "right").size,
+            tabular: [".cloud-backup-name", ".cloud-backup-size"].map(
+              (sel) => getComputedStyle(rows[0].querySelector(sel)).fontVariantNumeric
+            ),
+          };
+        })
+      )
+      .toEqual({
+        scrolls: true,
+        short: [],
+        overlaps: 0,
+        typeLeft: 1,
+        dateLeft: 1,
+        sizeRight: 1,
+        tabular: ["tabular-nums", "tabular-nums"],
+      });
+
+    const list = page.locator("#cloudBackupList_dropbox");
+    await list.hover();
+    await page.mouse.wheel(0, 2000);
+    await expect
+      .poll(() =>
+        list.evaluate((el) => {
+          const last = el.lastElementChild.getBoundingClientRect();
+          const box = el.getBoundingClientRect();
+          return el.scrollTop > 0 && last.bottom <= box.bottom + 1 && last.top >= box.top;
+        })
+      )
+      .toBe(true);
+  });
+
+  test("a backup row shows its delete button while the row has keyboard focus", async ({
+    page,
+  }) => {
+    await bootApp(page);
+    await connectAndOpenCloud(page);
+    await renderBackups(page, 3);
+
+    await expect.poll(() => readDeleteOpacity(page)).toEqual([0, 0, 0]);
+    await page.locator("#cloudBackupList_dropbox .cloud-backup-entry").nth(1).focus();
+    await expect.poll(() => readDeleteOpacity(page)).toEqual([0, 1, 0]);
+    await page.keyboard.press("Tab");
+    await expect(
+      page.locator("#cloudBackupList_dropbox .cloud-backup-delete-btn").nth(1)
+    ).toBeFocused();
+    await expect.poll(() => readDeleteOpacity(page)).toEqual([0, 1, 0]);
+    await expect(
+      page.locator("#cloudBackupList_dropbox .cloud-backup-delete-btn").nth(1)
+    ).toHaveAccessibleName(
+      `Delete ${await page.evaluate(() => window.SYNC_BACKUP_PREFIX)}1.stvault`
+    );
+  });
+
+  test.describe("on a touch phone", () => {
+    test.use({ hasTouch: true, viewport: { width: 390, height: 844 } });
+
+    test("every backup date shows in full at the default and a larger text size", async ({
+      page,
+    }) => {
+      await bootApp(page);
+      await connectAndOpenCloud(page);
+      await renderBackups(page, 22);
+
+      for (const rootSize of ["16px", "24px"]) {
+        await page.evaluate((size) => {
+          document.documentElement.style.fontSize = size;
+        }, rootSize);
+        const clipped = await page
+          .locator("#cloudBackupList_dropbox .cloud-backup-name")
+          .evaluateAll((names) =>
+            names
+              .filter((n) => n.scrollWidth > n.clientWidth + 1)
+              .map((n) => `${n.textContent} ${n.clientWidth}/${n.scrollWidth}px`)
+          );
+        expect(clipped, `root ${rootSize}`).toEqual([]);
+      }
+    });
+
+    test("every backup row shows a 44px delete button", async ({ page }) => {
+      await bootApp(page);
+      await connectAndOpenCloud(page);
+      await renderBackups(page, 3);
+
+      await expect.poll(() => readDeleteOpacity(page)).toEqual([1, 1, 1]);
+      const small = await page
+        .locator("#cloudBackupList_dropbox .cloud-backup-delete-btn")
+        .evaluateAll((btns) =>
+          // Layout size: the modal's opening scale transform shrinks client rects.
+          btns
+            .filter((b) => Math.min(b.offsetWidth, b.offsetHeight) < 44)
+            .map((b) => `${b.offsetWidth}x${b.offsetHeight}`)
+        );
+      expect(small).toEqual([]);
+
+      await page.locator("#cloudBackupList_dropbox .cloud-backup-delete-btn").first().tap();
+      await expect(page.locator("#bulkConfirmModal")).toBeVisible();
+      await expect(page.locator("#bulkConfirmModalTitle")).toHaveText("Delete Backup");
+      await page.locator("#bulkConfirmCancelBtn").tap();
+      await expect(page.locator("#bulkConfirmModal")).toBeHidden();
+    });
+  });
+
   test("the cloud panel and Advanced modal carry no inline styles beyond display", async ({
     page,
   }) => {
@@ -234,6 +395,7 @@ test.describe("Settings › Cloud panel controls", () => {
       );
     });
     await connectAndOpenCloud(page, { syncEnabled: true });
+    await renderBackups(page, 3);
     await page.evaluate(() => window.openModalById("cloudSyncAdvancedModal"));
     await expect(page.locator("#cloudSyncHistorySection button")).toBeVisible();
     const connected = await collectInlineStyleOffenders(page, {
