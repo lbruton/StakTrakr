@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.124] - 2026-11-07
+
+### Fixed — STRK-566: Restore Preview Try again races a queued push
+
+- **Try again**: While a push from this tab is running, Try again keeps the modal open. After Try again, this tab cancels a queued push and skips new pushes until the retried Restore Preview download finishes, then queues one push if it held any (STRK-566).
+- **Sync status**: When Restore Preview shows that a backup cannot be read, the sync status says "Could not read backup" instead of "just now" (STRK-566).
+
 ## [3.36.123] - 2026-11-07
 
 ### Fixed — STRK-563: Toasts cover the bottom nav and Back to top on phones

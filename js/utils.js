@@ -147,7 +147,8 @@ const monitorPerformance = (fn, name, ...args) => {
  * Creates a debounced function that delays invoking `func` until after `wait`
  * milliseconds have elapsed since the last time the debounced function was
  * invoked. The debounced function comes with a `cancel` method to cancel
- * delayed `func` invocations and a `flush` method to immediately invoke them.
+ * delayed `func` invocations, a `flush` method to immediately invoke them, and a
+ * `pending` method that reports whether an invocation is waiting.
  *
  * @param {Function} func The function to debounce.
  * @param {number} wait The number of milliseconds to delay.
@@ -177,6 +178,8 @@ const debounce = (func, wait) => {
     clearTimeout(timeout);
     timeout = null;
   };
+
+  debounced.pending = () => timeout !== null && timeout !== undefined;
 
   debounced.flush = () => {
     if (timeout) {

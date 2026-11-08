@@ -134,11 +134,11 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.36.124 &ndash; Restore Preview retry</strong>: After Try again on a backup that cannot be read, this tab holds its pushes until the retried download finishes, then sends any push it held. The sync status says &ldquo;Could not read backup&rdquo; while Restore Preview shows the failure (STRK-566).</li>
     <li><strong>v3.36.123 &ndash; Phone layout</strong>: Settings, Collections, the Item modals and Review Changes fit a phone screen without sideways scrolling, with text at 12px or larger and 44px controls. Toasts, the What&rsquo;s New card and Back to top float above the bottom nav, so every tab takes a tap. On beta, preview and local builds, the tag next to the title is the only environment notice (STRK-535, STRK-552, STRK-556, STRK-557, STRK-563, STRK-564).</li>
     <li><strong>v3.36.115 &ndash; Contrast in every theme</strong>: Muted text, status titles, filled buttons and active chips meet AA contrast in the light, dark, slate and sepia themes. Market status text and the Review Changes modal use the same theme colours as the rest of the app (STRK-514, STRK-524, STRK-537).</li>
     <li><strong>v3.36.113 &ndash; Modals behave the same everywhere</strong>: Every modal closes with Escape, keeps keyboard focus inside and stops the page from scrolling behind it. A delete or other destructive confirm names its action on the button and starts on Cancel (STRK-534, STRK-536).</li>
     <li><strong>v3.36.110 &ndash; An easier Market tab</strong>: Each dealer price shows its premium over spot, coloured against the other dealers for that item. Rows line up evenly, a Configure button sits next to Refresh, and prices refresh after a sync. At phone width each item turns into a card, and the tab works by keyboard and with a screen reader (STRK-513, STRK-515, STRK-516, STRK-517, STRK-530, STRK-531).</li>
-    <li><strong>v3.36.121 &ndash; Fixes</strong>: A Custom Collection reopens with its purity selected. Notes keep their line breaks. Review Changes rows for Items with the same name show the date, price and serial, and Restore Preview offers Try again when a backup cannot be read. The FAQ answers match what the app does (STRK-532, STRK-554, STRK-561, STRK-562).</li>
       `;
 };
 
