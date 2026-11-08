@@ -1696,13 +1696,24 @@ test.describe("Phone floors in Collections, Item modals and Settings", () => {
       },
     ],
     [
-      "Settings cloud panel with the Dropbox sign-out link",
+      "Settings cloud panel with the Dropbox sign-out link and a backup list",
       "#settingsModal .modal-content",
       async (page) => {
-        await page.evaluate(() => window.showSettingsModal("cloud"));
+        await page.evaluate(() => {
+          window.showSettingsModal("cloud");
+          renderCloudBackupList(
+            "dropbox",
+            [0, 1, 2].map((i) => ({
+              name: `${window.SYNC_BACKUP_PREFIX}${i}.stvault`,
+              server_modified: new Date(2026, 10, 1 + i, 9, 5).toISOString(),
+              size: 48_000,
+            }))
+          );
+        });
         await page.locator("#cloudDropboxSignoutLink").evaluate((el) => {
           el.style.display = "block";
         });
+        await expect(page.locator("#cloudBackupList_dropbox .cloud-backup-entry")).toHaveCount(3);
       },
     ],
     [

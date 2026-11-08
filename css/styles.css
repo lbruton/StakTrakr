@@ -5482,19 +5482,22 @@ input.spot-lookup-flash {
   padding: 0.25rem;
   background: var(--bg-primary);
 }
+/* The list scrolls past its max-height, so rows keep their content height instead of shrinking. */
 .cloud-backup-row {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   gap: 2px;
   border-radius: var(--radius);
-  overflow: hidden;
 }
-.cloud-backup-row:hover .cloud-backup-delete-btn {
+.cloud-backup-row:is(:hover, :focus-within) .cloud-backup-delete-btn {
   opacity: 1;
 }
+/* Fixed type and size tracks keep the dates and sizes in columns across rows. */
 .cloud-backup-entry {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: 3.5rem minmax(0, 1fr) 4.5rem;
+  column-gap: 0.5rem;
   align-items: center;
   padding: 0.4rem 0.6rem;
   border: none;
@@ -5515,21 +5518,20 @@ input.spot-lookup-flash {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  flex: 1;
   min-width: 0;
+  font-variant-numeric: tabular-nums;
 }
 .cloud-backup-size {
   color: var(--text-secondary);
   font-size: var(--font-size-sm);
-  flex-shrink: 0;
-  margin-left: 0.5rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
 }
 .cloud-backup-type {
   color: var(--text-secondary);
   font-size: var(--font-size-xs);
-  flex-shrink: 0;
-  margin-left: 0.5rem;
-  opacity: 0.8;
+  white-space: nowrap;
 }
 .settings-fieldset.danger-zone {
   border-color: var(--danger);
@@ -5555,6 +5557,14 @@ input.spot-lookup-flash {
 .cloud-backup-delete-btn:hover {
   background: color-mix(in srgb, var(--danger, #e74c3c) 12%, transparent);
   opacity: 1;
+}
+/* A touch screen has no hover, so the delete button stays shown at a 44px size. */
+@media (hover: none) {
+  .cloud-backup-delete-btn {
+    min-width: 44px;
+    min-height: 44px;
+    opacity: 1;
+  }
 }
 .cloud-backup-delete-btn:disabled {
   opacity: 0.4;
@@ -23573,6 +23583,15 @@ button.vp-price:hover {
     width: auto;
     max-width: none;
     transform: none;
+  }
+
+  /* Each backup entry is a 44px row and its delete button a 44px square. */
+  .cloud-backup-entry {
+    min-height: 44px;
+  }
+  .cloud-backup-delete-btn {
+    min-width: 44px;
+    min-height: 44px;
   }
 
   /* The rule table and its scrolling frame clip at their rounded corners. The frame's padding

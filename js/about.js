@@ -134,11 +134,11 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.36.126 &ndash; Cloud backup list</strong>: A long list of Dropbox backups scrolls instead of squeezing its rows together, and each backup&rsquo;s type, date and size line up in columns. The delete button shows when a row has keyboard focus and stays shown on touch screens (STRK-573).</li>
     <li><strong>v3.36.125 &ndash; Cloud and vault controls</strong>: Until Dropbox connects, Sync Now, Backup and Restore are disabled and a line says to connect Dropbox first. Auto-sync and Sync attachments use the On/Off switch, sync status and failures are read out by screen readers, and changing the vault password asks for it twice (STRK-553).</li>
     <li><strong>v3.36.124 &ndash; Restore Preview retry</strong>: After Try again on a backup that cannot be read, this tab holds its pushes until the retried download finishes, then sends any push it held. The sync status says &ldquo;Could not read backup&rdquo; while Restore Preview shows the failure (STRK-566).</li>
     <li><strong>v3.36.123 &ndash; Phone layout</strong>: Settings, Collections, the Item modals and Review Changes fit a phone screen without sideways scrolling, with text at 12px or larger and 44px controls. Toasts, the What&rsquo;s New card and Back to top float above the bottom nav, so every tab takes a tap. On beta, preview and local builds, the tag next to the title is the only environment notice (STRK-535, STRK-552, STRK-556, STRK-557, STRK-563, STRK-564).</li>
     <li><strong>v3.36.115 &ndash; Contrast in every theme</strong>: Muted text, status titles, filled buttons and active chips meet AA contrast in the light, dark, slate and sepia themes. Market status text and the Review Changes modal use the same theme colours as the rest of the app (STRK-514, STRK-524, STRK-537).</li>
-    <li><strong>v3.36.113 &ndash; Modals behave the same everywhere</strong>: Every modal closes with Escape, keeps keyboard focus inside and stops the page from scrolling behind it. A delete or other destructive confirm names its action on the button and starts on Cancel (STRK-534, STRK-536).</li>
       `;
 };
 

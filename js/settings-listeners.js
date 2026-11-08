@@ -985,7 +985,7 @@ const renderCloudBackupList = (provider, backups) => {
           '" data-size="' +
           b.size +
           '">' +
-          '<span class="cloud-backup-type" style="min-width:3rem">' +
+          '<span class="cloud-backup-type">' +
           typeLabel +
           "</span>" +
           '<span class="cloud-backup-name" title="' +
