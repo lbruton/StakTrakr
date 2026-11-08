@@ -749,6 +749,32 @@ test.describe("DiffModal setting choices by keyboard", () => {
     await expect(remote).toHaveAttribute("aria-checked", "false");
   });
 
+  test("a choice in the expanded overflow keeps focus after the re-render", async ({ page }) => {
+    const names = Array.from({ length: 20 }, (_, i) => "p" + String(i).padStart(2, "0"));
+    await page.evaluate((keys) => {
+      const pills = (value) => Object.fromEntries(keys.map((k) => [k, value]));
+      window.DiffModal.show({
+        source: { type: "sync", label: "Sync" },
+        diff: { added: [], modified: [], deleted: [] },
+        settingsDiff: {
+          changed: [{ key: "providerPriority", localVal: pills(1), remoteVal: pills(2) }],
+          matched: [],
+        },
+        onApply: () => {},
+        onCancel: () => {},
+      });
+    }, names);
+    await page.locator(`${MODAL} [data-cat-toggle="settings"]`).click();
+    await page.locator(`${MODAL} [data-expand="providerPriority-local"]`).click();
+    const overflow = page.locator(
+      `${MODAL} #expand-providerPriority-local [data-field="setting-providerPriority-p19"]`
+    );
+    await tabTo(page, overflow);
+    await page.keyboard.press("Enter");
+    await expect(overflow).toHaveAttribute("aria-pressed", "true");
+    await expect(overflow).toBeFocused();
+  });
+
   test("a focused setting choice shows a 2px ring in every theme", async ({ page }) => {
     test.setTimeout(test.info().timeout * 4);
     for (const theme of ["light", "dark", "slate", "sepia"]) {

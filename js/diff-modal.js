@@ -173,6 +173,7 @@
   var _conflictResolutions = {}; // { 'c0': 'local'|'remote', ... }
   var _collapsedCategories = {}; // { added: true, ... }
   var _expandedSettingsCategories = {}; // { 'Appearance': true, ... }
+  var _expandedOverflow = {}; // { 'providerPriority-local': true, ... } "Show more" lists opened
   var _selectAllState = 0; // 0=none, 1=added+modified, 2=all
 
   // Card-based state (STAK-454)
@@ -642,6 +643,12 @@
 
     container.innerHTML = html;
     container.style.display = renderedCount > 0 ? "" : "none";
+    Object.keys(_expandedOverflow).forEach(function (key) {
+      var list = container.querySelector("#expand-" + key);
+      var more = container.querySelector('.dm-show-more[data-expand="' + key + '"]');
+      if (list) list.classList.add("expanded");
+      if (more) more.style.display = "none";
+    });
     _restoreChoiceFocus(container, focusSpec);
     container.onkeydown = _onSettingsKeydown;
 
@@ -668,6 +675,7 @@
         if (expandEl) {
           expandEl.classList.add("expanded");
           showMore.style.display = "none";
+          _expandedOverflow[expandKey] = true;
         }
         return;
       }
@@ -2714,6 +2722,7 @@
       _conflictResolutions = {};
       _collapsedCategories = { settings: true };
       _expandedSettingsCategories = {};
+      _expandedOverflow = {};
       _selectAllState = 0;
       _orphanActions = {};
       _fieldSelections = {};
