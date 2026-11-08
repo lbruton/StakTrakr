@@ -1,4 +1,5 @@
 import { test, expect } from "../helpers/mocks/extended-test.js";
+import { SAMPLE_SETTINGS_DIFF } from "../helpers/diff-review.js";
 
 // STRK-170 cohort 2.3 — characterization coverage for the diff-modal.js MERGE/APPLY
 // path, written BEFORE the complexity refactor of:
@@ -637,5 +638,176 @@ test.describe("DiffModal row clarity", () => {
     expect(other.cells.Device).toBeUndefined();
     const self = await read("self");
     expect(self.cells.From).toBe("This device");
+  });
+});
+
+// The setting choices in the Review Changes window: whole-setting radios, per-element toggles
+// and the Keep Local / Use Remote pair. Each opens the same window and is operated by keyboard only.
+const MODAL = "#diffReviewModal";
+const KEYBOARD_CHOICES = [
+  {
+    name: "setting chip",
+    selector: `${MODAL} [data-field="setting-layoutSectionConfig-a"][data-side="local"]`,
+    role: "button",
+    state: "aria-pressed",
+    toggles: true,
+  },
+  {
+    name: "key-value pill",
+    selector: `${MODAL} [data-field="setting-providerPriority-metals"][data-side="local"]`,
+    role: "button",
+    state: "aria-pressed",
+    toggles: true,
+  },
+  {
+    name: "Keep Local button",
+    selector: `${MODAL} [data-setting-resolution="setting-chipCustomGroups"][data-side="local"]`,
+    role: "button",
+    state: "aria-pressed",
+  },
+  {
+    name: "setting value",
+    selector: `${MODAL} [data-setting-resolution="setting-displayCurrency"][data-side="local"]`,
+    role: "radio",
+    state: "aria-checked",
+  },
+];
+
+async function openKeyboardDiffReview(page) {
+  await page.evaluate((settingsDiff) => {
+    window.DiffModal.show({
+      source: { type: "sync", label: "Sync" },
+      diff: { added: [], modified: [], deleted: [] },
+      settingsDiff,
+      onApply: () => {},
+      onCancel: () => {},
+    });
+  }, SAMPLE_SETTINGS_DIFF);
+  await page.locator(`${MODAL} [data-cat-toggle="settings"]`).click();
+}
+
+/** Press Tab until the locator holds focus; fails when it is not reached within the page's tab order. */
+async function tabTo(page, locator) {
+  for (let presses = 0; presses < 80; presses++) {
+    if (await locator.evaluate((el) => el === document.activeElement)) return;
+    await page.keyboard.press("Tab");
+  }
+  throw new Error(
+    "Tab never reached " + (await locator.evaluate((el) => el.outerHTML.slice(0, 120)))
+  );
+}
+
+test.describe("DiffModal setting choices by keyboard", () => {
+  test.beforeEach(async ({ page }) => {
+    await gotoApp(page);
+    await openKeyboardDiffReview(page);
+  });
+
+  test("Tab reaches every setting choice, which exposes a role and its state", async ({ page }) => {
+    for (const choice of KEYBOARD_CHOICES) {
+      const control = page.locator(choice.selector);
+      await tabTo(page, control);
+      await expect(control, choice.name).toHaveAttribute("role", choice.role);
+      await expect(control, choice.name).toHaveAttribute(choice.state, "false");
+    }
+    await expect(
+      page.locator(`${MODAL} [role="radiogroup"][aria-label="Display Currency"]`)
+    ).toHaveCount(1);
+  });
+
+  test("Space and Enter pick a setting choice and keep focus on it after the re-render", async ({
+    page,
+  }) => {
+    for (const [key, choice] of KEYBOARD_CHOICES.flatMap((c) => [
+      [" ", c],
+      ["Enter", c],
+    ])) {
+      const control = page.locator(choice.selector);
+      await tabTo(page, control);
+      const before = await control.getAttribute(choice.state);
+      await page.keyboard.press(key === " " ? "Space" : key);
+      await expect(control, `${choice.name} ${key}`).toHaveAttribute(
+        choice.state,
+        choice.toggles && before === "true" ? "false" : "true"
+      );
+      await expect(control, `${choice.name} focus`).toBeFocused();
+    }
+  });
+
+  test("the setting value pair behaves as one radio group", async ({ page }) => {
+    const local = page.locator(KEYBOARD_CHOICES[3].selector);
+    const remote = page.locator(
+      `${MODAL} [data-setting-resolution="setting-displayCurrency"][data-side="remote"]`
+    );
+    await tabTo(page, remote);
+    await page.keyboard.press("Enter");
+    await expect(remote).toHaveAttribute("aria-checked", "true");
+    await expect(local).toHaveAttribute("aria-checked", "false");
+    await tabTo(page, local);
+    await page.keyboard.press("Enter");
+    await expect(local).toHaveAttribute("aria-checked", "true");
+    await expect(remote).toHaveAttribute("aria-checked", "false");
+  });
+
+  test("Keep All Local keeps focus after the settings redraw", async ({ page }) => {
+    await openKeyboardDiffReview(page);
+    const keepAll = page.locator(`${MODAL} [data-settings-bulk="local"]`);
+    await keepAll.focus();
+    await page.keyboard.press("Enter");
+    await expect(keepAll).toBeFocused();
+  });
+
+  test("a choice in the expanded overflow keeps focus after the re-render", async ({ page }) => {
+    const names = Array.from({ length: 20 }, (_, i) => "p" + String(i).padStart(2, "0"));
+    await page.evaluate((keys) => {
+      const pills = (value) => Object.fromEntries(keys.map((k) => [k, value]));
+      window.DiffModal.show({
+        source: { type: "sync", label: "Sync" },
+        diff: { added: [], modified: [], deleted: [] },
+        settingsDiff: {
+          changed: [{ key: "providerPriority", localVal: pills(1), remoteVal: pills(2) }],
+          matched: [],
+        },
+        onApply: () => {},
+        onCancel: () => {},
+      });
+    }, names);
+    await page.locator(`${MODAL} [data-cat-toggle="settings"]`).click();
+    await page.locator(`${MODAL} [data-expand="providerPriority-local"]`).click();
+    const overflow = page.locator(
+      `${MODAL} #expand-providerPriority-local [data-field="setting-providerPriority-p19"]`
+    );
+    await tabTo(page, overflow);
+    await page.keyboard.press("Enter");
+    await expect(overflow).toHaveAttribute("aria-pressed", "true");
+    await expect(overflow).toBeFocused();
+  });
+
+  test("a focused setting choice shows a 2px ring in every theme", async ({ page }) => {
+    test.setTimeout(test.info().timeout * 4);
+    for (const theme of ["light", "dark", "slate", "sepia"]) {
+      await test.step(theme, async () => {
+        await page.evaluate((name) => window.setTheme(name), theme);
+        for (const choice of KEYBOARD_CHOICES) {
+          const control = page.locator(choice.selector);
+          await tabTo(page, control);
+          await expect
+            .poll(
+              () =>
+                control.evaluate((el) => {
+                  const probe = document.createElement("i");
+                  probe.style.outlineColor = "var(--primary)";
+                  el.appendChild(probe);
+                  const expected = getComputedStyle(probe).outlineColor;
+                  probe.remove();
+                  const style = getComputedStyle(el);
+                  return [style.outlineStyle, style.outlineWidth, style.outlineColor === expected];
+                }),
+              { message: `${theme} ${choice.name}` }
+            )
+            .toEqual(["solid", "2px", true]);
+        }
+      });
+    }
   });
 });

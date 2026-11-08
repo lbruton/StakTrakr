@@ -185,11 +185,30 @@
       _esc(fieldKey) +
       '" data-side="' +
       side +
-      '">' +
+      '"' +
+      _choiceAttrs(side + ": " + label + (enabled ? " (on)" : " (off)"), selected) +
+      ">" +
       icon +
       " " +
       _esc(label) +
       "</span> "
+    );
+  }
+
+  /**
+   * Keyboard and screen reader attributes for a per-element local/remote choice. The choice is a
+   * toggle: activating the selected side clears the pick.
+   * @param {string} label accessible name, starting with the side
+   * @param {boolean} selected whether this side is the current pick
+   * @returns {string} attribute string with a leading space
+   */
+  function _choiceAttrs(label, selected) {
+    return (
+      ' role="button" tabindex="0" aria-pressed="' +
+      (selected ? "true" : "false") +
+      '" aria-label="' +
+      _esc(label.charAt(0).toUpperCase() + label.slice(1)) +
+      '"'
     );
   }
 
@@ -406,7 +425,9 @@
             lCls +
             '" data-field="' +
             _esc(fieldKey) +
-            '" data-side="local">' +
+            '" data-side="local"' +
+            _choiceAttrs("local: " + humanLabel, selSide === "local") +
+            ">" +
             _esc(humanLabel) +
             "</span> ";
           if (totalChips <= 15) {
@@ -423,7 +444,9 @@
             rCls +
             '" data-field="' +
             _esc(fieldKey) +
-            '" data-side="remote">' +
+            '" data-side="remote"' +
+            _choiceAttrs("remote: " + humanLabel, selSide === "remote") +
+            ">" +
             _esc(humanLabel) +
             "</span> ";
           if (totalChips <= 15) {
@@ -514,7 +537,9 @@
             lCls +
             '" data-field="' +
             _esc(fieldKey) +
-            '" data-side="local">' +
+            '" data-side="local"' +
+            _choiceAttrs("local: " + humanKey + ": " + String(lv), selSide === "local") +
+            ">" +
             _esc(humanKey) +
             ": " +
             _esc(String(lv)) +
@@ -527,7 +552,9 @@
             rCls +
             '" data-field="' +
             _esc(fieldKey) +
-            '" data-side="remote">' +
+            '" data-side="remote"' +
+            _choiceAttrs("remote: " + humanKey + ": " + String(rv), selSide === "remote") +
+            ">" +
             _esc(humanKey) +
             ": " +
             _esc(String(rv)) +
@@ -585,13 +612,17 @@
       localBtnCls +
       '" data-setting-resolution="' +
       _esc(resKey) +
-      '" data-side="local">Keep Local</span>';
+      '" data-side="local"' +
+      _choiceAttrs("keep local: " + _titleCase(key), selected === "local") +
+      ">Keep Local</span>";
     html +=
       '<span class="' +
       remoteBtnCls +
       '" data-setting-resolution="' +
       _esc(resKey) +
-      '" data-side="remote">Use Remote</span>';
+      '" data-side="remote"' +
+      _choiceAttrs("use remote: " + _titleCase(key), selected === "remote") +
+      ">Use Remote</span>";
     html += "</div>";
     return html;
   }

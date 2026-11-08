@@ -1,3 +1,26 @@
+/** Settings diff with one changed setting per renderer: value pair, chip strip, pills and count summary. */
+export const SAMPLE_SETTINGS_DIFF = {
+  changed: [
+    { key: "displayCurrency", localVal: "USD", remoteVal: "EUR" },
+    {
+      key: "layoutSectionConfig",
+      localVal: [{ id: "a", label: "Alpha", enabled: true }],
+      remoteVal: [{ id: "a", label: "Alpha", enabled: false }],
+    },
+    {
+      key: "providerPriority",
+      localVal: { metals: 1, apmex: 2 },
+      remoteVal: { metals: 2, apmex: 1 },
+    },
+    {
+      key: "chipCustomGroups",
+      localVal: [{ name: "Eagles", patterns: ["eagle"] }],
+      remoteVal: [{ name: "Maples", patterns: ["maple"] }],
+    },
+  ],
+  matched: [{ key: "appTheme", value: "dark" }],
+};
+
 /**
  * Opens the diff review modal on a sync diff: one deleted, one modified (name, qty and
  * price) and one added Item. `extra` merges into the DiffModal.show options, for example a

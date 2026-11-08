@@ -173,6 +173,7 @@
   var _conflictResolutions = {}; // { 'c0': 'local'|'remote', ... }
   var _collapsedCategories = {}; // { added: true, ... }
   var _expandedSettingsCategories = {}; // { 'Appearance': true, ... }
+  var _expandedOverflow = {}; // { 'providerPriority-local': true, ... } "Show more" lists opened
   var _selectAllState = 0; // 0=none, 1=added+modified, 2=all
 
   // Card-based state (STAK-454)
@@ -356,8 +357,53 @@
     };
   }
 
+  /** Identify the focused setting choice so a re-render can focus its replacement. */
+  function _captureChoiceFocus(container) {
+    var active = document.activeElement;
+    if (!active || !container.contains(active)) return null;
+    if (!active.hasAttribute("data-side") && !active.hasAttribute("data-settings-bulk"))
+      return null;
+    return {
+      settingsBulk: active.getAttribute("data-settings-bulk"),
+      field: active.getAttribute("data-field"),
+      resolution: active.getAttribute("data-setting-resolution"),
+      bulk: active.getAttribute("data-cat-bulk"),
+      side: active.getAttribute("data-side"),
+    };
+  }
+
+  /** Focus the rebuilt setting choice that matches a {@link _captureChoiceFocus} result. */
+  function _restoreChoiceFocus(container, spec) {
+    if (!spec) return;
+    var nodes = container.querySelectorAll("[data-side], [data-settings-bulk]");
+    for (var n = 0; n < nodes.length; n++) {
+      if (
+        nodes[n].getAttribute("data-settings-bulk") === spec.settingsBulk &&
+        nodes[n].getAttribute("data-field") === spec.field &&
+        nodes[n].getAttribute("data-setting-resolution") === spec.resolution &&
+        nodes[n].getAttribute("data-cat-bulk") === spec.bulk &&
+        nodes[n].getAttribute("data-side") === spec.side
+      ) {
+        nodes[n].focus();
+        return;
+      }
+    }
+  }
+
+  /** Activate a focused setting choice on Space or Enter; spans and divs do not synthesize a click. */
+  function _onSettingsKeydown(e) {
+    if (e.key !== " " && e.key !== "Enter") return;
+    var target = e.target;
+    var role = target && target.getAttribute ? target.getAttribute("role") : null;
+    if (role !== "button" && role !== "radio") return;
+    if (!target.hasAttribute("data-side")) return;
+    e.preventDefault();
+    target.click();
+  }
+
   function _renderSettingsCards(container, settingsDiff) {
     if (!container) return;
+    var focusSpec = _captureChoiceFocus(container);
     var changed = settingsDiff && settingsDiff.changed ? settingsDiff.changed : [];
     var matched =
       settingsDiff && (settingsDiff.unchanged || settingsDiff.matched)
@@ -532,25 +578,32 @@
         var localSel = selected === "local" ? " selected" : "";
         var remoteSel = selected === "remote" ? " selected" : "";
 
-        html += '<div class="dm-field-diff dm-setting-row">';
+        html +=
+          '<div class="dm-field-diff dm-setting-row" role="radiogroup" aria-label="' +
+          _esc(label) +
+          '">';
         html += '<div class="dm-field-label">' + _esc(label) + "</div>";
         html +=
           '<div class="dm-field-value local' +
           localSel +
           '" data-setting-resolution="' +
           _esc(resKey) +
-          '" data-side="local" title="' +
+          '" data-side="local" role="radio" tabindex="0" aria-checked="' +
+          (selected === "local") +
+          '" title="' +
           _esc(window.DiffModalSettings.formatSettingValue(entry.key, entry.localVal)) +
           '">' +
           window.DiffModalSettings.formatSettingValue(entry.key, entry.localVal) +
           "</div>";
-        html += '<div class="dm-field-arrow">&#10231;</div>';
+        html += '<div class="dm-field-arrow" aria-hidden="true">&#10231;</div>';
         html +=
           '<div class="dm-field-value remote' +
           remoteSel +
           '" data-setting-resolution="' +
           _esc(resKey) +
-          '" data-side="remote" title="' +
+          '" data-side="remote" role="radio" tabindex="0" aria-checked="' +
+          (selected === "remote") +
+          '" title="' +
           _esc(window.DiffModalSettings.formatSettingValue(entry.key, entry.remoteVal)) +
           '">' +
           window.DiffModalSettings.formatSettingValue(entry.key, entry.remoteVal) +
@@ -594,6 +647,14 @@
 
     container.innerHTML = html;
     container.style.display = renderedCount > 0 ? "" : "none";
+    Object.keys(_expandedOverflow).forEach(function (key) {
+      var list = container.querySelector("#expand-" + key);
+      var more = container.querySelector('.dm-show-more[data-expand="' + key + '"]');
+      if (list) list.classList.add("expanded");
+      if (more) more.style.display = "none";
+    });
+    _restoreChoiceFocus(container, focusSpec);
+    container.onkeydown = _onSettingsKeydown;
 
     // Event delegation
     container.onclick = function (e) {
@@ -618,6 +679,7 @@
         if (expandEl) {
           expandEl.classList.add("expanded");
           showMore.style.display = "none";
+          _expandedOverflow[expandKey] = true;
         }
         return;
       }
@@ -2664,6 +2726,7 @@
       _conflictResolutions = {};
       _collapsedCategories = { settings: true };
       _expandedSettingsCategories = {};
+      _expandedOverflow = {};
       _selectAllState = 0;
       _orphanActions = {};
       _fieldSelections = {};
