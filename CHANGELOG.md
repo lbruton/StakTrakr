@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.135] - 2026-11-08
+
+### Changed — STRK-560: Review Changes keyboard access
+
+- **Setting choices**: In the Review Changes window, Tab reaches every setting choice: the whole-setting values, the chips, the key-value pills and Keep Local and Use Remote. Space and Enter pick a choice, focus stays on it after the window redraws, and a focus ring shows the position (STRK-560).
+- **Screen readers**: Each choice reports its role and whether it is picked, and each pair of values sits in a radio group named after the setting (STRK-560).
+
 ## [3.36.134] - 2026-11-08
 
 ### Changed — STRK-578: Segmented toggle corners

@@ -23193,6 +23193,19 @@ button.vp-price:hover {
   border-color: var(--success);
   background: color-mix(in oklch, var(--success) 8%, transparent);
 }
+/* Setting choices are keyboard controls; the ring matches the other focusable chips. */
+#diffReviewModal
+  :is(
+    .dm-chip-local,
+    .dm-chip-remote,
+    .dm-kv-pill.local,
+    .dm-kv-pill.remote,
+    .dm-count-btn,
+    .dm-field-value[role="radio"]
+  ):focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
 #diffReviewModal .dm-card.resolved {
   border-color: var(--success);
   transform: scale(0.98);
