@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.129] - 2026-11-08
+
+### Changed — STRK-543: Collections keyboard focus
+
+- **Ring**: Every Collections control shows one 2px keyboard ring that holds 3:1 contrast in all four themes. Slot menu items, hub cards, chips and pills share it (STRK-543).
+- **Focus**: Opening an Album from the hub focuses its heading, and Back focuses the card of the Collection just left (STRK-543).
+
 ## [3.36.128] - 2026-11-08
 
 ### Changed — STRK-546: Remove Item undo and the Activity Log name

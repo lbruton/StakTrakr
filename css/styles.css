@@ -19653,7 +19653,7 @@ button.vp-price:hover {
 .collections-move-button:focus-visible,
 .collections-arrange-handle:focus-visible,
 .collections-sort-reset:focus-visible {
-  outline: 2px solid var(--primary);
+  outline: 2px solid var(--primary-text);
   outline-offset: 2px;
 }
 
@@ -19930,8 +19930,15 @@ button.vp-price:hover {
   border-color: var(--primary);
   background: color-mix(in oklch, var(--bg-on-frame), var(--hover-mix) 4%);
   transform: translateY(-1px);
-  outline: none;
 }
+/* One keyboard ring for every Collections control. --primary-text is the primary token
+   that holds 3:1 against the page surfaces in all four themes. */
+#collectionsSectionEl :is(a, button, input, select, textarea, summary, [tabindex]):focus-visible,
+.collections-menu-item:focus-visible {
+  outline: 2px solid var(--primary-text);
+  outline-offset: 2px;
+}
+
 .collections-arrange-controls {
   display: flex;
   align-items: center;
@@ -20107,7 +20114,7 @@ button.vp-price:hover {
 }
 
 .collections-hidden-manage:focus-visible {
-  outline: 2px solid var(--primary);
+  outline: 2px solid var(--primary-text);
   outline-offset: 2px;
 }
 
@@ -20258,7 +20265,7 @@ button.vp-price:hover {
 .collections-linkbtn:focus-visible,
 .collections-match:focus-visible,
 .collections-hubrow:focus-visible {
-  outline: 2px solid var(--primary);
+  outline: 2px solid var(--primary-text);
   outline-offset: 2px;
 }
 
@@ -20335,7 +20342,7 @@ button.vp-price:hover {
 }
 
 .collections-note-toggle:focus-visible {
-  outline: 2px solid var(--primary);
+  outline: 2px solid var(--primary-text);
   outline-offset: 2px;
 }
 
@@ -20626,7 +20633,7 @@ button.vp-price:hover {
 
 .collections-sort-header:focus-visible,
 .collections-hub-sort select:focus-visible {
-  outline: 2px solid var(--primary);
+  outline: 2px solid var(--primary-text);
   outline-offset: 2px;
 }
 
@@ -20787,7 +20794,6 @@ button.vp-price:hover {
 .collections-menu-item:hover,
 .collections-menu-item:focus-visible {
   background: var(--bg-tertiary);
-  outline: none;
 }
 
 .collections-menu-item small {
@@ -21704,7 +21710,7 @@ button.vp-price:hover {
 
 .collections-builder-grip:focus-visible,
 .collections-builder-row-actions button:focus-visible {
-  outline: 2px solid var(--primary);
+  outline: 2px solid var(--primary-text);
   outline-offset: 1px;
 }
 
@@ -21911,7 +21917,7 @@ button.vp-price:hover {
 
 .collections-settings-handle:focus-visible,
 .collections-settings-move:focus-visible {
-  outline: 2px solid var(--primary);
+  outline: 2px solid var(--primary-text);
   outline-offset: 2px;
 }
 

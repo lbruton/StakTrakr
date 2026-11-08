@@ -150,6 +150,7 @@
 
       const info = el("div", "collections-album-info");
       const heading = el("h2", "", entry.name);
+      heading.tabIndex = -1;
       if (entry.variant) heading.appendChild(buildTag(entry.variant, "is-variant"));
       info.appendChild(heading);
       const definition = entry.collection.definition || {};

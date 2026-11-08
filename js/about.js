@@ -134,11 +134,11 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.36.129 &ndash; Collections keyboard focus</strong>: Every Collections control shows the same clear focus ring in all four themes, including Slot menu items, hub cards, chips and pills. Opening an Album moves focus to its heading, and Back returns focus to the card you opened (STRK-543).</li>
     <li><strong>v3.36.128 &ndash; Undo a removed Item</strong>: Removing an Item shows a toast with an Undo button that puts the Item back in its Collection slots. The Activity Log link in the Remove Item modal opens a log that lists the removal, and the log has one name everywhere (STRK-546).</li>
     <li><strong>v3.36.127 &ndash; Settings for screen readers</strong>: Every Settings dropdown and Market filter checkbox has a name, and each On/Off group reports whether it is on. The Settings menu marks the current section and moves with the Up and Down keys, and each panel has a heading (STRK-550).</li>
     <li><strong>v3.36.126 &ndash; Cloud backup list</strong>: A long list of Dropbox backups scrolls instead of squeezing its rows together, and each backup&rsquo;s type, date and size line up in columns. The delete button shows when a row has keyboard focus and stays shown on touch screens (STRK-573).</li>
     <li><strong>v3.36.125 &ndash; Cloud and vault controls</strong>: Until Dropbox connects, Sync Now, Backup and Restore are disabled and a line says to connect Dropbox first. Auto-sync and Sync attachments use the On/Off switch, sync status and failures are read out by screen readers, and changing the vault password asks for it twice (STRK-553).</li>
-    <li><strong>v3.36.124 &ndash; Restore Preview retry</strong>: After Try again on a backup that cannot be read, this tab holds its pushes until the retried download finishes, then sends any push it held. The sync status says &ldquo;Could not read backup&rdquo; while Restore Preview shows the failure (STRK-566).</li>
       `;
 };
 
