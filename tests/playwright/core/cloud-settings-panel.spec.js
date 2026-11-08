@@ -288,6 +288,19 @@ test.describe("Settings › Cloud panel controls", () => {
         sizeRight: 1,
         tabular: ["tabular-nums", "tabular-nums"],
       });
+
+    const list = page.locator("#cloudBackupList_dropbox");
+    await list.hover();
+    await page.mouse.wheel(0, 2000);
+    await expect
+      .poll(() =>
+        list.evaluate((el) => {
+          const last = el.lastElementChild.getBoundingClientRect();
+          const box = el.getBoundingClientRect();
+          return el.scrollTop > 0 && last.bottom <= box.bottom + 1 && last.top >= box.top;
+        })
+      )
+      .toBe(true);
   });
 
   test("a backup row shows its delete button while the row has keyboard focus", async ({
@@ -312,8 +325,30 @@ test.describe("Settings › Cloud panel controls", () => {
     );
   });
 
-  test.describe("on a touch screen", () => {
-    test.use({ hasTouch: true });
+  test.describe("on a touch phone", () => {
+    test.use({ hasTouch: true, viewport: { width: 390, height: 844 } });
+
+    test("every backup date shows in full at the default and a larger text size", async ({
+      page,
+    }) => {
+      await bootApp(page);
+      await connectAndOpenCloud(page);
+      await renderBackups(page, 22);
+
+      for (const rootSize of ["16px", "24px"]) {
+        await page.evaluate((size) => {
+          document.documentElement.style.fontSize = size;
+        }, rootSize);
+        const clipped = await page
+          .locator("#cloudBackupList_dropbox .cloud-backup-name")
+          .evaluateAll((names) =>
+            names
+              .filter((n) => n.scrollWidth > n.clientWidth + 1)
+              .map((n) => `${n.textContent} ${n.clientWidth}/${n.scrollWidth}px`)
+          );
+        expect(clipped, `root ${rootSize}`).toEqual([]);
+      }
+    });
 
     test("every backup row shows a 44px delete button", async ({ page }) => {
       await bootApp(page);
@@ -330,6 +365,12 @@ test.describe("Settings › Cloud panel controls", () => {
             .map((b) => `${b.offsetWidth}x${b.offsetHeight}`)
         );
       expect(small).toEqual([]);
+
+      await page.locator("#cloudBackupList_dropbox .cloud-backup-delete-btn").first().tap();
+      await expect(page.locator("#bulkConfirmModal")).toBeVisible();
+      await expect(page.locator("#bulkConfirmModalTitle")).toHaveText("Delete Backup");
+      await page.locator("#bulkConfirmCancelBtn").tap();
+      await expect(page.locator("#bulkConfirmModal")).toBeHidden();
     });
   });
 

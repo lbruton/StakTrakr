@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed — STRK-573: Cloud backup list rows overlap
 
 - **Full list**: A Dropbox backup list longer than its box scrolls, and every row keeps the height of its entry. Rows no longer squeeze together and overlap (STRK-573).
-- **Columns**: The type, date and size of each backup line up in columns, with tabular figures for dates and sizes (STRK-573).
+- **Columns**: The type, date and size of each backup line up in columns, with tabular figures for dates and sizes. In a narrow list or at a large text size, the date sits on its own line above the type and size, so it shows in full (STRK-573).
 - **Delete button**: The delete button shows while its row has keyboard focus. On a touch screen it is always shown at 44px (STRK-573).
 
 ## [3.36.125] - 2026-11-08

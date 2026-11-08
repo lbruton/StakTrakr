@@ -5471,6 +5471,7 @@ input.spot-lookup-flash {
   padding: 0.25rem 0.6rem;
 }
 .cloud-backup-list {
+  container: cloud-backup-list / inline-size;
   max-height: 200px;
   overflow-y: auto;
   display: flex;
@@ -5533,6 +5534,25 @@ input.spot-lookup-flash {
   font-size: var(--font-size-xs);
   white-space: nowrap;
 }
+/* A narrow list or large text puts the date on its own line above the type and size. */
+@container cloud-backup-list (max-width: 22rem) {
+  .cloud-backup-entry {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "name name"
+      "type size";
+    row-gap: 0.15rem;
+  }
+  .cloud-backup-name {
+    grid-area: name;
+  }
+  .cloud-backup-type {
+    grid-area: type;
+  }
+  .cloud-backup-size {
+    grid-area: size;
+  }
+}
 .settings-fieldset.danger-zone {
   border-color: var(--danger);
 }
@@ -5558,8 +5578,8 @@ input.spot-lookup-flash {
   background: color-mix(in srgb, var(--danger, #e74c3c) 12%, transparent);
   opacity: 1;
 }
-/* A touch screen has no hover, so the delete button stays shown at a 44px size. */
-@media (hover: none) {
+/* A touch screen, including one beside a mouse, shows the delete button at a 44px size. */
+@media (hover: none), (any-pointer: coarse) {
   .cloud-backup-delete-btn {
     min-width: 44px;
     min-height: 44px;
