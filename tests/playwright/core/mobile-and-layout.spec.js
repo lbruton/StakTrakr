@@ -144,6 +144,7 @@ test.describe("core/mobile-and-layout", () => {
         await applyTheme(page, theme);
         const groups = await readSegmentCorners(page, "#purchasePriceModeToggle");
         expect(groups).toHaveLength(1);
+        expect(groups[0].overflow).toBe("visible");
         expect(groups[0].first).toEqual([groups[0].radius - 1, groups[0].radius - 1]);
         expect(groups[0].last).toEqual([groups[0].radius - 1, groups[0].radius - 1]);
       });

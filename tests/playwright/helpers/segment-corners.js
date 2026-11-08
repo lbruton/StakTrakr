@@ -16,6 +16,7 @@ export const readSegmentCorners = (page, scope) =>
       const last = getComputedStyle(segments[segments.length - 1]);
       return {
         radius: parseFloat(getComputedStyle(group).borderTopLeftRadius),
+        overflow: getComputedStyle(group).overflowX,
         first: [parseFloat(first.borderTopLeftRadius), parseFloat(first.borderBottomLeftRadius)],
         last: [parseFloat(last.borderTopRightRadius), parseFloat(last.borderBottomRightRadius)],
       };

@@ -6193,6 +6193,7 @@ test.describe("core/collections — Album toolbar and actions row", () => {
         );
         expect(groups.length).toBeGreaterThan(0);
         for (const group of groups) {
+          expect(group.overflow).toBe("visible");
           expect(group.first).toEqual([group.radius - 1, group.radius - 1]);
           expect(group.last).toEqual([group.radius - 1, group.radius - 1]);
         }
