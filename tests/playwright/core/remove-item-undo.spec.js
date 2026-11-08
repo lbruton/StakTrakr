@@ -66,6 +66,27 @@ test.describe("core/remove-item-undo", () => {
     expect(slot).toEqual({ primary: "rm-ase-2022", spares: ["rm-ase-2024"] });
   });
 
+  test("Redo of a restored removal prunes the Collection links again", async ({ page }) => {
+    await page.evaluate(() => {
+      window.collectionsStore.link("ase-type2", "2022", "rm-ase-2022");
+      window.collectionsStore.link("ase-type2", "2022", "rm-ase-2024", { asSpare: true });
+    });
+    await deleteFirstItem(page);
+    await page
+      .locator(".cloud-toast", { hasText: `Removed ${NAME}.` })
+      .getByRole("button", { name: "Undo" })
+      .click();
+    await expect.poll(() => inventoryHas(page, "rm-ase-2022")).toBe(true);
+
+    await page.evaluate(() => window.toggleChange(window.changeLog.length - 1));
+    await expect.poll(() => inventoryHas(page, "rm-ase-2022")).toBe(false);
+    const slot = await page.evaluate(() => {
+      const link = window.collectionsStore.getState().collections["ase-type2"].slots["2022"];
+      return { primary: link.primary, spares: link.spares };
+    });
+    expect(slot).toEqual({ primary: "rm-ase-2024", spares: [] });
+  });
+
   test("the Activity Log link lists the removal with its Undo action", async ({ page }) => {
     await deleteFirstItem(page);
     await page.evaluate(() => window.openRemoveItemModal(0, false));

@@ -713,6 +713,7 @@ const _undoItemDeleted = (entry) => {
     if (removed.serial) {
       delete catalogMap[removed.serial];
     }
+    if (removed.uuid) window.collectionsStore?.pruneItem?.(removed.uuid);
     entry.undone = false;
   } else {
     if (entry.oldValue == null) {
