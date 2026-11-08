@@ -945,7 +945,7 @@ const PARITY_HOSTS = {
       page
         .locator("#collectionsBuilderModal")
         .getByRole("button", { name: "Swap obverse and reverse images" }),
-    file: (page) => page.locator("#collectionsBuilderModal input[type=file]").first(),
+    file: (page) => page.locator("#collectionsBuilderModal .ife input[type=file]").first(),
     caption: (page) => page.locator("#collectionsBuilderModal").getByText(/^obverse title image$/i),
   },
 };

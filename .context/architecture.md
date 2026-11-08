@@ -436,8 +436,9 @@ A checklist/album layer over the inventory. Terms (Collection, Slot, Spare, Seri
 that inserts a blank Slot after it, and a remove button. Pointer dragging goes through
 `collectionsUI.wireReorderHandle`; the handle is also the keyboard path (Arrow Up / Arrow
 Down), because the builder has no move buttons. Moves retain each row node,
-Slot id and image chooser; Save writes DOM order to `definition.slots`, while Cancel
-or close discards pending changes. The core reserves carried Slot ids before assigning
+Slot id and image chooser; Save writes DOM order to `definition.slots`. Cancel, close,
+Escape and the backdrop discard pending changes, and ask first through `showAppConfirm`
+when any control or image choice differs from the opening state. The core reserves carried Slot ids before assigning
 new ids, so duplicate-label insertions cannot steal links or artwork. Album and Ledger
 use the saved Collection order; Reverse is only a view reversal. Series Template Slots
 remain immutable.
