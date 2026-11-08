@@ -228,6 +228,174 @@ test.describe("vault modal characterization (cohort 1.4)", () => {
   });
 });
 
+test.describe("vault password fields", () => {
+  test("export and import modes set autocomplete, copy and announced errors", async ({ page }) => {
+    await bootVault(page);
+    const read = () =>
+      page.evaluate(() => {
+        const q = (id) => document.getElementById(id);
+        return {
+          autocomplete: q("vaultPassword").getAttribute("autocomplete"),
+          confirmAutocomplete: q("vaultConfirmPassword").getAttribute("autocomplete"),
+          placeholder: q("vaultPassword").placeholder,
+          warning: q("vaultWarning").textContent.trim(),
+        };
+      });
+
+    await page.evaluate(() => window.openVaultModal("export"));
+    expect(await read()).toEqual({
+      autocomplete: "new-password",
+      confirmAutocomplete: "new-password",
+      placeholder: "Minimum 8 characters",
+      warning: "If you forget this password, you cannot recover this backup.",
+    });
+
+    await page.evaluate(() => window.openVaultModal("import", null));
+    expect(await read()).toEqual({
+      autocomplete: "current-password",
+      confirmAutocomplete: "new-password",
+      placeholder: "Password used for this backup",
+      warning: "Enter the password you set when you created this backup.",
+    });
+
+    await page.evaluate(() => {
+      window.exportEncryptedBackup = async () => ({});
+      window.openVaultModal("export");
+    });
+    // Matching entries below the minimum still fail the length check.
+    await page.locator("#vaultPassword").fill("short");
+    await page.locator("#vaultConfirmPassword").fill("short");
+    await page.locator("#vaultActionBtn").click();
+    const vaultModal = page.locator("#vaultModal");
+    const alert = vaultModal.getByRole("alert");
+    await expect(alert).toHaveText(
+      "Password must be at least 8 characters. Enter a longer password."
+    );
+    await page.locator("#vaultPassword").fill("longenoughpw");
+    await page.locator("#vaultConfirmPassword").fill("differentpw1");
+    await page.locator("#vaultActionBtn").click();
+    await expect(alert).toHaveText(
+      "Passwords do not match. Enter the same password in both fields."
+    );
+
+    // A corrected entry exports without reopening the modal, and the status drops the alert role.
+    await page.locator("#vaultConfirmPassword").fill("longenoughpw");
+    await page.locator("#vaultActionBtn").click();
+    await expect(vaultModal.getByRole("status")).toHaveText("Backup exported successfully.");
+    await expect(alert).toHaveCount(0);
+  });
+
+  test("the show/hide control reports its state", async ({ page }) => {
+    await bootVault(page);
+    await page.evaluate(() => window.openVaultModal("export"));
+    for (const [input, toggle] of [
+      ["#vaultPassword", "#vaultPasswordToggle"],
+      ["#vaultConfirmPassword", "#vaultConfirmToggle"],
+    ]) {
+      const btn = page.locator(toggle);
+      await expect(btn).toHaveAttribute("aria-pressed", "false");
+      await expect(btn).toHaveAttribute("aria-label", "Show password");
+      await btn.click();
+      await expect(page.locator(input)).toHaveAttribute("type", "text");
+      await expect(btn).toHaveAttribute("aria-pressed", "true");
+      await btn.click();
+      await expect(page.locator(input)).toHaveAttribute("type", "password");
+      await expect(btn).toHaveAttribute("aria-pressed", "false");
+    }
+  });
+
+  test("changing the vault password in Dropbox settings needs matching entries", async ({
+    page,
+  }) => {
+    await bootVault(page);
+    await page.evaluate(() => {
+      window.__changedTo = [];
+      window.changeVaultPassword = async (pw) => {
+        window.__changedTo.push(pw);
+        return true;
+      };
+      window.openModalById("cloudSyncAdvancedModal");
+    });
+    const modal = page.locator("#cloudSyncAdvancedModal");
+    const confirm = page.locator("#cloudAdvancedConfirmPassword");
+    await expect(page.locator("#cloudAdvancedNewPassword")).toHaveAttribute(
+      "autocomplete",
+      "new-password"
+    );
+    await expect(confirm).toHaveAttribute("autocomplete", "new-password");
+
+    await page.locator("#cloudAdvancedNewPassword").fill("new-vault-pass"); // gitleaks:allow
+    await confirm.fill("new-vault-typo"); // gitleaks:allow
+    await page.locator("#cloudAdvancedSavePasswordBtn").click();
+    await expect(modal.getByRole("alert")).toHaveText(
+      "Passwords do not match. Enter the same password in both fields."
+    );
+    expect(await page.evaluate(() => window.__changedTo)).toEqual([]);
+
+    await confirm.fill("new-vault-pass"); // gitleaks:allow
+    await page.locator("#cloudAdvancedSavePasswordBtn").click();
+    await expect.poll(() => page.evaluate(() => window.__changedTo)).toEqual(["new-vault-pass"]);
+    await expect(modal.getByRole("alert")).toBeHidden();
+    await expect(page.locator("#cloudAdvancedNewPassword")).toHaveValue("");
+    await expect(confirm).toHaveValue("");
+  });
+
+  test("a Dropbox password save that fails keeps both entries and reports the failure", async ({
+    page,
+  }) => {
+    await bootVault(page);
+    await page.evaluate(() => {
+      window.__changedTo = [];
+      window.openModalById("cloudSyncAdvancedModal");
+    });
+    const modal = page.locator("#cloudSyncAdvancedModal");
+    const newPw = page.locator("#cloudAdvancedNewPassword");
+    const confirm = page.locator("#cloudAdvancedConfirmPassword");
+    const saveFailed =
+      "Could not save the new password in this browser. Check that site storage is allowed, then try again.";
+
+    /**
+     * Install a changeVaultPassword stand-in, save matching entries, and check the alert and fields.
+     * @param {string} kind - "falsy", "reject" or "missing".
+     * @param {string} pw - Password typed into both fields.
+     * @param {string} message - Expected alert text.
+     */
+    const saveAndExpect = async (kind, pw, message) => {
+      await page.evaluate((k) => {
+        window.changeVaultPassword =
+          k === "missing"
+            ? undefined
+            : async (value) => {
+                window.__changedTo.push(value);
+                if (k === "reject") throw new Error("storage blocked");
+                return false;
+              };
+      }, kind);
+      await newPw.fill(pw);
+      await confirm.fill(pw);
+      await page.locator("#cloudAdvancedSavePasswordBtn").click();
+      await expect(modal.getByRole("alert"), kind).toHaveText(message);
+      await expect(newPw, kind).toHaveValue(pw);
+      await expect(confirm, kind).toHaveValue(pw);
+    };
+
+    await saveAndExpect(
+      "falsy",
+      "short",
+      "Password must be at least 8 characters. Enter a longer password."
+    );
+    expect(await page.evaluate(() => window.__changedTo)).toEqual([]);
+
+    await saveAndExpect("falsy", "new-vault-pass", saveFailed); // gitleaks:allow
+    await saveAndExpect("reject", "new-vault-pass", saveFailed); // gitleaks:allow
+    await saveAndExpect("missing", "new-vault-pass", saveFailed); // gitleaks:allow
+    expect(await page.evaluate(() => window.__changedTo)).toEqual([
+      "new-vault-pass",
+      "new-vault-pass",
+    ]);
+  });
+});
+
 // The CatalogConfig singleton reads catalog_api_config once in its constructor.
 // A restore must rehydrate it, or the next CatalogConfig.save() (a usage-counter
 // increment) writes the stale in-memory defaults over the restored key.

@@ -983,6 +983,9 @@ function updateSyncStatusIndicator(state, detail) {
     // 'disabled' = no extra class (grey)
   }
 
+  var region = el.querySelector(".cloud-sync-status");
+  if (region) region.setAttribute("role", state === "error" ? "alert" : "status");
+
   if (text) {
     var label = "";
     if (state === "syncing") label = "Syncing\u2026";
@@ -1007,8 +1010,7 @@ function updateSyncStatusIndicator(state, detail) {
  */
 function refreshSyncUI() {
   // Sync toggle
-  var toggle = safeGetElement("cloudAutoSyncToggle");
-  if (toggle) toggle.checked = syncIsEnabled();
+  if (typeof syncChipToggle === "function") syncChipToggle("cloudAutoSyncToggle", syncIsEnabled());
 
   // Last synced label
   var lastPush = syncGetLastPush();
@@ -6221,7 +6223,9 @@ async function enableCloudSync(provider) {
     }
     refreshSyncUI();
     if (typeof showCloudToast === "function") {
-      showCloudToast("Cloud sync requires a vault password. Please try again.");
+      showCloudToast(
+        "Auto-sync is off: it needs a vault password. Turn it on and enter the password."
+      );
     }
     return;
   }

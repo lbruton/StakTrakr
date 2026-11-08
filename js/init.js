@@ -298,7 +298,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     elements.exportJsonBtn = safeGetElement("exportJsonBtn");
     elements.exportPdfBtn = safeGetElement("exportPdfBtn");
     elements.printBtn = safeGetElement("printBtn");
-    elements.cloudSyncBtn = safeGetElement("cloudSyncBtn");
     elements.syncAllBtn = safeGetElement("syncAllBtn");
     elements.numistaApiKey = safeGetElement("numistaApiKey");
     elements.removeInventoryDataBtn = safeGetElement("removeInventoryDataBtn");
@@ -314,7 +313,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     elements.apiInfoModal = safeGetElement("apiInfoModal");
     elements.apiHistoryModal = safeGetElement("apiHistoryModal");
     elements.goldbackHistoryModal = safeGetElement("goldbackHistoryModal");
-    elements.cloudSyncModal = safeGetElement("cloudSyncModal");
     elements.vaultModal = safeGetElement("vaultModal");
     elements.apiQuotaModal = safeGetElement("apiQuotaModal");
     // Unified item modal elements (add/edit)

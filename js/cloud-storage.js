@@ -173,7 +173,7 @@ function renderSyncHistorySection() {
   if (!backup || !backup.timestamp) {
     // nosemgrep: javascript.browser.security.insecure-innerhtml.insecure-innerhtml
     container.innerHTML =
-      '<p class="settings-subtext" style="margin:0">No snapshot available. A local snapshot is saved automatically before any remote pull is accepted.</p>';
+      '<p class="settings-subtext cloud-sync-history-empty">No snapshot available. A local snapshot is saved automatically before any remote pull is accepted.</p>';
     return;
   }
 
@@ -207,8 +207,8 @@ function renderSyncHistorySection() {
         "</strong></div>"
       : "") +
     "</div>" +
-    '<div style="margin-top:0.6rem">' +
-    '<button class="btn warning" type="button" style="font-size:0.8rem;padding:0.25rem 0.6rem" ' +
+    '<div class="cloud-sync-history-actions">' +
+    '<button class="btn warning cloud-sync-history-restore-btn" type="button" ' +
     "onclick=\"if(typeof syncRestoreOverrideBackup==='function')syncRestoreOverrideBackup();\">" +
     "Restore This Snapshot" +
     "</button>" +
@@ -1351,7 +1351,9 @@ function syncCloudUI() {
     if (connectedBadge) connectedBadge.style.display = connected ? "" : "none";
     if (disconnectBtn) disconnectBtn.style.display = connected ? "" : "none";
 
-    // Enable/disable backup & restore buttons based on connection
+    // Backup and Restore stay disabled until Dropbox connects; the hint names the next step.
+    var connectHint = document.getElementById("cloudConnectHint");
+    if (key === "dropbox" && connectHint) connectHint.style.display = connected ? "none" : "";
     document
       .querySelectorAll(
         '.cloud-backup-btn[data-provider="' +

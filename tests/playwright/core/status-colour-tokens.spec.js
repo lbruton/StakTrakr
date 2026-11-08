@@ -703,14 +703,10 @@ const FILLED_CONTROLS = {
     '<div class="modal-footer"><button class="btn secondary" data-probe>Cancel</button></div>',
   "history title":
     '<div id="apiHistoryModal"><div class="modal-header"><h2 data-probe>History</h2></div></div>',
-  "cloud sync title":
-    '<div id="cloudSyncModal"><div class="modal-header"><h2 data-probe>Cloud Sync</h2></div></div>',
   "bulk edit title":
     '<div class="bulk-edit-content"><div class="modal-header"><h2 data-probe>Bulk Edit</h2></div></div>',
   "history close":
     '<div id="apiHistoryModal" style="position:relative;width:96px"><div class="modal-header"><button class="modal-close" data-probe>×</button></div></div>',
-  "cloud sync close":
-    '<div id="cloudSyncModal" style="position:relative;width:96px"><div class="modal-header"><button class="modal-close" data-probe>×</button></div></div>',
   "bulk edit close":
     '<div class="bulk-edit-content" style="position:relative;width:96px"><div class="modal-header"><button class="modal-close" data-probe>×</button></div></div>',
   "settings link":

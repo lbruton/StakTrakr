@@ -1599,6 +1599,38 @@ function _vaultResetModalFields(passwordEl, confirmEl, statusEl) {
   }
   updateStrengthBar("");
   updateMatchIndicator("", "");
+  [
+    ["vaultPassword", "vaultPasswordToggle"],
+    ["vaultConfirmPassword", "vaultConfirmToggle"],
+  ].forEach(function (pair) {
+    var input = document.getElementById(pair[0]);
+    var toggle = document.getElementById(pair[1]);
+    if (input) input.type = "password";
+    if (toggle) {
+      toggle.textContent = "\u25CE"; // ◎
+      toggle.setAttribute("aria-pressed", "false");
+    }
+  });
+}
+
+/**
+ * Set the password field hints and the note under the fields for the modal mode.
+ * Export asks for a new password; import asks for the one the backup was made with.
+ * @param {boolean} isExport True for export mode, false for import mode.
+ */
+function _vaultSetPasswordCopy(isExport) {
+  var passwordEl = document.getElementById("vaultPassword");
+  if (passwordEl) {
+    passwordEl.setAttribute("autocomplete", isExport ? "new-password" : "current-password");
+    passwordEl.placeholder = isExport ? "Minimum 8 characters" : "Password used for this backup";
+  }
+  var noteEl = document.getElementById("vaultWarning");
+  if (noteEl) {
+    noteEl.className = isExport ? "encryption-warning" : "encryption-info";
+    noteEl.textContent = isExport
+      ? "If you forget this password, you cannot recover this backup."
+      : "Enter the password you set when you created this backup.";
+  }
 }
 
 /**
@@ -1707,6 +1739,7 @@ function _vaultRenderExportMode(els) {
     els.actionBtn.textContent = _cloudContext ? "Encrypt & Upload" : "Export";
     els.actionBtn.className = "btn";
   }
+  _vaultSetPasswordCopy(true);
   _vaultPendingFile = null;
 
   // Stale dynamic rows are always cleared; the checkboxes are (re)injected only
@@ -1777,6 +1810,7 @@ function _vaultRenderImportMode(els, file) {
   if (els.titleEl) els.titleEl.textContent = importTitle;
   if (els.confirmRow) els.confirmRow.style.display = "none";
   if (els.strengthRow) els.strengthRow.style.display = "none";
+  _vaultSetPasswordCopy(false);
   if (els.fileInfoEl) {
     els.fileInfoEl.style.display = "";
     var nameSpan = safeGetElement("vaultFileName");
@@ -2066,7 +2100,7 @@ function _vaultExportResultStatus(exportResult) {
 async function _vaultPerformExport(password, isCloudExport, confirmEl, actionBtn) {
   var confirm = confirmEl ? confirmEl.value : "";
   if (password !== confirm) {
-    showVaultStatus("error", "Passwords do not match.");
+    showVaultStatus("error", "Passwords do not match. Enter the same password in both fields.");
     return;
   }
 
@@ -2155,7 +2189,7 @@ async function _vaultRestoreCompanionsAndReload(password) {
  */
 async function _vaultPerformImport(password, isCloudImport, actionBtn) {
   if (!_vaultPendingFile) {
-    showVaultStatus("error", "No file loaded.");
+    showVaultStatus("error", "No file loaded. Close this window and choose the backup file again.");
     return;
   }
 
@@ -2209,7 +2243,9 @@ async function handleVaultAction() {
   if (password.length < VAULT_MIN_PASSWORD_LENGTH) {
     showVaultStatus(
       "error",
-      "Password must be at least " + VAULT_MIN_PASSWORD_LENGTH + " characters."
+      "Password must be at least " +
+        VAULT_MIN_PASSWORD_LENGTH +
+        " characters. Enter a longer password."
     );
     return;
   }
@@ -2241,6 +2277,7 @@ function showVaultStatus(type, message) {
 
   statusEl.style.display = "";
   statusEl.className = "encryption-status";
+  statusEl.setAttribute("role", type === "error" ? "alert" : "status");
 
   var dotClass = "status-" + type;
   var isAnimated = type === "info";
@@ -2330,12 +2367,11 @@ function updateMatchIndicator(password, confirm) {
 function toggleVaultPasswordVisibility(inputId, toggleBtn) {
   var input = safeGetElement(inputId);
   if (!input) return;
-  if (input.type === "password") {
-    input.type = "text";
-    if (toggleBtn) toggleBtn.textContent = "\u25C9"; // ◉
-  } else {
-    input.type = "password";
-    if (toggleBtn) toggleBtn.textContent = "\u25CE"; // ◎
+  var show = input.type === "password";
+  input.type = show ? "text" : "password";
+  if (toggleBtn) {
+    toggleBtn.textContent = show ? "\u25C9" : "\u25CE"; // ◉ shown, ◎ hidden
+    toggleBtn.setAttribute("aria-pressed", String(show));
   }
 }
 

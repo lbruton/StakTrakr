@@ -5289,15 +5289,186 @@ input.spot-lookup-flash {
 .cloud-status-detail:empty {
   display: none;
 }
-.cloud-provider-actions {
+/* Settings › Cloud panel and Dropbox Settings modal. The id scope keeps these rules ahead of the
+   shared settings and phone button rules. */
+#settingsPanel_cloud .cloud-card-grid {
+  margin-bottom: 1rem;
+}
+:is(#settingsPanel_cloud, #cloudSyncAdvancedModal) .cloud-title-icon {
+  vertical-align: -2px;
+}
+#cloudSyncAdvancedModal .cloud-title-icon--spaced {
+  margin-right: 0.4rem;
+}
+:is(#settingsPanel_cloud, #cloudSyncAdvancedModal) .cloud-btn-icon {
+  vertical-align: -2px;
+  margin-right: 0.3rem;
+}
+:is(#settingsPanel_cloud, #cloudSyncAdvancedModal) .cloud-btn-icon--sm {
+  vertical-align: -1px;
+}
+:is(#settingsPanel_cloud, #cloudSyncAdvancedModal) .cloud-action-btn {
+  font-size: 0.82rem;
+  padding: 0.4rem 0.9rem;
+}
+#settingsPanel_cloud .cloud-action-btn--sm {
+  font-size: 0.8rem;
+  padding: 0.35rem 0.75rem;
+}
+#settingsPanel_cloud .cloud-action-btn--block {
+  width: 100%;
+}
+/* The enabled state shows at once when Dropbox connects. */
+#settingsPanel_cloud .btn {
+  transition:
+    var(--transition),
+    opacity 0s;
+}
+/* The global button rule forces a pointer cursor with !important. */
+#settingsPanel_cloud .btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed !important;
+}
+#settingsPanel_cloud .btn:disabled:hover {
+  transform: none;
+  box-shadow: none;
+  background: var(--primary-fill);
+}
+#settingsPanel_cloud .btn.success:disabled:hover {
+  background: var(--success-fill);
+}
+#settingsPanel_cloud .btn:disabled:hover::before {
+  left: -100%;
+}
+#settingsPanel_cloud .cloud-login-area {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+#settingsPanel_cloud .cloud-connect-hint {
+  margin: 0.4rem 0 0;
+}
+#cloudDropboxSignoutLink {
+  margin-top: 0.3rem;
+}
+#cloudDropboxSignoutLink a {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  text-decoration: underline;
+}
+#settingsPanel_cloud .cloud-card-divider {
+  margin-top: 0.6rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.6rem;
+}
+#settingsPanel_cloud .cloud-sync-status {
   display: flex;
   align-items: center;
-  gap: var(--spacing-md);
-  flex-wrap: wrap;
+  gap: 0.4rem;
 }
-.cloud-provider-actions .btn[disabled] {
-  opacity: 0.45;
-  cursor: not-allowed;
+#settingsPanel_cloud :is(.cloud-sync-now-row, .cloud-attachments-row) {
+  margin-top: 0.4rem;
+}
+#settingsPanel_cloud .cloud-fieldset-title {
+  font-size: 0.75rem;
+  margin-top: 0.6rem;
+}
+#settingsPanel_cloud .cloud-provider-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.4rem;
+}
+#settingsPanel_cloud .cloud-backup-count {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  margin-left: auto;
+}
+#settingsPanel_cloud .cloud-history-depth-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+#settingsPanel_cloud .cloud-history-depth-row .cloud-status-label {
+  flex: 1;
+}
+#cloudBackupHistoryDepth {
+  width: auto;
+  min-width: 60px;
+  padding: 0.25rem 0.4rem;
+}
+#settingsPanel_cloud .cloud-log-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+}
+#settingsPanel_cloud .cloud-log-btn {
+  flex: 1;
+}
+#settingsPanel_cloud .cloud-beta-footer {
+  border-top: 1px solid var(--border);
+  padding-top: 0.6rem;
+  margin-top: 0.5rem;
+}
+#settingsPanel_cloud .cloud-beta-footer .resource-btn {
+  font-size: 0.8rem;
+  padding: 0.35rem 0.75rem;
+}
+#cloudSyncAdvancedModal .modal-content {
+  max-width: 480px;
+  width: 90%;
+}
+#cloudSyncAdvancedModal .cloud-advanced-fieldset {
+  margin-bottom: 0.75rem;
+}
+#cloudSyncAdvancedModal .cloud-advanced-subtext {
+  margin: 0.3rem 0 0.5rem;
+}
+#cloudSyncAdvancedModal .cloud-sync-history-empty {
+  margin: 0;
+}
+#cloudSyncAdvancedModal .cloud-advanced-password-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+}
+#cloudSyncAdvancedModal .cloud-advanced-password-fields {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+#cloudSyncAdvancedModal .cloud-advanced-password-input {
+  font-size: 0.85rem;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+#cloudSyncAdvancedModal .cloud-advanced-save-btn {
+  font-size: 0.82rem;
+  padding: 0.35rem 0.75rem;
+  white-space: nowrap;
+}
+#cloudSyncAdvancedModal .cloud-advanced-error {
+  color: var(--danger-text);
+  font-size: 0.75rem;
+  margin-top: 0.3rem;
+}
+#cloudSyncAdvancedModal .cloud-advanced-disclaimer {
+  margin: 0.75rem 0 0;
+  font-size: 0.72rem;
+}
+#cloudSyncAdvancedModal .cloud-sync-history-actions {
+  margin-top: 0.6rem;
+}
+#cloudSyncAdvancedModal .cloud-sync-history-restore-btn {
+  font-size: 0.8rem;
+  padding: 0.25rem 0.6rem;
 }
 .cloud-backup-list {
   max-height: 200px;
@@ -6105,36 +6276,6 @@ input.spot-lookup-flash {
 .camera-capture-btn {
   padding: 0.25rem 0.4rem;
   flex-shrink: 0;
-}
-
-/* Cloud Sync modal layout */
-#cloudSyncModal .modal-content {
-  max-width: 400px;
-  max-height: 90vh;
-  display: flex;
-  flex-direction: column;
-  padding: 0;
-  overflow: hidden;
-}
-
-#cloudSyncModal .modal-header {
-  background: linear-gradient(135deg, var(--primary-fill), var(--primary-fill-hover));
-  color: var(--on-primary);
-  padding: var(--spacing-xl);
-  position: relative;
-  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-  box-shadow: var(--shadow);
-}
-
-#cloudSyncModal .modal-header h2 {
-  margin: 0;
-  color: var(--on-primary);
-  text-align: center;
-}
-
-#cloudSyncModal .modal-body {
-  padding: var(--spacing-xl);
-  text-align: center;
 }
 
 /* Provider panels within Settings modal inherit scrollable content area */
@@ -8335,7 +8476,6 @@ td input:checked + .slider:before {
 
 /* On a primary-gradient header the resting glyph takes the fill label; hover keeps the rule above. */
 #apiHistoryModal .modal-header .modal-close:not(:hover),
-#cloudSyncModal .modal-header .modal-close:not(:hover),
 .bulk-edit-content .modal-header .modal-close:not(:hover) {
   color: var(--on-primary);
 }
@@ -15476,8 +15616,7 @@ th {
   #apiInfoModal .modal-content,
   #notesModal .modal-content,
   #notesViewModal .modal-content,
-  #storageOptionsModal .modal-content,
-  #cloudSyncModal .modal-content {
+  #storageOptionsModal .modal-content {
     width: 95vw !important;
     max-width: 400px !important;
     height: auto;
@@ -23223,7 +23362,6 @@ button.vp-price:hover {
   .inline-search-btn::after,
   :is(.modal, .collections-section)
     :is(.chip-sort-btn, .view-chart-range-pill, .view-footer-btn, .tag-add-btn, .btn-icon)::after,
-  .settings-toggle-switch::after,
   .chip-check-hit::after {
     content: "";
     position: absolute;
@@ -23236,7 +23374,6 @@ button.vp-price:hover {
 
   /* Checkbox hit areas: the wrapping label takes the taps around the box. The label's margin
      keeps it off the collapsed table edge, which does not hit-test. */
-  .settings-toggle-switch,
   .chip-check-hit {
     position: relative;
     display: inline-grid;
