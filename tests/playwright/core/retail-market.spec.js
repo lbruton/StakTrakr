@@ -4515,3 +4515,63 @@ test.describe("manifest cache survives a compressed stored value", () => {
     expect(active).toContain("strk338-synthetic-coin-42");
   });
 });
+
+test.describe("market detail modal focus", () => {
+  const ALPHA_LINK = ".vendor-prices-table .vp-coin-link";
+
+  /**
+   * Boots the modal fixture and opens the Alpha Silver Bar modal with focus on the body,
+   * as Safari leaves it after a click on a button.
+   * @param {import('@playwright/test').Page} page - Playwright page.
+   * @returns {Promise<void>}
+   */
+  async function openWithBodyFocus(page) {
+    await setupRetailFixture(page, { retailFeeds: STRK260_MODAL_FEEDS });
+    await page.evaluate((slug) => {
+      document.activeElement.blur();
+      void window.openMarketDetailModal(slug);
+    }, SLUG_SILVER_A);
+    await expect(page.locator("#marketDetailTitle")).toContainText("Alpha Silver Bar");
+  }
+
+  test("close returns focus to the item button when the body was the opener", async ({ page }) => {
+    await openWithBodyFocus(page);
+    await page.evaluate(() => window.closeMarketDetailModal());
+    await expect(page.locator("#marketDetailModal")).toBeHidden();
+    await expect(page.locator(ALPHA_LINK, { hasText: "Alpha Silver Bar" })).toBeFocused();
+  });
+
+  test("close leaves focus in a dialog stacked above the modal", async ({ page }) => {
+    await setupRetailFixture(page, { retailFeeds: STRK260_MODAL_FEEDS });
+    await clickStrk260MarketDetail(page);
+    await page.evaluate(() => void window.showAppAlert("Stacked above the Market details."));
+    const alert = page.locator("#appDialogModal");
+    await expect(alert).toBeVisible();
+    await expect(alert.getByRole("button", { name: "OK" })).toBeFocused();
+
+    await page.evaluate(() => window.closeMarketDetailModal());
+    await expect(page.locator("#marketDetailModal")).toBeHidden();
+    await expect(alert.getByRole("button", { name: "OK" })).toBeFocused();
+  });
+
+  test("a late fetch leaves focus in a dialog opened while details load", async ({ page }) => {
+    await setupRetailFixture(page, { retailFeeds: STRK260_MODAL_FEEDS });
+    let release;
+    const held = new Promise((resolve) => {
+      release = resolve;
+    });
+    await page.route(`**/retail/${SLUG_SILVER_A}/latest.json*`, async (route) => {
+      await held;
+      await route.fallback();
+    });
+    await page.evaluate((slug) => void window.openMarketDetailModal(slug), SLUG_SILVER_A);
+    await expect(page.locator(".market-detail-loading")).toBeVisible();
+    await page.evaluate(() => void window.showAppAlert("A storage error opened while loading."));
+    const ok = page.locator("#appDialogModal").getByRole("button", { name: "OK" });
+    await expect(ok).toBeFocused();
+
+    release();
+    await expect(page.locator("#marketDetailTitle")).toContainText("Alpha Silver Bar");
+    await expect(ok).toBeFocused();
+  });
+});

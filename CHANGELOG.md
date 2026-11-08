@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.137] - 2026-11-08
+
+### Changed — STRK-567: Market details modal focus
+
+- **Opener**: When the page body held focus as the modal opened, closing it now returns focus to the item button (STRK-567).
+- **Stacked dialog**: Closing the Market details while another dialog is open above it leaves focus in that dialog (STRK-567).
+- **Late load**: Details that finish loading while a dialog is open no longer pull focus to the Market title (STRK-567).
+
 ## [3.36.136] - 2026-11-08
 
 ### Changed — STRK-548: Bulk Edit and PCGS field names

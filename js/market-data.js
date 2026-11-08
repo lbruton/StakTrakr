@@ -1082,6 +1082,18 @@ const _findShownCoinButton = (slug) => {
   return buttons.find((btn) => btn.getClientRects().length > 0) || buttons[0] || null;
 };
 
+/**
+ * Report whether an overlay is the top entry of the open-modal stack. An overlay absent from
+ * the stack counts as top when nothing else is open.
+ * @param {HTMLElement} overlay - Modal overlay element.
+ * @returns {boolean} False when another modal is stacked above the overlay.
+ */
+const _isTopModal = (overlay) => {
+  if (typeof _focusTrapStack === "undefined") return true;
+  const top = _focusTrapStack[_focusTrapStack.length - 1];
+  return !top || top.modal === overlay;
+};
+
 const closeMarketDetailModal = () => {
   const closedSlug = _activeModalSlug;
   _activeModalRenderGeneration += 1;
@@ -1095,11 +1107,13 @@ const closeMarketDetailModal = () => {
   const overlay = safeGetElement("marketDetailModal");
   if (overlay instanceof HTMLElement) {
     const wasOpen = !overlay.hasAttribute("hidden");
+    const wasTop = _isTopModal(overlay);
     overlay.setAttribute("hidden", "");
     if (wasOpen) {
       // _restoreMarketDetailFocus owns focus here: it waits for a matrix rebuild.
       if (typeof releaseFocus === "function") releaseFocus(overlay, { restoreFocus: false });
-      _restoreMarketDetailFocus(_activeModalOpener, closedSlug);
+      // A dialog stacked above keeps focus.
+      if (wasTop) _restoreMarketDetailFocus(_activeModalOpener, closedSlug);
     }
   }
   _activeModalOpener = null;
@@ -1860,8 +1874,14 @@ const openMarketDetailModal = async (slug, { preservePeriod = false } = {}) => {
   const isFreshOpen = overlay.hasAttribute("hidden");
   overlay.removeAttribute("hidden");
   if (isFreshOpen) {
+    // The body is no opener: Safari leaves it active after a button click.
+    const active = document.activeElement;
     _activeModalOpener =
-      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      active instanceof HTMLElement &&
+      active !== document.body &&
+      active !== document.documentElement
+        ? active
+        : null;
     document.body.style.overflow = "hidden";
     if (typeof trapFocus === "function") trapFocus(overlay, closeMarketDetailModal);
     if (dialog instanceof HTMLElement) dialog.focus();
@@ -1913,7 +1933,11 @@ const openMarketDetailModal = async (slug, { preservePeriod = false } = {}) => {
     detail && (detail.t || detail.window_start)
   );
   const title = safeGetElement("marketDetailTitle");
-  if (title instanceof HTMLElement && (focusOnBox || !overlay.contains(document.activeElement))) {
+  if (
+    title instanceof HTMLElement &&
+    _isTopModal(overlay) &&
+    (focusOnBox || !overlay.contains(document.activeElement))
+  ) {
     title.focus();
   }
 
