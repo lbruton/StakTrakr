@@ -224,9 +224,33 @@ The market data module (`js/market-data.js`) uses eight DOM elements, all looked
 | `marketDetailModal`     | `<div>`     | Full-screen overlay for per-coin detail charts                                                                                                                                                                                  |
 | `marketDetailContent`   | `<div>`     | Content area inside the market detail modal                                                                                                                                                                                     |
 | `marketDetailCloseBtn`  | `<button>`  | Close button for the market detail modal                                                                                                                                                                                        |
-| `marketSettingsBtn`     | `<button>`  | Gear icon in the Market block (vendor prices section): opens the Market Settings panel. Added alongside the header Market button behavior change (header button now triggers `syncRetailPrices()` instead of opening Settings). |
+| `marketSettingsBtn`     | `<button>`  | Configure button (gear icon and the word "Configure"), built at render time by `_buildMarketBlockHeader()` in `js/market-data.js`, not in `index.html`. Opens Settings on the Market panel. Accessible name "Configure Market". |
 
-These elements are defined in `index.html` and are part of the `layoutSectionConfig` system. The `bestPriceTicker` section moves `bestPriceTickerFrame`, not the ribbon. The ticker is inserted in the main page flow; the modal is a top-level overlay with `hidden` attribute toggled by JS.
+The other elements are defined in `index.html` and are part of the `layoutSectionConfig` system. The `bestPriceTicker` section moves `bestPriceTickerFrame`, not the ribbon. The ticker is inserted in the main page flow; the modal is a top-level overlay with `hidden` attribute toggled by JS.
+
+The detail modal keeps this focus contract:
+
+- `openMarketDetailModal` records the opener and calls `trapFocus(overlay, closeMarketDetailModal)` only when the overlay was hidden, so Escape closes it through the shared modal stack. A re-render of an open modal keeps the first opener and trap.
+- Focus goes to `.market-detail-modal` (`tabindex="-1"`) and then to `#marketDetailTitle` (`tabindex="-1"`) once the title renders.
+- The overlay carries `aria-label="Loading market details"`. It names the dialog until `#marketDetailTitle` exists for `aria-labelledby`.
+- `closeMarketDetailModal` calls `releaseFocus(overlay, { restoreFocus: false })`. `_restoreMarketDetailFocus` then focuses the opener, or the shown `.vp-coin-link[data-slug]` button (`_findShownCoinButton`) when a re-render replaced the opener.
+- Item names (`.vp-coin-link`) are buttons. A price (`.vp-price`) is a button only when its dealer URL passes `_isSafeUrl`; otherwise it is a span.
+
+`_renderVendorTable` builds two layouts from one row context (`_vendorRowContext`):
+
+- The matrix (`.vp-scroll` > `.vendor-prices-table`) shows from 481px up. Below 768px each cell is a 44px target through a `::after` box.
+- The cards (`ul.vp-cards`, named "<metal> dealer prices") show below 480px. `_buildVendorCard` moves each matrix price cell's content into a `.vp-card-dealer` tile and skips dealers that do not list the item.
+- CSS hides one layout, so both sets of `.vp-coin-link[data-slug]` buttons exist. Focus code looks up the shown one with `_findShownCoinButton`.
+- `_watchVendorTabOverflow` toggles `.vp-tabs-more` on the scrolling metal tab bar while tabs wait past its right edge.
+- Below 560px the detail modal hides `.market-detail-stock-col` and shows the stock word as `.market-stock-sub` under the dealer name.
+
+The Market block header (`_buildMarketBlockHeader`) states its status in words:
+
+- The `h2.market-block-title` "Market prices" is visible. The header row rebuilds on every `renderVendorPrices` call.
+- `.market-block-status` (`aria-live="polite"`) holds `#marketDataTimestamp`, `#marketFreshnessStatus` and `#marketFreshnessDot`. The timestamp is the `en-CA` date and time from `_formatMarketTimestamp`, in the Settings timezone (`TIMEZONE_KEY`) or the browser zone for "auto".
+- `updateMarketHealthDot` (`js/retail.js`) paints the dot and the word: "Current" under 60 minutes of manifest age, "Stale" after. The dot is `aria-hidden`. `_syncRetailV2` stores the manifest time only when at least one coin's prices are accepted.
+- `syncRetailPrices` returns `{ ok }`, and a call during a running sync returns that sync's promise. A manual refresh that ends with `ok: false` stores a `.market-refresh-failure` line (`role="status"`) in `_marketRefreshFailure`, so header rebuilds keep it. The next `retail:updated` event clears it and empties `_cachedSlugDetail`, so the render that follows reads the new prices.
+- The table area uses `.vp-message` (`role="status"`) for empty states. `_scopeHiddenByFilter` separates a Market filter that hides every dealer from missing data.
 
 ## Your Stack DOM Elements
 

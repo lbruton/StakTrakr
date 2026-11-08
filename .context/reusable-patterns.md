@@ -97,9 +97,10 @@ Goldback slug parsing: `_parseGoldbackSlug(slug)` parses the pattern `goldback-{
 **Goldback premium calculation (v3.34.80):** Two shared helpers in `js/market-data.js` unify premium math across all three render surfaces (ticker, Matrix, detail modal):
 
 - `_calcMarketPremium(price, referenceRate)` → `((price - referenceRate) / referenceRate) * 100` or `null` if either arg ≤ 0
-- `_premiumTierClass(pct)` → `"high"` (≥5%), `"mid"` (≥2%), `"low"` (<2%)
+- `_premiumTierClass(pct)` → `"high"` (≥5%), `"mid"` (≥2%), `"low"` (<2%). Only the ticker uses it.
+- `_rankDealerPrices(entries)` (through `_rankVendorData(vData, slug)`) colours the matrix, the phone cards and the detail modal. The reference is the median of the enabled dealers' in-stock, non-carried prices. A price at `MARKET_PREMIUM_BAND_PCT` (1%) or more below it is `"low"`. A price 1% or more above it is `"high"`, and one in between is `"mid"`. A carried price, or every price when fewer than two dealers are in stock, is `"plain"`. Out-of-stock prices get no rank and render `"plain"`. The Median column and card line show this median, not the feed's `median_price`.
 
-For goldback items, when no spot price + weight is available, the reference rate falls back to `_goldbackG1Rate` (the G1 USD value from `goldback/latest.json`, loaded by `initMarketData()`). CSS tier colors: low → `--success`, mid → `oklch(0.55 0.15 60)` (WCAG-AA amber), high → `--danger`.
+The percentage text is always the premium over spot. For goldback items, when no spot price + weight is available, the reference rate falls back to `_goldbackG1Rate` (the G1 USD value from `goldback/latest.json`, loaded by `initMarketData()`). CSS tier colours: low → `--success-text`, mid → `--warning-text`, high → `--danger-text`, plain → `--text-secondary`.
 
 ---
 
@@ -377,6 +378,11 @@ The **persistence half of this pattern is live**: the per-slug/per-vendor filter
 All modals use the FIFO dialog queue in `js/dialogs.js`:
 
 - `openModalById(id)` / `closeModalById(id)`: the only correct way to open/close modals
+- Every open modal sits on one stack in `js/utils.js` (`trapFocus` pushes, `releaseFocus` pops). Escape closes only the top modal
+- Escape uses the close function passed to `openModalById(id, onClose)` or `trapFocus(modal, onClose)`. Without one it uses `registerModalClose(id, fn)`, then `closeModalById(id)`
+- A modal with cleanup on close (state reset, a pending promise) registers that close function; it never adds its own Escape listener
+- A widget inside a modal that claims Escape (a menu, a popover, an inline edit) calls `preventDefault()` or `stopPropagation()`. The stack listener runs last, on `window`, and skips a claimed key
+- Closing the top modal returns focus to its opener, or to the modal below when the opener is gone. `closeModalById` clears the body scroll lock only when no modal is left open
 - `showDialog()` / `presentDialog()`: queue management
 - Settings sections use config objects: `{ id, title, icon, contentBuilder }`
 - Close button selector is `.modal-close`: **not** `.close-btn`, and **not** `[data-bs-dismiss]` (the Bootstrap JS library is not loaded in this project; `data-bs-*` appears zero times in `index.html` and `js/`)

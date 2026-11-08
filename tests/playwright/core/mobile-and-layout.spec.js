@@ -1,6 +1,25 @@
 import { test, expect } from "../helpers/mocks/extended-test.js";
 import { injectSeedInventory } from "../helpers/seed.js";
 import { installStakTrakrNetworkMocks } from "../helpers/mocks/routes.js";
+import { readPhoneFloors } from "../helpers/phone-floors.js";
+import { showSampleDiffReview } from "../helpers/diff-review.js";
+import { readHorizontalOverflow } from "../helpers/horizontal-overflow.js";
+
+const SETTINGS_TABS = [
+  "site",
+  "system",
+  "cloud",
+  "about",
+  "api",
+  "changelog",
+  "collections",
+  "currency",
+  "faq",
+  "grouping",
+  "images",
+  "market",
+  "storage",
+];
 
 const BASE_ITEM = {
   uuid: "core-mobile-layout-item",
@@ -365,6 +384,61 @@ async function gotoDesktopDashboard(page) {
   await page.setViewportSize({ width: 1440, height: 900 });
   await injectSeedInventory(page);
   await page.goto("/index.html");
+}
+
+/** Scrolls to the page end until Back to top shows; the page grows as the Dashboard renders. */
+async function revealBackToTop(page) {
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        window.scrollTo(0, document.documentElement.scrollHeight);
+        return document.getElementById("backToTopBtn").classList.contains("visible");
+      })
+    )
+    .toBe(true);
+}
+
+/**
+ * Reads a fixed element (the first `selector` match containing `text`) against the
+ * visible bottom-nav tabs and Back to top. Finishes the element's animations first.
+ */
+function readAgainstBottomNav(page, { selector, text = "" }) {
+  return page.evaluate(
+    ({ sel, txt }) => {
+      const el = [...document.querySelectorAll(sel)].find((node) => node.textContent.includes(txt));
+      if (!el) return null;
+      el.getAnimations().forEach((animation) => animation.finish());
+      const box = el.getBoundingClientRect();
+      const overlaps = (r) =>
+        box.left < r.right && r.left < box.right && box.top < r.bottom && r.top < box.bottom;
+      const tabs = [...document.querySelectorAll("#appBottomNav .bottom-nav-btn")].filter(
+        (tab) => tab.getClientRects().length > 0
+      );
+      const backToTop = document.getElementById("backToTopBtn");
+      return {
+        box: {
+          top: box.top,
+          bottom: box.bottom,
+          left: box.left,
+          right: box.right,
+          width: box.width,
+          height: box.height,
+        },
+        viewport: { width: document.documentElement.clientWidth, height: window.innerHeight },
+        tabs: tabs.length,
+        overlapping: tabs.filter((tab) => overlaps(tab.getBoundingClientRect())).length,
+        blocked: tabs
+          .filter((tab) => {
+            const r = tab.getBoundingClientRect();
+            const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+            return !hit || !tab.contains(hit);
+          })
+          .map((tab) => tab.textContent.trim()),
+        overlapsBackToTop: el !== backToTop && overlaps(backToTop.getBoundingClientRect()),
+      };
+    },
+    { sel: selector, txt: text }
+  );
 }
 
 const THEMES = ["light", "dark", "slate", "sepia"];
@@ -1340,6 +1414,140 @@ test.describe("Dashboard at phone width", () => {
     expect(result.misses).toEqual([]);
   });
 
+  test("Back to top floats clear of the bottom nav on phones and keeps its corner at 1440", async ({
+    page,
+  }) => {
+    for (const [width, height] of [
+      [390, 844],
+      [768, 1024],
+    ]) {
+      await test.step(`${width}x${height}`, async () => {
+        await page.goto("about:blank");
+        await gotoPhoneDashboard(page, { width });
+        await page.setViewportSize({ width, height });
+        await revealBackToTop(page);
+        const read = async () => {
+          const r = await readAgainstBottomNav(page, { selector: "#backToTopBtn" });
+          return {
+            tabs: r.tabs,
+            overlapping: r.overlapping,
+            blocked: r.blocked,
+            size: Math.min(r.box.width, r.box.height) >= 44,
+            onScreen: r.box.top >= 0 && r.box.bottom <= r.viewport.height,
+          };
+        };
+        // Larger roots grow the nav. Above 20px the tab row overflows 390px and the
+        // last tabs leave the screen, so tab taps are checked up to 20px only.
+        for (const [rootSize, tapsChecked] of [
+          ["", true],
+          ["20px", true],
+          ["32px", false],
+        ]) {
+          await page.evaluate((size) => {
+            document.documentElement.style.fontSize = size;
+          }, rootSize);
+          await revealBackToTop(page);
+          await expect.poll(read, { message: `root font ${rootSize || "default"}` }).toEqual({
+            tabs: expect.any(Number),
+            overlapping: 0,
+            blocked: tapsChecked ? [] : expect.any(Array),
+            size: true,
+            onScreen: true,
+          });
+          expect((await read()).tabs).toBeGreaterThanOrEqual(4);
+        }
+      });
+    }
+
+    await test.step("1440x900", async () => {
+      await page.goto("about:blank");
+      // The seeded Dashboard at 900px tall scrolls less than the 300px reveal threshold.
+      await gotoDesktopDashboard(page);
+      expect(
+        await page.locator("#backToTopBtn").evaluate((el) => {
+          const s = getComputedStyle(el);
+          return [s.bottom, s.right, s.width, s.height];
+        })
+      ).toEqual(["32px", "32px", "40px", "40px"]);
+    });
+  });
+
+  test("toasts sit above the bottom nav and Back to top on phones and keep their corner at 1440", async ({
+    page,
+  }) => {
+    const toasts = [
+      {
+        name: "message toast",
+        target: { selector: ".cloud-toast", text: "Phone toast check" },
+        show: () => window.showToast("Phone toast check", 5000),
+      },
+      {
+        name: "What's New card",
+        target: { selector: ".whats-new-toast-card", text: "What’s New" },
+        show: () => window.showWhatsNewPopup(),
+      },
+    ];
+    const removeToasts = () =>
+      page.evaluate(() =>
+        document
+          .querySelectorAll(".cloud-toast, .whats-new-toast-card")
+          .forEach((el) => el.remove())
+      );
+
+    for (const [width, height] of [
+      [390, 844],
+      [768, 1024],
+    ]) {
+      await test.step(`${width}x${height}`, async () => {
+        await page.goto("about:blank");
+        await gotoPhoneDashboard(page, { width });
+        await page.setViewportSize({ width, height });
+        await revealBackToTop(page);
+        for (const toast of toasts) {
+          await removeToasts();
+          await page.evaluate(toast.show);
+          const read = async () => {
+            const r = await readAgainstBottomNav(page, toast.target);
+            if (!r) return null;
+            return {
+              overlapping: r.overlapping,
+              blocked: r.blocked,
+              overlapsBackToTop: r.overlapsBackToTop,
+              inGutters:
+                Math.round(r.box.left) >= 16 &&
+                Math.round(r.viewport.width - r.box.right) >= 16 &&
+                r.box.top >= 0,
+            };
+          };
+          await expect.poll(read, { message: toast.name }).toEqual({
+            overlapping: 0,
+            blocked: [],
+            overlapsBackToTop: false,
+            inGutters: true,
+          });
+        }
+        await removeToasts();
+      });
+    }
+
+    await test.step("1440x900", async () => {
+      await page.goto("about:blank");
+      await gotoDesktopDashboard(page);
+      for (const toast of toasts) {
+        await removeToasts();
+        await page.evaluate(toast.show);
+        const corner = page.locator(toast.target.selector, { hasText: toast.target.text });
+        expect(
+          await corner.evaluate((el) => {
+            const s = getComputedStyle(el);
+            return [s.bottom, s.right];
+          }),
+          toast.name
+        ).toEqual(["24px", "24px"]);
+      }
+    });
+  });
+
   test("Dashboard and bottom-nav text is at least 12px at 390px", async ({ page }) => {
     await gotoPhoneDashboard(page);
     const small = await page.evaluate(() => {
@@ -1449,5 +1657,254 @@ test.describe("Dashboard at phone width", () => {
       )
     );
     expect(blocking).toEqual([]);
+  });
+});
+
+test.describe("Phone floors in Collections, Item modals and Settings", () => {
+  /** Links the seeded silver coin to the 2024 Slot of the American Silver Eagle Collection. */
+  const linkBaseItem = (page) =>
+    page.evaluate(
+      (uuid) => window.collectionsStore.link("ase-type2", "2024", uuid),
+      BASE_ITEM.uuid
+    );
+
+  const surfaces = [
+    [
+      "Collections hub",
+      "#collectionsSectionEl",
+      (page) => page.evaluate(() => window.activateTab("collections")),
+    ],
+    ["Edit Item modal", "#itemModal .modal-content", (page) => openEditModal(page)],
+    ["Item view modal", "#viewItemModal .modal-content", (page) => openViewModal(page)],
+    [
+      "Collection album with a linked Slot",
+      "#collectionsSectionEl",
+      async (page) => {
+        await linkBaseItem(page);
+        await page.evaluate(() => {
+          window.activateTab("collections");
+          window.collectionsUI.openCollection("ase-type2");
+        });
+      },
+    ],
+    [
+      "Item view modal of a Collection member",
+      "#viewItemModal .modal-content",
+      async (page) => {
+        await linkBaseItem(page);
+        await openViewModal(page);
+      },
+    ],
+    [
+      "Settings cloud panel with the Dropbox sign-out link",
+      "#settingsModal .modal-content",
+      async (page) => {
+        await page.evaluate(() => window.showSettingsModal("cloud"));
+        await page.locator("#cloudDropboxSignoutLink").evaluate((el) => {
+          el.style.display = "block";
+        });
+      },
+    ],
+    [
+      "Metal details modal",
+      "#detailsModal .modal-content",
+      (page) => page.evaluate(() => window.showDetailsModal("Silver")),
+    ],
+    ...[
+      ["Diff review modal with Item and setting changes", ""],
+      ["Diff review modal at a 14px root font size", "14px"],
+    ].map(([label, rootFontSize]) => [
+      label,
+      "#diffReviewModal .modal-content",
+      async (page) => {
+        if (rootFontSize) {
+          await page.evaluate((size) => {
+            document.documentElement.style.fontSize = size;
+          }, rootFontSize);
+        }
+        await showSampleDiffReview(page, {
+          backupCount: 3,
+          localCount: 2,
+          settingsDiff: {
+            changed: [
+              { key: "displayCurrency", localVal: "USD", remoteVal: "EUR" },
+              {
+                key: "layoutSectionConfig",
+                localVal: [{ id: "a", label: "Alpha", enabled: true }],
+                remoteVal: [{ id: "a", label: "Alpha", enabled: false }],
+              },
+              {
+                key: "providerPriority",
+                localVal: { metals: 1, apmex: 2 },
+                remoteVal: { metals: 2, apmex: 1 },
+              },
+              {
+                key: "chipCustomGroups",
+                localVal: [{ name: "Eagles", patterns: ["eagle"] }],
+                remoteVal: [{ name: "Maples", patterns: ["maple"] }],
+              },
+            ],
+            matched: [{ key: "appTheme", value: "dark" }],
+          },
+        });
+        // The settings section opens collapsed; expanded, its chips and pills are measured too.
+        await page.locator('#diffReviewModal [data-cat-toggle="settings"]').click();
+        for (const control of [".dm-chip-enabled", ".dm-kv-pill.local", ".dm-count-btn"]) {
+          await expect(page.locator(`#diffReviewModal ${control}`).first()).toBeVisible();
+        }
+      },
+      // Setting choices are clickable spans with no control role.
+      "[data-field][data-side], [data-setting-resolution]",
+    ]),
+    ...SETTINGS_TABS.map((tab) => [
+      `Settings ${tab} panel`,
+      "#settingsModal .modal-content",
+      (page) => page.evaluate((t) => window.showSettingsModal(t), tab),
+    ]),
+  ];
+
+  test("text is 12px, inputs 16px and every control has its own 44px hit area at 390px", async ({
+    page,
+  }) => {
+    test.setTimeout(test.info().timeout * surfaces.length);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await seedInventory(page, BULK_ITEMS);
+    for (const [label, root, open, extraControls] of surfaces) {
+      await test.step(label, async () => {
+        await page.goto("about:blank");
+        await gotoApp(page);
+        await open(page);
+        await expect(page.locator(root)).toBeVisible();
+        const floors = await readPhoneFloors(page, root, extraControls);
+        expect(floors.tested).toBeGreaterThan(0);
+        expect
+          .soft({
+            smallText: floors.smallText,
+            smallInputs: floors.smallInputs,
+            smallTargets: floors.smallTargets,
+          })
+          .toEqual({ smallText: [], smallInputs: [], smallTargets: [] });
+      });
+    }
+  });
+
+  const LONG_NAME = " 1 oz Brilliant Uncirculated with Original Mint Packaging and Certificate";
+  const SCROLL_WRAPPERS = [
+    ".settings-table-scroll",
+    ".settings-changelog-wrap",
+    ".market-filter-matrix-wrap",
+  ];
+  const overflowSurfaces = [
+    ...SETTINGS_TABS.map((tab) => [
+      `Settings ${tab} panel`,
+      "#settingsModal .modal-content",
+      [".modal-content", ".settings-content-area"],
+      async (page) => {
+        await page.evaluate((t) => window.showSettingsModal(t), tab);
+        // Storage renders its tables after an async usage read; measure the tables, not the placeholders.
+        if (tab === "storage") {
+          await expect(page.locator("#settingsModal .storage-data-table")).toHaveCount(2);
+        }
+      },
+    ]),
+    [
+      "Privacy policy modal",
+      "#privacyModal .modal-content",
+      [".modal-content", ".modal-body"],
+      (page) => page.evaluate(() => window.openModalById("privacyModal")),
+    ],
+    [
+      "Diff review modal with long Item names",
+      "#diffReviewModal .modal-content",
+      [".modal-content", ".modal-body"],
+      (page) => showSampleDiffReview(page, {}, LONG_NAME),
+    ],
+  ];
+
+  test("no Settings panel or sub-modal overflows sideways at 390px and 1440px", async ({
+    page,
+  }) => {
+    const viewports = [
+      { width: 390, height: 844 },
+      { width: 1440, height: 900 },
+    ];
+    test.setTimeout(test.info().timeout * overflowSurfaces.length * viewports.length);
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await seedInventory(page, BULK_ITEMS);
+    await page.addInitScript((longName) => {
+      const now = Date.parse("2026-11-01T12:00:00Z");
+      const changeLog = Array.from({ length: 3 }, (_, i) => ({
+        timestamp: now - i * 3600000,
+        itemName: `Core Mobile Layout Eagle${longName}`,
+        field: "purchaseLocation",
+        oldValue: `https://www.example-dealer.com/products/silver/${"x".repeat(40)}`,
+        newValue: `Local coin shop on Main Street${longName}`,
+        idx: 0,
+        undone: false,
+      }));
+      localStorage.setItem("changeLog", JSON.stringify(changeLog));
+      const prices = {};
+      for (const weight of [0.25, 0.5, 1, 2, 5, 10, 25, 50, 100]) {
+        prices[String(weight)] = { price: 5.12 * weight, source: "api", updatedAt: now };
+      }
+      localStorage.setItem("goldback-prices", JSON.stringify(prices));
+      localStorage.setItem("goldback-pricing-source", JSON.stringify("api"));
+      localStorage.setItem("goldback-enabled", "true");
+    }, LONG_NAME);
+    for (const viewport of viewports) {
+      await page.setViewportSize(viewport);
+      for (const [label, root, bodies, open] of overflowSurfaces) {
+        await test.step(`${label} at ${viewport.width}px`, async () => {
+          await page.goto("about:blank");
+          await gotoApp(page);
+          await open(page);
+          await expect(page.locator(root)).toBeVisible();
+          await expect.soft(page.locator("#settingsModal .stk-nav-separator")).toHaveCount(0);
+          const overflow = await readHorizontalOverflow(page, root, bodies, SCROLL_WRAPPERS);
+          expect(overflow.tested).toBeGreaterThan(0);
+          const { tested, ...found } = overflow;
+          expect.soft(found).toEqual({
+            scrollingBodies: [],
+            pastEdge: [],
+            clipped: [],
+            ellipsis: [],
+            narrowSelects: [],
+          });
+          for (const icon of await page.locator(`${root} .settings-info-icon`).all()) {
+            if (!(await icon.isVisible())) continue;
+            await icon.focus();
+            const shown = await readHorizontalOverflow(page, root, bodies, SCROLL_WRAPPERS);
+            expect
+              .soft(shown.scrollingBodies, `shown tip: ${await icon.getAttribute("aria-label")}`)
+              .toEqual([]);
+          }
+        });
+      }
+    }
+  });
+
+  test("the Privacy policy scrolls as one surface that fills the phone screen", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await gotoApp(page);
+    await page.evaluate(() => window.openModalById("privacyModal"));
+    const content = page.locator("#privacyModal .modal-content");
+    await expect(content).toBeVisible();
+    const layout = await content.evaluate((el) => {
+      const body = el.querySelector(".modal-body");
+      return {
+        bodyScrolls: body.scrollHeight > body.clientHeight + 1,
+        contentScrolls: el.scrollHeight > el.clientHeight + 1,
+        gapBelowBody: Math.round(
+          el.getBoundingClientRect().bottom - body.getBoundingClientRect().bottom
+        ),
+      };
+    });
+    expect(layout.bodyScrolls).toBe(false);
+    expect(layout.contentScrolls).toBe(true);
+    expect(layout.gapBelowBody).toBeLessThanOrEqual(48);
   });
 });

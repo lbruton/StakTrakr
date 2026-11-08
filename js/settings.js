@@ -2102,6 +2102,18 @@ const renderInlineChipConfigTable = () =>
   });
 
 /**
+ * Wraps a table-row checkbox in a label, so a phone tap anywhere in its 44px hit area toggles it.
+ * @param {HTMLInputElement} cb - The checkbox.
+ * @returns {HTMLLabelElement} The label that holds the checkbox.
+ */
+const wrapCheckHit = (cb) => {
+  const label = document.createElement("label");
+  label.className = "chip-check-hit";
+  label.appendChild(cb);
+  return label;
+};
+
+/**
  * Renders the filter chip category config table in Settings > Chips.
  * Each row has a checkbox (enable/disable) and up/down arrows for reordering.
  */
@@ -2158,7 +2170,7 @@ const renderFilterChipCategoryTable = () => {
         if (typeof renderActiveFilters === "function") renderActiveFilters();
       }
     });
-    tdCheck.appendChild(cb);
+    tdCheck.appendChild(wrapCheckHit(cb));
 
     // Label cell
     const tdLabel = document.createElement("td");
@@ -2647,7 +2659,7 @@ const _renderSectionConfigTable = (opts) => {
         }
       });
     }
-    tdCheck.appendChild(cb);
+    tdCheck.appendChild(wrapCheckHit(cb));
 
     // Label cell
     const tdLabel = document.createElement("td");
@@ -3290,8 +3302,9 @@ const renderOrphanedPatternImages = async () => {
     const ok = await showAppConfirm(
       `Delete all ${orphans.length} orphaned pattern image${
         orphans.length === 1 ? "" : "s"
-      }? This cannot be undone.`,
-      "Delete Orphaned Images"
+      }? You cannot undo this.`,
+      "Delete Orphaned Images",
+      { confirmLabel: "Delete images", danger: true }
     );
     if (!ok) return;
     for (const rec of orphans) {
@@ -3766,7 +3779,11 @@ const renderUserImageGrid = async () => {
     deleteBtn.className = "btn img-btn img-btn-remove";
     deleteBtn.textContent = "Delete";
     deleteBtn.addEventListener("click", async () => {
-      const confirmed = await appConfirm(`Delete images for "${name}"?`, "User Images");
+      const confirmed = await appConfirm(
+        `Delete the images for "${name}"? You cannot undo this.`,
+        "User Images",
+        { confirmLabel: "Delete images", danger: true }
+      );
       if (!confirmed) return;
       await imageCache.deleteUserImage(rec.uuid);
       renderUserImageGrid();
@@ -4055,7 +4072,7 @@ const renderStorageSection = async (silent = false) => {
     .join("");
 
   keyTable.innerHTML = `
-    <table class="storage-data-table">
+    <div class="settings-table-scroll"><table class="storage-data-table">
       <thead><tr>
         <th></th>
         <th>Key</th>
@@ -4066,7 +4083,7 @@ const renderStorageSection = async (silent = false) => {
         <th>Records</th>
       </tr></thead>
       <tbody>${rowsHtml}</tbody>
-    </table>
+    </table></div>
     ${minor.length > 0 ? `<p class="storage-minor-note">${_storageTinyVisible ? "" : `${minor.length} minor keys hidden. `}<button class="btn-link storage-toggle-tiny" id="storageToggleTinyBottom">${_storageTinyVisible ? "Hide minor keys" : "Show all"}</button></p>` : ""}
   `;
 
@@ -4144,7 +4161,7 @@ const renderStorageSection = async (silent = false) => {
         idbLimitKB >= 1024 ? `${(idbLimitKB / 1024).toFixed(0)} MB` : `${idbLimitKB.toFixed(0)} KB`;
 
       idbTable.innerHTML = `
-        <table class="storage-data-table">
+        <div class="settings-table-scroll"><table class="storage-data-table">
           <thead><tr>
             <th></th>
             <th>Store</th>
@@ -4155,7 +4172,7 @@ const renderStorageSection = async (silent = false) => {
             <th>Records</th>
           </tr></thead>
           <tbody>${idbRowsHtml}</tbody>
-        </table>
+        </table></div>
         <p class="storage-minor-note">Total: ${idbTotalStr} / ${idbLimitStr} &nbsp;·&nbsp; Size per store is estimated proportionally from record count.</p>
       `;
     }
@@ -4427,7 +4444,7 @@ const renderMarketFilterMatrix = () => {
   masterCb.type = "checkbox";
   masterCb.title = "Toggle everything";
   masterCb.className = "mfm-master-toggle";
-  masterTd.appendChild(masterCb);
+  masterTd.appendChild(wrapCheckHit(masterCb));
   allRow.appendChild(masterTd);
 
   vendors.forEach((v) => {
@@ -4436,7 +4453,7 @@ const renderMarketFilterMatrix = () => {
     cb.type = "checkbox";
     cb.setAttribute("data-col-toggle", v.id);
     cb.title = "Toggle all " + v.name;
-    td.appendChild(cb);
+    td.appendChild(wrapCheckHit(cb));
     allRow.appendChild(td);
   });
   tbody.appendChild(allRow);
@@ -4475,7 +4492,7 @@ const renderMarketFilterMatrix = () => {
     rowCb.type = "checkbox";
     rowCb.setAttribute("data-row-toggle", slug);
     rowCb.title = "Toggle all for " + meta.name;
-    rowAllTd.appendChild(rowCb);
+    rowAllTd.appendChild(wrapCheckHit(rowCb));
     tr.appendChild(rowAllTd);
 
     let rowTotal = 0;
@@ -4502,7 +4519,7 @@ const renderMarketFilterMatrix = () => {
         rowTotal++;
         if (isEnabled) rowChecked++;
       }
-      td.appendChild(cb);
+      td.appendChild(wrapCheckHit(cb));
       tr.appendChild(td);
     });
 

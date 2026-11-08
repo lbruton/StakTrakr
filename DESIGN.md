@@ -13,6 +13,25 @@ colors:
   warning-text: "oklch(0.78 0.15 80)"
   danger-text: "oklch(0.72 0.17 25)"
   primary-text: "oklch(0.72 0.16 75)"
+  info-text: "oklch(0.72 0.12 220)"
+  primary-fill: "oklch(0.72 0.16 75)"
+  primary-fill-hover: "oklch(0.79 0.14 78)"
+  on-primary: "oklch(0.18 0.02 75)"
+  secondary-fill: "oklch(0.5 0.01 85)"
+  secondary-fill-hover: "oklch(0.43 0.01 85)"
+  on-secondary: "oklch(0.98 0 0)"
+  success-fill: "oklch(0.64 0.17 155)"
+  success-fill-hover: "oklch(0.71 0.16 155)"
+  on-success: "oklch(0.18 0.02 75)"
+  info-fill: "oklch(0.72 0.12 220)"
+  info-fill-hover: "oklch(0.79 0.1 220)"
+  on-info: "oklch(0.18 0.02 75)"
+  warning-fill: "oklch(0.72 0.16 80)"
+  warning-fill-hover: "oklch(0.79 0.14 82)"
+  on-warning: "oklch(0.18 0.02 75)"
+  danger-fill: "oklch(0.55 0.22 25)"
+  danger-fill-hover: "oklch(0.49 0.21 25)"
+  on-danger: "oklch(0.98 0 0)"
   gunmetal-base: "oklch(0.18 0.008 85)"
   gunmetal-raised: "oklch(0.22 0.008 85)"
   gunmetal-high: "oklch(0.28 0.007 85)"
@@ -21,7 +40,7 @@ colors:
   border-hover: "oklch(0.4 0.01 85)"
   text-primary: "oklch(0.95 0.005 85)"
   text-secondary: "oklch(0.8 0.008 85)"
-  text-muted: "oklch(0.65 0.012 85)"
+  text-muted: "oklch(0.67 0.012 85)"
   text-inverse: "oklch(0.98 0 0)"
   metal-silver: "oklch(0.851 0.011 248.8)"
   metal-gold: "oklch(0.811 0.157 79)"
@@ -39,6 +58,25 @@ colors:
   light-warning-text: "oklch(0.49 0.13 55)"
   light-danger-text: "oklch(0.5 0.19 27)"
   light-primary-text: "oklch(0.52 0.2 262)"
+  light-info-text: "oklch(0.5 0.12 240)"
+  light-primary-fill: "oklch(0.546 0.215 262.9)"
+  light-primary-fill-hover: "oklch(0.48 0.2 264)"
+  light-on-primary: "oklch(1 0 0)"
+  light-secondary-fill: "oklch(0.551 0.023 264.4)"
+  light-secondary-fill-hover: "oklch(0.47 0.02 264)"
+  light-on-secondary: "oklch(1 0 0)"
+  light-success-fill: "oklch(0.508 0.105 165.6)"
+  light-success-fill-hover: "oklch(0.44 0.09 166)"
+  light-on-success: "oklch(1 0 0)"
+  light-info-fill: "oklch(0.53 0.13 243)"
+  light-info-fill-hover: "oklch(0.46 0.12 244)"
+  light-on-info: "oklch(1 0 0)"
+  light-warning-fill: "oklch(0.666 0.157 58.3)"
+  light-warning-fill-hover: "oklch(0.72 0.15 62)"
+  light-on-warning: "oklch(0.2 0.02 60)"
+  light-danger-fill: "oklch(0.577 0.215 27.3)"
+  light-danger-fill-hover: "oklch(0.505 0.19 27.5)"
+  light-on-danger: "oklch(1 0 0)"
   light-bg: "oklch(0.929 0.013 255.5)"
   light-bg-raised: "oklch(0.96 0.008 253.9)"
   light-bg-high: "oklch(0.869 0.02 252.9)"
@@ -95,20 +133,20 @@ spacing:
   xl: "1.5rem"
 components:
   button-primary:
-    backgroundColor: "{colors.primary}"
-    textColor: "{colors.text-inverse}"
+    backgroundColor: "{colors.primary-fill}"
+    textColor: "{colors.on-primary}"
     rounded: "{rounded.md}"
     padding: "0.75rem 1.5rem"
     height: "2.75rem"
   button-primary-hover:
-    backgroundColor: "{colors.primary-hover}"
+    backgroundColor: "{colors.primary-fill-hover}"
   button-danger:
-    backgroundColor: "{colors.danger}"
-    textColor: "{colors.text-inverse}"
+    backgroundColor: "{colors.danger-fill}"
+    textColor: "{colors.on-danger}"
     rounded: "{rounded.md}"
   button-secondary:
-    backgroundColor: "{colors.secondary}"
-    textColor: "{colors.text-inverse}"
+    backgroundColor: "{colors.secondary-fill}"
+    textColor: "{colors.on-secondary}"
     rounded: "{rounded.md}"
   input:
     backgroundColor: "{colors.gunmetal-base}"
@@ -268,10 +306,12 @@ The main breakpoints are 768px (tablet and phone landscape), 640px and 480px (ph
 desktop). The code holds other one-off values; new work uses 480px, 768px, 1024px and 1350px. Below
 768px, cards stack in one column and controls keep a 44px touch target.
 
-A control whose visible box is smaller than 44px gets a centred `::after` hit area of at least 44px,
-and neighbouring controls sit far enough apart that the hit areas do not overlap. Values never end in an
-ellipsis: a price, total or label wraps or moves to its own line. Below 768px, Dashboard and bottom-nav
-text is at least 12px, set with `max()` so a larger user font size still applies. Spot card timestamps
+A control whose visible box is smaller than 44px gets a centred, square `::after` hit area of at least
+44px, and neighbouring controls sit far enough apart that the hit areas do not overlap. A rounded or
+clipping parent cuts a hit area, so the control and its parent keep `overflow: visible` at phone width.
+Values never end in an ellipsis: a price, total or label wraps or moves to its own line. Below 768px,
+text is at least 12px (`--font-size-xs` is `max(12px, 0.6875rem)`), so a larger user font size still
+applies. Fields in modals and Collections use 16px text and stand 44px tall below 768px. Spot card timestamps
 keep the same 12px floor at every width; a card narrower than 20rem shows the short "Last Synced" label.
 
 ### Named Rules
@@ -323,16 +363,21 @@ Borders are 1px on surfaces and 2px on form fields.
 ### Buttons
 
 - **Shape:** gently squared corners (8px), minimum height 2.75rem.
-- **Primary:** primary fill with inverse text, 0.75rem by 1.5rem padding, weight 500.
-- **Variants:** danger, success, info and secondary swap the fill token. Filter toggles use the pill
-  shape.
-- **Hover / Focus:** the fill deepens to the hover token with a 1px lift and the lifted shadow. The light
-  sweep on hover (`.btn::before`) is debt and is not added to new buttons.
+- **Primary:** `--primary-fill` with an `--on-primary` label, 0.75rem by 1.5rem padding, weight 500.
+- **Variants:** secondary, success, info, warning and danger swap to their own `--<role>-fill` and
+  `--on-<role>` pair. Filter toggles use the pill shape.
+- **Label colour:** each theme picks the label per fill. Light and sepia use white labels. Dark and slate
+  use a dark label on the bright fills and a white label on grey, red and slate blue.
+- **Hover / Focus:** the fill moves to `--<role>-fill-hover` with a 1px lift and the lifted shadow. The
+  label meets 4.5:1 on both fill tokens, so a gradient between them passes too. The light sweep on hover
+  (`.btn::before`) is debt and is not added to new buttons.
+- **No fades:** a filled control keeps full opacity; a fade lowers the label contrast.
 
 ### Chips
 
 - **Style:** pill-shaped filter chips for metal, type and tag filters. Metal chips use the metal tokens.
-- **State:** the active chip takes the primary fill or the active outline token.
+- **State:** the active chip takes `--primary-fill` with an `--on-primary` label, or the active outline
+  token.
 
 ### Cards / Containers
 
@@ -411,8 +456,8 @@ The header, spot cards, ticker, Your stack card and footer share the secondary b
 Dashboard reads as one set of frames one step off the page. The tab panels on Inventory, Market and
 Collections (search, table, vendor prices and collections) use the same frame surface, flat at rest and
 on hover. A surface set on a frame takes `--bg-on-frame`, one step off the frame and away from its text:
-the card token in light and sepia, the primary token in dark and slate. On the tertiary token, the muted
-labels and vendor colours fall below 4.5:1 in slate. The collection cards and the Market table header use
+the card token in light and sepia, the primary token in dark and slate. On the tertiary token, the vendor
+colours fall below 4.5:1 in slate. The collection cards and the Market table header use
 it. The inventory header is darker than the frame through its inset tint. The ratio chips on the spot
 cards take an opaque fill one step lighter than the card: the card token in light and sepia, the tertiary
 token in dark and slate.
@@ -431,6 +476,27 @@ row, with no footnote. Below 768px each metal is a two-line block: name, the lea
 then Items, ounces and the amount paid.
 
 The approved end state of the Dashboard is `playground/STRK-485-dashboard-end-state.html`.
+
+### Market Prices
+
+From 481px up the Market tab is a price matrix: one row per item, one column per dealer. Item names wrap;
+no value ends in an ellipsis. Below 480px each item is a card: the full name, a median and spread line, and
+a three-column grid of dealer tiles. Each tile names the dealer beside a dot in its vendor colour, because
+vendor colours fall below 4.5:1 as text. The price is the tile's button. The metal tabs scroll inside their
+bar, and a fade on the right edge marks tabs past it. Below 560px the detail modal moves the stock word under
+the dealer name. The approved phone layout is proposal B in `playground/STRK-515-market-phone.html`.
+
+A premium shows its percentage over spot, and its colour compares the price with the other dealers for the
+item. Green is at least 1% below the median of the in-stock prices, leaving out carried prices. Red is at
+least 1% above it, and amber is in between. A carried price or a lone dealer has no comparison, so its
+premium uses the secondary text colour. The Median column shows that same median. The approved rule is in
+`playground/STRK-517-premium-colour.html`.
+
+A price cell holds only the price and its premium, so every cell in a row is the same height. Each in-stock
+price has a "Last seen" tooltip with the date and time in the Settings timezone: the price window for a fresh
+price, and the last scrape that saw it for a carried price. The price button's accessible name carries the
+same time, because a tooltip does not show on touch or keyboard focus. The detail modal names a carried
+price in its stock word. The Market header ends with a Configure button: the gear icon and the word.
 
 ## Do's and Don'ts
 

@@ -147,8 +147,8 @@ The [Privacy Policy](https://www.staktrakr.com/privacy.html) and the FAQ tab in 
 | Spot API         | api.staktrakr.com (free, keyless) + Metals.dev, Metals-API, MetalPriceAPI, Gold API, custom |
 | Market API       | api.staktrakr.com v2 (free, keyless): retail prices from major bullion dealers              |
 | Catalog          | Numista API, PCGS CoinFacts                                                                 |
-| Exchange Rates   | Open Exchange Rates                                                                         |
-| Security tooling | Codacy (A+), CodeQL, Semgrep, PMD, ESLint                                                   |
+| Exchange Rates   | open.er-api.com                                                                             |
+| Security tooling | Codacy (grade A), CodeQL, Semgrep, ESLint, CodeRabbit                                       |
 
 ---
 

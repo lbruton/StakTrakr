@@ -847,10 +847,15 @@ async function syncRestoreOverrideBackup() {
     "App version: v" +
     (backup.appVersion || "?") +
     "\n\n" +
-    "This will overwrite your current inventory and cannot be undone.";
+    "The snapshot replaces your current inventory. You cannot undo this.";
 
   var confirmed =
-    typeof showAppConfirm === "function" ? await showAppConfirm(msg, "Restore Snapshot") : false;
+    typeof showAppConfirm === "function"
+      ? await showAppConfirm(msg, "Restore Snapshot", {
+          confirmLabel: "Restore snapshot",
+          danger: true,
+        })
+      : false;
   if (!confirmed) return;
 
   var priorScope = Object.create(null);
@@ -1140,7 +1145,6 @@ function getSyncPassword(forcePrompt) {
     };
     var onKeydown = function (e) {
       if (e.key === "Enter") onConfirm();
-      if (e.key === "Escape") onCancel();
     };
 
     confirmBtn.addEventListener("click", onConfirm);
@@ -1149,7 +1153,7 @@ function getSyncPassword(forcePrompt) {
     input.addEventListener("keydown", onKeydown);
 
     _syncPasswordPromptActive = true;
-    if (typeof openModalById === "function") openModalById("cloudSyncPasswordModal");
+    if (typeof openModalById === "function") openModalById("cloudSyncPasswordModal", onCancel);
     else modal.style.display = "flex";
     setTimeout(function () {
       input.focus();
@@ -1815,9 +1819,9 @@ async function pushSyncVault() {
             var confirmBlindOverwrite = await appConfirm(
               "Your sync password was just changed.\n\n" +
                 "StakTrakr cannot verify whether the cloud copy of your vault is newer than this device. " +
-                "Continuing may overwrite newer remote data.\n\n" +
-                "Do you want to overwrite the cloud copy with the data from this device now?",
-              "Cloud Sync"
+                "Overwrite the cloud copy with the data from this device? Newer cloud data is lost.",
+              "Cloud Sync",
+              { confirmLabel: "Overwrite cloud copy", danger: true }
             );
             if (!confirmBlindOverwrite) {
               console.warn(
@@ -4898,6 +4902,79 @@ async function _deferredVaultRestore(token, password, remoteMeta, selectedChange
 }
 
 /**
+ * Show the Restore Preview failure state: plain copy, Try again first, and Restore without
+ * preview second. The raw decrypt error stays in the debug log, never in the modal.
+ * @param {object} remoteMeta - Remote sync metadata for the retry and the fallback restore
+ * @returns {boolean} false when the modal is missing and the caller must restore directly
+ */
+function _showRestorePreviewFailure(remoteMeta) {
+  var modal = safeGetElement("restorePreviewModal");
+  var errorEl = safeGetElement("restorePreviewError");
+  if (!(modal instanceof HTMLElement) || !(errorEl instanceof HTMLElement)) return false;
+  var retryBtn = safeGetElement("restorePreviewApplyBtn");
+  var fallbackBtn = safeGetElement("restorePreviewFallbackBtn");
+  var cancelBtn = safeGetElement("restorePreviewCancelBtn");
+  var closeX = safeGetElement("restorePreviewDismissX");
+  var noteEl = safeGetElement("restorePreviewFallbackNote");
+  var previewParts = ["restorePreviewMeta", "restorePreviewDiffList", "restorePreviewSettingsDiff"];
+
+  errorEl.textContent = "Could not read this backup. Check the vault password and try again.";
+  errorEl.style.display = "";
+  noteEl.style.display = "";
+  fallbackBtn.style.display = "";
+  retryBtn.textContent = "Try again";
+  var summaryEl = safeGetElement("restorePreviewSummary");
+  summaryEl.textContent = "";
+  for (var pi = 0; pi < previewParts.length; pi++) {
+    safeGetElement(previewParts[pi]).style.display = "none";
+  }
+
+  var close = function () {
+    errorEl.style.display = "none";
+    noteEl.style.display = "none";
+    fallbackBtn.style.display = "none";
+    retryBtn.textContent = "Apply Changes";
+    for (var ci = 0; ci < previewParts.length; ci++) {
+      safeGetElement(previewParts[ci]).style.display = "";
+    }
+    retryBtn.onclick = null;
+    fallbackBtn.onclick = null;
+    cancelBtn.onclick = null;
+    closeX.onclick = null;
+    if (typeof closeModalById === "function") closeModalById("restorePreviewModal");
+    modal.style.display = "none";
+  };
+  retryBtn.onclick = function () {
+    // pullWithPreview drops a call while another pull runs, so keep the modal open.
+    if (_previewPullInFlight) {
+      errorEl.textContent = "A sync check is still running. Try again when it finishes.";
+      return;
+    }
+    close();
+    // Ask for the password again: a wrong saved password fails the same way on every retry.
+    getSyncPassword(true).then(function (password) {
+      if (password) pullWithPreview(remoteMeta);
+    });
+  };
+  fallbackBtn.onclick = function () {
+    close();
+    pullSyncVault(remoteMeta).catch(function (err) {
+      debugLog("[CloudSync] Fallback restore failed:", err);
+      updateSyncStatusIndicator("error", "Restore failed");
+    });
+  };
+  cancelBtn.onclick = close;
+  closeX.onclick = close;
+
+  if (typeof openModalById === "function") {
+    openModalById("restorePreviewModal", close);
+  } else {
+    modal.style.display = "flex";
+  }
+  return true;
+}
+
+/**
  * Download remote vault, decrypt without restoring, compute diff, and show preview.
  * Attempts manifest-first path (lightweight diff preview without full vault download).
  * Falls back to vault-first path if manifest is unavailable or fails.
@@ -5998,40 +6075,8 @@ async function pullWithPreview(remoteMeta) {
         );
       }
     } catch (decryptErr) {
-      // Decryption or diff failed — offer fallback
       debugLog("[CloudSync] Preview decryption failed:", decryptErr.message);
-      var errorEl = safeGetElement("restorePreviewError");
-      var modal = safeGetElement("restorePreviewModal");
-      if (modal && errorEl) {
-        errorEl.textContent = "Could not decrypt vault for preview: " + decryptErr.message;
-        errorEl.style.display = "";
-        var diffListEl = safeGetElement("restorePreviewDiffList");
-        if (diffListEl) diffListEl.innerHTML = "";
-        var summaryEl = safeGetElement("restorePreviewSummary");
-        if (summaryEl) summaryEl.textContent = "";
-
-        // Show modal with just error + fallback restore button
-        var applyBtn = safeGetElement("restorePreviewApplyBtn");
-        if (applyBtn) {
-          applyBtn.textContent = "Restore without preview";
-          applyBtn.onclick = function () {
-            modal.style.display = "none";
-            if (typeof closeModalById === "function") closeModalById("restorePreviewModal");
-            applyBtn.textContent = "Apply Changes";
-            pullSyncVault(remoteMeta).catch(function (err) {
-              debugLog("[CloudSync] Fallback restore failed:", err);
-              updateSyncStatusIndicator("error", "Restore failed");
-            });
-          };
-        }
-
-        if (typeof openModalById === "function") {
-          openModalById("restorePreviewModal");
-        } else {
-          modal.style.display = "flex";
-        }
-      } else {
-        // No modal at all — direct restore
+      if (!_showRestorePreviewFailure(remoteMeta)) {
         await pullSyncVault(remoteMeta);
       }
     }

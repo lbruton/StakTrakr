@@ -1,0 +1,6 @@
+extends: existence
+message: "Remove the '%s' prefix and state the constraint (prose-core Comments and docstrings)."
+level: warning
+nonword: true
+tokens:
+  - '\b(?:NOTE|IMPORTANT|CRITICAL):'

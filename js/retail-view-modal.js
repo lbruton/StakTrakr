@@ -898,6 +898,10 @@ const closeRetailViewModal = () => {
   if (typeof closeModalById === "function") closeModalById("retailViewModal");
 };
 
+if (typeof registerModalClose === "function") {
+  registerModalClose("retailViewModal", closeRetailViewModal);
+}
+
 /** Re-resolves Chart.js vendor lines after the active theme changes. */
 const refreshRetailVendorChartsTheme = () => {
   [_retailViewModalChart, _retailViewIntradayChart].forEach((chart) => {

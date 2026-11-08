@@ -126,7 +126,7 @@
     var html = matchedSection || "";
     html += '<div class="dm-setting-sides">';
     html +=
-      '<div class="dm-setting-side"><div class="dm-setting-side-label" style="color:var(--primary)">Local</div><div class="dm-setting-expanded">' +
+      '<div class="dm-setting-side"><div class="dm-setting-side-label" style="color:var(--primary-text)">Local</div><div class="dm-setting-expanded">' +
       localHtml;
     if (overflowLocal) {
       var lLabel = overflowCount != null ? "Show " + overflowCount + " more…" : "Show more…";
@@ -142,7 +142,7 @@
     html += "</div></div>";
     html += '<div class="dm-setting-arrow">→</div>';
     html +=
-      '<div class="dm-setting-side"><div class="dm-setting-side-label" style="color:var(--info)">Remote</div><div class="dm-setting-expanded">' +
+      '<div class="dm-setting-side"><div class="dm-setting-side-label" style="color:var(--info-text)">Remote</div><div class="dm-setting-expanded">' +
       remoteHtml;
     if (overflowRemote) {
       var rLabel = overflowCount != null ? "Show " + overflowCount + " more…" : "Show more…";

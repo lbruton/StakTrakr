@@ -5,6 +5,7 @@ ignorecase: true
 tokens:
   - used to be
   - used to have
+  - '(?:it|this|that|they|we|which|who|there) used to'
   - no longer
   - reverses
   - previously

@@ -8,9 +8,14 @@
 
 import { test, expect } from "../helpers/mocks/extended-test.js";
 import { suppressWhatsNewPopup } from "../helpers/seed.js";
-
-const THEMES = ["light", "dark", "slate", "sepia"];
-const AA_NORMAL_TEXT = 4.5;
+import { showSampleDiffReview } from "../helpers/diff-review.js";
+import {
+  THEMES,
+  AA_NORMAL_TEXT,
+  applyTheme,
+  measureText,
+  contrastFailures,
+} from "../helpers/contrast.js";
 
 async function gotoApp(page) {
   await suppressWhatsNewPopup(page);
@@ -21,55 +26,6 @@ async function gotoApp(page) {
       typeof window.setTheme === "function" &&
       typeof flashSpotLookupTarget === "function"
   );
-}
-
-/**
- * Returns { color, ratio } for each selector match: the computed text colour and its WCAG
- * 2.x contrast over the element's background composited onto the nearest opaque ancestor.
- * The text colour is faded by the element's own opacity; ancestors of hidden panels read 0.
- */
-function measureText(page, selector) {
-  return page.evaluate((sel) => {
-    const canvas = document.createElement("canvas");
-    canvas.width = canvas.height = 1;
-    const ctx = canvas.getContext("2d", { willReadFrequently: true });
-    const toRgba = (css) => {
-      ctx.clearRect(0, 0, 1, 1);
-      ctx.fillStyle = "#000";
-      ctx.fillStyle = css;
-      ctx.fillRect(0, 0, 1, 1);
-      return Array.from(ctx.getImageData(0, 0, 1, 1).data);
-    };
-    const over = (top, base) => {
-      const a = top[3] / 255;
-      return [0, 1, 2].map((i) => a * top[i] + (1 - a) * base[i]);
-    };
-    const channel = (v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
-    const luminance = ([r, g, b]) =>
-      0.2126 * channel(r / 255) + 0.7152 * channel(g / 255) + 0.0722 * channel(b / 255);
-    const opaqueBehind = (el) => {
-      for (let node = el.parentElement; node; node = node.parentElement) {
-        const c = toRgba(getComputedStyle(node).backgroundColor);
-        if (c[3] === 255) return c;
-      }
-      return [255, 255, 255, 255];
-    };
-    return Array.from(document.querySelectorAll(sel)).map((el) => {
-      const cs = getComputedStyle(el);
-      const back = over(toRgba(cs.backgroundColor), opaqueBehind(el));
-      const text = toRgba(cs.color);
-      text[3] *= Number(cs.opacity);
-      const fore = over(text, back);
-      const [hi, lo] = [luminance(back), luminance(fore)].sort((a, b) => b - a);
-      return {
-        text: el.textContent.trim(),
-        color: cs.color,
-        background: `rgb(${back.map(Math.round).join(", ")})`,
-        inlineColor: el.style.color,
-        ratio: Math.round(((hi + 0.05) / (lo + 0.05)) * 100) / 100,
-      };
-    });
-  }, selector);
 }
 
 /** Asserts each record meets AA and that the records use pairwise-distinct colours. */
@@ -130,8 +86,7 @@ test.describe("status colours from theme tokens", () => {
     const statusCells = "#numistaSyncTableContainer tbody td:nth-child(3)";
     await expect(page.locator(statusCells)).toHaveText([/Synced/, /Needs sync/, /Failed/]);
     for (const theme of THEMES) {
-      await page.evaluate((name) => window.setTheme(name), theme);
-      await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+      await applyTheme(page, theme);
       expectDistinctAa(await measureText(page, statusCells), theme, "status");
     }
   });
@@ -139,8 +94,7 @@ test.describe("status colours from theme tokens", () => {
   test("sync log lines meet AA and differ by type in all four themes", async ({ page }) => {
     await writeLogLines(page);
     for (const theme of THEMES) {
-      await page.evaluate((name) => window.setTheme(name), theme);
-      await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+      await applyTheme(page, theme);
       expectDistinctAa(await measureText(page, "#numistaSyncLog .cache-log-line"), theme, "log");
     }
   });
@@ -148,8 +102,7 @@ test.describe("status colours from theme tokens", () => {
   test("spot lookup flash is visible, keeps the input text AA, and clears", async ({ page }) => {
     await page.addStyleTag({ content: "#itemPrice { transition: none !important; }" });
     for (const theme of THEMES) {
-      await page.evaluate((name) => window.setTheme(name), theme);
-      await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+      await applyTheme(page, theme);
       const [rest] = await measureText(page, "#itemPrice");
       await page.evaluate(() => flashSpotLookupTarget(document.getElementById("itemPrice")));
       const [flash] = await measureText(page, "#itemPrice");
@@ -247,8 +200,7 @@ async function expectAaViewHeadersInEveryTheme(page, { inlineTitleColour }) {
     await page.evaluate((i) => window.showViewModal(i), index);
     await expect(page.locator("#viewModalTitle")).toHaveText(`${metal} Round`);
     for (const theme of THEMES) {
-      await page.evaluate((name) => window.setTheme(name), theme);
-      await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+      await applyTheme(page, theme);
       const what = `${theme} ${metal} header`;
       await expect
         .poll(async () => Math.min(...(await measureViewHeader(page)).ratios), {
@@ -534,21 +486,6 @@ const DASHBOARD_STATUS_TEXT = {
   "inventory gain/loss": "#inventoryTable td[data-column='gainLoss']",
 };
 
-/** Lists every Dashboard status text below AA or carrying an inline colour. */
-async function dashboardStatusFailures(page) {
-  const failures = [];
-  for (const [what, selector] of Object.entries(DASHBOARD_STATUS_TEXT)) {
-    // An empty node (a ticker item with no premium) has no text to read.
-    const records = (await measureText(page, selector)).filter((r) => r.text !== "");
-    if (!records.length) failures.push(`${what}: nothing rendered`);
-    for (const r of records) {
-      if (r.ratio < AA_NORMAL_TEXT) failures.push(`${what} "${r.text}" ${r.ratio}:1`);
-      if (r.inlineColor) failures.push(`${what} "${r.text}" inline ${r.inlineColor}`);
-    }
-  }
-  return failures;
-}
-
 /** Waits until at least four spot cards have a drawn sparkline chart. */
 async function expectDrawnSparklines(page) {
   await expect
@@ -573,10 +510,11 @@ test.describe("Dashboard status text from theme tokens", () => {
     await expect(page.locator("#totalsLedger .totals-col-gain > .gl-gain").first()).toBeVisible();
     await expect(page.locator("#totalsLedger .totals-col-gain > .gl-loss").first()).toBeVisible();
     for (const theme of THEMES) {
-      await page.evaluate((name) => window.setTheme(name), theme);
-      await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+      await applyTheme(page, theme);
       await expect
-        .poll(() => dashboardStatusFailures(page), { message: `${theme} Dashboard status text` })
+        .poll(() => contrastFailures(page, DASHBOARD_STATUS_TEXT), {
+          message: `${theme} Dashboard status text`,
+        })
         .toEqual([]);
     }
   });
@@ -587,8 +525,7 @@ test.describe("Dashboard status text from theme tokens", () => {
     const values = "#tabViewDashboard .spot-card-value";
     await expect(page.locator(values).first()).toContainText(/[▲▼=] \$/);
     for (const theme of THEMES) {
-      await page.evaluate((name) => window.setTheme(name), theme);
-      await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+      await applyTheme(page, theme);
       const textPrimary = await page.evaluate(() => {
         const probe = document.createElement("span");
         probe.style.color = "var(--text-primary)";
@@ -703,5 +640,400 @@ test.describe("card chart colours from theme tokens", () => {
     expect(byTheme.light.tooltipBg, "the tooltip surface differs by theme").not.toBe(
       byTheme.dark.tooltipBg
     );
+  });
+});
+
+const FILL_ROLES = ["primary", "secondary", "success", "info", "warning", "danger"];
+
+// Each entry renders one filled control, or one control that fills on hover, with its own
+// selector context. The element marked data-probe is measured at rest and on hover.
+const FILLED_CONTROLS = {
+  "primary button": '<button class="btn" data-probe>Save</button>',
+  "secondary button": '<button class="btn secondary" data-probe>Cancel</button>',
+  "success button": '<button class="btn success" data-probe>Export</button>',
+  "info button": '<button class="btn info" data-probe>Print</button>',
+  "warning button": '<button class="btn warning" data-probe>Review</button>',
+  "premium button": '<button class="btn premium" data-probe>Premium</button>',
+  "filters button": '<button class="btn filters" data-probe>Filters</button>',
+  "danger button": '<button class="btn danger" data-probe>Delete</button>',
+  "collection pill": '<button class="btn collections-btn-pill" data-probe>Create</button>',
+  "active sort chip": '<button class="chip-sort-btn active" data-probe>A-Z</button>',
+  "active settings nav": '<div class="settings-nav-item active" data-probe>Appearance</div>',
+  "active theme option": '<button class="theme-option active" data-probe>Dark</button>',
+  "active pattern mode": '<button class="pattern-mode-btn active" data-probe>Pattern</button>',
+  "active chart range": '<button class="view-chart-range-pill active" data-probe>1Y</button>',
+  "active retail range": '<button class="retail-tf-btn active" data-probe>7D</button>',
+  "active chart metric": '<button class="chart-metric-btn active" data-probe>Value</button>',
+  "active date N/A": '<button class="date-na-btn active" data-probe>N/A</button>',
+  "active market pill":
+    '<button class="market-filter-pill active" data-metal="all" data-probe>All</button>',
+  "grade chip": '<span class="cv-chip-grade" data-probe>MS70</span>',
+  "tags chip": '<span class="cv-chip-tags" data-probe>3 tags</span>',
+  "bulk count badge": '<span class="bulk-edit-count-badge" data-probe>4</span>',
+  "attachment count": '<span class="attach-panel-count" data-probe>2</span>',
+  "form section count": '<span class="form-section-count" data-probe>5</span>',
+  "toggle all": '<button class="toggle-all-btn" data-probe>Toggle all</button>',
+  "save all": '<button class="save-all-btn" data-probe>Save all</button>',
+  "cancel all": '<button class="cancel-all-btn" data-probe>Cancel all</button>',
+  "clear filters": '<button class="filter-clear-btn" data-probe>Clear</button>',
+  "chip confirm": '<button class="chip-confirm-yes" data-probe>Yes</button>',
+  "recovery restore":
+    '<button class="inventory-recovery-banner__btn--primary" data-probe>Restore</button>',
+  "trade save":
+    '<div class="trade-edit-actions"><button class="btn-sm save" data-probe>Save</button></div>',
+  "provider badge": '<span class="provider-badge free" data-probe>Free</span>',
+  "view footer primary":
+    '<div class="view-modal-footer"><button class="view-footer-btn primary" data-probe>Edit</button></div>',
+  "view footer danger":
+    '<div class="view-modal-footer"><button class="view-footer-btn danger" data-probe>Remove</button></div>',
+  "settings action": '<button class="settings-action-btn" data-probe>Run</button>',
+  "save filter": '<button class="save-filter-btn" data-probe>Save filter</button>',
+  "search add": '<button class="search-action-btn add-btn" data-probe>Add</button>',
+  "search clear": '<button class="search-action-btn clear-btn" data-probe>Clear</button>',
+  "search log": '<button class="search-action-btn log-btn" data-probe>Log</button>',
+  "api action": '<button class="btn api-action-btn" data-probe>Test</button>',
+  "history button": '<button class="btn api-action-btn btn-history" data-probe>History</button>',
+  "action primary":
+    '<button class="btn api-action-btn btn-action-primary" data-probe>Sync</button>',
+  "numista tag": '<button class="numista-tag" data-probe>Bullion</button>',
+  "toggle key": '<button class="btn-toggle-key" data-probe>Show</button>',
+  "image upload": '<button class="btn img-btn-upload" data-probe>Upload</button>',
+  "stale sync": '<button class="market-sync-btn stale" data-probe>Sync</button>',
+  "footer secondary":
+    '<div class="modal-footer"><button class="btn secondary" data-probe>Cancel</button></div>',
+  "history title":
+    '<div id="apiHistoryModal"><div class="modal-header"><h2 data-probe>History</h2></div></div>',
+  "cloud sync title":
+    '<div id="cloudSyncModal"><div class="modal-header"><h2 data-probe>Cloud Sync</h2></div></div>',
+  "bulk edit title":
+    '<div class="bulk-edit-content"><div class="modal-header"><h2 data-probe>Bulk Edit</h2></div></div>',
+  "history close":
+    '<div id="apiHistoryModal" style="position:relative;width:96px"><div class="modal-header"><button class="modal-close" data-probe>×</button></div></div>',
+  "cloud sync close":
+    '<div id="cloudSyncModal" style="position:relative;width:96px"><div class="modal-header"><button class="modal-close" data-probe>×</button></div></div>',
+  "bulk edit close":
+    '<div class="bulk-edit-content" style="position:relative;width:96px"><div class="modal-header"><button class="modal-close" data-probe>×</button></div></div>',
+  "settings link":
+    '<div class="settings-section-panel"><a href="#sample" data-probe>Download sample CSV</a></div>',
+};
+
+/** Renders every filled control in one fixed host above the app, with transitions off. */
+async function renderFilledControls(page) {
+  await page.addStyleTag({
+    content: "#fillProbeHost, #fillProbeHost * { transition: none !important; }",
+  });
+  await page.evaluate((controls) => {
+    const host = document.createElement("div");
+    host.id = "fillProbeHost";
+    host.style.cssText =
+      "position:fixed;inset:0;z-index:99999;display:flex;flex-wrap:wrap;gap:8px;" +
+      "align-content:flex-start;padding:8px;overflow:auto;background:var(--bg-primary)";
+    for (const [name, html] of Object.entries(controls)) {
+      const cell = document.createElement("div");
+      cell.dataset.control = name;
+      cell.append(...new DOMParser().parseFromString(html, "text/html").body.childNodes);
+      host.appendChild(cell);
+    }
+    document.body.appendChild(host);
+  }, FILLED_CONTROLS);
+}
+
+/** Returns the label and fill colours resolved from one theme's fill tokens. */
+function readFillTokens(page) {
+  return page.evaluate((roles) => {
+    const probe = document.createElement("span");
+    probe.textContent = "probe";
+    document.body.appendChild(probe);
+    const read = (fill, ink) => {
+      probe.style.cssText = `color: var(${ink}); background-color: var(${fill});`;
+      return getComputedStyle(probe).backgroundColor + " | " + getComputedStyle(probe).color;
+    };
+    const out = {};
+    for (const role of roles) {
+      out[role] = {
+        rest: read(`--${role}-fill`, `--on-${role}`),
+        hover: read(`--${role}-fill-hover`, `--on-${role}`),
+      };
+    }
+    probe.remove();
+    return out;
+  }, FILL_ROLES);
+}
+
+test.describe("filled controls from fill tokens", () => {
+  test.beforeEach(async ({ page }) => {
+    await gotoApp(page);
+  });
+
+  test("each fill token pair meets AA at rest and on hover in all four themes", async ({
+    page,
+  }) => {
+    const pairs = Object.fromEntries(
+      FILL_ROLES.flatMap((role) => [
+        [`${role} rest`, `#fillTokenProbe [data-role="${role}"][data-state="rest"]`],
+        [`${role} hover`, `#fillTokenProbe [data-role="${role}"][data-state="hover"]`],
+      ])
+    );
+    await page.evaluate((roles) => {
+      const host = document.createElement("div");
+      host.id = "fillTokenProbe";
+      host.style.cssText = "transition:none;background:var(--bg-primary)";
+      for (const role of roles) {
+        for (const [state, fill] of [
+          ["rest", `--${role}-fill`],
+          ["hover", `--${role}-fill-hover`],
+        ]) {
+          const el = document.createElement("span");
+          el.dataset.role = role;
+          el.dataset.state = state;
+          el.textContent = `${role} ${state}`;
+          el.style.cssText = `transition:none;color:var(--on-${role});background-color:var(${fill})`;
+          host.appendChild(el);
+        }
+      }
+      document.body.appendChild(host);
+    }, FILL_ROLES);
+    for (const theme of THEMES) {
+      await applyTheme(page, theme);
+      // An inline style is set on the probes themselves, so ignore that column of the report.
+      const failures = (await contrastFailures(page, pairs)).filter((f) => !f.includes(" inline "));
+      expect(failures, `${theme} fill token pairs`).toEqual([]);
+      const tokens = await readFillTokens(page);
+      for (const role of FILL_ROLES) {
+        expect(tokens[role].hover, `${theme} ${role} hover differs from rest`).not.toBe(
+          tokens[role].rest
+        );
+      }
+    }
+  });
+
+  test("filled buttons, active chips and badges meet AA at rest and on hover in all four themes", async ({
+    page,
+  }) => {
+    test.setTimeout(test.info().timeout * 2);
+    await renderFilledControls(page);
+    const names = Object.keys(FILLED_CONTROLS);
+    for (const theme of THEMES) {
+      await test.step(theme, async () => {
+        await applyTheme(page, theme);
+        const failures = [];
+        for (const name of names) {
+          const selector = `#fillProbeHost [data-control="${name}"] [data-probe]`;
+          for (const state of ["rest", "hover"]) {
+            if (state === "rest") await page.mouse.move(0, 0);
+            else await page.locator(selector).hover();
+            const [{ ratio }] = await measureText(page, selector);
+            if (ratio < AA_NORMAL_TEXT) failures.push(`${name} ${state} ${ratio.toFixed(2)}`);
+          }
+        }
+        expect(failures, `${theme} filled controls`).toEqual([]);
+      });
+    }
+  });
+
+  test("no rule colours text with a fill token or puts a label on a raw fill", async ({ page }) => {
+    const offences = await page.evaluate(() => {
+      // A fill token as the colour, with or without a fallback.
+      const rawText = /^var\(--(?:primary|secondary|success|info|warning|danger)(?:-hover)?\s*[,)]/;
+      // A solid or gradient fill painted straight from a role token, outside color-mix().
+      const rawFill =
+        /(?:^|[\s,(])var\(--(?:primary|secondary|success|info|warning|danger)(?:-hover)?\)/;
+      // Drops each color-mix(...) call, nested parentheses included.
+      const withoutColorMix = (value) => {
+        let out = "";
+        let i = 0;
+        while (i < value.length) {
+          if (!value.startsWith("color-mix(", i)) {
+            out += value[i++];
+            continue;
+          }
+          i += "color-mix".length;
+          let depth = 0;
+          do {
+            if (value[i] === "(") depth++;
+            else if (value[i] === ")") depth--;
+            i++;
+          } while (depth > 0 && i < value.length);
+        }
+        return out;
+      };
+      const walk = (rules) =>
+        rules.flatMap((rule) => [rule, ...(rule.cssRules ? walk([...rule.cssRules]) : [])]);
+      const rules = [...document.styleSheets].flatMap((sheet) => {
+        try {
+          return walk([...sheet.cssRules]);
+        } catch {
+          return [];
+        }
+      });
+      const out = [];
+      for (const rule of rules) {
+        if (!rule.style) continue;
+        const color = rule.style.getPropertyValue("color").trim();
+        if (rawText.test(color)) out.push(`${rule.selectorText}: color ${color}`);
+        const background =
+          rule.style.getPropertyValue("background-image") ||
+          rule.style.getPropertyValue("background-color") ||
+          rule.style.getPropertyValue("background");
+        if (rawFill.test(withoutColorMix(background)) && color === "var(--text-inverse)") {
+          out.push(`${rule.selectorText}: label on ${background.trim()}`);
+        }
+      }
+      for (const el of document.querySelectorAll("[style]")) {
+        const color = el.style.getPropertyValue("color").trim();
+        if (rawText.test(color)) out.push(`${el.id || el.className || el.tagName}: color ${color}`);
+      }
+      return out;
+    });
+    expect(offences).toEqual([]);
+  });
+});
+
+/** Turns transitions off so a read after a theme switch sees the new theme's colours. */
+async function stopTransitions(page) {
+  await page.addStyleTag({ content: "*, *::before, *::after { transition: none !important; }" });
+}
+
+const FRAME_SURFACES = ["bg-primary", "bg-secondary", "bg-tertiary", "bg-card", "bg-on-frame"];
+
+test.describe("theme token gaps", () => {
+  test.beforeEach(async ({ page }) => {
+    await gotoApp(page);
+    await stopTransitions(page);
+  });
+
+  test("muted text meets AA on every frame surface in all four themes", async ({ page }) => {
+    await page.evaluate((surfaces) => {
+      const host = document.createElement("div");
+      host.id = "mutedProbe";
+      for (const surface of surfaces) {
+        const cell = document.createElement("div");
+        cell.style.background = `var(--${surface})`;
+        const text = document.createElement("span");
+        text.dataset.surface = surface;
+        text.className = "muted-probe";
+        text.textContent = `muted on ${surface}`;
+        cell.appendChild(text);
+        host.appendChild(cell);
+      }
+      document.body.appendChild(host);
+    }, FRAME_SURFACES);
+    await page.addStyleTag({ content: "#mutedProbe .muted-probe { color: var(--text-muted); }" });
+    const selectors = Object.fromEntries(
+      FRAME_SURFACES.map((s) => [s, `#mutedProbe [data-surface="${s}"]`])
+    );
+    for (const theme of THEMES) {
+      await applyTheme(page, theme);
+      expect(await contrastFailures(page, selectors), `${theme} muted text`).toEqual([]);
+    }
+  });
+
+  test("status titles and the Owned tag meet AA in all four themes", async ({ page }) => {
+    await page.evaluate(() => {
+      const host = document.createElement("div");
+      host.id = "ownedTagProbe";
+      for (const surface of ["bg-card", "bg-secondary"]) {
+        const cell = document.createElement("div");
+        cell.style.background = `var(--${surface})`;
+        cell.innerHTML = '<span class="collections-tag is-done">Owned</span>';
+        host.appendChild(cell);
+      }
+      document.body.appendChild(host);
+    });
+    const selectors = {
+      "Honest Limitations title": ".faq-limitations-title",
+      "Danger Zone title": ".danger-zone-title",
+      "Owned tag": "#ownedTagProbe .collections-tag.is-done",
+    };
+    for (const theme of THEMES) {
+      await applyTheme(page, theme);
+      expect(await contrastFailures(page, selectors), `${theme} status titles`).toEqual([]);
+    }
+  });
+
+  test("diff review text meets AA in all four themes", async ({ page }) => {
+    test.setTimeout(test.info().timeout * 2);
+    await showSampleDiffReview(page);
+    await expect(page.locator("#diffReviewModal")).toBeVisible();
+    await expect(page.locator("#diffReviewModal .dm-qty-verb")).toHaveText([
+      "Keep",
+      "Replace",
+      "Add to existing",
+    ]);
+    // Marks every rendered element that holds its own text, so one selector measures them all.
+    const markText = () =>
+      page.evaluate(() => {
+        for (const el of document.querySelectorAll("#diffReviewModal [data-dm-text]")) {
+          delete el.dataset.dmText;
+        }
+        for (const el of document.querySelectorAll("#diffReviewModal .modal-content *")) {
+          const ownText = [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim());
+          const shown = el.getClientRects().length && !el.closest(".collapsed");
+          if (ownText && shown && !el.matches(":disabled")) {
+            el.dataset.dmText = "";
+          }
+        }
+      });
+    const allText = { "diff review text": "#diffReviewModal [data-dm-text]" };
+    const expectAA = async (state, selectors) => {
+      // Open and fade-in animations start near opacity 0; measure their end state.
+      await page.evaluate(() =>
+        Promise.all(
+          document
+            .getAnimations()
+            .filter((a) => a.effect?.getComputedTiming().iterations !== Infinity)
+            .map((a) => a.finished)
+        )
+      );
+      await markText();
+      for (const theme of THEMES) {
+        await applyTheme(page, theme);
+        const failures = (
+          await contrastFailures(page, selectors, { ancestorOpacity: true })
+        ).filter((f) => !f.includes(" inline "));
+        expect(failures, `${theme} diff review ${state}`).toEqual([]);
+      }
+    };
+    await expectAA("on open", {
+      "Keep and Replace labels": "#diffReviewModal .dm-qty-verb",
+      ...allText,
+    });
+    // A skipped Item card and a confirmed conflict card keep their text at AA.
+    await page.evaluate(() => {
+      const modal = document.getElementById("diffReviewModal");
+      modal.querySelector('.dm-orphan-card [data-set-action="skip"]').click();
+      modal.querySelector('[data-card-action="keep-remote"]').click();
+      modal.querySelector('[data-card-action="resolve"]').click();
+    });
+    await expect(page.locator("#diffReviewModal .dm-orphan-card.skipped")).toHaveCount(1);
+    await expect(page.locator("#diffReviewModal .dm-conflict-card.resolved")).toHaveCount(1);
+    await expectAA("after Skip and Confirm", allText);
+  });
+});
+
+test.describe("contrast measure", () => {
+  test("a faded opaque ancestor fades its text and its surface together", async ({ page }) => {
+    await page.setContent(
+      `<body style="margin:0;background:#fff">
+        <div style="background:#000;opacity:0.5"><span id="t" style="color:#fff">Faded</span></div>
+      </body>`
+    );
+    const [plain] = await measureText(page, "#t");
+    expect(plain.ratio).toBeCloseTo(21, 1);
+    const [faded] = await measureText(page, "#t", { ancestorOpacity: true });
+    // White over 50% black on white renders white on mid-grey.
+    expect(faded.ratio).toBeLessThan(AA_NORMAL_TEXT);
+    expect(faded.ratio).toBeCloseTo(4, 0);
+  });
+
+  test("a translucent ancestor fill darkens the surface behind the text", async ({ page }) => {
+    await page.setContent(
+      `<body style="margin:0;background:#fff">
+        <div style="background:rgba(0,0,0,0.5)"><span id="t" style="color:#777">Tinted</span></div>
+      </body>`
+    );
+    const [tinted] = await measureText(page, "#t");
+    // Grey text over 50% black on white sits on mid-grey, not on white.
+    expect(tinted.ratio).toBeLessThan(2);
   });
 });

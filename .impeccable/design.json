@@ -18,12 +18,12 @@
       "gunmetal-high": { "role": "neutral", "displayName": "Gunmetal High", "canonical": "oklch(0.28 0.007 85)" },
       "border-hover": { "role": "neutral", "displayName": "Worn Edge", "canonical": "oklch(0.4 0.01 85)" },
       "text-inverse": { "role": "neutral", "displayName": "Inverse", "canonical": "oklch(0.98 0 0)" },
-      "gunmetal-base": { "role": "neutral", "displayName": "Gunmetal Base", "canonical": "oklch(0.18 0.008 85)", "tonalRamp": ["oklch(0.15 0.008 85)", "oklch(0.18 0.008 85)", "oklch(0.22 0.008 85)", "oklch(0.28 0.007 85)", "oklch(0.32 0.008 85)", "oklch(0.4 0.01 85)", "oklch(0.65 0.012 85)", "oklch(0.95 0.005 85)"] },
+      "gunmetal-base": { "role": "neutral", "displayName": "Gunmetal Base", "canonical": "oklch(0.18 0.008 85)", "tonalRamp": ["oklch(0.15 0.008 85)", "oklch(0.18 0.008 85)", "oklch(0.22 0.008 85)", "oklch(0.28 0.007 85)", "oklch(0.32 0.008 85)", "oklch(0.4 0.01 85)", "oklch(0.67 0.012 85)", "oklch(0.95 0.005 85)"] },
       "card": { "role": "neutral", "displayName": "Card", "canonical": "oklch(0.22 0.01 85)" },
       "border": { "role": "neutral", "displayName": "Machined Edge", "canonical": "oklch(0.32 0.008 85)" },
       "text-primary": { "role": "neutral", "displayName": "Bright Metal", "canonical": "oklch(0.95 0.005 85)" },
       "text-secondary": { "role": "neutral", "displayName": "Brushed", "canonical": "oklch(0.8 0.008 85)" },
-      "text-muted": { "role": "neutral", "displayName": "Patina", "canonical": "oklch(0.65 0.012 85)" },
+      "text-muted": { "role": "neutral", "displayName": "Patina", "canonical": "oklch(0.67 0.012 85)" },
       "metal-silver": { "role": "tertiary", "displayName": "Silver", "canonical": "oklch(0.851 0.011 248.8)" },
       "metal-gold": { "role": "tertiary", "displayName": "Gold", "canonical": "oklch(0.811 0.157 79)" },
       "metal-platinum": { "role": "tertiary", "displayName": "Platinum", "canonical": "oklch(0.961 0.003 264.5)" },
@@ -88,7 +88,7 @@
       "refersTo": "button-primary",
       "description": "The main action on a surface.",
       "html": "<button class=\"ds-btn-primary\">Add Item</button>",
-      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; min-height: 2.75rem; padding: 0.75rem 1.5rem; border: none; border-radius: var(--radius, 8px); background: var(--primary, oklch(0.72 0.16 75)); color: var(--text-inverse, oklch(0.98 0 0)); font-family: var(--font-body, Geist, sans-serif); font-size: var(--font-size-md, 0.875rem); font-weight: 500; cursor: pointer; } .ds-btn-primary:hover { background: var(--primary-hover, oklch(0.64 0.18 75)); transform: translateY(-1px); box-shadow: var(--shadow, 0 4px 6px -1px rgb(0 0 0 / 0.3)); } .ds-btn-primary:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--focus-ring, oklch(0.72 0.16 75 / 0.2)); }"
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; min-height: 2.75rem; padding: 0.75rem 1.5rem; border: none; border-radius: var(--radius, 8px); background: var(--primary-fill, oklch(0.72 0.16 75)); color: var(--on-primary, oklch(0.18 0.02 75)); font-family: var(--font-body, Geist, sans-serif); font-size: var(--font-size-md, 0.875rem); font-weight: 500; cursor: pointer; } .ds-btn-primary:hover { background: var(--primary-fill-hover, oklch(0.79 0.14 78)); transform: translateY(-1px); box-shadow: var(--shadow, 0 4px 6px -1px rgb(0 0 0 / 0.3)); } .ds-btn-primary:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--focus-ring, oklch(0.72 0.16 75 / 0.2)); }"
     },
     {
       "name": "Danger Button",
@@ -96,7 +96,7 @@
       "refersTo": "button-danger",
       "description": "Destructive actions such as Delete Item.",
       "html": "<button class=\"ds-btn-danger\">Delete Item</button>",
-      "css": ".ds-btn-danger { display: inline-flex; align-items: center; min-height: 2.75rem; padding: 0.75rem 1.5rem; border: none; border-radius: var(--radius, 8px); background: var(--danger, oklch(0.58 0.22 25)); color: var(--text-inverse, oklch(0.98 0 0)); font-family: var(--font-body, Geist, sans-serif); font-size: var(--font-size-md, 0.875rem); font-weight: 500; cursor: pointer; } .ds-btn-danger:hover { background: var(--danger-hover, oklch(0.5 0.22 25)); } .ds-btn-danger:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--focus-ring, oklch(0.72 0.16 75 / 0.2)); }"
+      "css": ".ds-btn-danger { display: inline-flex; align-items: center; min-height: 2.75rem; padding: 0.75rem 1.5rem; border: none; border-radius: var(--radius, 8px); background: var(--danger-fill, oklch(0.55 0.22 25)); color: var(--on-danger, oklch(0.98 0 0)); font-family: var(--font-body, Geist, sans-serif); font-size: var(--font-size-md, 0.875rem); font-weight: 500; cursor: pointer; } .ds-btn-danger:hover { background: var(--danger-fill-hover, oklch(0.49 0.21 25)); } .ds-btn-danger:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--focus-ring, oklch(0.72 0.16 75 / 0.2)); }"
     },
     {
       "name": "Text Field",

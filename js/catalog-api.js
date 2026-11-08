@@ -1134,7 +1134,7 @@ const renderCatalogHistoryTable = () => {
   let html =
     '<tr><th data-column="timestamp">Time</th><th data-column="action">Action</th><th data-column="query">Query</th><th data-column="result">Result</th><th data-column="itemCount">Items</th><th data-column="provider">Provider</th><th data-column="duration">Duration</th></tr>';
   data.forEach((e) => {
-    const resultClass = e.result === "fail" ? ' style="color: var(--danger);"' : "";
+    const resultClass = e.result === "fail" ? ' style="color: var(--danger-text);"' : "";
     const errorTitle = e.error ? ` title="${e.error.replace(/"/g, "&quot;")}"` : "";
     html += `<tr><td>${e.timestamp}</td><td>${e.action}</td><td>${e.query}</td><td${resultClass}${errorTitle}>${e.result}</td><td>${e.itemCount}</td><td>${e.provider || ""}</td><td>${e.duration}ms</td></tr>`;
   });
@@ -1185,15 +1185,14 @@ const showCatalogHistoryModal = () => {
     };
   }
   renderCatalogHistoryTable();
-  modal.style.display = "flex";
+  openModalById("catalogHistoryModal");
 };
 
 /**
  * Hides catalog history modal
  */
 const hideCatalogHistoryModal = () => {
-  const modal = document.getElementById("catalogHistoryModal");
-  if (modal) modal.style.display = "none";
+  closeModalById("catalogHistoryModal");
 };
 
 // =============================================================================
@@ -1240,7 +1239,7 @@ const renderCatalogHistoryForSettings = () => {
   }
 
   const rows = data.map((e) => {
-    const resultClass = e.result === "fail" ? ' style="color: var(--danger);"' : "";
+    const resultClass = e.result === "fail" ? ' style="color: var(--danger-text);"' : "";
     const errorTitle = e.error ? ` title="${String(e.error).replace(/"/g, "&quot;")}"` : "";
     return `<tr><td>${e.timestamp || ""}</td><td>${e.action || ""}</td><td>${e.query || ""}</td><td${resultClass}${errorTitle}>${e.result || ""}</td><td>${e.itemCount || 0}</td><td>${e.provider || ""}</td><td>${e.duration || 0}ms</td></tr>`;
   });
@@ -1271,8 +1270,9 @@ const renderCatalogHistoryForSettings = () => {
  */
 const clearCatalogHistory = async () => {
   const confirmed = await appConfirm(
-    "Clear all catalog history? This cannot be undone.",
-    "Catalog History"
+    "Delete all catalog history? You cannot undo this.",
+    "Catalog History",
+    { confirmLabel: "Clear catalog history", danger: true }
   );
   if (!confirmed) return;
   catalogHistory = [];
@@ -1420,7 +1420,13 @@ document.addEventListener("DOMContentLoaded", function () {
   // Clear API key button
   if (clearNumistaBtn) {
     clearNumistaBtn.addEventListener("click", async function () {
-      if (await appConfirm("Are you sure you want to clear your Numista API key?", "Numista API")) {
+      if (
+        await appConfirm(
+          "Clear the Numista API key from this browser? Catalog search stops until you add a key.",
+          "Numista API",
+          { confirmLabel: "Clear API key", danger: true }
+        )
+      ) {
         catalogConfig.clearNumistaKey();
         if (numistaApiKeyInput) {
           numistaApiKeyInput.value = "";
@@ -1507,7 +1513,13 @@ document.addEventListener("DOMContentLoaded", function () {
 
   if (clearPcgsBtn) {
     clearPcgsBtn.addEventListener("click", async function () {
-      if (await appConfirm("Are you sure you want to clear your PCGS bearer token?", "PCGS API")) {
+      if (
+        await appConfirm(
+          "Clear the PCGS bearer token from this browser? PCGS lookups stop until you add a token.",
+          "PCGS API",
+          { confirmLabel: "Clear token", danger: true }
+        )
+      ) {
         catalogConfig.clearPcgsToken();
         if (pcgsTokenInput) pcgsTokenInput.value = "";
         if (pcgsStatus) pcgsStatus.textContent = "Token cleared.";

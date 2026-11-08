@@ -213,6 +213,30 @@ test.describe("app chrome", () => {
     });
   });
 
+  test("the environment tag is the only environment notice: no toast follows it", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      window.__toastsSeen = [];
+      new MutationObserver((records) => {
+        for (const record of records) {
+          record.addedNodes.forEach((node) => {
+            if (node.classList?.contains("cloud-toast")) window.__toastsSeen.push(node.textContent);
+          });
+        }
+      }).observe(document, { childList: true, subtree: true });
+    });
+    await gotoApp(page);
+    await expect(page.locator("#envBadge")).toHaveText("LOCAL");
+    // Outlasts the boot delay a deferred notice would use.
+    await page.waitForTimeout(2500);
+    expect(await page.evaluate(() => window.__toastsSeen)).toEqual([]);
+
+    // Positive control: the observer records a toast that does show.
+    await page.evaluate(() => window.showToast("Control toast", 1000));
+    await expect.poll(() => page.evaluate(() => window.__toastsSeen)).toEqual(["Control toast"]);
+  });
+
   test("the header buttons are unboxed 44px icons, with labels only on request", async ({
     page,
   }) => {

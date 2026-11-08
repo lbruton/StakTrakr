@@ -1790,8 +1790,9 @@ const renderLbmaHistoryTable = async () => {
  */
 const clearSpotHistory = async () => {
   const confirmed = await appConfirm(
-    "Clear all spot price history? This cannot be undone.",
-    "Spot History"
+    "Delete all spot price history? You cannot undo this.",
+    "Spot History",
+    { confirmLabel: "Clear spot history", danger: true }
   );
   if (!confirmed) return;
   spotHistory = [];

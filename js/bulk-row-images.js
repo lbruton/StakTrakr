@@ -148,7 +148,7 @@ const _openBulkImagePopover = (imgTd, item) => {
       <div class="bulk-img-popover-actions">
         <input type="file" id="bulkPop${key}File" accept="image/jpeg,image/png,image/webp" style="display:none" />
         <button class="btn btn-sm" id="bulkPop${key}Upload" type="button">Upload</button>
-        <button class="btn btn-sm btn-danger" id="bulkPop${key}Remove" type="button" style="display:none">Remove</button>
+        <button class="btn btn-sm danger" id="bulkPop${key}Remove" type="button" style="display:none">Remove</button>
       </div>
     </div>`;
 

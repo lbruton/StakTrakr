@@ -104,7 +104,7 @@ def sqld_query(url, token, sql, args=None):
     except urllib.error.URLError as e:
         print(f"\nERROR: Could not reach sqld at {endpoint}")
         print(f"  {e}")
-        print("\nIs Tailscale connected? Is SQLD_URL set correctly?")
+        print("\nIs SQLD_URL set to the LAN sqld host? On macOS, run with /usr/bin/python3.")
         sys.exit(1)
 
     try:

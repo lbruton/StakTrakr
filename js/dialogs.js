@@ -81,6 +81,9 @@
       primaryAction,
       secondaryLabel = "Cancel",
       option = null,
+      confirmLabel = "",
+      cancelLabel = "",
+      danger = false,
     },
     resolve
   ) => {
@@ -108,8 +111,13 @@
     okBtn.disabled = false;
     cancelBtn.disabled = false;
     cancelBtn.style.display = mode === "alert" ? "none" : "";
-    cancelBtn.textContent = mode === "action" ? secondaryLabel || "Cancel" : "Cancel";
-    okBtn.textContent = mode === "action" ? primaryLabel || "OK" : "OK";
+    const isConfirm = mode === "confirm";
+    const isDanger = isConfirm && Boolean(danger);
+    cancelBtn.textContent =
+      mode === "action" ? secondaryLabel || "Cancel" : (isConfirm && cancelLabel) || "Cancel";
+    okBtn.textContent =
+      mode === "action" ? primaryLabel || "OK" : (isConfirm && confirmLabel) || "OK";
+    okBtn.className = isDanger ? "btn danger" : "btn premium";
     inputEl.style.display = mode === "prompt" ? "" : "none";
     if (mode === "prompt") {
       inputEl.value = defaultValue || "";
@@ -126,8 +134,7 @@
       hasOption ? { value: inputEl.value, checked: optionEl.checked } : inputEl.value;
 
     const cleanup = () => {
-      if (typeof window.releaseFocus === "function") window.releaseFocus(modal);
-      modal.style.display = "none";
+      closeModalById("appDialogModal");
       closeBtn.onclick = null;
       cancelBtn.onclick = null;
       okBtn.onclick = null;
@@ -167,9 +174,9 @@
       }
     };
 
+    // A danger confirm runs only from its own button, so Enter acts on the focused button alone.
     const onKeyDown = (event) => {
-      if (actionInFlight) return;
-      if (event.key === "Escape") finish(dismissValue());
+      if (actionInFlight || isDanger) return;
       if (event.key === "Enter" && document.activeElement !== cancelBtn) {
         if (mode === "prompt") finish(promptResult());
         else if (mode === "confirm") finish(true);
@@ -196,10 +203,13 @@
     };
     document.addEventListener("keydown", onKeyDown);
 
-    modal.style.display = "flex";
-    if (typeof window.trapFocus === "function") window.trapFocus(modal);
+    // modal.onclick owns the backdrop: an alert ignores a backdrop click.
+    modal.dataset.initialized = "true";
+    openModalById("appDialogModal", () => {
+      if (!actionInFlight) finish(dismissValue());
+    });
     if (mode === "prompt") inputEl.focus();
-    else if (mode === "action") cancelBtn.focus();
+    else if (mode === "action" || isDanger) cancelBtn.focus();
     else okBtn.focus();
   };
 
@@ -219,14 +229,35 @@
    */
   window.showAppAlert = (message, title) => showDialog({ mode: "alert", message, title });
   /**
-   * Displays an application-styled confirmation dialog.
+   * Splits the confirm arguments: the second one is a title string or an options object.
+   * @param {string|Object} [titleOrOptions]
+   * @param {Object} [options]
+   * @returns {{title: (string|undefined), confirmLabel: string, cancelLabel: string, danger: boolean}}
+   */
+  const confirmOptions = (titleOrOptions, options) => {
+    const opts =
+      titleOrOptions && typeof titleOrOptions === "object" ? titleOrOptions : options || {};
+    const title = typeof titleOrOptions === "string" ? titleOrOptions : opts.title || "Confirm";
+    return {
+      title,
+      confirmLabel: opts.confirmLabel || "",
+      cancelLabel: opts.cancelLabel || "",
+      danger: Boolean(opts.danger),
+    };
+  };
+
+  /**
+   * Displays an application-styled confirmation dialog. A danger confirm names its action on a
+   * danger-styled button, opens with focus on Cancel and ignores Enter outside its own button.
    * @global
    * @function showAppConfirm
    * @param {string} message
-   * @param {string} [title]
+   * @param {string|{title?: string, confirmLabel?: string, cancelLabel?: string, danger?: boolean}} [titleOrOptions]
+   * @param {{confirmLabel?: string, cancelLabel?: string, danger?: boolean}} [options]
    * @returns {Promise<boolean>}
    */
-  window.showAppConfirm = (message, title) => showDialog({ mode: "confirm", message, title });
+  window.showAppConfirm = (message, titleOrOptions, options) =>
+    showDialog({ mode: "confirm", message, ...confirmOptions(titleOrOptions, options) });
   /**
    * Displays an application-styled prompt dialog.
    * @global
@@ -266,9 +297,9 @@
     if (typeof window.showAppAlert === "function") return window.showAppAlert(message, title);
     return Promise.resolve();
   };
-  window.appConfirm = async (message, title = "Confirm") => {
+  window.appConfirm = async (message, title = "Confirm", options) => {
     if (typeof window.showAppConfirm === "function")
-      return !!(await window.showAppConfirm(message, title));
+      return !!(await window.showAppConfirm(message, title, options));
     return false;
   };
   window.appPrompt = async (message, defaultValue = "", title = "Input") => {

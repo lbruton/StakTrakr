@@ -91,6 +91,23 @@ Tests start the async function via `page.evaluate` without awaiting it first, th
 `waitForSelector("#appDialogModal", {state:"visible"})`, then click `#appDialogOk` or
 `#appDialogCancel`. Use the same pattern for `showAppAlert` and `showAppPrompt`.
 
+## Destructive confirms — name the action, pass `danger`
+
+A confirm that deletes or overwrites data calls
+`showAppConfirm(message, title, { confirmLabel, danger: true })` (or `appConfirm` with the
+same third argument). The second argument may be the options object itself, with an
+optional `title`.
+
+- `danger` styles `#appDialogOk` as `.btn.danger` and puts initial focus on Cancel.
+- The dialog ignores Enter outside the focused button, so Enter on open cancels.
+- `confirmLabel` names the action ("Delete all data", "Overwrite local data"). Never leave
+  a destructive confirm on the default OK.
+- The Bulk Edit confirm, `showBulkConfirm(message, { title, confirmLabel, danger })` in
+  `js/bulkEdit.js`, follows the same rules.
+- A test of a danger confirm clicks `#appDialogOk` (or `#bulkConfirmOkBtn`). Pressing Enter
+  cancels it.
+- The red class is `.btn.danger`. `.btn-danger` has no fill and renders as the gold primary.
+
 ## `state.js` variable exposure — `let` needs `Object.defineProperty`
 
 Variables declared with `let` in `state.js` are not on `window`.
@@ -172,11 +189,17 @@ Do not re-add `#detailsModal` canvas-hiding rules or any `.details-grid`/breakdo
 
 `--warning` (oklch L≈0.666) on `--bg-secondary` produces ≈1.4:1 contrast in light (L≈0.96) and sepia (L≈0.892) themes.
 That fails WCAG level AA for small text.
-Color status words with the text tokens `--success-text`, `--warning-text` and `--danger-text`.
+Color status words with the text tokens `--success-text`, `--warning-text`, `--danger-text` and `--info-text`.
 Color accent words, such as the collection card count, with `--primary-text`.
-Each of the four theme blocks in `css/styles.css` sets all four at 4.5:1 or more on `--bg-secondary`.
-Keep the base `--primary`, `--success`, `--warning` and `--danger` tokens for fills, borders and icons.
-`tests/unit/js-theme-tokens.test.js` fails when `js/` reads a custom property that no stylesheet defines.
+Each of the four theme blocks in `css/styles.css` sets all five at 4.5:1 or more on `--bg-secondary`.
+A control that puts a label on a fill uses the `--<role>-fill`, `--<role>-fill-hover` and `--on-<role>` set.
+The label meets 4.5:1 on both fills in every theme, and dark and slate use a dark label on bright fills.
+Keep the base `--primary`, `--secondary`, `--success`, `--info`, `--warning` and `--danger` tokens for unlabelled marks: bars, dots, borders, tints and icons.
+Do not darken `--secondary` for a button: `--col-weight` and the filter chip colours read it.
+`status-colour-tokens.spec.js` fails on a text colour or a labelled fill that uses a base role token.
+`--text-muted` meets 4.5:1 on all five frame surfaces in every theme, so a striped table needs no override.
+Do not fade a card with `opacity` to show its state: the faded text falls below 4.5:1.
+`tests/unit/js-theme-tokens.test.js` fails when `js/`, `css/` or `index.html` reads a custom property that no stylesheet defines.
 
 ## `--success` color — non-text contrast fail on sepia icons
 

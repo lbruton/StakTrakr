@@ -174,8 +174,7 @@ ESLint config (with the local colour-literal rule) all live there.
 - **Before speculating on infra failure mode** → read the matching `.context/` doc.
 - **Before claiming what env/secret is set on Fly.io or home poller** → `infisical-agent secrets get <KEY> --plain | shasum -a 256` (compare by hash, never print values); it reads `projectId`/env from `.claude/project.json` → `infisical`. Fallback: `mcp__infisical__get-secret` with that `projectId`, the UUID, not the slug `stak-trakr-94m4` (slug → `404 "bot lookup"`).
 - **Before any version-bump PR**:
-  - Run `/update-spot-bundle`.
-  - Ensure Tailscale is active.
+  - Run `/update-spot-bundle`. It reaches sqld on the home LAN; Tailscale is not needed.
   - Stage and commit before executing `gh pr create`.
 - **Before `dev → main`** → `/ship`, only on explicit user "ready to ship".
 - **Before citing any cron schedule** → grep `devops/pollers/home-poller/docker-entrypoint.sh` for the authoritative value.

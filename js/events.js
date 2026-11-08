@@ -333,23 +333,17 @@ const showRestoreChoice = ({ clone, original, mergedQty }) =>
       `Merge: original goes from ${original.qty} → ${mergedQty}. ` +
       `Separate: ${original.qty} + ${clone.qty} as two rows.`;
 
-    openModalById("restoreChoiceModal");
+    const cleanup = () => {
+      closeModalById("restoreChoiceModal");
+    };
+
+    openModalById("restoreChoiceModal", () => {
+      cleanup();
+      resolve("cancel");
+    });
 
     const mergeBtn = modal.querySelector('[data-action="merge"]');
     if (mergeBtn) mergeBtn.focus();
-
-    const cleanup = () => {
-      closeModalById("restoreChoiceModal");
-      document.removeEventListener("keydown", escHandler);
-    };
-
-    const escHandler = (e) => {
-      if (e.key === "Escape") {
-        cleanup();
-        resolve("cancel");
-      }
-    };
-    document.addEventListener("keydown", escHandler);
 
     modal.addEventListener(
       "click",
@@ -3225,6 +3219,7 @@ const setupItemFormListeners = () => {
 
   optionalListener(elements.cancelItemBtn, "click", closeItemModal, "Cancel item button");
   optionalListener(elements.itemCloseBtn, "click", closeItemModal, "Item modal close button");
+  registerModalClose("itemModal", closeItemModal);
 
   // RETAIL PRICE HISTORY LINK — opens per-item price history modal (STAK-109)
   const retailHistoryLink = document.getElementById("retailPriceHistoryLink");
@@ -3242,22 +3237,14 @@ const setupItemFormListeners = () => {
   }
 
   // ITEM PRICE HISTORY MODAL — close & filter handlers (STAK-109)
-  const itemPriceHistoryModal = document.getElementById("itemPriceHistoryModal");
   const itemPriceHistoryCloseBtn = document.getElementById("itemPriceHistoryCloseBtn");
   const itemPriceHistoryFilter = document.getElementById("itemPriceHistoryFilter");
   const itemPriceHistoryClearFilterBtn = document.getElementById("itemPriceHistoryClearFilterBtn");
 
   if (itemPriceHistoryCloseBtn) {
-    itemPriceHistoryCloseBtn.addEventListener("click", () => {
-      if (itemPriceHistoryModal) itemPriceHistoryModal.style.display = "none";
-    });
-  }
-  if (itemPriceHistoryModal) {
-    itemPriceHistoryModal.addEventListener("click", (e) => {
-      if (e.target === itemPriceHistoryModal) {
-        itemPriceHistoryModal.style.display = "none";
-      }
-    });
+    itemPriceHistoryCloseBtn.addEventListener("click", () =>
+      closeModalById("itemPriceHistoryModal")
+    );
   }
   if (itemPriceHistoryFilter) {
     itemPriceHistoryFilter.addEventListener("input", () => {
@@ -3960,7 +3947,7 @@ const setupItemFormListeners = () => {
 
 /** Closes the notes modal and resets the notes index. */
 const dismissNotesModal = () => {
-  if (elements.notesModal) elements.notesModal.style.display = "none";
+  closeModalById("notesModal");
   notesIndex = null;
 };
 
@@ -4513,7 +4500,7 @@ const setupVaultListeners = () => {
 };
 
 /**
- * Sets up data-destructive action listeners (remove data, boating accident).
+ * Sets up data-destructive action listeners (Remove Inventory, Wipe All Data).
  */
 const setupDataManagementListeners = () => {
   optionalListener(
@@ -4523,8 +4510,9 @@ const setupDataManagementListeners = () => {
       const confirmed =
         typeof showAppConfirm === "function"
           ? await showAppConfirm(
-              "Remove all inventory items? This cannot be undone.",
-              "Data Management"
+              "Delete all Items from this browser? Your settings stay. You cannot undo this. Export a backup first if you need one.",
+              "Remove Inventory",
+              { confirmLabel: "Delete all Items", danger: true }
             )
           : false;
       if (confirmed) {
@@ -4535,7 +4523,7 @@ const setupDataManagementListeners = () => {
         renderTable();
         renderActiveFilters();
         if (typeof showAppAlert === "function")
-          await showAppAlert("Inventory data cleared.", "Data Management");
+          await showAppAlert("All Items deleted.", "Remove Inventory");
       }
     },
     "Remove inventory data button"
@@ -4548,8 +4536,9 @@ const setupDataManagementListeners = () => {
       const confirmed =
         typeof showAppConfirm === "function"
           ? await showAppConfirm(
-              "Did you really lose it all in a boating accident? This will wipe all local data.",
-              "Data Management"
+              "Delete all Items, Collections and settings from this browser? You cannot undo this. Export a backup first if you need one.",
+              "Wipe All Data",
+              { confirmLabel: "Delete all data", danger: true }
             )
           : false;
       if (confirmed) {
@@ -4596,10 +4585,7 @@ const setupDataManagementListeners = () => {
         updateSyncButtonStates();
 
         if (typeof showAppAlert === "function")
-          await showAppAlert(
-            "All data has been erased. Hope your scuba gear is ready!",
-            "Data Management"
-          );
+          await showAppAlert("All local data deleted.", "Wipe All Data");
       }
     },
     "Boating accident button"
@@ -5176,7 +5162,7 @@ const setupApiEvents = () => {
       safeAttachListener(
         quotaClose,
         "click",
-        () => (elements.apiQuotaModal.style.display = "none"),
+        () => closeModalById("apiQuotaModal"),
         "API quota close"
       );
     }
@@ -5194,7 +5180,7 @@ const setupApiEvents = () => {
             if (!cfg.usage[qp]) cfg.usage[qp] = { quota: val, used: 0 };
             cfg.usage[qp].quota = val;
             saveApiConfig(cfg);
-            elements.apiQuotaModal.style.display = "none";
+            closeModalById("apiQuotaModal");
             updateProviderHistoryTables();
           }
         },
@@ -5209,8 +5195,13 @@ const setupApiEvents = () => {
         async () => {
           if (typeof clearApiCache === "function") {
             const warnMessage =
-              "This will delete the API cache and history. Click OK to continue or Cancel to keep it.";
-            if (await appConfirm(warnMessage, "Flush API Cache")) {
+              "Delete the API cache and the API history? The next sync pulls fresh data. You cannot undo this.";
+            if (
+              await appConfirm(warnMessage, "Flush API Cache", {
+                confirmLabel: "Flush cache",
+                danger: true,
+              })
+            ) {
               clearApiCache();
             }
           }
@@ -5328,84 +5319,20 @@ const setupApiEvents = () => {
       );
     }
 
-    // ESC key to close modals (sub-modals first, then settings, then others)
-    safeAttachListener(
-      document,
-      "keydown",
-      (e) => {
-        if (e.key === "Escape") {
-          const infoModal = document.getElementById("apiInfoModal");
-          const historyModal = document.getElementById("apiHistoryModal");
-          const catalogHistModal = document.getElementById("catalogHistoryModal");
-          const quotaModal = document.getElementById("apiQuotaModal");
-          const bulkEditModal = document.getElementById("bulkEditModal");
-          const settingsModal = document.getElementById("settingsModal");
-          const itemModal = document.getElementById("itemModal");
-          const notesModal = document.getElementById("notesModal");
-          const detailsModal = document.getElementById("detailsModal");
-          const changeLogModal = document.getElementById("changeLogModal");
-          // Close sub-modals (stacking overlays) before settings modal
-          if (
-            infoModal &&
-            infoModal.style.display === "flex" &&
-            typeof hideProviderInfo === "function"
-          ) {
-            hideProviderInfo();
-          } else if (
-            historyModal &&
-            historyModal.style.display === "flex" &&
-            typeof hideApiHistoryModal === "function"
-          ) {
-            hideApiHistoryModal();
-          } else if (
-            catalogHistModal &&
-            catalogHistModal.style.display === "flex" &&
-            typeof hideCatalogHistoryModal === "function"
-          ) {
-            hideCatalogHistoryModal();
-          } else if (quotaModal && quotaModal.style.display === "flex") {
-            quotaModal.style.display = "none";
-          } else if (
-            bulkEditModal &&
-            bulkEditModal.style.display !== "none" &&
-            typeof closeBulkEdit === "function"
-          ) {
-            closeBulkEdit();
-          } else if (
-            settingsModal &&
-            settingsModal.style.display === "flex" &&
-            typeof hideSettingsModal === "function"
-          ) {
-            hideSettingsModal();
-          } else if (
-            document.getElementById("spotLookupModal")?.style.display === "flex" &&
-            typeof closeSpotLookupModal === "function"
-          ) {
-            closeSpotLookupModal();
-          } else if (itemModal && itemModal.style.display === "flex") {
-            itemModal.style.display = "none";
-            document.body.style.overflow = "";
-            editingIndex = null;
-            editingChangeLogIndex = null;
-          } else if (notesModal && notesModal.style.display === "flex") {
-            notesModal.style.display = "none";
-            notesIndex = null;
-          } else if (changeLogModal && changeLogModal.style.display === "flex") {
-            changeLogModal.style.display = "none";
-            document.body.style.overflow = "";
-          } else if (document.getElementById("viewItemModal")?.style.display === "flex") {
-            /* viewModal.js's own document-level Escape listener owns this close; claiming it here would also close the details modal stacked beneath (STRK-352) */
-          } else if (
-            detailsModal &&
-            detailsModal.style.display === "flex" &&
-            typeof closeDetailsModal === "function"
-          ) {
-            closeDetailsModal();
-          }
-        }
-      },
-      "ESC key modal close"
-    );
+    // Escape and the backdrop close these modals through their own close functions.
+    const modalClosers = {
+      apiInfoModal: hideProviderInfo,
+      apiHistoryModal: hideApiHistoryModal,
+      catalogHistoryModal: hideCatalogHistoryModal,
+      bulkEditModal: typeof closeBulkEdit === "function" ? closeBulkEdit : null,
+      settingsModal: typeof hideSettingsModal === "function" ? hideSettingsModal : null,
+      spotLookupModal: typeof closeSpotLookupModal === "function" ? closeSpotLookupModal : null,
+      notesModal: dismissNotesModal,
+      detailsModal: typeof closeDetailsModal === "function" ? closeDetailsModal : null,
+    };
+    Object.entries(modalClosers).forEach(([id, close]) => {
+      if (close) registerModalClose(id, close);
+    });
 
     debugLog("✓ API events setup complete");
   } catch (error) {

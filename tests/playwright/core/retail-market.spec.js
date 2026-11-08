@@ -1,6 +1,7 @@
 import { test, expect } from "../helpers/mocks/extended-test.js";
 import { injectSeedInventory } from "../helpers/seed.js";
 import { collectInlineStyleOffenders } from "../helpers/inline-styles.js";
+import { THEMES, contrastFailures } from "../helpers/contrast.js";
 
 const MARKET_FILTER_KEY = "staktrakr.market_filter";
 const GOLDBACK_G1_RATE = 4.25;
@@ -602,6 +603,26 @@ function latestForSlug(slug) {
 }
 
 /**
+ * The "Last seen" tooltip text the browser gives an ISO time, in its own timezone.
+ * @param {import('@playwright/test').Page} page - Playwright page.
+ * @param {string} iso - ISO timestamp.
+ * @returns {Promise<string>} "Last seen YYYY-MM-DD, hh:mm" text.
+ */
+function lastSeenText(page, iso) {
+  return page.evaluate(
+    (when) =>
+      `Last seen ${new Date(when).toLocaleString("en-CA", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      })}`,
+    iso
+  );
+}
+
+/**
  * Returns a v2-API route handler that serves the standard fixture set.
  * @param {{ failGoldback?: boolean, goldbackG1Rate?: number }} opts
  *   failGoldback  – return 503 for goldback/latest.json (default: false)
@@ -612,6 +633,7 @@ function makeV2Handler({
   goldbackG1Rate = GOLDBACK_G1_RATE,
   retailFeeds = {},
   failedRetailFeeds = [],
+  meta = coinMeta,
 } = {}) {
   return async (route) => {
     const url = new URL(route.request().url());
@@ -640,11 +662,11 @@ function makeV2Handler({
           v: 2,
           generated_at: GENERATED_AT,
           data: {
-            coins: Object.entries(coinMeta).map(([slug, meta]) => ({
+            coins: Object.entries(meta).map(([slug, coin]) => ({
               slug,
-              name: meta.name,
-              weight_oz: meta.weight,
-              metal: meta.metal === "silver" ? "xag" : meta.metal === "gold" ? "xau" : meta.metal,
+              name: coin.name,
+              weight_oz: coin.weight,
+              metal: coin.metal === "silver" ? "xag" : coin.metal === "gold" ? "xau" : coin.metal,
             })),
             vendors: VENDORS,
           },
@@ -783,7 +805,11 @@ async function bootMarketDataPage(page) {
     await window.initMarketData?.();
     window.refreshMarketData();
   });
-  await page.waitForSelector(".vendor-prices-table", { timeout: 10000 });
+  // Phones below 480px show the cards and hide the matrix; either layout means the render landed.
+  await page
+    .locator(".vendor-prices-table:visible, .vp-cards:visible")
+    .first()
+    .waitFor({ timeout: 10000 });
 }
 
 /**
@@ -812,8 +838,16 @@ async function setupRetailFixture(page, options = {}) {
     freshSecondaryRate, // g1_usd carried by the api2 FRESH 200 envelope
     retailFeeds = {},
     retailHistory = {},
+    retailPriceRows = {},
     failedRetailFeeds = [],
+    // Slug-to-name overrides, seeded into storage and the manifest alike.
+    coinNames = {},
   } = options;
+  const fixtureMeta = { ...coinMeta };
+  for (const [slug, name] of Object.entries(coinNames)) {
+    fixtureMeta[slug] = { ...fixtureMeta[slug], name };
+  }
+  const seededPrices = { ...prices, prices: { ...prices.prices, ...retailPriceRows } };
 
   await injectSeedInventory(page);
   await routeExchangeAndCharts(page, exchangeRates);
@@ -842,12 +876,12 @@ async function setupRetailFixture(page, options = {}) {
     },
     {
       seeded: {
-        prices,
+        prices: seededPrices,
         history: { ...historyRows, ...retailHistory },
         intraday: intradayRows,
         generatedAt: GENERATED_AT,
       },
-      meta: coinMeta,
+      meta: fixtureMeta,
       vendors: vendorMeta,
       saved: savedTab,
       filter: marketFilter,
@@ -856,7 +890,7 @@ async function setupRetailFixture(page, options = {}) {
     }
   );
 
-  const fulfillV2 = makeV2Handler({ retailFeeds, failedRetailFeeds });
+  const fulfillV2 = makeV2Handler({ retailFeeds, failedRetailFeeds, meta: fixtureMeta });
   const failV2 = async (route) => {
     await route.fulfill({ status: 503, contentType: "application/json", body: "{}" });
   };
@@ -971,6 +1005,55 @@ async function getVendorCellText(page, rowName, vendorHeader) {
     },
     { rowName, vendorHeader }
   );
+}
+
+/**
+ * Measures the phone-width contract inside one root: the smallest visible text size, the
+ * visible controls whose hit area is under 44px, and the names that overflow their box.
+ * A control's hit area is its box, or its absolute ::after box when it has one. That box is
+ * placed against the containing block's padding box, so the block's borders do not count.
+ * @param {import('@playwright/test').Page} page - Playwright page.
+ * @param {string} rootSelector - CSS selector of the root to measure.
+ * @returns {Promise<{minFont:number, smallTargets:string[], clippedNames:string[]}>}
+ */
+function readPhoneFit(page, rootSelector) {
+  return page.locator(rootSelector).evaluate((root) => {
+    const shown = (el) => el.getClientRects().length > 0 && !el.closest(".sr-only");
+    const hitBox = (el) => {
+      const after = getComputedStyle(el, "::after");
+      const r = el.getBoundingClientRect();
+      if (after.content === "none" || after.position !== "absolute") return r;
+      const base = getComputedStyle(el).position === "static" ? el.offsetParent : el;
+      const b = base.getBoundingClientRect();
+      const baseStyle = getComputedStyle(base);
+      const border = (side) => parseFloat(baseStyle[`border-${side}-width`]) || 0;
+      const inset = (side) => parseFloat(after[side]) || 0;
+      return {
+        width: b.width - border("left") - border("right") - inset("left") - inset("right"),
+        height: b.height - border("top") - border("bottom") - inset("top") - inset("bottom"),
+      };
+    };
+    const texts = [...root.querySelectorAll("*")].filter(
+      (el) => shown(el) && [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())
+    );
+    const controls = [...root.querySelectorAll("button, a")].filter(shown);
+    return {
+      minFont: Math.min(...texts.map((el) => parseFloat(getComputedStyle(el).fontSize))),
+      smallTargets: controls
+        .filter((el) => {
+          const box = hitBox(el);
+          return box.width < 44 || box.height < 44;
+        })
+        .map((el) => el.id || el.className || el.textContent.trim()),
+      clippedNames: [...root.querySelectorAll(".vp-coin-link")]
+        .filter(shown)
+        .filter((el) => {
+          const cell = el.closest("td") || el;
+          return el.scrollWidth > el.clientWidth + 1 || cell.scrollWidth > cell.clientWidth + 1;
+        })
+        .map((el) => el.textContent.trim()),
+    };
+  });
 }
 
 /**
@@ -1478,12 +1561,13 @@ test.describe("core/retail-market", () => {
       .filter({ hasText: "Goldback" })
       .locator(".vp-premium");
     await expect(matrixBadge).toHaveText("+20.0%");
-    await expect(matrixBadge).toHaveClass(/\bhigh\b/);
+    // The matrix and modal colour compares dealers, and a lone dealer has none to compare.
+    await expect(matrixBadge).toHaveClass(/\bplain\b/);
 
     await page.evaluate((slug) => window.openMarketDetailModal(slug), SLUG_GOLDBACK);
     const detailBadge = page.locator("#marketDetailContent .vp-premium");
     await expect(detailBadge.first()).toHaveText("+20.0%");
-    await expect(detailBadge.first()).toHaveClass(/\bhigh\b/);
+    await expect(detailBadge.first()).toHaveClass(/\bplain\b/);
   });
 
   // STRK-317: two ticker display fixes pinned together —
@@ -1823,6 +1907,783 @@ test.describe("core/retail-market", () => {
       expect(report.unknownColor).toBe("var(--text-muted)");
     }
     expect(contrastFailures).toEqual([]);
+  });
+
+  test("Market status text meets AA in all four themes and carried prices are labelled", async ({
+    page,
+  }) => {
+    // Silver spot is 36: one vendor per premium tier, plus one out of stock and one carried.
+    const CARRIED_FROM = `${RECENT_DATE}T18:00:00Z`;
+    const vendors = {
+      apmex: { price: 36.5, in_stock: true, inStock: true },
+      jmbullion: { price: 37, in_stock: true, inStock: true },
+      herobullion: { price: 40, in_stock: true, inStock: true },
+      bullionexchanges: { price: 41, in_stock: false, inStock: false },
+      goldback: {
+        price: 38,
+        in_stock: true,
+        inStock: true,
+        carried: true,
+        carried_from: CARRIED_FROM,
+      },
+    };
+    // The item's own price window differs from the snapshot's GENERATED_AT, so a fresh tooltip must use it.
+    const DETAIL_T = "2026-05-25T15:45:00Z";
+    const row = { t: DETAIL_T, median_price: 38, lowest_price: 36.5, highest_price: 41, vendors };
+    await setupRetailFixture(page, {
+      retailPriceRows: { [SLUG_SILVER_A]: row },
+      retailFeeds: {
+        [SLUG_SILVER_A]: { latest: { weight_oz: 1, window_start: GENERATED_AT, ...row } },
+      },
+    });
+    // The browser's own timezone sets the expected local date.
+    const localDate = await page.evaluate(
+      (iso) => new Date(iso).toLocaleDateString("en-CA"),
+      CARRIED_FROM
+    );
+    const lastSeen = new RegExp(`^Last seen ${localDate}, \\d{2}:\\d{2}`);
+    const matrixRow = page
+      .locator(".vendor-prices-table tbody tr")
+      .filter({ has: page.getByText("Alpha Silver Bar", { exact: true }) });
+    for (const tier of ["low", "mid", "high"]) {
+      await expect(matrixRow.locator(`.vp-premium.${tier}`).first()).toBeVisible();
+    }
+    // The colour compares dealers: the in-stock median is 37, so $36.50 is low and $40 high.
+    // The carried $38 is plain and stays out of the median, which the Median column shows.
+    /** Maps each shown price to its premium tier class. */
+    const tiersByPrice = (rows) =>
+      rows.evaluateAll((trs) => {
+        const tierOf = (badge) =>
+          ["low", "mid", "high", "plain"].filter((t) => badge?.classList.contains(t)).join(" ");
+        // A matrix cell holds its price and badge; a modal row puts them in two cells.
+        const pairs = trs.flatMap((tr) =>
+          tr.querySelector(".market-price")
+            ? [[tr.querySelector(".market-price"), tr.querySelector(".vp-premium")]]
+            : Array.from(tr.querySelectorAll("td:has(.vp-price)"), (td) => [
+                td.querySelector(".vp-price"),
+                td.querySelector(".vp-premium"),
+              ])
+        );
+        return Object.fromEntries(
+          pairs.map(([price, badge]) => [price.textContent.trim(), tierOf(badge)])
+        );
+      });
+    expect(await tiersByPrice(matrixRow)).toEqual({
+      "$36.50": "low",
+      "$37.00": "mid",
+      "$40.00": "high",
+      "$38.00": "plain",
+    });
+    await expect(matrixRow.locator("td").nth(-2)).toHaveText("$37.00");
+    const card = page
+      .locator(".vp-card")
+      .filter({ has: page.locator(".vp-coin-link", { hasText: "Alpha Silver Bar" }) });
+    await expect(card.locator(".vp-card-meta b").first()).toHaveText("$37.00");
+    for (const [price, distance] of [
+      ["36.50", "1.4% below the dealer median"],
+      ["37.00", "at the dealer median"],
+      ["40.00", "8.1% above the dealer median"],
+    ]) {
+      await expect(
+        matrixRow.getByRole("button", {
+          name: new RegExp(
+            `\\$${price.replace(".", "\\.")}, premium [+-]\\d+\\.\\d%, ${distance}\\.`
+          ),
+        })
+      ).toHaveCount(1);
+    }
+    await expect(page.locator("#vendorPricesContainer .market-disclaimer")).toContainText(
+      "Percentages show premium over spot (or G1 rate for Goldbacks); their colour compares dealers."
+    );
+    await expect(matrixRow.locator(".vp-oos")).toHaveText("OOS");
+    await expect(matrixRow.locator(".vp-oos")).not.toHaveAttribute("title", /./);
+    const carried = matrixRow.locator(".vp-carried");
+    // A carried price shows only its price and premium; the tooltip names its age.
+    await expect(carried.locator(".vp-price")).toHaveText("$38.00");
+    await expect(carried).not.toContainText("Carried");
+    await expect(carried.locator(":scope > *")).toHaveCount(2);
+    await expect(carried).toHaveAttribute("title", lastSeen);
+    await expect(
+      carried.getByRole("button", {
+        name: new RegExp(
+          `\\$38\\.00, premium .*\\. Last seen ${localDate}, \\d{2}:\\d{2}(?: [ap]\\.m\\.|\\.) Opens`
+        ),
+      })
+    ).toHaveCount(1);
+    // A fresh price is last seen at its item's price window, not the snapshot's.
+    const freshSeen = await lastSeenText(page, DETAIL_T);
+    const freshCell = matrixRow.locator("td:has(.vp-premium.low)");
+    await expect(freshCell).toHaveAttribute("title", freshSeen);
+    await expect(freshCell.locator(":scope > *")).toHaveCount(2);
+    const freshName = await freshCell.locator(".vp-price").getAttribute("aria-label");
+    expect(freshName).toContain(`. ${freshSeen}`);
+    expect(freshName).toMatch(/\. Opens the dealer page in a new window\.$/);
+    // Prices cached with no window keep none: the snapshot's GENERATED_AT window must not label them.
+    const keptWindow = await page.evaluate((slug) => {
+      const kept = _cachedSlugDetail[slug].windowTime;
+      _cachedSlugDetail[slug].windowTime = null;
+      window.renderVendorPrices();
+      return kept;
+    }, SLUG_SILVER_A);
+    await expect(freshCell).not.toHaveAttribute("title", /./);
+    expect(await freshCell.locator(".vp-price").getAttribute("aria-label")).not.toContain(
+      "Last seen"
+    );
+    await page.evaluate(
+      ([slug, kept]) => {
+        _cachedSlugDetail[slug].windowTime = kept;
+        window.renderVendorPrices();
+      },
+      [SLUG_SILVER_A, keptWindow]
+    );
+    await expect(freshCell).toHaveAttribute("title", freshSeen);
+    const carriedTile = card.locator(".vp-card-dealer.vp-carried");
+    await expect(carriedTile).toHaveAttribute("title", lastSeen);
+    await expect(carriedTile).not.toContainText("Carried");
+
+    // 18:00 UTC is the next calendar day in Kiritimati, so the cell and tooltip must agree.
+    const zoned = await page.evaluate((iso) => {
+      const zone =
+        Intl.DateTimeFormat().resolvedOptions().timeZone === "Pacific/Kiritimati"
+          ? "America/Chicago"
+          : "Pacific/Kiritimati";
+      localStorage.setItem(TIMEZONE_KEY, zone);
+      window.renderVendorPrices();
+      return new Date(iso).toLocaleDateString("en-CA", { timeZone: zone });
+    }, CARRIED_FROM);
+    expect(zoned).not.toBe(localDate);
+    await expect(carried).toHaveAttribute("title", new RegExp(`^Last seen ${zoned}, `));
+    await page.evaluate(() => {
+      localStorage.removeItem(TIMEZONE_KEY);
+      window.renderVendorPrices();
+    });
+    await expect(carried).toHaveAttribute("title", lastSeen);
+
+    await page.evaluate((slug) => window.openMarketDetailModal(slug), SLUG_SILVER_A);
+    await expect(page.locator("#marketDetailModal")).toBeVisible();
+    const stock = page.locator("#marketDetailContent .market-stock");
+    await expect(stock).toHaveText(["In Stock", "In Stock", "Carried", "In Stock", "Out of Stock"]);
+    // The modal colours each dealer by the same rule; the out-of-stock $41 is not ranked.
+    expect(
+      await tiersByPrice(page.locator("#marketDetailContent .market-detail-vendors tbody tr"))
+    ).toEqual({
+      "$36.50": "low",
+      "$37.00": "mid",
+      "$38.00": "plain",
+      "$40.00": "high",
+      "$41.00": "plain",
+    });
+    await expect(stock.nth(2)).toHaveAttribute("title", lastSeen);
+    // Phones hide the Stock column, so the stock line under the dealer carries the date in view.
+    const carriedSub = page.locator("#marketDetailContent .market-stock-sub.market-stock--carried");
+    await expect(carriedSub).toHaveText(`Carried ${localDate}`);
+    await expect(carriedSub).toHaveAttribute("title", lastSeen);
+    await expect(page.locator("#marketDetailContent .market-detail-period-btn.active")).toHaveCount(
+      1
+    );
+
+    const MARKET_STATUS_TEXT = {
+      "item name (control)": ".vendor-prices-table tbody .vp-coin-link",
+      // Vendor column headers carry their per-vendor colour inline; the vendor label test covers them.
+      "matrix header": "#vendorPricesContainer .vendor-prices-table thead th:not([style])",
+      "best price": ".vendor-prices-table .vp-best .vp-price",
+      "premium tier": "#vendorPricesContainer .vp-premium",
+      "out of stock": "#vendorPricesContainer .vp-oos span",
+      "carried price": "#vendorPricesContainer .vp-carried .vp-price",
+      "muted dash": "#vendorPricesContainer .vp-muted",
+      "disclaimer link": "#vendorPricesContainer .market-disclaimer a",
+      "modal premium": "#marketDetailContent .vp-premium",
+      "modal stock word": "#marketDetailContent .market-stock",
+      "modal period chip": "#marketDetailContent .market-detail-period-btn.active",
+      "modal buy link": "#marketDetailContent .market-detail-buy",
+    };
+    for (const theme of THEMES) {
+      await page.evaluate((name) => window.setTheme(name), theme);
+      await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+      await expect
+        .poll(() => contrastFailures(page, MARKET_STATUS_TEXT, { ancestorOpacity: true }), {
+          message: `${theme} Market status text`,
+        })
+        .toEqual([]);
+    }
+  });
+
+  test("a sync shows its new prices and their price window without a reload", async ({ page }) => {
+    // The item's window differs from the manifest's GENERATED_AT, which the snapshot keeps.
+    const ITEM_T = "2026-05-25T15:45:00Z";
+    // An empty t must not hide the item's valid v1 window.
+    const ITEM_W = "2026-05-25T14:30:00Z";
+    const NEW_PRICE = 37.25;
+    const alpha = latestForSlug(SLUG_SILVER_A);
+    await setupRetailFixture(page, {
+      retailFeeds: {
+        [SLUG_SILVER_A]: {
+          latest: {
+            ...alpha,
+            t: ITEM_T,
+            vendors: { apmex: { ...alpha.vendors.apmex, price: NEW_PRICE } },
+          },
+        },
+        [SLUG_SILVER_M]: {
+          latest: { ...latestForSlug(SLUG_SILVER_M), t: "", window_start: ITEM_W },
+        },
+      },
+    });
+    const alphaRow = page
+      .locator(".vendor-prices-table tbody tr")
+      .filter({ has: page.getByText("Alpha Silver Bar", { exact: true }) });
+    // The first render caches the seeded $38.00 price; each later sync must replace it.
+    await page.locator("#marketRefreshBtn").click();
+    await expect(alphaRow.locator(".vp-price")).toContainText("$37.25");
+    const stored = await page.evaluate((slug) => {
+      const data = loadDataSync("v2RetailPrices", null);
+      return { t: data.prices[slug].t, snapshot: data.window_start };
+    }, SLUG_SILVER_A);
+    expect(stored).toEqual({ t: ITEM_T, snapshot: GENERATED_AT });
+    const alphaCard = page.locator(".vp-card").filter({ hasText: "Alpha Silver Bar" });
+    await expect(alphaCard.locator(".vp-card-dealer")).toContainText("$37.25");
+    const tickerItem = page
+      .locator(".ticker-block[data-ticker-block='primary'] .ticker-item")
+      .filter({ hasText: "Alpha Silver Bar" });
+    await expect(tickerItem).toContainText("$37.25");
+    for (const [name, iso] of [
+      ["Alpha Silver Bar", ITEM_T],
+      ["Middle Silver Coin", ITEM_W],
+    ]) {
+      const priceCell = page
+        .locator(".vendor-prices-table tbody tr")
+        .filter({ has: page.getByText(name, { exact: true }) })
+        .locator("td:has(.vp-price)");
+      await expect(priceCell.first(), name).toHaveAttribute("title", await lastSeenText(page, iso));
+    }
+  });
+
+  test("Market tab works by keyboard and names its controls for screen readers", async ({
+    page,
+  }) => {
+    await setupRetailFixture(page);
+    const container = page.locator("#vendorPricesContainer");
+
+    await expect(container.getByRole("heading", { name: "Market prices" })).toBeAttached();
+    const settingsBtn = page.locator("#marketSettingsBtn");
+    await expect(settingsBtn).toHaveAttribute("type", "button");
+    // The visible word starts the accessible name, so voice control can say "Configure".
+    await expect(settingsBtn.locator(".market-block-label")).toHaveText("Configure");
+    await expect(settingsBtn).toHaveAccessibleName("Configure Market");
+    await expect(settingsBtn.locator(".market-block-icon")).toHaveAttribute("aria-hidden", "true");
+    const settingsBox = await settingsBtn.boundingBox();
+    const refreshBox = await page.locator("#marketRefreshBtn").boundingBox();
+    expect(Math.round(settingsBox.height)).toBe(Math.round(refreshBox.height));
+    // The 44px ::after target reaches 4px past the 36px border box, so 3px out is inside it.
+    for (const [id, box] of [
+      ["marketSettingsBtn", settingsBox],
+      ["marketRefreshBtn", refreshBox],
+    ]) {
+      const hitId = await page.evaluate(
+        ([x, y]) => document.elementFromPoint(x, y)?.closest("button")?.id || null,
+        [box.x + box.width / 2, box.y + box.height + 3]
+      );
+      expect(hitId, `${id} target below the button`).toBe(id);
+    }
+
+    // Metal tabs are a pressed-state toggle group, like the modal period group.
+    const metals = container.getByRole("group", { name: "Metal" });
+    await expect(metals.getByRole("button", { name: "All" })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+    await metals.getByRole("button", { name: "Silver" }).click();
+    await expect(metals.getByRole("button", { name: "Silver" })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+    await expect(metals.getByRole("button", { name: "All" })).toHaveAttribute(
+      "aria-pressed",
+      "false"
+    );
+    for (const btn of await metals.getByRole("button").all()) {
+      await expect(btn).toHaveAttribute("type", "button");
+    }
+
+    const table = page.locator(".vendor-prices-table");
+    await expect(table.locator("caption")).toHaveText("Silver dealer prices");
+    const headScopes = await table
+      .locator("thead th")
+      .evaluateAll((ths) => ths.map((th) => th.getAttribute("scope")));
+    expect(headScopes.length).toBeGreaterThan(0);
+    expect(headScopes.every((scope) => scope === "col")).toBe(true);
+
+    // Each price is a button whose name carries item, dealer, price, premium and median distance.
+    const row = table
+      .locator("tbody tr")
+      .filter({ has: page.getByText("Alpha Silver Bar", { exact: true }) });
+    await expect(
+      row.getByRole("button", {
+        name: /^Alpha Silver Bar at APMEX, \$[\d,.]+, premium [+-]\d+\.\d%, (\d+\.\d% (above|below) the dealer median|at the dealer median|the only dealer in stock)\. Last seen \d{4}-\d{2}-\d{2}, \d{2}:\d{2}(?: [ap]\.m\.|\.) Opens the dealer page in a new window\.$/,
+      })
+    ).toHaveCount(1);
+
+    // A price with no URL or an unsafe one stays plain text; a safe URL (control) is a button.
+    const plainPrices = await page.evaluate(() =>
+      [null, "javascript:alert(1)", "https://plain.example/coin"].map((url) => {
+        const cell = _buildVendorPriceCell(
+          "core-plain-price",
+          "plainvendor",
+          { plainvendor: { price: 40, in_stock: true, inStock: true } },
+          40,
+          null,
+          0,
+          "xag",
+          { plainvendor: { name: "Plain", url } },
+          "Plain Coin",
+          undefined,
+          "2026-05-26T12:00:00.000Z"
+        );
+        const price = cell.querySelector(".vp-price");
+        const hidden = cell.querySelector(".sr-only");
+        return {
+          tag: price.tagName,
+          labelled: price.hasAttribute("aria-label"),
+          seenHidden: hidden ? /^, Last seen \d{4}-\d{2}-\d{2}, /.test(hidden.textContent) : false,
+        };
+      })
+    );
+    // A plain price reads its time from hidden text; a button carries it in its name.
+    expect(plainPrices).toEqual([
+      { tag: "SPAN", labelled: false, seenHidden: true },
+      { tag: "SPAN", labelled: false, seenHidden: true },
+      { tag: "BUTTON", labelled: true, seenHidden: false },
+    ]);
+
+    // Tab from the Silver toggle reaches the item name without a pointer.
+    await metals.getByRole("button", { name: "Silver" }).focus();
+    const itemName = row.getByRole("button", { name: "Alpha Silver Bar", exact: true });
+    let reached = false;
+    for (let i = 0; i < 10 && !reached; i++) {
+      await page.keyboard.press("Tab");
+      reached = await itemName.evaluate((el) => el === document.activeElement);
+    }
+    expect(reached).toBe(true);
+
+    await page.keyboard.press("Enter");
+    const modal = page.locator("#marketDetailModal");
+    await expect(modal).toBeVisible();
+    // The fallback name covers the load; the rendered title then names the dialog.
+    await expect(modal).toHaveAttribute("aria-label", "Loading market details");
+    await expect(page.locator("#marketDetailTitle")).toBeFocused();
+    await expect(page.getByRole("dialog", { name: "Alpha Silver Bar" })).toBeVisible();
+    await expect(page.locator("#marketDetailChartArea")).toHaveAttribute(
+      "aria-label",
+      "Vendor price history chart"
+    );
+
+    const buy = modal.getByRole("button", {
+      name: /^Buy at .+, \$[\d,.]+\. Opens the dealer page in a new window\.$/,
+    });
+    expect(await buy.count()).toBeGreaterThan(0);
+    const closeBox = await page.locator("#marketDetailCloseBtn").boundingBox();
+    expect(closeBox.width).toBeGreaterThanOrEqual(44);
+    expect(closeBox.height).toBeGreaterThanOrEqual(44);
+    // The header's content box ends left of the close button, so a wrapped title stays clear of it.
+    const headerTextRight = await page
+      .locator(".market-detail-header")
+      .evaluate(
+        (el) => el.getBoundingClientRect().right - parseFloat(getComputedStyle(el).paddingRight)
+      );
+    expect(headerTextRight).toBeLessThanOrEqual(closeBox.x);
+    const buyBox = await buy.first().boundingBox();
+    expect(buyBox.width).toBeGreaterThanOrEqual(24);
+    expect(buyBox.height).toBeGreaterThanOrEqual(24);
+
+    // A reload of the open modal keeps focus inside the dialog while it fetches.
+    await page.locator("#marketDetailContent .market-detail-period-btn").first().focus();
+    const focusInsideDuringReload = await page.evaluate((slug) => {
+      void window.openMarketDetailModal(slug, { preservePeriod: true });
+      return document.getElementById("marketDetailModal").contains(document.activeElement);
+    }, SLUG_SILVER_A);
+    expect(focusInsideDuringReload).toBe(true);
+    await expect(page.locator("#marketDetailTitle")).toBeFocused();
+
+    // Tab and Shift+Tab stay inside the dialog.
+    for (const key of ["Tab", "Shift+Tab"]) {
+      for (let i = 0; i < 25; i++) {
+        await page.keyboard.press(key);
+        const inside = await modal.evaluate((el) => el.contains(document.activeElement));
+        expect(inside, `${key} press ${i + 1} left the dialog`).toBe(true);
+      }
+    }
+
+    await page.keyboard.press("Escape");
+    await expect(modal).toBeHidden();
+    await expect(itemName).toBeFocused();
+
+    // A close during a matrix re-render focuses the rebuilt item button once it exists.
+    await page.keyboard.press("Enter");
+    await expect(page.locator("#marketDetailTitle")).toBeFocused();
+    await page.evaluate(() => {
+      window.renderVendorPrices();
+      window.closeMarketDetailModal();
+    });
+    await expect(modal).toBeHidden();
+    await expect(itemName).toBeFocused();
+  });
+
+  test("Market tab shows items as cards at phone width with 44px targets and wrapped names", async ({
+    page,
+  }) => {
+    const LONG_NAME = "South African Silver Krugerrand 1 oz (.999 fine silver)";
+    // Count observers still watching a Market tab bar; each render must release the last one.
+    await page.addInitScript(() => {
+      const Native = window.ResizeObserver;
+      window.__vpTabObservers = new Set();
+      window.ResizeObserver = class extends Native {
+        observe(el, opts) {
+          if (el.classList.contains("vendor-prices-tabs")) window.__vpTabObservers.add(this);
+          return super.observe(el, opts);
+        }
+        disconnect() {
+          window.__vpTabObservers.delete(this);
+          return super.disconnect();
+        }
+      };
+    });
+    // The fixture boot waits for the visible matrix, so the phone width comes after it.
+    await setupRetailFixture(page, { coinNames: { [SLUG_SILVER_A]: LONG_NAME } });
+    await page.evaluate(() => {
+      for (let i = 0; i < 3; i += 1) window.renderVendorPrices();
+    });
+    expect(await page.evaluate(() => window.__vpTabObservers.size)).toBe(1);
+    await page.setViewportSize({ width: 390, height: 844 });
+
+    const section = page.locator("#vendorPricesSectionEl");
+    const cards = section.locator(".vp-cards");
+    await expect(cards.locator(".vp-card").first()).toBeVisible();
+    await expect(section.locator(".vendor-prices-table")).toBeHidden();
+    const tableNames = await section
+      .locator(".vendor-prices-table .vp-coin-link")
+      .allTextContents();
+    expect(await cards.locator(".vp-card .vp-coin-link").allTextContents()).toEqual(tableNames);
+    await expect(cards).toHaveAttribute("aria-label", "All dealer prices");
+
+    // Each card names its dealers and keeps the price as the dealer button.
+    const longCard = cards.locator(".vp-card").filter({ hasText: LONG_NAME });
+    await expect(longCard.locator(".vp-card-vendor")).toHaveText(["APMEX"]);
+    await expect(
+      longCard.getByRole("button", {
+        name: new RegExp(`^${LONG_NAME.replace(/[().]/g, "\\$&")} at APMEX, \\$`),
+      })
+    ).toHaveCount(1);
+    await expect(longCard.locator(".vp-card-meta")).toContainText("Median");
+
+    // The page never scrolls sideways; the metal tabs scroll inside their bar.
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
+    ).toBe(true);
+    const tabs = section.locator(".vendor-prices-tabs");
+    expect(await tabs.evaluate((el) => getComputedStyle(el).overflowX)).toBe("auto");
+
+    await expect
+      .poll(() => readPhoneFit(page, "#vendorPricesSectionEl"))
+      .toEqual({ minFont: expect.any(Number), smallTargets: [], clippedNames: [] });
+    expect((await readPhoneFit(page, "#vendorPricesSectionEl")).minFont).toBeGreaterThanOrEqual(11);
+    const longBox = await longCard.locator(".vp-coin-link").boundingBox();
+    expect(longBox.height).toBeGreaterThan(30);
+
+    // The right-edge cue shows while tabs wait past the edge and clears at the end.
+    await page.setViewportSize({ width: 320, height: 844 });
+    await expect.poll(() => tabs.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
+    await expect(tabs).toHaveClass(/\bvp-tabs-more\b/);
+    await tabs.evaluate((el) => {
+      el.scrollLeft = el.scrollWidth;
+    });
+    await expect(tabs).not.toHaveClass(/\bvp-tabs-more\b/);
+    const lastTabRight = await tabs
+      .locator("button")
+      .last()
+      .evaluate((el) => el.getBoundingClientRect().right);
+    expect(lastTabRight).toBeLessThanOrEqual(320);
+
+    // A selected tab past the edge is scrolled into the rebuilt bar.
+    await tabs.getByRole("button", { name: "Goldback" }).click();
+    await page.evaluate(() => window.renderVendorPrices());
+    const pressed = tabs.locator('button[aria-pressed="true"]');
+    await expect(pressed).toHaveText("Goldback");
+    await expect
+      .poll(() =>
+        pressed.evaluate((el) => {
+          const r = el.getBoundingClientRect();
+          const bar = el.parentElement.getBoundingClientRect();
+          return r.left >= bar.left - 1 && r.right <= bar.right + 1;
+        })
+      )
+      .toBe(true);
+    await tabs.getByRole("button", { name: "All" }).click();
+    await page.setViewportSize({ width: 390, height: 844 });
+
+    // The detail modal's vendor table fits: Stock sits under the dealer name.
+    const opener = longCard.locator(".vp-coin-link");
+    await opener.click();
+    const modal = page.locator("#marketDetailModal");
+    await expect(page.getByRole("dialog", { name: LONG_NAME })).toBeVisible();
+    const vendors = modal.locator(".market-detail-vendors");
+    await expect(vendors.locator(".market-stock-sub").first()).toBeVisible();
+    await expect(vendors.locator(".market-detail-stock-col").first()).toBeHidden();
+    expect(await vendors.evaluate((t) => t.scrollWidth <= t.parentElement.clientWidth)).toBe(true);
+    await expect
+      .poll(() => readPhoneFit(page, ".market-detail-modal"))
+      .toEqual({ minFont: expect.any(Number), smallTargets: [], clippedNames: [] });
+    expect((await readPhoneFit(page, ".market-detail-modal")).minFont).toBeGreaterThanOrEqual(11);
+
+    // Closing returns focus to the card that opened the modal.
+    await page.keyboard.press("Escape");
+    await expect(modal).toBeHidden();
+    await expect(opener).toBeFocused();
+
+    // A card opener hidden by a resize past 480px hands focus to the matrix button.
+    await opener.click();
+    await expect(modal).toBeVisible();
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.keyboard.press("Escape");
+    await expect(modal).toBeHidden();
+    await expect(
+      section.locator(".vendor-prices-table .vp-coin-link", { hasText: LONG_NAME })
+    ).toBeFocused();
+
+    // On a desktop the matrix shows, and a long name wraps instead of ending in an ellipsis.
+    await expect(section.locator(".vendor-prices-table")).toBeVisible();
+    await expect(cards).toBeHidden();
+    await expect
+      .poll(async () => (await readPhoneFit(page, "#vendorPricesSectionEl")).clippedNames)
+      .toEqual([]);
+
+    // The empty state draws no tab bar, so it releases the last bar's observer too.
+    await page.evaluate(() => {
+      window._v2RetailData = null;
+      localStorage.removeItem("v2RetailPrices");
+      localStorage.removeItem("retailPrices");
+      window.renderVendorPrices();
+    });
+    await expect(section).toContainText("Retail data unavailable");
+    expect(await page.evaluate(() => window.__vpTabObservers.size)).toBe(0);
+  });
+
+  test("Market tab states data age, refresh failures and hidden dealers in words", async ({
+    page,
+  }) => {
+    // The v2 per-coin feed names its price window `t`; it carries no window_start.
+    const { window_start: _legacyWindow, ...v2Latest } = latestForSlug(SLUG_SILVER_A);
+    await setupRetailFixture(page, {
+      retailFeeds: { [SLUG_SILVER_A]: { latest: { ...v2Latest, t: GENERATED_AT } } },
+    });
+    await waitForRetailBackgroundSync(page);
+    const container = page.locator("#vendorPricesContainer");
+    // The browser's own timezone sets the expected local date and time.
+    const localStamp = (iso) =>
+      page.evaluate(
+        (value) =>
+          new Date(value).toLocaleString("en-CA", {
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+        iso
+      );
+
+    await test.step("a visible heading names the tab", async () => {
+      const heading = container.getByRole("heading", { level: 2, name: "Market prices" });
+      // A visually hidden heading is a 1px box, which Playwright still calls visible.
+      expect((await heading.boundingBox()).height).toBeGreaterThan(12);
+    });
+
+    await test.step("the timestamp carries a date and the data age is a word", async () => {
+      await expect(page.locator("#marketDataTimestamp")).toHaveText(
+        `Updated ${await localStamp(FIXED_NOW.toISOString())}`
+      );
+      // The fixture manifest is six hours old at FIXED_NOW.
+      const status = page.locator("#marketFreshnessStatus");
+      await expect(status).toHaveText("Stale");
+      await expect(page.locator(".market-block-status")).toHaveAttribute("aria-live", "polite");
+      await expect(page.locator("#marketFreshnessDot")).toHaveCSS("box-shadow", "none");
+      await page.evaluate(
+        (iso) => {
+          localStorage.setItem("retailManifestGeneratedAt", iso);
+          window.updateMarketHealthDot();
+        },
+        new Date(FIXED_NOW.getTime() - 10 * 60000).toISOString()
+      );
+      await expect(status).toHaveText("Current");
+    });
+
+    await test.step("the timestamp follows the timezone chosen in Settings", async () => {
+      const zone = await page.evaluate(() =>
+        Intl.DateTimeFormat().resolvedOptions().timeZone === "Pacific/Kiritimati"
+          ? "America/Chicago"
+          : "Pacific/Kiritimati"
+      );
+      const zonedStamp = await page.evaluate(
+        ({ iso, timeZone }) =>
+          new Date(iso).toLocaleString("en-CA", {
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit",
+            timeZone,
+          }),
+        { iso: FIXED_NOW.toISOString(), timeZone: zone }
+      );
+      await page.evaluate((timeZone) => {
+        localStorage.setItem(TIMEZONE_KEY, timeZone);
+        window.renderVendorPrices();
+      }, zone);
+      await expect(page.locator("#marketDataTimestamp")).toHaveText(`Updated ${zonedStamp}`);
+      await page.evaluate(() => {
+        localStorage.setItem(TIMEZONE_KEY, "Not/AZone");
+        window.renderVendorPrices();
+      });
+      await expect(page.locator("#marketDataTimestamp")).toHaveText(
+        `Updated ${await localStamp(FIXED_NOW.toISOString())}`
+      );
+      await page.evaluate(() => {
+        localStorage.removeItem(TIMEZONE_KEY);
+        window.renderVendorPrices();
+      });
+    });
+
+    await test.step("the disclaimer drops the click hint the named price buttons replace", async () => {
+      await expect(container.locator(".market-disclaimer")).not.toContainText("Click a price");
+    });
+
+    await test.step("the detail modal shows when its prices were collected", async () => {
+      await page.evaluate((slug) => window.openMarketDetailModal(slug), SLUG_SILVER_A);
+      await expect(page.locator("#marketDetailContent .market-detail-asof")).toHaveText(
+        `Prices from ${await localStamp(GENERATED_AT)}`
+      );
+      await page.evaluate(() => window.closeMarketDetailModal());
+      await expect(page.locator("#marketDetailModal")).toBeHidden();
+    });
+
+    await test.step("an all-hidden filter names the filter and opens it", async () => {
+      const hideAll = Object.fromEntries(
+        Object.entries(priceRows).map(([slug, row]) => [slug, { [row.vendor]: false }])
+      );
+      await page.evaluate(
+        ({ key, filter }) => {
+          localStorage.setItem(key, JSON.stringify(filter));
+          _invalidateMarketFilterCache();
+          window.renderVendorPrices();
+        },
+        { key: MARKET_FILTER_KEY, filter: hideAll }
+      );
+      await expect(container.locator(".vp-message")).toContainText(
+        "All dealers are hidden by your Market filter."
+      );
+      await expect(container).not.toContainText("No coins tracked");
+      const openSettings = container.getByRole("button", { name: "Open Market settings" });
+      const actionBox = await openSettings.boundingBox();
+      expect(actionBox.height).toBeGreaterThanOrEqual(44);
+      await openSettings.click();
+      await expect(page.locator("#settingsPanel_market")).toBeVisible();
+      await page.evaluate((key) => {
+        localStorage.removeItem(key);
+        _invalidateMarketFilterCache();
+        window.hideSettingsModal?.();
+        window.renderVendorPrices();
+      }, MARKET_FILTER_KEY);
+      await expect(page.locator(".vendor-prices-table")).toBeVisible();
+    });
+
+    const failureLine = container.getByRole("status").filter({ hasText: "Refresh failed" });
+    const FAILURE_TEXT =
+      "Refresh failed: the price server did not respond. The last prices stay shown.";
+
+    await test.step("a refresh whose coin fetches all fail keeps the older data age", async () => {
+      const keptStamp = "2026-01-01T00:00:00.000Z";
+      await page.evaluate(
+        (iso) => localStorage.setItem("retailManifestGeneratedAt", iso),
+        keptStamp
+      );
+      const coinFileFails = (route) =>
+        route.fulfill({ status: 503, contentType: "application/json", body: "{}" });
+      await page.route("https://api.staktrakr.com/data/v2/retail/*/*.json", coinFileFails);
+      await page.route("https://api2.staktrakr.com/data/v2/retail/*/*.json", coinFileFails);
+      await page.locator("#marketRefreshBtn").click();
+      await expect(failureLine).toHaveText(FAILURE_TEXT);
+      expect(await page.evaluate(() => localStorage.getItem("retailManifestGeneratedAt"))).toBe(
+        keptStamp
+      );
+      await expect(page.locator("#marketFreshnessStatus")).toHaveText("Stale");
+      await page.unroute("https://api.staktrakr.com/data/v2/retail/*/*.json", coinFileFails);
+      await page.unroute("https://api2.staktrakr.com/data/v2/retail/*/*.json", coinFileFails);
+      await page.evaluate(() => document.dispatchEvent(new CustomEvent("retail:updated")));
+      await expect(failureLine).toHaveCount(0);
+    });
+
+    await test.step("a Refresh during a running sync reports that sync's failure", async () => {
+      const slowFailure = async (route) => {
+        await new Promise((resolve) => setTimeout(resolve, 400));
+        await route.fulfill({ status: 503, contentType: "application/json", body: "{}" });
+      };
+      await page.unroute("https://api.staktrakr.com/data/v2/**");
+      await page.unroute("https://api2.staktrakr.com/data/v2/**");
+      await page.route("https://api.staktrakr.com/data/v2/**", slowFailure);
+      await page.route("https://api2.staktrakr.com/data/v2/**", slowFailure);
+      await page.evaluate(() => {
+        window.__backgroundSync = window.syncRetailPrices({ ui: false });
+      });
+      await page.locator("#marketRefreshBtn").click();
+      await expect(failureLine).toHaveText(FAILURE_TEXT);
+      await page.evaluate(() => window.__backgroundSync);
+    });
+
+    await test.step("a failed refresh says so and keeps the last prices", async () => {
+      await page.unroute("https://api.staktrakr.com/data/v2/**");
+      await page.unroute("https://api2.staktrakr.com/data/v2/**");
+      const unavailable = (route) =>
+        route.fulfill({ status: 503, contentType: "application/json", body: "{}" });
+      await page.route("https://api.staktrakr.com/data/v2/**", unavailable);
+      await page.route("https://api2.staktrakr.com/data/v2/**", unavailable);
+      await page.locator("#marketRefreshBtn").click();
+      await expect(container.getByRole("status").filter({ hasText: "Refresh failed" })).toHaveText(
+        "Refresh failed: the price server did not respond. The last prices stay shown."
+      );
+      await expect(page.locator(".vendor-prices-table")).toBeVisible();
+      await expect(page.locator("#marketRefreshBtn")).toBeEnabled();
+      // A header rebuild keeps the failure line; the contrast step below measures it.
+      await page.evaluate(() => window.renderVendorPrices());
+      await expect(failureLine).toHaveText(FAILURE_TEXT);
+    });
+
+    await test.step("a refresh while offline names the cause", async () => {
+      await page.context().setOffline(true);
+      await page.locator("#marketRefreshBtn").click();
+      await expect(failureLine).toHaveText(
+        "Refresh failed: you are offline. The last prices stay shown."
+      );
+      await expect(page.locator(".vendor-prices-table")).toBeVisible();
+      await expect(page.locator("#marketRefreshBtn")).toBeEnabled();
+      await page.context().setOffline(false);
+    });
+
+    await test.step("the new status text meets AA in all four themes", async () => {
+      const STATUS_TEXT = {
+        heading: "#vendorPricesContainer .market-block-title",
+        timestamp: "#marketDataTimestamp",
+        "freshness word": "#marketFreshnessStatus",
+        "refresh failure": "#vendorPricesContainer .market-refresh-failure",
+      };
+      for (const theme of THEMES) {
+        await page.evaluate((name) => window.setTheme(name), theme);
+        await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+        await expect
+          .poll(() => contrastFailures(page, STATUS_TEXT, { ancestorOpacity: true }), {
+            message: `${theme} Market header status text`,
+          })
+          .toEqual([]);
+      }
+    });
   });
 
   // STRK-317 review round 1 (Codex): the test above seeds window meta directly,
@@ -2431,7 +3292,7 @@ test.describe("core/retail-market", () => {
     const matrixBadge = goldbackMatrixBadge(page);
     await expect(matrixBadge).toHaveCount(1);
     await expect(matrixBadge.first()).toHaveText("+20.0%");
-    await expect(matrixBadge.first()).toHaveClass(/\bhigh\b/);
+    await expect(matrixBadge.first()).toHaveClass(/\bplain\b/);
   });
 
   // =========================================================================
@@ -2801,6 +3662,21 @@ test.describe("core/retail-market", () => {
         await expect(marketPeriodButton(page, label)).toHaveAttribute("aria-pressed", "false");
       }
       await expectUnavailableMarketChart(page);
+      // A failed request is a load failure, not a period without prices.
+      const chartArea = page.locator("#marketDetailChartArea");
+      await expect(chartArea.locator(".market-detail-chart-reason")).toHaveText(
+        "The price history did not load."
+      );
+      const historyRequests = [];
+      page.on("request", (request) => {
+        if (new URL(request.url()).pathname.endsWith(`/retail/${SLUG_SILVER_A}/history-30d.json`)) {
+          historyRequests.push(request.url());
+        }
+      });
+      await chartArea.getByRole("button", { name: "Try again" }).click();
+      await expect.poll(() => historyRequests.length).toBeGreaterThan(0);
+      await expect(marketPeriodButton(page, "7D")).toHaveAttribute("aria-pressed", "true");
+      await expectUnavailableMarketChart(page);
 
       await clickMarketPeriod(page, "30D");
       await expectUnavailableMarketChart(page);
@@ -2849,6 +3725,12 @@ test.describe("core/retail-market", () => {
       });
       await clickStrk260MarketDetail(emptyFeedPage);
       await expectUnavailableMarketChart(emptyFeedPage);
+      await expect(emptyFeedPage.locator(".market-detail-chart-reason")).toHaveText(
+        "No dealer prices were recorded for this period. Select another period."
+      );
+      await expect(
+        emptyFeedPage.locator("#marketDetailChartArea").getByRole("button", { name: "Try again" })
+      ).toHaveCount(0);
       expect(emptyFeedStatuses).toEqual([200]);
       await clickMarketPeriod(emptyFeedPage, "30D");
       await expectUnavailableMarketChart(emptyFeedPage);

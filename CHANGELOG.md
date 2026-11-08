@@ -7,6 +7,224 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.123] - 2026-11-07
+
+### Fixed — STRK-563: Toasts cover the bottom nav and Back to top on phones
+
+- **Toasts**: On screens 768px wide or less, message toasts and the What's New card sit above the Back to top button, with 16px side margins. Neither covers a nav tab. The desktop corner is unchanged (STRK-563).
+
+### Removed — STRK-564: Environment toast on beta, preview and local builds
+
+- **Environment notice**: The LOCAL, BETA or PREVIEW tag next to the title is the only environment notice. The toast that followed it at startup is gone (STRK-564).
+
+---
+
+## [3.36.122] - 2026-11-07
+
+### Fixed — STRK-557: Back to top covers the Settings tab on phones
+
+- **Back to top button**: On screens 768px wide or less, the button floats above the bottom nav at a 44px size. Every nav tab, including Settings, takes a tap at its centre. The desktop position is unchanged (STRK-557).
+
+---
+
+## [3.36.121] - 2026-11-07
+
+### Fixed — STRK-562: Collection builder purity reopens blank
+
+- **Purity select**: A Custom Collection saved at 100%, .900, .800, .600, .500, .400 or .350 reopens with that purity selected. A save without touching the field keeps the purity (STRK-562).
+
+---
+
+## [3.36.120] - 2026-11-07
+
+### Fixed — STRK-554: Review Changes rows and Restore Preview failures are hard to read
+
+- **Item details**: Rows for Items with the same name show the purchase date, the price paid and a serial or notes excerpt. Rows that still match get an entry number (STRK-554).
+- **Column headers**: Conflict fields sit under "This device" and the remote side with its sync date. The chosen value carries a "Chosen" tag as well as colour (STRK-554).
+- **Plain values**: Field labels read as words, prices use the display currency, and the raw item ID chip is gone. The sync row names the source device and the sync time (STRK-554).
+- **Preview failure**: A vault that cannot be read shows "Could not read this backup", offers Try again first, and notes that Restore without preview saves a snapshot first (STRK-554).
+- **Cancel**: Cancel in Review Changes and Restore Preview uses the secondary button style (STRK-554).
+
+---
+
+## [3.36.119] - 2026-11-07
+
+### Fixed — STRK-561: In-app FAQ states facts the code contradicts
+
+- **Network requests**: The FAQ and the Privacy policy list the StakTrakr API for spot, Market and Goldback data, a user-keyed spot provider, open.er-api.com for exchange rates, Numista, PCGS, the version check and Dropbox (STRK-561).
+- **Encryption**: Cloud Sync answers state 600,000 PBKDF2-SHA256 iterations (`VAULT_PBKDF2_ITERATIONS`) and a key built from the vault password and the Dropbox account ID (STRK-561).
+- **Libraries**: The malware answer says the libraries ship in `vendor/` with integrity-checked cdnjs fallbacks; Bootstrap is gone from the list (STRK-561).
+- **Export**: The export answer points to Settings → Inventory (STRK-561).
+- **Costs**: The sponsor perks roadmap is removed; the free core app and the GitHub Sponsors note stay (STRK-561).
+- **Security checks**: Codacy grade A replaces A+, PMD is dropped, and the automated test suite and CodeRabbit reviews are listed. The README tech table matches (STRK-561).
+- **Reddit FAQ**: `docs/announcements/reddit-faq.md` holds the matching r/staktrakr FAQ post (STRK-561).
+
+---
+
+## [3.36.118] - 2026-11-07
+
+### Fixed — STRK-552: Settings overflows sideways at phone width
+
+- **Appearance**: The Display and Timezone grids use a `settings-display-grid` class that drops to one column on a narrow panel, so the theme picker, Inventory View toggle and Default Sort select fit at 390px. The select shows its full option name (STRK-552).
+- **Tables**: The Goldback price table and the two Storage tables scroll sideways inside a `settings-table-scroll` wrapper, so the Settings panel itself never scrolls sideways (STRK-552).
+- **Log tabs**: The seven Activity Log tabs wrap onto a second row and stand 44px tall at phone width (STRK-552).
+- **Wrapping**: Image pattern rules, Item names in the Review Changes window and the Collections Clone and customize button wrap or keep their width instead of cutting text. Hidden info-icon tips stay out of layout (STRK-552).
+- **Privacy**: The Privacy policy scrolls as one surface that fills the phone screen, in place of a 70vh inner scroller. The Settings nav drops its stray separator line (STRK-552).
+- **Tests**: A new test reads every Settings panel, the Privacy policy and the Review Changes window with long names at 390px and 1440px for sideways overflow, using a shared `readHorizontalOverflow` helper. A second test checks the Privacy policy scroll (STRK-552).
+
+---
+
+## [3.36.117] - 2026-11-07
+
+### Fixed — STRK-556: Diff review modal text below 12px
+
+- **Text floor**: Every Review Changes window size under 0.875rem is `max(12px, …)`, so its chips, labels, hints, thumbnail labels and small buttons render at 12px or more, also at a 14px browser font size. The Select All toggle drops its inline 0.73rem size (STRK-556).
+- **Hit areas**: Below 768px the window's pill buttons, setting chips, key-value pills, Keep Local and Use Remote buttons and field values stand 44px tall. A square `::after` holds the hit area of each rounded control, so rounded corners do not shrink it (STRK-556).
+- **Wrapping**: Below 768px the section actions move under the title, and the count chip stays on one line. Settings card headers and their actions wrap, and the OBV and REV thumbnails grow with a large browser font size (STRK-556).
+- **Tests**: The phone floors test reads the Review Changes window with Item and setting changes at 390x844, settings expanded, at the default and a 14px root font size. `readPhoneFloors` takes a selector for clickable elements with no control role. A shared `showSampleDiffReview` helper opens the window for this test and the diff AA test (STRK-556).
+
+---
+
+## [3.36.116] - 2026-11-07
+
+### Fixed — STRK-535: Phone floors in Collections, the Item modals and Settings
+
+- **Text floor**: Below 768px `--font-size-xs` is `max(12px, 0.6875rem)`, so no text in Collections, the Item modals or Settings renders under 12px. The 480px rule that shrank the root font size is removed (STRK-535).
+- **Fields**: Inputs, selects and text areas in modals and Collections render at 16px or more and stand 44px tall below 768px, so a phone does not zoom on focus (STRK-535).
+- **Hit areas**: Buttons, close buttons, segmented toggles, chart range pills, toggle switches and links in those surfaces each get a 44px hit area that does not overlap a neighbour. A square `::after` holds the area, so rounded corners and clipping parents do not shrink it. Table checkboxes in the chip settings and the market filter matrix sit in a label that takes the tap. The link icon of a landscape Bar or Note frame stays clear of Swap (STRK-535).
+- **Inline styles**: The 25 inline `min-height: 0` overrides, the inline `min-width` on the card-style toggle and the inline font size on the backup history depth select are removed from index.html (STRK-535).
+- **Desktop Settings buttons**: The Settings import, export and cloud buttons keep their compact height above 768px (STRK-535).
+- **Tests**: A new core test at 390x844 reads the Collections hub and an album, the Edit Item, Item view and metal details modals and thirteen Settings panels. It checks text size, field size and that every control takes taps across a 44px square (STRK-535).
+
+---
+
+## [3.36.115] - 2026-11-07
+
+### Fixed — STRK-537: Theme token gaps in muted text, status titles and the diff review modal
+
+- **Muted text**: Sepia `--text-muted` darkens to L 0.45 and slate lightens to `#a3b1c4`; dark moves to L 0.67. Muted text meets 4.5:1 on `--bg-primary`, `--bg-secondary`, `--bg-tertiary`, `--bg-card` and `--bg-on-frame` in all four themes. Sepia had measured 3.55:1 on the Collections ledger head row and slate 4.04:1. The sepia Market override that swapped in `--text-secondary` is gone (STRK-537).
+- **Sepia text tones**: Sepia `--success-text`, `--warning-text` and `--primary-text` darken so tinted badges and links on `--bg-secondary` meet 4.5:1 (STRK-537).
+- **Status words**: The Honest Limitations and Danger Zone titles, the Owned tag, cloud and Numista warnings, the form info icon, FAQ links and delete buttons use `--*-text` tokens in place of fill tokens. The Danger Zone loses its inline styles and its 0.9 fade. The unused `.table-disclaimer` rule and `--disclaimer-color` token are removed (STRK-537).
+- **Diff review modal**: The `#diffReviewModal` style block moves from index.html into css/styles.css. The undefined `--border-color`, `--gain` and `--loss` become `--border`, `--success` and `--danger` tokens; hex and rgba literals become tokens and `color-mix()` tints; buttons use the fill tokens; faded labels use `--text-muted` or `--text-secondary` in place of opacity. Thumbnail labels use `--text-secondary` in place of the metal colour. In light theme the Replace label had measured 1.8:1 (STRK-537).
+- **Tests**: The undefined-token unit test covers index.html. The fill-token-as-text check covers rules with a fallback and inline `style` attributes. New four-theme tests measure muted text on every frame surface, the status titles and Owned tag, and every text in the diff review modal (STRK-537).
+
+---
+
+## [3.36.114] - 2026-11-06
+
+### Fixed — STRK-524: Filled buttons and active chips meet 4.5:1 in every theme
+
+- **Fill tokens**: Each theme defines `--<role>-fill`, `--<role>-fill-hover` and `--on-<role>` for primary, secondary, success, info, warning and danger. The label meets 4.5:1 on both fills. Before, white labels on gold, blue, green, sky and grey fills measured 2.1 to 3.8:1 (STRK-524).
+- **Shared buttons and chips**: `.btn` and its variants, active sort, range and nav chips, count badges, modal header gradients and hover-filled buttons use the fill tokens. Dark and slate use a dark label on bright fills. The scoped Clear Cache rule is gone (STRK-524).
+- **Text colours**: Text set in `--primary`, `--success`, `--warning`, `--danger` or `--info` uses the matching `-text` token, and the new `--info-text` covers sky text. Links in Settings panels use `--primary-text` in place of the browser blue (STRK-524).
+- **Fades**: The tags chip and the chip confirm hover keep full opacity, because a fade lowered their label contrast (STRK-524).
+
+---
+
+## [3.36.113] - 2026-11-06
+
+### Fixed — STRK-536: Destructive confirms name their action and start on Cancel
+
+- **Enter**: A confirm that deletes or overwrites data opens with focus on Cancel, so pressing Enter cancels it. Before, focus sat on OK and Enter ran Wipe All Data, a cloud restore or a bulk delete (STRK-536).
+- **Button labels**: The confirm button names its action, for example "Delete all data", "Overwrite local data" or "Delete 2 Items", in the red danger style. Before, every confirm said OK in gold (STRK-536).
+- **Wipe All Data**: The confirm states what it deletes and suggests a backup first, without the boating joke. Remove Inventory, Delete Selected and the image Remove buttons use the red danger style (STRK-536).
+
+---
+
+## [3.36.112] - 2026-11-06
+
+### Fixed — STRK-534: Escape, focus and scroll lock work the same in every modal
+
+- **Escape**: Escape closes only the top modal. Before, Escape on a modal opened over Settings or over Edit Item could close the wrong layer or leave the top one open (STRK-534).
+- **Focus**: Every modal moves focus inside when it opens, keeps Tab inside, and returns focus to the control that opened it when it closes. Several modals left focus on the page behind them (STRK-534).
+- **Scroll lock**: The page stays locked while any modal is open. Closing a modal over Settings unlocked the page behind Settings (STRK-534).
+
+---
+
+## [3.36.111] - 2026-11-06
+
+### Fixed — STRK-532: Notes keep their line breaks
+
+- **Notes field**: The Notes field in the Add and Edit Item form is a multi-line box. Before, it was a single-line field, so opening Edit and pressing Save on an Item joined the lines of its note into one (STRK-532).
+- **Enter key**: Enter in the Notes field starts a new line and does not save the form (STRK-532).
+- **Duplicate**: A duplicated Item carries the note with its line breaks (STRK-532).
+
+---
+
+## [3.36.110] - 2026-11-06
+
+### Fixed — STRK-531: Market prices refresh after a sync
+
+- **Fresh prices**: After Refresh or a background sync stores new prices, the Market table, the phone cards and the best-price ticker show them without a page reload. Before, they kept the prices from the first render until the page reloaded (STRK-531).
+- **Last seen**: The "Last seen" tooltip refreshes with the prices, so it names the time of the prices on screen (STRK-531).
+
+---
+
+## [3.36.109] - 2026-11-06
+
+### Changed — STRK-530: Even Market rows and a Configure button
+
+- **Carried prices**: A carried price cell shows only the price and its premium. The "Carried" label and the date under the price are gone, so a carried cell is the same height as the other cells in its row (STRK-530).
+- **Last seen**: Every in-stock price has a "Last seen" tooltip with the date and time in the Settings timezone. A fresh price gives the time of its price window, and a carried price the last scrape that saw it. The price button's screen-reader name carries the same time (STRK-530).
+- **Configure button**: The Market header settings button shows a gear icon and the word "Configure", at the height of the Refresh button. It still opens Settings on the Market panel (STRK-530).
+
+---
+
+## [3.36.108] - 2026-11-05
+
+### Changed — STRK-517: Premium colour compares dealers
+
+- **Premium colour**: The colour of a Market premium compares the price with the other dealers for the same item. Green is at least 1% below the median of the in-stock prices, red is at least 1% above it, and amber is in between. The percentage is still the premium over spot (STRK-517).
+- **Plain premiums**: A carried price, and the price of the only dealer in stock, show the premium in the secondary text colour, because there is no other dealer to compare with. Carried prices stay out of the median (STRK-517).
+- **Median**: The Median column and the phone card show the median of the in-stock prices that the colour compares against (STRK-517).
+- **Screen readers**: A price button with a premium names its distance from the dealer median, for example "1.4% below the dealer median". A carried price gives no distance, and the only dealer in stock is named as such (STRK-517).
+
+---
+
+## [3.36.107] - 2026-11-05
+
+### Changed — STRK-515: Market tab at phone width
+
+- **Cards on phones**: Below 480px each Market item is a card. The card shows the full item name, the median and spread, and a tile for each dealer that lists the item, with the price as the dealer button (STRK-515).
+- **Wider screens**: From 481px up the price table stays. Long item names wrap instead of ending in an ellipsis, and each price cell is a 44px touch target below 768px (STRK-515).
+- **Metal tabs**: The metal tabs scroll inside their bar, and a fade on the right edge shows that more tabs wait past it. Every tab is a 44px target (STRK-515).
+- **Detail modal**: Below 560px the Stock column moves under the dealer name, so the Buy column stays on screen. Buy is a 44px target (STRK-515).
+- **Text size**: Market text is at least 11px on phones, the header buttons reach 44px, and the disclaimer is 12px (STRK-515).
+
+---
+
+## [3.36.106] - 2026-11-05
+
+### Changed — STRK-516: Market tab status and copy
+
+- **Heading and freshness**: The Market tab shows a "Market prices" heading. The update time carries a local date, and a "Current" or "Stale" word beside it states the data age; the freshness dot no longer glows (STRK-516).
+- **Refresh failures**: A Refresh that cannot reach the price server says so in the header and keeps the last prices on screen. A Refresh pressed during a background sync reports that sync's result. The message clears on the next sync that loads prices (STRK-516).
+- **Empty states**: When the Market filter hides every dealer, the tab names the filter and offers a button that opens Settings, Market. "Retail data unavailable" says whether you are offline and points to Refresh; "Chart unavailable" gives its reason, and offers Try again when the price history did not load (STRK-516).
+- **Detail modal**: The modal header shows the time of the prices it lists. The disclaimer drops the "Click a price" hint, because each linked price is a named button (STRK-516).
+
+---
+
+## [3.36.105] - 2026-11-05
+
+### Changed — STRK-513: Market tab keyboard and screen reader access
+
+- **Price table**: Item names, and prices that link to a dealer page, are buttons, so Tab reaches them and Enter opens them. Each linked price is named with the item, dealer, price and premium, as in the best-price ticker; a price without a dealer link stays plain text (STRK-513).
+- **Detail modal**: Opening the modal moves focus to its title, Tab and Shift+Tab stay inside it, and closing it returns focus to the item name. The Buy controls are buttons named with the dealer and price, the close button is 44px and the chart area has a label (STRK-513).
+- **Metal tabs and table**: The metal tabs are a labelled toggle group with a pressed state. The table has a caption that names the metal shown and column scopes, and the tab has a "Market prices" heading for screen readers (STRK-513).
+
+---
+
+## [3.36.104] - 2026-11-04
+
+### Changed — STRK-514: Market tab status text contrast
+
+- **Premium tiers**: The low, mid and high premium percentages use the `--success-text`, `--warning-text` and `--danger-text` tokens, so they meet 4.5:1 in all four themes. The mid tier no longer uses one fixed orange in every theme (STRK-514).
+- **OOS and carried prices**: Out-of-stock and carried cells are no longer faded with opacity. A carried price shows a "Carried" label under it, and its tooltip gives the date it was last seen (STRK-514).
+- **Detail modal**: The stock words use classes on the status text tokens in place of inline colours. The active period chip is a tinted outline with primary text, and the Buy links use `--primary-text` (STRK-514).
+- **Links and tokens**: The Market disclaimer link uses `--primary-text` in place of the browser's default blue. Slate `--primary-text` is a lighter blue that meets 4.5:1 on slate cards. In sepia, muted text in the vendor table uses the secondary ink so it passes on striped rows. The best-price tint and the muted fallback use tokens (STRK-514).
+
+---
+
 ## [3.36.103] - 2026-11-03
 
 ### Changed — STRK-521: Dashboard audit follow-ups

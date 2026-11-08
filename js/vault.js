@@ -300,11 +300,17 @@ async function restoreVaultData(payload) {
 /**
  * Evaluate password strength.
  * @param {string} password
- * @returns {{score: number, label: string, color: string}}
+ * The bar fills with color; the label takes textColor, which meets 4.5:1 as text.
+ * @returns {{score: number, label: string, color: string, textColor: string}}
  */
 function getPasswordStrength(password) {
   if (!password || password.length < VAULT_MIN_PASSWORD_LENGTH) {
-    return { score: 0, label: "Too short", color: "var(--danger)" };
+    return {
+      score: 0,
+      label: "Too short",
+      color: "var(--danger)",
+      textColor: "var(--danger-text)",
+    };
   }
   var score = 0;
   if (password.length >= 8) score++;
@@ -317,18 +323,13 @@ function getPasswordStrength(password) {
   if (score > 4) score = 4;
 
   var labels = ["Weak", "Fair", "Good", "Strong", "Very Strong"];
-  var colors = [
-    "var(--danger)",
-    "var(--warning)",
-    "var(--info)",
-    "var(--success)",
-    "var(--success)",
-  ];
+  var roles = ["danger", "warning", "info", "success", "success"];
 
   return {
     score: score,
     label: labels[score],
-    color: colors[score],
+    color: "var(--" + roles[score] + ")",
+    textColor: "var(--" + roles[score] + "-text)",
   };
 }
 
@@ -1485,7 +1486,11 @@ async function exportEncryptedBackup(password) {
               "Attachment vault is " +
                 sizeMB +
                 " MB. Exporting this much data may use significant memory. Continue?",
-              { confirmLabel: "Export Anyway", cancelLabel: "Skip Attachments" }
+              {
+                title: "Large Attachment Export",
+                confirmLabel: "Export Anyway",
+                cancelLabel: "Skip Attachments",
+              }
             )
           : true;
       if (!continueExport) {
@@ -1856,6 +1861,8 @@ function closeVaultModal() {
   if (attachRow) attachRow.remove();
   closeModalById("vaultModal");
 }
+
+if (typeof registerModalClose === "function") registerModalClose("vaultModal", closeVaultModal);
 
 /**
  * Handle the vault modal action button (export or import).
@@ -2288,7 +2295,7 @@ function updateStrengthBar(password) {
   fillEl.style.width = percent + "%";
   fillEl.style.background = strength.color;
   textEl.textContent = strength.label;
-  textEl.style.color = strength.color;
+  textEl.style.color = strength.textColor;
 }
 
 /**
@@ -2308,10 +2315,10 @@ function updateMatchIndicator(password, confirm) {
 
   if (password === confirm) {
     matchEl.textContent = "Passwords match";
-    matchEl.style.color = "var(--success)";
+    matchEl.style.color = "var(--success-text)";
   } else {
     matchEl.textContent = "Passwords do not match";
-    matchEl.style.color = "var(--danger)";
+    matchEl.style.color = "var(--danger-text)";
   }
 }
 

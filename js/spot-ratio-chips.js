@@ -482,9 +482,8 @@ const wireRatioChipActivation = () => {
     e.preventDefault(); // Space must not scroll the page
     openRatiosPanelModal(chipEl.dataset.pair, chipEl);
   });
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") closeRatiosPanelModal();
-  });
+  if (window.registerModalClose)
+    window.registerModalClose("ratiosPanelModal", closeRatiosPanelModal);
 
   const closeBtn = document.getElementById("ratiosPanelCloseBtn");
   if (closeBtn) closeBtn.addEventListener("click", closeRatiosPanelModal);

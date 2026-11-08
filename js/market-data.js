@@ -135,6 +135,161 @@ const _premiumTierClass = (pct) => {
   return "low";
 };
 
+/** Percent from the dealer median at which a Market premium turns low or high. */
+const MARKET_PREMIUM_BAND_PCT = 1;
+
+/**
+ * Tiers each dealer price against the median of the in-stock, non-carried prices.
+ * A carried price, or any price when fewer than two dealers are in stock, is "plain".
+ * @param {Array<{id:string, price:number, inStock:boolean, carried:boolean}>} entries - Dealer prices.
+ * @returns {{median:(number|null), liveCount:number, byId:Object}} Tier and distance per ranked id.
+ */
+const _rankDealerPrices = (entries) => {
+  const priced = entries.filter((e) => e && e.inStock && e.price > 0);
+  const live = priced
+    .filter((e) => !e.carried)
+    .map((e) => e.price)
+    .sort((a, b) => a - b);
+  const mid = Math.floor(live.length / 2);
+  let median = null;
+  if (live.length > 0) median = live.length % 2 ? live[mid] : (live[mid - 1] + live[mid]) / 2;
+  const byId = Object.create(null);
+  for (const e of priced) {
+    if (e.carried || live.length < 2) {
+      byId[e.id] = { tier: "plain", distancePct: null, only: !e.carried };
+      continue;
+    }
+    const distancePct = ((e.price - median) / median) * 100;
+    let tier = "mid";
+    if (distancePct <= -MARKET_PREMIUM_BAND_PCT) tier = "low";
+    else if (distancePct >= MARKET_PREMIUM_BAND_PCT) tier = "high";
+    byId[e.id] = { tier, distancePct, only: false };
+  }
+  return { median, liveCount: live.length, byId };
+};
+
+/**
+ * Ranks one item's dealer prices, skipping dealers the Market filter hides.
+ * @param {Object} vData - Per-vendor data map for one item.
+ * @param {string} slug - Retail coin slug (for the market-filter check).
+ * @returns {{median:(number|null), liveCount:number, byId:Object}} See _rankDealerPrices.
+ */
+const _rankVendorData = (vData, slug) => {
+  const entries = [];
+  for (const vid in vData || {}) {
+    if (typeof _isMarketItemEnabled === "function" && !_isMarketItemEnabled(slug, vid)) continue;
+    const v = vData[vid];
+    if (!v) continue;
+    entries.push({
+      id: vid,
+      price: v.price,
+      inStock: v.in_stock === true || v.inStock === true,
+      carried: Boolean(v.carried),
+    });
+  }
+  return _rankDealerPrices(entries);
+};
+
+/**
+ * Names a ranked price's distance from the dealer median for an accessible name.
+ * @param {(Object|undefined)} ranked - One byId entry from _rankDealerPrices.
+ * @returns {string} A leading-comma phrase, or "" when the price has no distance.
+ */
+const _medianDistancePhrase = (ranked) => {
+  if (!ranked) return "";
+  if (ranked.distancePct == null) return ranked.only ? ", the only dealer in stock" : "";
+  const size = Math.abs(ranked.distancePct);
+  if (size < 0.05) return ", at the dealer median";
+  return `, ${size.toFixed(1)}% ${ranked.distancePct < 0 ? "below" : "above"} the dealer median`;
+};
+
+/**
+ * Formats a UTC feed timestamp as the en-CA date and time every Market label uses.
+ * Follows the Settings timezone; "auto" or an unknown zone falls back to the browser zone.
+ * @param {string} iso - ISO timestamp from a feed or sync record.
+ * @returns {(string|null)} "YYYY-MM-DD, hh:mm" text, or null when missing or unparseable.
+ */
+const _formatMarketTimestamp = (iso) => {
+  const when = iso ? new Date(iso) : null;
+  if (!when || Number.isNaN(when.getTime())) return null;
+  const options = {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  };
+  let zone = null;
+  try {
+    zone = typeof TIMEZONE_KEY !== "undefined" ? localStorage.getItem(TIMEZONE_KEY) : null;
+  } catch (e) {
+    zone = null;
+  }
+  if (zone && zone !== "auto") {
+    try {
+      return when.toLocaleString("en-CA", { ...options, timeZone: zone });
+    } catch (err) {
+      if (!(err instanceof RangeError)) throw err;
+    }
+  }
+  return when.toLocaleString("en-CA", options);
+};
+
+/**
+ * Tooltip text for a dealer price, from the time a scrape last saw it.
+ * @param {string} seenAt - ISO timestamp: carried_from for a carried price, else the price window.
+ * @returns {(string|null)} "Last seen YYYY-MM-DD, hh:mm" text, or null.
+ */
+const _lastSeenTitle = (seenAt) => {
+  const local = _formatMarketTimestamp(seenAt);
+  return local ? `Last seen ${local}` : null;
+};
+
+/**
+ * Returns the value when it parses as a timestamp.
+ * @param {*} value - Candidate ISO timestamp.
+ * @returns {(string|null)} The value, or null when missing or unparseable.
+ */
+const _validTimestamp = (value) => {
+  return value && !Number.isNaN(new Date(value).getTime()) ? value : null;
+};
+
+/**
+ * The price window of the retail snapshot: the first source, in memory then storage,
+ * that names a valid window_start. A source without one does not hide the next.
+ * @returns {(string|null)} ISO timestamp, or null when no snapshot names one.
+ */
+const _snapshotWindowTime = () => {
+  const sources = [
+    () => (typeof window._v2RetailData !== "undefined" ? window._v2RetailData : null),
+    () => loadDataSync("v2RetailPrices", null),
+    () => loadDataSync("retailPrices", null),
+  ];
+  for (const read of sources) {
+    const snapshot = read();
+    const windowStart = _validTimestamp(snapshot && snapshot.window_start);
+    if (windowStart) return windowStart;
+  }
+  return null;
+};
+
+/**
+ * The price window a coin's fresh prices come from: the detail's own window,
+ * else the fallback.
+ * @param {Object} detail - Retail detail for one coin.
+ * @param {(string|null)} fallback - Window to use when the detail names none.
+ * @returns {(string|null)} ISO timestamp, or null when no source names one.
+ */
+const _detailWindowTime = (detail, fallback) => {
+  // v2 feeds name the price window `t`; window_start is the v1 name.
+  return (
+    _validTimestamp(detail && detail.t) ||
+    _validTimestamp(detail && detail.window_start) ||
+    fallback ||
+    null
+  );
+};
+
 /**
  * Open a vendor URL in a standardized detached popup window. Mirrors the
  * window name and feature string used by the ticker, vendor matrix, and detail
@@ -186,7 +341,21 @@ const _resolveCoinMetaPreferMap = (slug, coinMetaMap) => {
 };
 
 let _cachedSlugDetail = {};
+let _cachedSlugDetailGeneration = 0;
+let _vendorTableRenderSeq = 0;
 let _goldbackG1Rate = null;
+
+/**
+ * Empties the per-slug detail cache after a sync stores new prices. The generation
+ * bump stops a fetch that started before the sync from refilling the cache, and the
+ * render bump stops a table render that started before the sync from drawing.
+ * @returns {void}
+ */
+const _clearCachedSlugDetail = () => {
+  _cachedSlugDetail = {};
+  _cachedSlugDetailGeneration += 1;
+  _vendorTableRenderSeq += 1;
+};
 
 const _fmtPrice = (n) => {
   if (n == null || isNaN(n)) return "\u2014";
@@ -860,10 +1029,8 @@ let _activeModalChart = null;
 let _activeModalSlug = null;
 let _activeModalPeriodId = MARKET_DETAIL_DEFAULT_PERIOD_ID;
 let _activeModalRenderGeneration = 0;
-
-const _modalEscHandler = (e) => {
-  if (e.key === "Escape") closeMarketDetailModal();
-};
+let _activeModalOpener = null;
+let _pendingMarketFocusSlug = null;
 
 const _destroyActiveMarketDetailChart = () => {
   if (_activeModalChart && typeof destroyCoinChart === "function") {
@@ -872,7 +1039,51 @@ const _destroyActiveMarketDetailChart = () => {
   _activeModalChart = null;
 };
 
+/**
+ * Return focus to the control that opened the detail modal. A re-render replaces the
+ * opener and a resize can hide it, so the shown item button with the same slug stands in.
+ * @param {(HTMLElement|null)} opener - Element focused when the modal opened.
+ * @param {(string|null)} slug - Slug of the coin the modal showed.
+ * @returns {void}
+ */
+const _restoreMarketDetailFocus = (opener, slug) => {
+  if (opener && opener.isConnected && opener.getClientRects().length > 0) {
+    opener.focus();
+    return;
+  }
+  if (!slug) return;
+  const stand = _findShownCoinButton(slug);
+  if (stand instanceof HTMLElement) stand.focus();
+  // The matrix may still be rebuilding; _applyPendingMarketFocus finishes the restore.
+  else _pendingMarketFocusSlug = slug;
+};
+
+/**
+ * Focus the item button a closed detail modal could not reach while the matrix
+ * rebuilt. Runs once per render and only while focus still sits on the body.
+ * @returns {void}
+ */
+const _applyPendingMarketFocus = () => {
+  const slug = _pendingMarketFocusSlug;
+  _pendingMarketFocusSlug = null;
+  if (!slug || (document.activeElement && document.activeElement !== document.body)) return;
+  const btn = _findShownCoinButton(slug);
+  if (btn instanceof HTMLElement) btn.focus();
+};
+
+/**
+ * Find the item button for a slug in the layout on screen. The matrix and the phone
+ * cards both carry one, and CSS hides one of the two.
+ * @param {string} slug - Retail coin slug.
+ * @returns {(HTMLElement|null)} The shown button, else the first match, else null.
+ */
+const _findShownCoinButton = (slug) => {
+  const buttons = [...document.querySelectorAll(`.vp-coin-link[data-slug="${CSS.escape(slug)}"]`)];
+  return buttons.find((btn) => btn.getClientRects().length > 0) || buttons[0] || null;
+};
+
 const closeMarketDetailModal = () => {
+  const closedSlug = _activeModalSlug;
   _activeModalRenderGeneration += 1;
   _destroyActiveMarketDetailChart();
   _activeModalSlug = null;
@@ -882,9 +1093,16 @@ const closeMarketDetailModal = () => {
   if (content instanceof HTMLElement) content.textContent = "";
 
   const overlay = safeGetElement("marketDetailModal");
-  if (overlay instanceof HTMLElement) overlay.setAttribute("hidden", "");
-
-  document.removeEventListener("keydown", _modalEscHandler);
+  if (overlay instanceof HTMLElement) {
+    const wasOpen = !overlay.hasAttribute("hidden");
+    overlay.setAttribute("hidden", "");
+    if (wasOpen) {
+      // _restoreMarketDetailFocus owns focus here: it waits for a matrix rebuild.
+      if (typeof releaseFocus === "function") releaseFocus(overlay, { restoreFocus: false });
+      _restoreMarketDetailFocus(_activeModalOpener, closedSlug);
+    }
+  }
+  _activeModalOpener = null;
 };
 
 /**
@@ -1188,14 +1406,16 @@ const _fetchModalData = async (slug) => {
  * @param {string} metalCode - ISO metal code (e.g. "xau") or metal name.
  * @param {string} metalLower - Lowercased metal name (weight-line fallback label).
  * @param {number} weightOz - Coin weight in troy ounces (0 hides the weight line).
+ * @param {string} [pricesAt] - ISO start of the price window (absent hides the time line).
  * @returns {void}
  */
-const _buildModalHeader = (content, coinMeta, slug, metalCode, metalLower, weightOz) => {
+const _buildModalHeader = (content, coinMeta, slug, metalCode, metalLower, weightOz, pricesAt) => {
   const header = document.createElement("div");
   header.className = "market-detail-header";
 
   const h2 = document.createElement("h2");
   h2.id = "marketDetailTitle";
+  h2.tabIndex = -1;
   const dot = document.createElement("span");
   dot.className = "metal-dot" + (metalCode ? " " + metalCode : "");
   h2.appendChild(dot);
@@ -1210,6 +1430,14 @@ const _buildModalHeader = (content, coinMeta, slug, metalCode, metalLower, weigh
     weightInfo.className = "market-detail-weight";
     weightInfo.textContent = weightOz + " oz " + metalName;
     header.appendChild(weightInfo);
+  }
+
+  const pricesLocal = _formatMarketTimestamp(pricesAt);
+  if (pricesLocal) {
+    const asOf = document.createElement("div");
+    asOf.className = "market-detail-asof";
+    asOf.textContent = `Prices from ${pricesLocal}`;
+    header.appendChild(asOf);
   }
 
   content.appendChild(header);
@@ -1282,6 +1510,8 @@ const _buildModalChartSection = (
   const chartWrap = document.createElement("div");
   chartWrap.className = "market-detail-chart";
   chartWrap.id = "marketDetailChartArea";
+  chartWrap.setAttribute("role", "group");
+  chartWrap.setAttribute("aria-label", "Vendor price history chart");
   const rangeEndMs = Date.now();
   const rangeModels = new Map(
     MARKET_DETAIL_PERIODS.map((period) => [
@@ -1291,15 +1521,39 @@ const _buildModalChartSection = (
   );
   const periodButtons = new Map();
 
+  const NO_CHART_DATA = "No dealer prices were recorded for this period. Select another period.";
+  const NO_CHART_LIBRARY = "The chart did not load. Reload the page to try again.";
+  const NO_CHART_LOAD = "The price history did not load.";
+
   /**
-   * Replace chart content with the established unavailable state.
+   * Replace chart content with the unavailable state and its reason.
+   * @param {string} reasonText - Why the chart is missing and what to do next.
+   * @param {boolean} [canRetry] - Adds a Try again button that refetches the modal data.
    * @returns {void}
    */
-  const _showNoChart = () => {
+  const _showNoChart = (reasonText, canRetry = false) => {
     chartWrap.textContent = "";
     const msg = document.createElement("div");
     msg.className = "market-detail-chart-unavailable";
-    msg.textContent = "Chart unavailable";
+    const title = document.createElement("div");
+    title.textContent = "Chart unavailable";
+    const reason = document.createElement("div");
+    reason.className = "market-detail-chart-reason";
+    reason.textContent = reasonText;
+    msg.append(title, reason);
+    if (canRetry) {
+      const retry = document.createElement("button");
+      retry.type = "button";
+      retry.className = "market-block-btn vp-message-action";
+      retry.textContent = "Try again";
+      retry.addEventListener("click", () => {
+        if (!_activeModalSlug) return;
+        void openMarketDetailModal(_activeModalSlug, { preservePeriod: true }).catch((e) => {
+          debugLog(`[market-data] Detail retry failed: ${e?.message ?? e}`, "warn");
+        });
+      });
+      msg.appendChild(retry);
+    }
     chartWrap.appendChild(msg);
   };
 
@@ -1324,8 +1578,14 @@ const _buildModalChartSection = (
     _destroyActiveMarketDetailChart();
     chartWrap.textContent = "";
 
-    if (typeof LightweightCharts === "undefined" || !rangeModel.hasChartData) {
-      _showNoChart();
+    if (typeof LightweightCharts === "undefined") {
+      _showNoChart(NO_CHART_LIBRARY);
+      return;
+    }
+    if (!rangeModel.hasChartData) {
+      // _fetchModalData resolves a failed request to null; an empty feed is an array.
+      const loadFailed = modalData[period.source] === null;
+      _showNoChart(loadFailed ? NO_CHART_LOAD : NO_CHART_DATA, loadFailed);
       return;
     }
 
@@ -1349,7 +1609,7 @@ const _buildModalChartSection = (
     }
 
     if (!_activeModalChart) {
-      _showNoChart();
+      _showNoChart(NO_CHART_LIBRARY);
     }
   };
 
@@ -1387,12 +1647,16 @@ const _buildModalBuyCell = (entry, slug, vendorMeta) => {
   const tdBuy = document.createElement("td");
   const url = _resolveVendorUrl(slug, entry.vid, vendorMeta, entry.url);
   if (_isSafeUrl(url)) {
-    const buyBtn = document.createElement("a");
+    const buyBtn = document.createElement("button");
+    buyBtn.type = "button";
     buyBtn.textContent = "Buy";
-    buyBtn.href = "#";
     buyBtn.className = "market-detail-buy";
-    buyBtn.addEventListener("click", (e) => {
-      e.preventDefault();
+    const pricePart = entry.price > 0 ? `, ${formatCurrency(entry.price)}` : "";
+    buyBtn.setAttribute(
+      "aria-label",
+      `Buy at ${_shortVendor(entry.vid)}${pricePart}. Opens the dealer page in a new window.`
+    );
+    buyBtn.addEventListener("click", () => {
       _openVendorPopup(url, entry.vid);
     });
     tdBuy.appendChild(buyBtn);
@@ -1414,7 +1678,7 @@ const _buildModalBuyCell = (entry, slug, vendorMeta) => {
  * @param {(number|null)} spotPrice - Spot price for the metal, or null.
  * @returns {HTMLTableRowElement} The vendor row element.
  */
-const _buildModalVendorRow = (entry, vendorMeta, slug, metalCode, weightOz, spotPrice) => {
+const _buildModalVendorRow = (entry, vendorMeta, slug, metalCode, weightOz, spotPrice, rank) => {
   const tr = document.createElement("tr");
 
   // Vendor name
@@ -1442,7 +1706,7 @@ const _buildModalVendorRow = (entry, vendorMeta, slug, metalCode, weightOz, spot
   }
   if (_modalPremium != null) {
     const badge = document.createElement("span");
-    badge.className = "vp-premium " + _premiumTierClass(_modalPremium);
+    badge.className = "vp-premium " + (rank?.byId[entry.vid]?.tier || "plain");
     badge.textContent = (_modalPremium >= 0 ? "+" : "") + _modalPremium.toFixed(1) + "%";
     tdPrem.appendChild(badge);
   } else {
@@ -1451,20 +1715,36 @@ const _buildModalVendorRow = (entry, vendorMeta, slug, metalCode, weightOz, spot
   }
   tr.appendChild(tdPrem);
 
-  // Stock
+  // Stock: its own column, and a copy under the vendor name that the phone layout shows instead.
   const tdStock = document.createElement("td");
+  let stockState = "out";
+  let stockWord = "Out of Stock";
+  let stockSubWord = stockWord;
+  let carriedTitle = "";
   if (entry.carried) {
-    tdStock.style.color = "var(--warning)";
-    tdStock.textContent = "Carried";
-    if (entry.carried_from) tdStock.title = `Last scraped: ${entry.carried_from}`;
+    stockState = "carried";
+    stockWord = "Carried";
+    stockSubWord = stockWord;
+    carriedTitle = _lastSeenTitle(entry.carried_from);
+    if (carriedTitle) {
+      tdStock.title = carriedTitle;
+      // Touch never shows a title, so the phone line names the day it was last seen.
+      stockSubWord = `Carried ${_formatMarketTimestamp(entry.carried_from).split(",")[0]}`;
+    }
   } else if (entry.in_stock) {
-    tdStock.style.color = "var(--success)";
-    tdStock.textContent = "In Stock";
-  } else {
-    tdStock.style.color = "var(--danger)";
-    tdStock.textContent = "Out of Stock";
+    stockState = "in";
+    stockWord = "In Stock";
+    stockSubWord = stockWord;
   }
+  tdStock.className = `market-stock market-stock--${stockState} market-detail-stock-col`;
+  tdStock.textContent = stockWord;
   tr.appendChild(tdStock);
+
+  const stockSub = document.createElement("span");
+  stockSub.className = `market-stock--${stockState} market-stock-sub`;
+  stockSub.textContent = stockSubWord;
+  if (carriedTitle) stockSub.title = carriedTitle;
+  tdVendor.appendChild(stockSub);
 
   tr.appendChild(_buildModalBuyCell(entry, slug, vendorMeta));
 
@@ -1486,6 +1766,7 @@ const _buildModalVendorTable = (content, detail, slug, vendorMeta, metalCode, we
   if (detail && detail.vendors) {
     const vData = detail.vendors;
     const spotPrice = _getSpotPrice(metalCode);
+    const rank = _rankVendorData(vData, slug);
 
     const vendorEntries = [];
     for (const vid in vData) {
@@ -1513,6 +1794,7 @@ const _buildModalVendorTable = (content, detail, slug, vendorMeta, metalCode, we
       for (const h of headers) {
         const th = document.createElement("th");
         th.textContent = h;
+        if (h === "Stock") th.className = "market-detail-stock-col";
         headRow.appendChild(th);
       }
       thead.appendChild(headRow);
@@ -1522,7 +1804,7 @@ const _buildModalVendorTable = (content, detail, slug, vendorMeta, metalCode, we
 
       for (const entry of vendorEntries) {
         tbody.appendChild(
-          _buildModalVendorRow(entry, vendorMeta, slug, metalCode, weightOz, spotPrice)
+          _buildModalVendorRow(entry, vendorMeta, slug, metalCode, weightOz, spotPrice, rank)
         );
       }
 
@@ -1570,15 +1852,26 @@ const openMarketDetailModal = async (slug, { preservePeriod = false } = {}) => {
   if (!preservePeriod) _activeModalPeriodId = MARKET_DETAIL_DEFAULT_PERIOD_ID;
   _destroyActiveMarketDetailChart();
   _activeModalSlug = slug;
+  const dialog = overlay.querySelector(".market-detail-modal");
+  // Clearing the content drops focus to the body, outside the trap's keydown listener.
+  if (content.contains(document.activeElement) && dialog instanceof HTMLElement) dialog.focus();
   content.textContent = "";
+  // A re-render of an open modal keeps the original opener and trap.
+  const isFreshOpen = overlay.hasAttribute("hidden");
   overlay.removeAttribute("hidden");
+  if (isFreshOpen) {
+    _activeModalOpener =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    document.body.style.overflow = "hidden";
+    if (typeof trapFocus === "function") trapFocus(overlay, closeMarketDetailModal);
+    if (dialog instanceof HTMLElement) dialog.focus();
+  }
 
   const closeBtn = safeGetElement("marketDetailCloseBtn");
   if (closeBtn instanceof HTMLElement) closeBtn.onclick = () => closeMarketDetailModal();
   overlay.onclick = (e) => {
     if (e.target === overlay) closeMarketDetailModal();
   };
-  document.addEventListener("keydown", _modalEscHandler);
 
   const loadingEl = document.createElement("div");
   loadingEl.className = "market-detail-loading";
@@ -1603,10 +1896,26 @@ const openMarketDetailModal = async (slug, { preservePeriod = false } = {}) => {
   }
   const { detail } = modalData;
 
+  // Focus moves to the title when it sits on the dialog box or was lost with the old content.
+  const dialogBox = overlay.querySelector(".market-detail-modal");
+  const focusOnBox = document.activeElement === dialogBox;
   content.textContent = "";
 
   const weightOz = (detail && detail.weight_oz) || coinMeta.weight || 0;
-  _buildModalHeader(content, coinMeta, slug, metalCode, metalLower, weightOz);
+  _buildModalHeader(
+    content,
+    coinMeta,
+    slug,
+    metalCode,
+    metalLower,
+    weightOz,
+    // v2 feeds name the price window `t`; window_start is the v1 name.
+    detail && (detail.t || detail.window_start)
+  );
+  const title = safeGetElement("marketDetailTitle");
+  if (title instanceof HTMLElement && (focusOnBox || !overlay.contains(document.activeElement))) {
+    title.focus();
+  }
 
   const updateSummary = _buildModalPriceSummary(content);
 
@@ -1675,15 +1984,47 @@ const _getCachedRetailDetail = (slug, coins) => {
  * Replace the vendor table area with a single centered status message.
  * @param {HTMLElement} tableWrap - The ".vp-table-area" container.
  * @param {string} text - Message text.
+ * @param {{label: string, onClick: Function}} [action] - Optional button under the message.
  * @returns {void}
  */
-const _renderVendorTableMessage = (tableWrap, text) => {
+const _renderVendorTableMessage = (tableWrap, text, action) => {
   tableWrap.textContent = "";
   const msg = document.createElement("div");
   msg.className = "vp-message";
-  msg.textContent = text;
+  msg.setAttribute("role", "status");
+  const line = document.createElement("p");
+  line.className = "vp-message-text";
+  line.textContent = text;
+  msg.appendChild(line);
+  if (action) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "market-block-btn vp-message-action";
+    btn.textContent = action.label;
+    btn.addEventListener("click", action.onClick);
+    msg.appendChild(btn);
+  }
   tableWrap.appendChild(msg);
 };
+
+/**
+ * True when the metal scope holds priced coins but the Market filter hides every dealer.
+ * @param {string} metalCode - ISO metal code or "all".
+ * @param {Object} coins - Retail coins summary map.
+ * @param {Object|null} coinMetaMap - Manifest coin-meta map.
+ * @returns {boolean} True when the empty table is the filter's doing, not missing data.
+ */
+const _scopeHiddenByFilter = (metalCode, coins, coinMetaMap) =>
+  typeof _isMarketItemEnabled === "function" &&
+  Object.keys(coins).some((slug) => {
+    const meta = _getRetailCoinMetaForSlug(slug, coinMetaMap);
+    const metalLower = (meta.metal || "").toLowerCase();
+    const isoCode = _METAL_TO_ISO[metalLower] || metalLower;
+    const inScope =
+      metalCode === "all" ? isoCode in _VENDOR_TABLE_METAL_LABELS : isoCode === metalCode;
+    const vids = Object.keys((coins[slug] && coins[slug].vendors) || {});
+    return inScope && vids.length > 0 && !vids.some((vid) => _isMarketItemEnabled(slug, vid));
+  });
 
 /**
  * Build the ordered list of coin rows for a metal scope. For the "all" scope,
@@ -1742,7 +2083,8 @@ const _collectVendorTableRows = (metalCode, coins, coinMetaMap) => {
 /**
  * Resolve a normalized retail-detail map for the given rows, using cached detail
  * where available and fetching the rest in parallel (failures resolve to null).
- * Also refreshes the in-memory _cachedSlugDetail entries.
+ * Also refreshes the in-memory _cachedSlugDetail entries. Each detail keeps the
+ * windowTime of its prices from when it was first cached, so a tooltip names their time.
  * @param {Array<{slug:string}>} metalSlugs - Ordered rows (slugs read).
  * @param {Object} coins - Retail coins summary map (cache fallback).
  * @returns {Promise<Object>} Map of slug to normalized detail.
@@ -1750,9 +2092,15 @@ const _collectVendorTableRows = (metalCode, coins, coinMetaMap) => {
 const _resolveVendorDetailMap = async (metalSlugs, coins) => {
   const detailMap = {};
   const missingSlugs = [];
+  const snapshotWindow = _snapshotWindowTime();
+  const generation = _cachedSlugDetailGeneration;
   for (const { slug } of metalSlugs) {
     const cachedDetail = _getCachedRetailDetail(slug, coins);
     if (cachedDetail) {
+      // A stored null stays null: a newer snapshot's window would mislabel the cached prices.
+      if (!("windowTime" in cachedDetail)) {
+        cachedDetail.windowTime = _detailWindowTime(cachedDetail, snapshotWindow);
+      }
       detailMap[slug] = cachedDetail;
       _cachedSlugDetail[slug] = cachedDetail;
     } else {
@@ -1775,8 +2123,12 @@ const _resolveVendorDetailMap = async (metalSlugs, coins) => {
       if (r.status === "fulfilled" && r.value && r.value.data) {
         const normalized = _getCachedRetailDetail(r.value.slug, { [r.value.slug]: r.value.data });
         if (normalized) {
+          normalized.windowTime = _detailWindowTime(normalized, snapshotWindow);
           detailMap[r.value.slug] = normalized;
-          _cachedSlugDetail[r.value.slug] = normalized;
+          // A fetch from before a sync holds old prices, so it fills this render only.
+          if (generation === _cachedSlugDetailGeneration) {
+            _cachedSlugDetail[r.value.slug] = normalized;
+          }
         }
       }
     }
@@ -1819,24 +2171,23 @@ const _collectEnabledVendorIds = (metalSlugs, detailMap) => {
 const _buildVendorTableHead = (vendorIds) => {
   const thead = document.createElement("thead");
   const headRow = document.createElement("tr");
-  const thCoin = document.createElement("th");
-  thCoin.textContent = "ITEM";
-  headRow.appendChild(thCoin);
+  const addHeader = (text) => {
+    const th = document.createElement("th");
+    th.scope = "col";
+    th.textContent = text;
+    headRow.appendChild(th);
+    return th;
+  };
+  addHeader("ITEM");
 
   for (const vid of vendorIds) {
-    const th = document.createElement("th");
-    th.textContent = _shortVendor(vid);
+    const th = addHeader(_shortVendor(vid));
     th.style.color =
       typeof getRetailVendorColor === "function" ? getRetailVendorColor(vid) : "var(--text-muted)";
-    headRow.appendChild(th);
   }
 
-  const thMedian = document.createElement("th");
-  thMedian.textContent = "MEDIAN";
-  headRow.appendChild(thMedian);
-  const thSpread = document.createElement("th");
-  thSpread.textContent = "SPREAD";
-  headRow.appendChild(thSpread);
+  addHeader("MEDIAN");
+  addHeader("SPREAD");
 
   thead.appendChild(headRow);
   return thead;
@@ -1864,7 +2215,7 @@ const _computeInStockPrices = (vData, slug) => {
 /**
  * Build one vendor price cell for the matrix: a muted dash for disabled vendors
  * or missing data, an OOS marker when out of stock, otherwise the price (with a
- * best-price highlight, carried dimming, click-to-vendor link, and premium badge).
+ * best-price highlight, a "Last seen" tooltip, click-to-vendor link, and premium badge).
  * @param {string} slug - Retail coin slug.
  * @param {string} vid - Vendor id.
  * @param {Object} vData - Per-vendor data map for the coin.
@@ -1873,6 +2224,9 @@ const _computeInStockPrices = (vData, slug) => {
  * @param {number} weightOz - Coin weight in troy ounces.
  * @param {string} isoCode - ISO metal code (Goldback premium uses the G1 rate).
  * @param {Object} vendorMeta - Vendor-meta map (for the URL fallback).
+ * @param {string} itemName - Display name of the coin (price button name).
+ * @param {Object} [rank] - Row rank from _rankVendorData; computed from vData when absent.
+ * @param {(string|null)} [windowTime] - ISO price window that a fresh price was seen in.
  * @returns {HTMLTableCellElement} The price cell.
  */
 const _buildVendorPriceCell = (
@@ -1883,7 +2237,10 @@ const _buildVendorPriceCell = (
   spotPrice,
   weightOz,
   isoCode,
-  vendorMeta
+  vendorMeta,
+  itemName,
+  rank = _rankVendorData(vData, slug),
+  windowTime = null
 ) => {
   // STAK-515: Skip disabled vendor cells
   if (typeof _isMarketItemEnabled === "function" && !_isMarketItemEnabled(slug, vid)) {
@@ -1914,15 +2271,8 @@ const _buildVendorPriceCell = (
   }
 
   if (vInfo.price === lowestPrice && !vInfo.carried) td.classList.add("vp-best");
-
-  const priceSpan = document.createElement("span");
-  priceSpan.className = "vp-price";
-  priceSpan.textContent = formatCurrency(vInfo.price);
-  priceSpan.addEventListener("click", () => {
-    const url = _resolveVendorUrl(slug, vid, vendorMeta);
-    if (_isSafeUrl(url)) _openVendorPopup(url, vid);
-  });
-  td.appendChild(priceSpan);
+  // A carried price was seen before this window, so only its carried_from names the time.
+  const lastSeen = _lastSeenTitle(vInfo.carried ? vInfo.carried_from : windowTime);
 
   let premium = null;
   if (spotPrice && spotPrice > 0 && weightOz > 0) {
@@ -1930,11 +2280,48 @@ const _buildVendorPriceCell = (
   } else if (isoCode === "goldback" && _goldbackG1Rate > 0 && vInfo.price > 0) {
     premium = _calcMarketPremium(vInfo.price, _goldbackG1Rate);
   }
+  const premiumText = premium != null ? (premium >= 0 ? "+" : "") + premium.toFixed(1) + "%" : "";
+
+  // A safe dealer URL makes the price a button; its name matches the ticker items.
+  const url = _resolveVendorUrl(slug, vid, vendorMeta);
+  const isLink = _isSafeUrl(url);
+  const priceEl = document.createElement(isLink ? "button" : "span");
+  priceEl.className = "vp-price";
+  priceEl.textContent = formatCurrency(vInfo.price);
+  if (isLink) {
+    priceEl.type = "button";
+    const premiumPart = premiumText
+      ? `, premium ${premiumText}${_medianDistancePhrase(rank.byId[vid])}`
+      : "";
+    // Title tooltips never show on touch or keyboard focus, so the name carries the time too.
+    // An en-CA time can end in "a.m.", which already closes the sentence.
+    const seenPart = lastSeen ? ` ${lastSeen}${lastSeen.endsWith(".") ? "" : "."}` : "";
+    priceEl.setAttribute(
+      "aria-label",
+      `${itemName} at ${_shortVendor(vid)}, ${formatCurrency(vInfo.price)}${premiumPart}.${seenPart} Opens the dealer page in a new window.`
+    );
+    priceEl.addEventListener("click", () => {
+      _openVendorPopup(url, vid);
+    });
+  }
+  td.appendChild(priceEl);
+
   if (premium != null) {
     const premBadge = document.createElement("span");
-    premBadge.className = "vp-premium " + _premiumTierClass(premium);
-    premBadge.textContent = (premium >= 0 ? "+" : "") + premium.toFixed(1) + "%";
+    premBadge.className = "vp-premium " + (rank.byId[vid]?.tier || "plain");
+    premBadge.textContent = premiumText;
     td.appendChild(premBadge);
+  }
+
+  if (lastSeen) {
+    td.title = lastSeen;
+    // A plain price has no name to carry the time, so hidden text reads it after the premium.
+    if (!isLink) {
+      const seenText = document.createElement("span");
+      seenText.className = "sr-only";
+      seenText.textContent = `, ${lastSeen}`;
+      td.appendChild(seenText);
+    }
   }
 
   return td;
@@ -1943,70 +2330,180 @@ const _buildVendorPriceCell = (
 /**
  * Build one coin row for the vendor matrix: the clickable coin name, one price
  * cell per vendor, and the median and spread cells.
- * @param {{slug:string, meta:Object, isoCode:string}} rowInfo - Row descriptor.
+ * @param {Object} row - Context from _vendorRowContext.
  * @param {string[]} vendorIds - Sorted vendor ids (column order).
- * @param {Object} detailMap - Map of slug to normalized detail.
- * @param {Object} coins - Retail coins summary map (for median).
  * @param {Object} vendorMeta - Vendor-meta map.
- * @returns {(HTMLTableRowElement|null)} The row element, or null if no detail.
+ * @returns {HTMLTableRowElement} The row element.
  */
-const _buildVendorTableRow = (rowInfo, vendorIds, detailMap, coins, vendorMeta) => {
+const _buildVendorTableRow = (row, vendorIds, vendorMeta) => {
+  const tr = document.createElement("tr");
+  const tdName = document.createElement("td");
+  tdName.appendChild(_buildCoinNameButton(row.slug, row.displayName));
+  tr.appendChild(tdName);
+
+  for (const vid of vendorIds) tr.appendChild(_buildRowPriceCell(row, vid, vendorMeta));
+
+  for (const text of [row.medianText, row.spreadText]) {
+    const td = document.createElement("td");
+    td.textContent = text;
+    tr.appendChild(td);
+  }
+  return tr;
+};
+
+/**
+ * Collect what a matrix row and a phone card both show for one coin.
+ * @param {{slug:string, meta:Object, isoCode:string}} rowInfo - Row descriptor.
+ * @param {Object} detailMap - Map of slug to normalized detail.
+ * @returns {(Object|null)} Row context, or null when the coin has no vendor detail.
+ */
+const _vendorRowContext = (rowInfo, detailMap) => {
   const { slug, meta, isoCode } = rowInfo;
   const detail = detailMap[slug];
   if (!detail || !detail.vendors) return null;
 
   const vData = detail.vendors;
-  const weightOz = detail.weight_oz || meta.weight || 0;
-  const spotPrice = _getSpotPrice(isoCode);
-
   const inStockPrices = _computeInStockPrices(vData, slug);
   const lowestPrice = inStockPrices.length > 0 ? Math.min(...inStockPrices) : null;
+  const highestPrice = inStockPrices.length > 0 ? Math.max(...inStockPrices) : null;
+  // The Median shown is the median the premium colour compares against.
+  const rank = _rankVendorData(vData, slug);
+  const medianVal = rank.median;
 
-  const tr = document.createElement("tr");
-
-  const tdName = document.createElement("td");
-
-  const nameSpan = document.createElement("span");
-  const displayName = meta.name || slug;
-  nameSpan.textContent = displayName;
-  nameSpan.className = "vp-coin-link";
-  nameSpan.addEventListener("click", () => {
-    openMarketDetailModal(slug);
-  });
-  tdName.appendChild(nameSpan);
-
-  tr.appendChild(tdName);
-
-  for (const vid of vendorIds) {
-    tr.appendChild(
-      _buildVendorPriceCell(slug, vid, vData, lowestPrice, spotPrice, weightOz, isoCode, vendorMeta)
-    );
-  }
-
-  const coinSummary = coins[slug];
-  const tdMedian = document.createElement("td");
-  const medianVal = coinSummary ? _coalesce(coinSummary.median_price, coinSummary.median) : null;
-  tdMedian.textContent = medianVal != null ? formatCurrency(medianVal) : "—";
-  tr.appendChild(tdMedian);
-
-  const tdSpread = document.createElement("td");
-  // Calculate high/low from vendor data since summary may not have these fields
-  const allPrices = inStockPrices.length > 0 ? inStockPrices : [];
-  const calcHigh = allPrices.length > 0 ? Math.max(...allPrices) : null;
-  const calcLow = allPrices.length > 0 ? Math.min(...allPrices) : null;
-  if (calcHigh != null && calcLow != null && calcHigh !== calcLow) {
-    tdSpread.textContent = formatCurrency(calcHigh - calcLow);
-  } else {
-    tdSpread.textContent = "—";
-  }
-  tr.appendChild(tdSpread);
-
-  return tr;
+  return {
+    slug,
+    isoCode,
+    vData,
+    rank,
+    lowestPrice,
+    displayName: meta.name || slug,
+    weightOz: detail.weight_oz || meta.weight || 0,
+    spotPrice: _getSpotPrice(isoCode),
+    windowTime: detail.windowTime || null,
+    medianText: medianVal != null ? formatCurrency(medianVal) : "—",
+    // The summary may lack high and low, so the spread comes from the in-stock prices.
+    spreadText:
+      lowestPrice != null && highestPrice !== lowestPrice
+        ? formatCurrency(highestPrice - lowestPrice)
+        : "—",
+  };
 };
 
+/**
+ * Build one vendor price cell from a row context.
+ * @param {Object} row - Context from _vendorRowContext.
+ * @param {string} vid - Vendor id.
+ * @param {Object} vendorMeta - Vendor-meta map.
+ * @returns {HTMLTableCellElement} The price cell.
+ */
+const _buildRowPriceCell = (row, vid, vendorMeta) =>
+  _buildVendorPriceCell(
+    row.slug,
+    vid,
+    row.vData,
+    row.lowestPrice,
+    row.spotPrice,
+    row.weightOz,
+    row.isoCode,
+    vendorMeta,
+    row.displayName,
+    row.rank,
+    row.windowTime
+  );
+
+/**
+ * Build the item name button that opens the detail modal.
+ * @param {string} slug - Retail coin slug.
+ * @param {string} displayName - Item name shown on the button.
+ * @returns {HTMLButtonElement} The name button.
+ */
+const _buildCoinNameButton = (slug, displayName) => {
+  const nameBtn = document.createElement("button");
+  nameBtn.type = "button";
+  nameBtn.textContent = displayName;
+  nameBtn.className = "vp-coin-link";
+  nameBtn.dataset.slug = slug;
+  nameBtn.setAttribute("aria-haspopup", "dialog");
+  nameBtn.addEventListener("click", () => {
+    openMarketDetailModal(slug);
+  });
+  return nameBtn;
+};
+
+/**
+ * Build one phone card: the item name, the median and spread, and a tile per dealer
+ * that lists the item. Tiles reuse the matrix cell content, so prices stay dealer buttons.
+ * @param {Object} row - Context from _vendorRowContext.
+ * @param {string[]} vendorIds - Sorted vendor ids (tile order).
+ * @param {Object} vendorMeta - Vendor-meta map.
+ * @returns {HTMLLIElement} The card.
+ */
+const _buildVendorCard = (row, vendorIds, vendorMeta) => {
+  const card = document.createElement("li");
+  card.className = "vp-card";
+  card.appendChild(_buildCoinNameButton(row.slug, row.displayName));
+
+  const metaLine = document.createElement("p");
+  metaLine.className = "vp-card-meta";
+  for (const [label, text] of [
+    ["Median", row.medianText],
+    ["Spread", row.spreadText],
+  ]) {
+    const part = document.createElement("span");
+    part.textContent = `${label} `;
+    const figure = document.createElement("b");
+    figure.textContent = text;
+    part.appendChild(figure);
+    metaLine.appendChild(part);
+  }
+  card.appendChild(metaLine);
+
+  const dealers = document.createElement("ul");
+  dealers.className = "vp-card-dealers";
+  for (const vid of vendorIds) {
+    const cell = _buildRowPriceCell(row, vid, vendorMeta);
+    // A muted dash means the dealer does not list the item, so it gets no tile.
+    if (cell.classList.contains("vp-muted")) continue;
+    const tile = document.createElement("li");
+    tile.className = `vp-card-dealer ${cell.className}`.trim();
+    if (cell.title) tile.title = cell.title;
+    const vendor = document.createElement("span");
+    vendor.className = "vp-card-vendor";
+    // Brand colours fail 4.5:1 as text, so the colour marks a dot beside the name.
+    const dot = document.createElement("span");
+    dot.className = "vp-card-vendor-dot";
+    dot.setAttribute("aria-hidden", "true");
+    if (typeof getRetailVendorColor === "function") dot.style.color = getRetailVendorColor(vid);
+    vendor.append(dot, _shortVendor(vid));
+    tile.appendChild(vendor);
+    tile.append(...cell.childNodes);
+    dealers.appendChild(tile);
+  }
+  card.appendChild(dealers);
+  return card;
+};
+
+/** Metal tab labels, keyed by tab code, that name the matrix in its caption. */
+const _VENDOR_TABLE_METAL_LABELS = {
+  all: "All",
+  xau: "Gold",
+  xag: "Silver",
+  xpt: "Platinum",
+  xpd: "Palladium",
+  goldback: "Goldback",
+};
+
+/**
+ * Renders the dealer matrix and phone cards for one metal tab. Only the newest
+ * render draws after the detail fetch, so a slow older render cannot replace it.
+ * @param {string} metalCode - Metal tab code (all, xau, xag, xpt, xpd, goldback).
+ * @returns {Promise<void>}
+ */
 const _renderVendorTable = async (metalCode) => {
   const container = safeGetElement("vendorPricesContainer");
   if (!container) return;
+  _vendorTableRenderSeq += 1;
+  const renderSeq = _vendorTableRenderSeq;
 
   let tableWrap = container.querySelector(".vp-table-area");
   if (!tableWrap) {
@@ -2022,13 +2519,23 @@ const _renderVendorTable = async (metalCode) => {
   const metalSlugs = _collectVendorTableRows(metalCode, coins, coinMetaMap);
 
   if (metalSlugs.length === 0) {
-    _renderVendorTableMessage(tableWrap, "No coins tracked for this metal");
+    if (_scopeHiddenByFilter(metalCode, coins, coinMetaMap)) {
+      _renderVendorTableMessage(tableWrap, "All dealers are hidden by your Market filter.", {
+        label: "Open Market settings",
+        onClick: () => {
+          if (typeof showSettingsModal === "function") showSettingsModal("market");
+        },
+      });
+    } else {
+      _renderVendorTableMessage(tableWrap, "No coins tracked for this metal");
+    }
     return;
   }
 
   _renderVendorTableMessage(tableWrap, "Loading vendor prices\u2026");
 
   const detailMap = await _resolveVendorDetailMap(metalSlugs, coins);
+  if (renderSeq !== _vendorTableRenderSeq) return;
 
   const vendorIds = _collectEnabledVendorIds(metalSlugs, detailMap);
 
@@ -2044,18 +2551,32 @@ const _renderVendorTable = async (metalCode) => {
   const table = document.createElement("table");
   table.className = "vendor-prices-table";
 
+  const caption = document.createElement("caption");
+  caption.className = "sr-only";
+  const scopeLabel = `${_VENDOR_TABLE_METAL_LABELS[metalCode] || "All"} dealer prices`;
+  caption.textContent = scopeLabel;
+  table.appendChild(caption);
+
   table.appendChild(_buildVendorTableHead(vendorIds));
 
   const tbody = document.createElement("tbody");
+  // Phones below 480px show the cards and desktops the matrix; CSS hides the other one.
+  const cards = document.createElement("ul");
+  cards.className = "vp-cards";
+  cards.setAttribute("aria-label", scopeLabel);
 
   for (const rowInfo of metalSlugs) {
-    const tr = _buildVendorTableRow(rowInfo, vendorIds, detailMap, coins, vendorMeta);
-    if (tr) tbody.appendChild(tr);
+    const row = _vendorRowContext(rowInfo, detailMap);
+    if (!row) continue;
+    tbody.appendChild(_buildVendorTableRow(row, vendorIds, vendorMeta));
+    cards.appendChild(_buildVendorCard(row, vendorIds, vendorMeta));
   }
 
   table.appendChild(tbody);
   scrollWrap.appendChild(table);
   tableWrap.appendChild(scrollWrap);
+  tableWrap.appendChild(cards);
+  _applyPendingMarketFocus();
 
   // STAK-513: Removed redundant renderBestPriceTicker() call here.
   // Both initMarketData and refreshMarketData already call it — re-calling
@@ -2072,6 +2593,56 @@ const _renderVendorTable = async (metalCode) => {
  * finished, so the in-flight state has to live outside the DOM.
  */
 let _marketRefreshInProgress = false;
+
+/**
+ * Text of the last failed manual refresh, or null. Module-scoped because each sync
+ * rebuilds the header; any later sync that stores new prices clears it.
+ */
+let _marketRefreshFailure = null;
+
+/**
+ * Names what failed in a manual refresh and what the user still sees.
+ * @returns {string} Failure message for the Market header
+ */
+const _marketRefreshFailureText = () =>
+  navigator.onLine === false
+    ? "Refresh failed: you are offline. The last prices stay shown."
+    : "Refresh failed: the price server did not respond. The last prices stay shown.";
+
+/**
+ * Builds the header line that reports a failed refresh.
+ * @param {string} text - Failure message
+ * @returns {HTMLParagraphElement} The status line
+ */
+const _buildMarketRefreshFailureLine = (text) => {
+  const line = document.createElement("p");
+  line.className = "market-refresh-failure";
+  line.setAttribute("role", "status");
+  line.textContent = text;
+  return line;
+};
+
+/**
+ * Stores the refresh failure and shows or removes its line in the mounted header.
+ * @param {(string|null)} text - Failure message, or null to clear it
+ * @returns {void}
+ */
+const _setMarketRefreshFailure = (text) => {
+  _marketRefreshFailure = text;
+  const header = document.querySelector("#vendorPricesContainer .market-block-header");
+  if (!header) return;
+  const existing = header.querySelector(".market-refresh-failure");
+  if (existing) existing.remove();
+  if (text) header.appendChild(_buildMarketRefreshFailureLine(text));
+};
+
+if (typeof document !== "undefined") {
+  // A sync dispatches this before its refreshMarketData() render, so the render reads the new prices.
+  document.addEventListener("retail:updated", () => {
+    _clearCachedSlugDetail();
+    _setMarketRefreshFailure(null);
+  });
+}
 
 /**
  * Paints one refresh button to match the current refresh state.
@@ -2110,13 +2681,9 @@ const _syncMarketRefreshBtnState = () => {
  * addresses Settings' #retailSyncBtn by id; this control owns its own state and
  * drives it off the awaited promise instead of a timer.
  *
- * Residual edge, considered and accepted: syncRetailPrices has its own
- * _retailSyncInProgress guard, so a click landing while the 30-minute background
- * sync happens to be running returns immediately and the button restores fast.
- * The user's intent is still met — that in-flight sync ends by calling
- * refreshMarketData() — so unlike the bug this replaces, the data does refresh.
- * Awaiting the in-flight run instead would mean exposing its promise from
- * js/retail.js, which is a wider change than this patch warrants.
+ * A click during the background sync awaits that sync's result, because
+ * syncRetailPrices shares the running promise. A failure line stays until the
+ * retail:updated listener clears it after a sync that loads prices.
  * @returns {Promise<void>}
  */
 const _runMarketRefresh = async () => {
@@ -2125,7 +2692,8 @@ const _runMarketRefresh = async () => {
   _syncMarketRefreshBtnState();
   try {
     if (typeof syncRetailPrices === "function") {
-      await syncRetailPrices({ ui: false });
+      const result = await syncRetailPrices({ ui: false });
+      if (result && result.ok === false) _setMarketRefreshFailure(_marketRefreshFailureText());
     }
     // syncRetailPrices covers vendor/retail feeds but never fetches
     // goldback/latest.json, so the G1 benchmark would stay stale and Goldback
@@ -2139,6 +2707,7 @@ const _runMarketRefresh = async () => {
     if (typeof refreshMarketData === "function") refreshMarketData();
   } catch (e) {
     debugLog(`[market-data] Manual market refresh failed: ${e?.message ?? e}`, "warn");
+    _setMarketRefreshFailure(_marketRefreshFailureText());
   } finally {
     _marketRefreshInProgress = false;
     // syncRetailPrices' own finally re-renders the block, so this repaints
@@ -2149,7 +2718,38 @@ const _runMarketRefresh = async () => {
 };
 
 /**
- * Builds the Market block's header row: timestamp, freshness dot, Refresh, gear.
+ * Builds the gear icon the app header's Settings button draws, for the Configure button.
+ * @returns {SVGSVGElement} A decorative 16px icon that inherits the text colour.
+ */
+const _buildGearIcon = () => {
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(ns, "svg");
+  svg.setAttribute("class", "market-block-icon");
+  svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("focusable", "false");
+  svg.setAttribute("width", "16");
+  svg.setAttribute("height", "16");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke-width", "2");
+  svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("stroke-linejoin", "round");
+  const hub = document.createElementNS(ns, "circle");
+  hub.setAttribute("cx", "12");
+  hub.setAttribute("cy", "12");
+  hub.setAttribute("r", "3");
+  const teeth = document.createElementNS(ns, "path");
+  teeth.setAttribute(
+    "d",
+    "M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"
+  );
+  svg.append(hub, teeth);
+  return svg;
+};
+
+/**
+ * Builds the Market block's header row: timestamp, freshness dot, Refresh, Configure.
  *
  * Extracted from renderVendorPrices (STRK-290) so it can render in BOTH the
  * populated and the empty-data branches. Previously the empty branch returned
@@ -2164,20 +2764,30 @@ const _buildMarketBlockHeader = () => {
   const headerRow = document.createElement("div");
   headerRow.className = "market-block-header";
 
+  const heading = document.createElement("h2");
+  heading.className = "market-block-title";
+  heading.textContent = "Market prices";
+  headerRow.appendChild(heading);
+
   const rightGroup = document.createElement("div");
   rightGroup.className = "market-block-actions";
+
+  // The time, the age word and the dot read as one status; the word carries the meaning.
+  const statusGroup = document.createElement("span");
+  statusGroup.className = "market-block-status";
+  statusGroup.setAttribute("aria-live", "polite");
 
   const tsSpan = document.createElement("span");
   tsSpan.id = "marketDataTimestamp";
   const retailData = loadDataSync("v2RetailPrices", null) || loadDataSync("retailPrices", null);
-  if (retailData && retailData.lastSync) {
-    const d = new Date(retailData.lastSync);
-    tsSpan.textContent =
-      "Updated " + d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  } else {
-    tsSpan.textContent = "";
-  }
-  rightGroup.appendChild(tsSpan);
+  const syncedLocal = _formatMarketTimestamp(retailData && retailData.lastSync);
+  tsSpan.textContent = syncedLocal ? `Updated ${syncedLocal}` : "";
+  statusGroup.appendChild(tsSpan);
+
+  const freshnessWord = document.createElement("span");
+  freshnessWord.id = "marketFreshnessStatus";
+  freshnessWord.className = "market-freshness";
+  statusGroup.appendChild(freshnessWord);
 
   // STRK-290: market freshness moved here from #headerMarketDot when the Market
   // header button retired. Same painter (updateMarketHealthDot, js/retail.js) and
@@ -2189,8 +2799,9 @@ const _buildMarketBlockHeader = () => {
   const freshnessDot = document.createElement("span");
   freshnessDot.id = "marketFreshnessDot";
   freshnessDot.className = "cloud-sync-dot";
-  freshnessDot.title = "Market data freshness";
-  rightGroup.appendChild(freshnessDot);
+  freshnessDot.setAttribute("aria-hidden", "true");
+  statusGroup.appendChild(freshnessDot);
+  rightGroup.appendChild(statusGroup);
 
   const refreshBtn = document.createElement("button");
   refreshBtn.id = "marketRefreshBtn";
@@ -2209,23 +2820,79 @@ const _buildMarketBlockHeader = () => {
 
   const settingsBtn = document.createElement("button");
   settingsBtn.id = "marketSettingsBtn";
+  settingsBtn.type = "button";
   settingsBtn.title = "Market settings";
-  settingsBtn.setAttribute("aria-label", "Market settings");
-  settingsBtn.className = "market-block-btn";
-  settingsBtn.textContent = "\u2699";
+  // The name starts with the visible word, so voice control users can say "Configure".
+  settingsBtn.setAttribute("aria-label", "Configure Market");
+  settingsBtn.className = "market-block-btn market-block-btn--labelled";
+  const settingsLabel = document.createElement("span");
+  settingsLabel.className = "market-block-label";
+  settingsLabel.textContent = "Configure";
+  settingsBtn.append(_buildGearIcon(), settingsLabel);
   settingsBtn.addEventListener("click", () => {
     if (typeof showSettingsModal === "function") showSettingsModal("market");
   });
   rightGroup.appendChild(settingsBtn);
 
   headerRow.appendChild(rightGroup);
+  if (_marketRefreshFailure) {
+    headerRow.appendChild(_buildMarketRefreshFailureLine(_marketRefreshFailure));
+  }
   return headerRow;
+};
+
+/** The ResizeObserver watching the current metal tab bar, or null. */
+let _vendorTabObserver = null;
+
+/**
+ * Stop watching the current metal tab bar. A detached bar never resizes, so every
+ * render calls this before it clears the container, the empty-state path included.
+ * @returns {void}
+ */
+const _releaseVendorTabObserver = () => {
+  if (_vendorTabObserver) _vendorTabObserver.disconnect();
+  _vendorTabObserver = null;
+};
+
+/**
+ * Keep the metal tab bar's right-edge fade on while tabs sit past the edge, and off
+ * once the last tab is in view. Rechecks on scroll and whenever the bar resizes.
+ * @param {HTMLElement} tabBar - The .vendor-prices-tabs element.
+ * @returns {void}
+ */
+const _watchVendorTabOverflow = (tabBar) => {
+  _releaseVendorTabObserver();
+  const sync = () => {
+    const hidden = tabBar.scrollWidth - tabBar.clientWidth - tabBar.scrollLeft;
+    tabBar.classList.toggle("vp-tabs-more", hidden > 1);
+  };
+  // A rebuilt bar starts at scrollLeft 0, so the selected tab is scrolled back into view.
+  // A hidden panel has no width; the resize when it shows runs this again.
+  const reveal = () => {
+    const active = tabBar.querySelector('button[aria-pressed="true"]');
+    if (!active || tabBar.clientWidth === 0) return;
+    const bar = tabBar.getBoundingClientRect();
+    const tab = active.getBoundingClientRect();
+    if (tab.right > bar.right) tabBar.scrollLeft += tab.right - bar.right;
+    else if (tab.left < bar.left) tabBar.scrollLeft -= bar.left - tab.left;
+  };
+  tabBar.addEventListener("scroll", sync, { passive: true });
+  if (typeof ResizeObserver === "function") {
+    _vendorTabObserver = new ResizeObserver(() => {
+      reveal();
+      sync();
+    });
+    _vendorTabObserver.observe(tabBar);
+  }
+  reveal();
+  sync();
 };
 
 const renderVendorPrices = () => {
   const container = safeGetElement("vendorPricesContainer");
   if (!container) return;
 
+  _releaseVendorTabObserver();
   container.textContent = "";
   // Header first, unconditionally — the empty branch below needs the Refresh
   // control too, otherwise "Retail data unavailable" is a dead end (STRK-290).
@@ -2235,7 +2902,11 @@ const renderVendorPrices = () => {
   if (!coins || Object.keys(coins).length === 0) {
     const msg = document.createElement("div");
     msg.className = "vp-message";
-    msg.textContent = "Retail data unavailable";
+    msg.setAttribute("role", "status");
+    msg.textContent =
+      navigator.onLine === false
+        ? "Retail data unavailable. You are offline. Select Refresh when you are back online."
+        : "Retail data unavailable. Prices have not loaded. Select Refresh to try again.";
     container.appendChild(msg);
     if (typeof updateMarketHealthDot === "function") updateMarketHealthDot();
     return;
@@ -2243,6 +2914,8 @@ const renderVendorPrices = () => {
 
   const tabBar = document.createElement("div");
   tabBar.className = "vendor-prices-tabs";
+  tabBar.setAttribute("role", "group");
+  tabBar.setAttribute("aria-label", "Metal");
 
   // Determine which metals have coins with data
   const coinMetaMap = _getCoinMeta();
@@ -2262,14 +2935,10 @@ const renderVendorPrices = () => {
     metalHasCoins[isoCode] = true;
   }
 
-  const allMetals = [
-    { code: "all", label: "All" },
-    { code: "xau", label: "Gold" },
-    { code: "xag", label: "Silver" },
-    { code: "xpt", label: "Platinum" },
-    { code: "xpd", label: "Palladium" },
-    { code: "goldback", label: "Goldback" },
-  ];
+  const allMetals = Object.entries(_VENDOR_TABLE_METAL_LABELS).map(([code, label]) => ({
+    code,
+    label,
+  }));
   // Only show tabs that have coins
   const metals = allMetals.filter((m) => m.code === "all" || metalHasCoins[m.code]);
 
@@ -2280,14 +2949,20 @@ const renderVendorPrices = () => {
     activeTab = code;
     saveDataSync("vendorPricesActiveTab", code);
     const btns = tabBar.querySelectorAll("button");
-    btns.forEach((b) => b.classList.toggle("active", b.getAttribute("data-metal") === code));
+    btns.forEach((b) => {
+      const isActive = b.getAttribute("data-metal") === code;
+      b.classList.toggle("active", isActive);
+      b.setAttribute("aria-pressed", String(isActive));
+    });
     _renderVendorTable(code);
   };
 
   for (const m of metals) {
     const btn = document.createElement("button");
+    btn.type = "button";
     btn.className = "vp-tab" + (m.code === activeTab ? " active" : "");
     btn.setAttribute("data-metal", m.code);
+    btn.setAttribute("aria-pressed", String(m.code === activeTab));
     btn.textContent = m.label;
     btn.addEventListener("click", () => {
       setActive(m.code);
@@ -2296,6 +2971,7 @@ const renderVendorPrices = () => {
   }
 
   container.appendChild(tabBar);
+  _watchVendorTabOverflow(tabBar);
 
   _renderVendorTable(activeTab);
 
@@ -2304,7 +2980,7 @@ const renderVendorPrices = () => {
   footer.className = "market-disclaimer";
   footer.appendChild(
     document.createTextNode(
-      "Market prices are best effort. Percentages show premium over spot (or G1 rate for Goldbacks). Click a price to visit the vendor."
+      "Market prices are best effort. Percentages show premium over spot (or G1 rate for Goldbacks); their colour compares dealers."
     )
   );
   footer.appendChild(

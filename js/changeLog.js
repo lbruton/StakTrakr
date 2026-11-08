@@ -1016,7 +1016,11 @@ window.confirmCascadeUndo = confirmCascadeUndo;
 const clearChangeLog = async () => {
   const confirmed =
     typeof showAppConfirm === "function"
-      ? await showAppConfirm("Clear change log?", "Activity Log")
+      ? await showAppConfirm(
+          "Delete every Change Log entry? You cannot undo this.",
+          "Clear Change Log",
+          { confirmLabel: "Clear Change Log", danger: true }
+        )
       : false;
   if (!confirmed) return;
   changeLog = [];
@@ -1105,10 +1109,6 @@ window.clearChangeLog = clearChangeLog;
 window.getManifestEntries = getManifestEntries;
 window.markSynced = markSynced;
 window.editFromChangeLog = (idx, logIdx) => {
-  const modal = document.getElementById("changeLogModal");
-  if (modal) {
-    modal.style.display = "none";
-  }
-  document.body.style.overflow = "";
+  closeModalById("changeLogModal");
   editItem(idx, logIdx);
 };

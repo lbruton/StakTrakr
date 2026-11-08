@@ -115,7 +115,7 @@ function renderCloudActivityTable() {
       pad(d.getMinutes()) +
       ":" +
       pad(d.getSeconds());
-    var resultStyle = e.result === "fail" ? ' style="color: var(--danger);"' : "";
+    var resultStyle = e.result === "fail" ? ' style="color: var(--danger-text);"' : "";
     var durationStr = e.duration != null ? e.duration + "ms" : "—";
     var safeDetail = sanitizeHtml(e.detail);
     return (
@@ -218,7 +218,11 @@ function renderSyncHistorySection() {
 async function clearCloudActivityLog() {
   const confirmed =
     typeof showAppConfirm === "function"
-      ? await showAppConfirm("Clear all cloud activity log? This cannot be undone.", "Cloud Sync")
+      ? await showAppConfirm(
+          "Delete every cloud sync log entry? You cannot undo this.",
+          "Clear Cloud Log",
+          { confirmLabel: "Clear cloud log", danger: true }
+        )
       : false;
   if (!confirmed) return;
   saveCloudActivityLog([]);
