@@ -24,6 +24,55 @@ const deleteFirstItem = async (page) => {
 const inventoryHas = (page, uuid) =>
   page.evaluate((id) => window.inventory.some((entry) => entry.uuid === id), uuid);
 
+/**
+ * Link the 2022 Item to its slot, plus the 2024 Item as a spare when asked.
+ * @param {import('@playwright/test').Page} page - Browser page.
+ * @param {boolean} withSpare - Whether to add the spare.
+ * @returns {Promise<void>}
+ */
+const linkSlot = (page, withSpare) =>
+  page.evaluate((spare) => {
+    const store = window.collectionsStore;
+    store.link("ase-type2", "2022", "rm-ase-2022");
+    if (spare) store.link("ase-type2", "2022", "rm-ase-2024", { asSpare: true });
+  }, withSpare);
+
+/**
+ * Read the 2022 slot's primary and spares.
+ * @param {import('@playwright/test').Page} page - Browser page.
+ * @returns {Promise<{primary: string|null, spares: string[]}>} Slot contents.
+ */
+const readSlot = (page) =>
+  page.evaluate(() => {
+    const link = window.collectionsStore.getState().collections["ase-type2"].slots["2022"];
+    return { primary: link ? link.primary : null, spares: link ? link.spares : [] };
+  });
+
+/**
+ * Delete the first Item, press Undo on the toast, and wait for the Item to return.
+ * @param {import('@playwright/test').Page} page - Browser page.
+ * @returns {Promise<void>}
+ */
+const deleteThenUndo = async (page) => {
+  await deleteFirstItem(page);
+  await page
+    .locator(".cloud-toast", { hasText: `Removed ${NAME}.` })
+    .getByRole("button", { name: "Undo" })
+    .click();
+  await expect.poll(() => inventoryHas(page, "rm-ase-2022")).toBe(true);
+};
+
+/**
+ * Toggle the newest Activity Log entry (Redo after an Undo, Undo after a Redo).
+ * @param {import('@playwright/test').Page} page - Browser page.
+ * @param {boolean} expectPresent - Whether the 2022 Item should be in inventory afterwards.
+ * @returns {Promise<void>}
+ */
+const toggleLatest = async (page, expectPresent) => {
+  await page.evaluate(() => window.toggleChange(window.changeLog.length - 1));
+  await expect.poll(() => inventoryHas(page, "rm-ase-2022")).toBe(expectPresent);
+};
+
 test.describe("core/remove-item-undo", () => {
   test.beforeEach(async ({ page }) => {
     await seedCollectionsPage(page, SEED);
@@ -32,9 +81,8 @@ test.describe("core/remove-item-undo", () => {
   test("removing an Item shows a toast with Undo, and Undo restores the Item and its Collection link", async ({
     page,
   }) => {
-    await page.evaluate(() => window.collectionsStore.link("ase-type2", "2022", "rm-ase-2022"));
+    await linkSlot(page, false);
     await deleteFirstItem(page);
-
     const toast = page.locator(".cloud-toast", { hasText: `Removed ${NAME}.` });
     await expect(toast).toBeVisible();
     expect(await inventoryHas(page, "rm-ase-2022")).toBe(false);
@@ -42,71 +90,33 @@ test.describe("core/remove-item-undo", () => {
     await toast.getByRole("button", { name: "Undo" }).click();
     await expect.poll(() => inventoryHas(page, "rm-ase-2022")).toBe(true);
     await expect(page.locator("#inventoryTable tbody")).toContainText(NAME);
-    const primary = await page.evaluate(
-      () => window.collectionsStore.getState().collections["ase-type2"].slots["2022"].primary
-    );
-    expect(primary).toBe("rm-ase-2022");
+    expect((await readSlot(page)).primary).toBe("rm-ase-2022");
   });
 
   test("Undo puts a deleted primary back ahead of the spare the delete promoted", async ({
     page,
   }) => {
-    await page.evaluate(() => {
-      window.collectionsStore.link("ase-type2", "2022", "rm-ase-2022");
-      window.collectionsStore.link("ase-type2", "2022", "rm-ase-2024", { asSpare: true });
-    });
-    await deleteFirstItem(page);
-    const toast = page.locator(".cloud-toast", { hasText: `Removed ${NAME}.` });
-    await toast.getByRole("button", { name: "Undo" }).click();
-    await expect.poll(() => inventoryHas(page, "rm-ase-2022")).toBe(true);
-    const slot = await page.evaluate(() => {
-      const link = window.collectionsStore.getState().collections["ase-type2"].slots["2022"];
-      return { primary: link.primary, spares: link.spares };
-    });
-    expect(slot).toEqual({ primary: "rm-ase-2022", spares: ["rm-ase-2024"] });
+    await linkSlot(page, true);
+    await deleteThenUndo(page);
+    expect(await readSlot(page)).toEqual({ primary: "rm-ase-2022", spares: ["rm-ase-2024"] });
   });
 
   test("Redo of a restored removal prunes the Collection links again", async ({ page }) => {
-    await page.evaluate(() => {
-      window.collectionsStore.link("ase-type2", "2022", "rm-ase-2022");
-      window.collectionsStore.link("ase-type2", "2022", "rm-ase-2024", { asSpare: true });
-    });
-    await deleteFirstItem(page);
-    await page
-      .locator(".cloud-toast", { hasText: `Removed ${NAME}.` })
-      .getByRole("button", { name: "Undo" })
-      .click();
-    await expect.poll(() => inventoryHas(page, "rm-ase-2022")).toBe(true);
-
-    await page.evaluate(() => window.toggleChange(window.changeLog.length - 1));
-    await expect.poll(() => inventoryHas(page, "rm-ase-2022")).toBe(false);
-    const slot = await page.evaluate(() => {
-      const link = window.collectionsStore.getState().collections["ase-type2"].slots["2022"];
-      return { primary: link.primary, spares: link.spares };
-    });
-    expect(slot).toEqual({ primary: "rm-ase-2024", spares: [] });
+    await linkSlot(page, true);
+    await deleteThenUndo(page);
+    await toggleLatest(page, false);
+    expect(await readSlot(page)).toEqual({ primary: "rm-ase-2024", spares: [] });
   });
 
   test("Redo captures the current links, so a second Undo does not reverse an unlink", async ({
     page,
   }) => {
-    await page.evaluate(() => window.collectionsStore.link("ase-type2", "2022", "rm-ase-2022"));
-    await deleteFirstItem(page);
-    await page
-      .locator(".cloud-toast", { hasText: `Removed ${NAME}.` })
-      .getByRole("button", { name: "Undo" })
-      .click();
-    await expect.poll(() => inventoryHas(page, "rm-ase-2022")).toBe(true);
+    await linkSlot(page, false);
+    await deleteThenUndo(page);
     await page.evaluate(() => window.collectionsStore.unlink("ase-type2", "2022", "rm-ase-2022"));
-
-    await page.evaluate(() => window.toggleChange(window.changeLog.length - 1));
-    await expect.poll(() => inventoryHas(page, "rm-ase-2022")).toBe(false);
-    await page.evaluate(() => window.toggleChange(window.changeLog.length - 1));
-    await expect.poll(() => inventoryHas(page, "rm-ase-2022")).toBe(true);
-    const slot = await page.evaluate(
-      () => window.collectionsStore.getState().collections["ase-type2"].slots["2022"]
-    );
-    expect(slot?.primary ?? null).toBeNull();
+    await toggleLatest(page, false);
+    await toggleLatest(page, true);
+    expect((await readSlot(page)).primary).toBeNull();
   });
 
   test("a toast given an error level keeps the default delay", async ({ page }) => {
