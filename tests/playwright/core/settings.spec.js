@@ -252,6 +252,152 @@ async function expectCopperHidden(page) {
   await expect(page.locator(".spot-cards-grid")).toHaveAttribute("data-cards", "4");
 }
 
+const SETTINGS_PANELS = [
+  "about",
+  "site",
+  "system",
+  "grouping",
+  "images",
+  "collections",
+  "currency",
+  "market",
+  "storage",
+  "api",
+  "cloud",
+  "changelog",
+  "faq",
+];
+
+/** Lists the visible form controls in a panel that have no accessible name. */
+function listUnnamedControls(page, panel) {
+  return page.evaluate((panelId) => {
+    const textOf = (id) => (document.getElementById(id)?.textContent || "").trim();
+    const nameOf = (el) => {
+      const labelledBy = el.getAttribute("aria-labelledby");
+      if (labelledBy) {
+        const text = labelledBy.split(/\s+/).map(textOf).join(" ").trim();
+        if (text) return text;
+      }
+      if ((el.getAttribute("aria-label") || "").trim()) return el.getAttribute("aria-label").trim();
+      if ([...(el.labels || [])].some((l) => l.textContent.trim())) return "label";
+      return (el.getAttribute("title") || "").trim();
+    };
+    const panelEl = document.getElementById(panelId);
+    return [...panelEl.querySelectorAll("select, textarea, input:not([type=hidden])")]
+      .filter((el) => el.getClientRects().length > 0 && !nameOf(el))
+      .map((el) => el.id || `${el.tagName.toLowerCase()}[${el.type}]`);
+  }, `settingsPanel_${panel}`);
+}
+
+test.describe("core/settings control semantics", () => {
+  test.beforeEach(async ({ page }) => {
+    await seedSettingsInventory(page);
+    await gotoApp(page);
+  });
+
+  test("every visible Settings form control has an accessible name", async ({ page }) => {
+    test.setTimeout(test.info().timeout * SETTINGS_PANELS.length);
+    for (const panel of SETTINGS_PANELS) {
+      await test.step(`${panel} panel`, async () => {
+        await openSettings(page, panel);
+        if (panel === "market") {
+          await expect(
+            page.locator("#settingsPanel_market input[type=checkbox]").first()
+          ).toBeVisible();
+        }
+        expect(await listUnnamedControls(page, panel)).toEqual([]);
+      });
+    }
+  });
+
+  test("Market filter checkboxes are named vendor, metal", async ({ page }) => {
+    await openSettings(page, "market");
+    const names = await page
+      .locator("#settingsPanel_market table input[data-slug][data-vendor]")
+      .evaluateAll((boxes) => boxes.map((b) => b.getAttribute("aria-label")));
+    expect(names.length).toBeGreaterThan(0);
+    for (const name of names) expect(name).toMatch(/^.+, .+$/);
+  });
+
+  test("On/Off and mode chip groups are named groups that expose and flip aria-pressed", async ({
+    page,
+  }) => {
+    await openSettings(page, "grouping");
+    const unnamed = await page.evaluate(() =>
+      [...document.querySelectorAll("#settingsModal .chip-sort-toggle")]
+        .filter((g) => !(g.getAttribute("role") === "group" && g.getAttribute("aria-label")))
+        .map((g) => g.id || g.className)
+    );
+    expect(unnamed).toEqual([]);
+    const missingState = await page.evaluate(() =>
+      [...document.querySelectorAll("#settingsModal .chip-sort-toggle .chip-sort-btn")]
+        .filter((b) => b.getAttribute("aria-pressed") !== String(b.classList.contains("active")))
+        .map((b) => `${b.closest(".chip-sort-toggle").id}:${b.textContent.trim()}`)
+    );
+    expect(missingState).toEqual([]);
+
+    const group = page.locator("#settingsFuzzyAutocomplete");
+    await expect(group).toHaveAttribute("role", "group");
+    await expect(group).toHaveAttribute("aria-label", "Fuzzy autocomplete");
+    const on = group.getByRole("button", { name: "On" });
+    const off = group.getByRole("button", { name: "Off" });
+    await expect(on).toHaveAttribute("aria-pressed", "true");
+    await off.click();
+    await expect(off).toHaveAttribute("aria-pressed", "true");
+    await expect(on).toHaveAttribute("aria-pressed", "false");
+    await on.click();
+    await expect(on).toHaveAttribute("aria-pressed", "true");
+  });
+
+  test("the Settings nav is labelled, marks the active section and moves with arrow keys", async ({
+    page,
+  }) => {
+    await openSettings(page, "about");
+    const nav = page.getByRole("navigation", { name: "Settings sections" });
+    await expect(nav).toBeVisible();
+    await expect(nav.locator('[aria-current="page"]')).toHaveCount(1);
+    await expect(nav.locator('[data-section="about"]')).toHaveAttribute("aria-current", "page");
+
+    await nav.locator('[data-section="site"]').click();
+    await expect(nav.locator('[aria-current="page"]')).toHaveCount(1);
+    await expect(nav.locator('[data-section="site"]')).toHaveAttribute("aria-current", "page");
+
+    await nav.locator('[data-section="site"]').focus();
+    await page.keyboard.press("ArrowDown");
+    await expect(nav.locator('[data-section="system"]')).toBeFocused();
+    await page.keyboard.press("ArrowUp");
+    await expect(nav.locator('[data-section="site"]')).toBeFocused();
+  });
+
+  test("every Settings panel is a region labelled by one real heading", async ({ page }) => {
+    const panels = await page.evaluate(() =>
+      [...document.querySelectorAll(".settings-section-panel")].map((p) => {
+        const heading = document.getElementById(p.getAttribute("aria-labelledby") || "");
+        return {
+          id: p.id,
+          role: p.getAttribute("role"),
+          tag: heading ? heading.tagName : null,
+          text: heading ? heading.textContent.trim() : "",
+        };
+      })
+    );
+    expect(panels).toHaveLength(SETTINGS_PANELS.length);
+    expect(
+      await page.evaluate(
+        () =>
+          [...document.querySelectorAll(".settings-fieldset-title")].filter(
+            (t) => t.getAttribute("role") !== "heading"
+          ).length
+      )
+    ).toBe(0);
+    for (const p of panels) {
+      expect(p.role, p.id).toBe("region");
+      expect(p.tag, p.id).toBe("H3");
+      expect(p.text, p.id).not.toBe("");
+    }
+  });
+});
+
 test.describe("core/settings copper dashboard cards", () => {
   test("a first-run boot shows copper as the fifth spot card", async ({ page }) => {
     await gotoDashboard(page);

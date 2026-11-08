@@ -40,6 +40,77 @@ const hideSettingsModal = () => {
 };
 
 /**
+ * Returns the accessible name for a Settings chip group: the group label of its
+ * `.settings-group`, else the text of the control row it sits in.
+ * @param {HTMLElement} group - A `.chip-sort-toggle` element
+ * @returns {string} Name text, or an empty string when none is found
+ */
+const getSettingsChipGroupName = (group) => {
+  const explicit = group.getAttribute("aria-label");
+  if (explicit) return explicit;
+  const label = group.closest(".settings-group")?.querySelector(".settings-group-label");
+  if (label) return label.textContent.trim();
+  const row = group.parentElement;
+  const text = row?.querySelector(":scope > span, :scope > .settings-group-label");
+  return text ? text.textContent.trim() : "";
+};
+
+/**
+ * Gives every Settings chip group `role="group"` and a name, and keeps
+ * `aria-pressed` on each button equal to its `active` class. A MutationObserver
+ * mirrors later class changes, so the writers of `active` stay unchanged.
+ */
+const initSettingsChipSemantics = () => {
+  const modal = document.getElementById("settingsModal");
+  if (!modal || modal.dataset.chipSemantics === "on") return;
+  modal.dataset.chipSemantics = "on";
+  const syncButton = (btn) =>
+    btn.setAttribute("aria-pressed", String(btn.classList.contains("active")));
+  modal.querySelectorAll(".chip-sort-toggle").forEach((group) => {
+    group.setAttribute("role", "group");
+    const name = getSettingsChipGroupName(group);
+    if (name && !group.hasAttribute("aria-label")) group.setAttribute("aria-label", name);
+    group.querySelectorAll(".chip-sort-btn").forEach(syncButton);
+  });
+  new MutationObserver((records) => {
+    records.forEach((rec) => {
+      if (rec.target.matches?.(".chip-sort-toggle .chip-sort-btn")) syncButton(rec.target);
+    });
+  }).observe(modal, { attributes: true, attributeFilter: ["class"], subtree: true });
+};
+
+/**
+ * Moves focus between Settings nav items with the Up and Down arrow keys.
+ * @param {KeyboardEvent} e - Keydown event from the Settings sidebar
+ */
+const handleSettingsNavKeydown = (e) => {
+  if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+  const items = [...document.querySelectorAll(".settings-nav-item")];
+  const index = items.indexOf(document.activeElement);
+  if (index === -1) return;
+  e.preventDefault();
+  const step = e.key === "ArrowDown" ? 1 : -1;
+  items[(index + step + items.length) % items.length].focus();
+};
+
+/**
+ * Marks each Settings panel as a region labelled by its first heading.
+ */
+const initSettingsPanelSemantics = () => {
+  document.querySelectorAll(".settings-section-panel").forEach((panel) => {
+    const heading = panel.querySelector("h3");
+    if (!heading) return;
+    if (!heading.id) heading.id = `${panel.id}_title`;
+    panel.setAttribute("role", "region");
+    panel.setAttribute("aria-labelledby", heading.id);
+  });
+  document.querySelectorAll(".settings-fieldset-title").forEach((title) => {
+    title.setAttribute("role", "heading");
+    title.setAttribute("aria-level", "4");
+  });
+};
+
+/**
  * Switches the visible section panel in the Settings modal.
  * @param {string} name - Section key: 'about', 'site', 'system', 'table', 'grouping', 'api', 'cloud', 'images', 'storage', 'changelog', 'market', 'currency'
  */
@@ -57,7 +128,10 @@ const switchSettingsSection = (name) => {
 
   // Update active nav item
   document.querySelectorAll(".settings-nav-item").forEach((item) => {
-    item.classList.toggle("active", item.dataset.section === targetName);
+    const isCurrent = item.dataset.section === targetName;
+    item.classList.toggle("active", isCurrent);
+    if (isCurrent) item.setAttribute("aria-current", "page");
+    else item.removeAttribute("aria-current");
   });
 
   // Populate API data when switching to API section
@@ -4443,6 +4517,7 @@ const renderMarketFilterMatrix = () => {
   const masterCb = document.createElement("input");
   masterCb.type = "checkbox";
   masterCb.title = "Toggle everything";
+  masterCb.setAttribute("aria-label", "Toggle everything");
   masterCb.className = "mfm-master-toggle";
   masterTd.appendChild(wrapCheckHit(masterCb));
   allRow.appendChild(masterTd);
@@ -4453,6 +4528,7 @@ const renderMarketFilterMatrix = () => {
     cb.type = "checkbox";
     cb.setAttribute("data-col-toggle", v.id);
     cb.title = "Toggle all " + v.name;
+    cb.setAttribute("aria-label", "Toggle all " + v.name);
     td.appendChild(wrapCheckHit(cb));
     allRow.appendChild(td);
   });
@@ -4492,6 +4568,7 @@ const renderMarketFilterMatrix = () => {
     rowCb.type = "checkbox";
     rowCb.setAttribute("data-row-toggle", slug);
     rowCb.title = "Toggle all for " + meta.name;
+    rowCb.setAttribute("aria-label", "Toggle all for " + meta.name);
     rowAllTd.appendChild(wrapCheckHit(rowCb));
     tr.appendChild(rowAllTd);
 
@@ -4506,6 +4583,7 @@ const renderMarketFilterMatrix = () => {
       const td = document.createElement("td");
       const cb = document.createElement("input");
       cb.type = "checkbox";
+      cb.setAttribute("aria-label", `${v.name}, ${meta.name || slug}`);
       const hasData = !hasAnyData || available.indexOf(v.id) !== -1;
       if (!hasData) {
         cb.disabled = true;

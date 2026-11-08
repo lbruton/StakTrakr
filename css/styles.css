@@ -3720,6 +3720,10 @@ input[type="submit"] {
   margin-bottom: 0.5rem;
 }
 
+label.settings-group-label {
+  display: block;
+}
+
 /* Settings fieldset — bordered card wrapping related settings (STAK-115) */
 .settings-fieldset {
   border: 1px solid var(--border);
