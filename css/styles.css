@@ -7883,7 +7883,7 @@ td input:checked + .slider:before {
   font-size: var(--font-size-xs);
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: rgba(248, 250, 252, 0.55);
+  color: var(--text-muted);
   font-weight: 500;
 }
 
@@ -7914,38 +7914,26 @@ td input:checked + .slider:before {
   font-weight: 600;
   padding: 0.3rem 0.6rem;
   border-radius: var(--radius);
-  background: rgba(0, 0, 0, 0.55);
-  color: rgba(248, 250, 252, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
   backdrop-filter: blur(4px);
   line-height: 1.2;
   white-space: nowrap;
 }
 
-/* --- Authority-specific grade + border colors --- */
+/* --- Authority colour marks the chip border only; the grade text takes the chip text token --- */
 .view-cert-badge[data-authority="PCGS"] {
   border-color: color-mix(in oklch, var(--authority-pcgs), transparent 60%);
-}
-.view-cert-badge[data-authority="PCGS"] .view-cert-grade {
-  color: var(--authority-pcgs);
 }
 .view-cert-badge[data-authority="NGC"] {
   border-color: color-mix(in oklch, var(--authority-ngc), transparent 60%);
 }
-.view-cert-badge[data-authority="NGC"] .view-cert-grade {
-  color: var(--authority-ngc);
-}
 .view-cert-badge[data-authority="ANACS"] {
   border-color: color-mix(in oklch, var(--authority-anacs), transparent 60%);
 }
-.view-cert-badge[data-authority="ANACS"] .view-cert-grade {
-  color: var(--authority-anacs);
-}
 .view-cert-badge[data-authority="ICG"] {
   border-color: color-mix(in oklch, var(--authority-icg), transparent 60%);
-}
-.view-cert-badge[data-authority="ICG"] .view-cert-grade {
-  color: var(--authority-icg);
 }
 
 /* Grade text — clickable when PCGS CoinFacts link available */
@@ -7963,7 +7951,7 @@ td input:checked + .slider:before {
   display: inline-flex;
   align-items: center;
   cursor: pointer;
-  color: rgba(255, 255, 255, 0.35); /* gray — never verified */
+  color: var(--text-muted);
   transition: var(--transition);
   padding: 0.15rem;
   border-radius: 50%;
@@ -7986,34 +7974,22 @@ td input:checked + .slider:before {
   color: var(--danger-text);
 }
 .view-cert-verify:hover {
-  color: color-mix(in oklch, var(--text-inverse), transparent 30%);
-  background: color-mix(in oklch, var(--text-inverse), transparent 90%);
+  color: var(--text-secondary);
+  background: var(--bg-tertiary);
 }
 .view-cert-verify.pcgs-verifying {
-  color: color-mix(in oklch, var(--text-inverse), transparent 70%);
+  color: var(--text-muted);
   animation: pcgs-pulse 1s ease-in-out infinite;
 }
-/* The badge sits on the same dark scrim in every theme, so its status colours are fixed. */
 .view-cert-verify.pcgs-verified {
-  color: #86efac;
+  color: var(--success-text);
 }
 .view-cert-verify.pcgs-verified:hover {
-  color: #86efac;
+  color: var(--success-text);
   background: color-mix(in oklch, var(--success), transparent 90%);
 }
 .view-cert-verify.pcgs-verify-failed {
-  color: #fca5a5;
-}
-
-/* Sepia theme — adjust colors on dark image bg */
-[data-theme="sepia"] .view-cert-badge[data-authority="PCGS"] .view-cert-grade {
-  color: #93bbfd;
-}
-[data-theme="sepia"] .view-cert-badge[data-authority="NGC"] .view-cert-grade {
-  color: #fcd34d;
-}
-[data-theme="sepia"] .view-cert-badge[data-authority="ANACS"] .view-cert-grade {
-  color: #6ee7b7;
+  color: var(--danger-text);
 }
 
 /* --- Data sections --- */

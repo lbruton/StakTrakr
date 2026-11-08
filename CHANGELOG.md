@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.131] - 2026-11-08
+
+### Changed — STRK-558: Item view image labels and grade chip
+
+- **Labels**: The OBVERSE and REVERSE labels in the Item view image section use the muted text token, so they read in every theme (STRK-558).
+- **Grade chip**: The grade chip uses the card surface and the primary text token in every theme. The grading authority colour marks the chip border, and the grade text meets 4.5:1 in light, dark, slate and sepia (STRK-558).
+
 ## [3.36.130] - 2026-11-08
 
 ### Changed — STRK-542: Collection builder and picker
