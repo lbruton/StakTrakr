@@ -7,6 +7,7 @@ import { readFileSync } from "node:fs";
 // pinned by tests/unit/collections-core.test.js.
 
 import { test, expect, prepareAppPage } from "../helpers/mocks/extended-test.js";
+import { readSegmentCorners, SEGMENT_THEMES } from "../helpers/segment-corners.js";
 import { installStakTrakrNetworkMocks } from "../helpers/mocks/routes.js";
 import {
   collectionItem as baseItem,
@@ -6174,6 +6175,29 @@ test.describe("core/collections — Album toolbar and actions row", () => {
     await expect(page.locator("#appDialogModal")).toBeHidden();
     await actions.getByRole("button", { name: "Edit collection" }).click();
     await expect(page.locator("#collectionsBuilderModal")).toBeVisible();
+  });
+
+  test("every segmented toggle in the toolbar keeps the group's outer corners at 390 in every theme", async ({
+    page,
+  }) => {
+    test.setTimeout(test.info().timeout * SEGMENT_THEMES.length);
+    for (const theme of SEGMENT_THEMES) {
+      await test.step(theme, async () => {
+        await page.goto("about:blank");
+        await openToolbarAlbum(page, { custom: true, width: 390 });
+        await page.evaluate((name) => window.setTheme(name), theme);
+        await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+        const groups = await readSegmentCorners(
+          page,
+          ".collections-album .collections-toolbar .chip-sort-toggle"
+        );
+        expect(groups.length).toBeGreaterThan(0);
+        for (const group of groups) {
+          expect(group.first).toEqual([group.radius - 1, group.radius - 1]);
+          expect(group.last).toEqual([group.radius - 1, group.radius - 1]);
+        }
+      });
+    }
   });
 
   test("at 390 the toolbar has two rows and the actions fill the width, at 16px and 24px roots", async ({
