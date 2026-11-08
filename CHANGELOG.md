@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.128] - 2026-11-08
+
+### Changed — STRK-546: Remove Item undo and the Activity Log name
+
+- **Toast**: Removing an Item shows "Removed <name>." with an Undo button that restores the Item and its Collection links (STRK-546).
+- **Activity Log link**: The link in the Remove Item modal and the log opened right after a delete list the removal with its Undo action (STRK-546).
+- **Name**: The log is called Activity Log in its title, the Settings panel, the clear confirm, the bulk delete message and the glossary (STRK-546).
+
 ## [3.36.127] - 2026-11-08
 
 ### Changed — STRK-550: Settings control semantics

@@ -673,6 +673,20 @@ const _undoTradeLink = (entry) => {
 };
 
 /**
+ * Re-links a restored Item to the Collection slots it occupied when it was deleted.
+ * @param {Object} restored - The restored inventory item
+ * @param {{collectionId: string, slotId: string, role: string}[]} [links] - Saved memberships
+ */
+const _relinkDeletedItem = (restored, links) => {
+  if (!restored?.uuid || !Array.isArray(links) || !window.collectionsStore) return;
+  links.forEach(({ collectionId, slotId, role }) => {
+    window.collectionsStore.link(collectionId, slotId, restored.uuid, {
+      asSpare: role === "spare",
+    });
+  });
+};
+
+/**
  * Undo/redo a "Deleted" item change. undone=false restores the snapshot at idx;
  * undone=true re-removes the item (by itemKey when present). Persists + re-renders.
  * @param {Object} entry - changeLog entry with field "Deleted"
@@ -704,6 +718,7 @@ const _undoItemDeleted = (entry) => {
     if (restored.serial) {
       catalogMap[restored.serial] = restored.numistaId || "";
     }
+    _relinkDeletedItem(restored, entry.collectionLinks);
     entry.undone = true;
   }
   _finalizeInventoryUndo(true);
@@ -1017,9 +1032,9 @@ const clearChangeLog = async () => {
   const confirmed =
     typeof showAppConfirm === "function"
       ? await showAppConfirm(
-          "Delete every Change Log entry? You cannot undo this.",
-          "Clear Change Log",
-          { confirmLabel: "Clear Change Log", danger: true }
+          "Delete every Activity Log entry? You cannot undo this.",
+          "Clear Activity Log",
+          { confirmLabel: "Clear Activity Log", danger: true }
         )
       : false;
   if (!confirmed) return;

@@ -42,9 +42,9 @@ _Avoid_: trade reference, swap link
 Disposing of fewer than all units in a multi-quantity Item, splitting the original record into disposed and remaining portions.
 _Avoid_: partial sale, split, partial disposal
 
-**Change Log**:
-A persistent, undoable history of every field-level modification to any Item. Stored in localStorage as a compressed array.
-_Avoid_: audit log, edit history, activity log
+**Activity Log**:
+A persistent, undoable history of every field-level modification to any Item. Stored in localStorage as a compressed array under the `changeLog` key. The modal, the Settings panel, the Remove Item link and the clear confirm all use this name.
+_Avoid_: Change Log, audit log, edit history
 
 ## Market Data & Pricing
 
@@ -215,7 +215,7 @@ _Avoid_: feature toggle, experiment, beta flag
 - A **Spot Provider** feeds **Spot Prices** into the system. Only one provider is active at a time.
 - A **Catalog Provider** enriches an **Item** with **Numista Data** (or PCGS data).
 - The **Dual Config Store** separates **Spot Provider** credentials from **Catalog Provider** credentials.
-- The **Change Log** records every field-level mutation on every **Item**.
+- The **Activity Log** records every field-level mutation on every **Item**.
 - A **Numista ID** identifies a catalog type (spanning years); an **Item Instance** is `Numista ID + year + grade + certNumber`. The **Item Identity Key** encodes that instance identity in its tertiary tier.
 - A **Collection** has many **Slots**; a **Slot** links one primary **Item** and up to three **Spares**, by Item UUID. The links belong to the Collection: an Item carries no Collection field.
 - An **Item** may belong to many **Collections**, but fills at most one **Slot** within any single Collection.

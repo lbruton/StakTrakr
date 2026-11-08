@@ -3879,7 +3879,7 @@ const STORAGE_KEY_LABELS = {
   inventorySerial: { label: "Item Serial Counter", icon: "🔢", category: "Inventory" },
   catalogMap: { label: "Catalog Map", icon: "🗂", category: "Inventory" },
   itemTags: { label: "Item Tags", icon: "🏷", category: "Inventory" },
-  changeLog: { label: "Change Log", icon: "📝", category: "Inventory" },
+  changeLog: { label: "Activity Log", icon: "📝", category: "Inventory" },
   metalSpotHistory: {
     label: "Spot Price History (IndexedDB — localStorage fallback)",
     icon: "📈",
