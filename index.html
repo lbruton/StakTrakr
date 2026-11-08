@@ -3667,8 +3667,8 @@
         </div>
         <div class="settings-modal-layout">
           <!-- Sidebar Navigation -->
-          <nav class="settings-sidebar">
-            <button class="settings-nav-item active" data-section="about">
+          <nav class="settings-sidebar" aria-label="Settings sections">
+            <button class="settings-nav-item active" data-section="about" aria-current="page">
               <svg viewBox="0 0 512 512" width="16" height="16" fill="none">
                 <rect width="512" height="512" rx="96" fill="#0f1729" />
                 <rect
@@ -3921,6 +3921,7 @@
           <div class="settings-content-area">
             <!-- ===== ABOUT PANEL ===== -->
             <div class="settings-section-panel" id="settingsPanel_about" style="display: block">
+              <h3 class="sr-only">About StakTrakr</h3>
               <!-- Hero -->
               <div class="about-hero layout-left">
                 <div class="about-logo-wrap">
@@ -4352,7 +4353,7 @@
               <div class="settings-fieldset">
                 <div class="settings-display-grid settings-display-grid-narrow">
                   <div style="display: flex; flex-direction: column; gap: 0.35rem">
-                    <div class="settings-group-label">Timezone</div>
+                    <label class="settings-group-label" for="settingsTimezone">Timezone</label>
                     <select id="settingsTimezone" class="form-control">
                       <option value="auto">Auto</option>
                       <option value="UTC">UTC</option>
@@ -4378,7 +4379,9 @@
                     </select>
                   </div>
                   <div style="display: flex; flex-direction: column; gap: 0.35rem">
-                    <div class="settings-group-label">Default Sort</div>
+                    <label class="settings-group-label" for="settingsDefaultSortColumn"
+                      >Default Sort</label
+                    >
                     <div style="display: flex; gap: 0.5rem; align-items: center">
                       <select id="settingsDefaultSortColumn" style="flex: 1">
                         <option value="0">Date</option>
@@ -4425,7 +4428,9 @@
                     </div>
                   </div>
                   <div style="display: flex; flex-direction: column; gap: 0.35rem">
-                    <div class="settings-group-label">Visible Items</div>
+                    <label class="settings-group-label" for="settingsItemsPerPage"
+                      >Visible Items</label
+                    >
                     <select id="settingsItemsPerPage">
                       <option value="3">3</option>
                       <option value="6">6</option>
@@ -4620,7 +4625,9 @@
               </div>
 
               <div class="settings-group">
-                <div class="settings-group-label">Filter chip threshold</div>
+                <label class="settings-group-label" for="settingsChipMinCount"
+                  >Filter chip threshold</label
+                >
                 <p class="settings-subtext">Minimum item count for a filter chip to appear.</p>
                 <select id="settingsChipMinCount">
                   <option value="2">2+</option>
@@ -4632,7 +4639,9 @@
               </div>
 
               <div class="settings-group">
-                <div class="settings-group-label">Filter chip max count</div>
+                <label class="settings-group-label" for="settingsChipMaxCount"
+                  >Filter chip max count</label
+                >
                 <p class="settings-subtext">
                   Maximum number of filter chips to display. All = no limit.
                 </p>
@@ -4705,7 +4714,11 @@
                   Suppressed auto-generated chips. Right-click any name chip to add it here.
                 </p>
                 <div class="chip-grouping-controls">
-                  <select id="blacklistInput" class="chip-grouping-input">
+                  <select
+                    id="blacklistInput"
+                    class="chip-grouping-input"
+                    aria-label="Chip to suppress"
+                  >
                     <option value="">Select a chip to suppress…</option>
                   </select>
                   <button type="button" class="btn" id="addBlacklistBtn">Add</button>
@@ -4726,12 +4739,14 @@
                     id="customGroupLabelInput"
                     class="chip-grouping-input"
                     placeholder="Chip label"
+                    aria-label="Chip label"
                   />
                   <input
                     type="text"
                     id="customGroupPatternsInput"
                     class="chip-grouping-input-wide"
                     placeholder="Patterns (comma-separated)"
+                    aria-label="Patterns (comma-separated)"
                   />
                   <button type="button" class="btn" id="addCustomGroupBtn">Add Rule</button>
                 </div>
@@ -4743,6 +4758,7 @@
 
             <!-- ===== API ===== -->
             <div class="settings-section-panel" id="settingsPanel_api" style="display: none">
+              <h3>API Providers</h3>
               <section class="settings-fieldset" id="apiSection_market"></section>
               <section class="settings-fieldset" id="apiSection_spot"></section>
               <section class="settings-fieldset" id="apiSection_catalog"></section>
@@ -4793,7 +4809,11 @@
                     <div class="pattern-rule-form-row">
                       <div class="pattern-rule-field">
                         <label for="patternRulePattern">Name Pattern</label>
-                        <div class="chip-sort-toggle pattern-mode-toggle" id="patternModeToggle">
+                        <div
+                          class="chip-sort-toggle pattern-mode-toggle"
+                          id="patternModeToggle"
+                          aria-label="Name pattern mode"
+                        >
                           <button
                             type="button"
                             id="patternModeKeywords"
@@ -5681,10 +5701,11 @@
 
                   <!-- Backup history depth -->
                   <div class="cloud-history-depth-row cloud-card-divider">
-                    <span
+                    <label
                       class="cloud-status-label"
+                      for="cloudBackupHistoryDepth"
                       title="Number of automatic sync snapshots to retain"
-                      ><strong>Sync history</strong></span
+                      ><strong>Sync history</strong></label
                     >
                     <select id="cloudBackupHistoryDepth">
                       <option value="3">3</option>
@@ -7353,6 +7374,7 @@
             <input
               type="password"
               id="syncPasswordInput"
+              aria-label="Vault password"
               placeholder="Vault password"
               autocomplete="current-password"
               style="width: 100%"

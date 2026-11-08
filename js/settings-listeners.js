@@ -27,6 +27,11 @@ const bindSettingsNavigationListeners = () => {
       switchSettingsSection(item.dataset.section);
     });
   });
+  document
+    .querySelector(".settings-sidebar")
+    ?.addEventListener("keydown", handleSettingsNavKeydown);
+  initSettingsPanelSemantics();
+  initSettingsChipSemantics();
 
   // Log sub-tabs.
   document.querySelectorAll("[data-log-tab]").forEach((tab) => {

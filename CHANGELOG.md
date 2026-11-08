@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.127] - 2026-11-08
+
+### Changed — STRK-550: Settings control semantics
+
+- **Names**: Every Settings dropdown, the Market filter checkboxes (named vendor, product) and the vault password field have an accessible name. Group labels for the dropdowns are real labels (STRK-550).
+- **On/Off groups**: Each chip group has a group role and a name, and its buttons report `aria-pressed` that follows the active chip (STRK-550).
+- **Navigation**: The Settings menu is a labelled navigation, marks the current section with `aria-current`, and moves focus with the Up and Down keys (STRK-550).
+- **Headings**: Each Settings panel is a region labelled by its heading. The About and API panels gain a heading, and fieldset titles are headings (STRK-550).
+
 ## [3.36.126] - 2026-11-08
 
 ### Fixed — STRK-573: Cloud backup list rows overlap
