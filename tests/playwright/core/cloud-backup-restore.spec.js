@@ -146,19 +146,24 @@ async function countKeyDerivations(page) {
  * @returns {Promise<object>} Live counters and the hold controls
  */
 async function routeUnreadableSyncVault(page) {
-  const state = { downloads: 0, uploads: 0, holdNext: false, held: null, release: () => {} };
+  const state = { downloads: 0, uploads: 0, holdPath: null, held: null, release: () => {} };
+  /** Hold the next download of `path` until `release()` runs. */
+  state.hold = (path) => {
+    state.holdPath = path;
+    state.held = null;
+  };
   await page.route("https://content.dropboxapi.com/2/files/download", async (route) => {
     const arg = JSON.parse(route.request().headers()["dropbox-api-arg"] || "{}");
-    if (arg.path !== "/StakTrakr/sync/staktrakr-sync.stvault") {
-      await route.fulfill({ status: 409, body: "{}" });
-      return;
-    }
-    if (state.holdNext) {
-      state.holdNext = false;
+    if (arg.path === state.holdPath) {
+      state.holdPath = null;
       state.held = new Promise((resolve) => {
         state.release = resolve;
       });
       await state.held;
+    }
+    if (arg.path !== SYNC_VAULT_PATH) {
+      await route.fulfill({ status: 409, body: "{}" });
+      return;
     }
     state.downloads++;
     await route.fulfill({
@@ -173,6 +178,9 @@ async function routeUnreadableSyncVault(page) {
   });
   return state;
 }
+
+const SYNC_VAULT_PATH = "/StakTrakr/sync/staktrakr-sync.stvault";
+const SYNC_META_PATH = "/StakTrakr/sync/staktrakr-sync.json";
 
 /** Open the Restore Preview failure modal through a real pull of the unreadable vault. */
 async function openFailedPreview(page) {
@@ -368,7 +376,7 @@ test.describe("core/cloud-backup-restore", () => {
     expect(await page.evaluate(() => window.__fallbackCalls)).toEqual(["preview-fail"]);
 
     await openFailedPreview(page);
-    vault.holdNext = true;
+    vault.hold(SYNC_VAULT_PATH);
     await page.evaluate(() => {
       window.__secondPull = window.pullWithPreview({
         syncId: "preview-fail",
@@ -392,23 +400,40 @@ test.describe("core/cloud-backup-restore", () => {
     expect(await page.evaluate(() => window.__fallbackCalls)).toEqual(["preview-fail"]);
   });
 
-  test("a push queued during Try again waits for the retry download", async ({ page }) => {
+  test("Try again holds pushes until the retry download finishes, then runs the held push", async ({
+    page,
+  }) => {
     await seedConnectedDevice(page, VAULT_PHRASE);
     await bootApp(page);
     const vault = await routeUnreadableSyncVault(page);
     await openFailedPreview(page);
+    await page.evaluate(() => localStorage.setItem("cloud_sync_enabled", "true"));
+
+    // A push that is already running keeps the modal open.
+    vault.hold(SYNC_META_PATH);
+    await page.evaluate(() => {
+      window.__runningPush = window.pushSyncVault();
+    });
+    await expect.poll(() => vault.held !== null).toBe(true);
+    await page.locator("#restorePreviewApplyBtn").click();
+    await expect(page.locator("#restorePreviewError")).toHaveText(
+      "A sync check is still running. Try again when it finishes."
+    );
+    vault.release();
+    await page.evaluate(() => window.__runningPush);
+    const uploadsBeforeRetry = vault.uploads;
+
     // Queue the push and click in one step so the debounce cannot fire first.
     await page.evaluate(() => {
-      localStorage.setItem("cloud_sync_enabled", "true");
       window.scheduleSyncPush();
       window.__pushQueuedAt = Date.now();
       document.getElementById("restorePreviewApplyBtn").click();
     });
     await expect(page.locator("#cloudSyncPasswordModal")).toBeVisible();
     await page.evaluate(() => window.pushSyncVault());
-    expect(vault.uploads).toBe(0);
+    expect(vault.uploads).toBe(uploadsBeforeRetry);
 
-    vault.holdNext = true;
+    vault.hold(SYNC_VAULT_PATH);
     await page.locator("#syncPasswordInput").fill(VAULT_PHRASE);
     await page.locator("#syncPasswordConfirmBtn").click();
     await expect.poll(() => vault.held !== null).toBe(true);
@@ -416,12 +441,13 @@ test.describe("core/cloud-backup-restore", () => {
     await page.waitForFunction(
       () => Date.now() - window.__pushQueuedAt > window.SYNC_PUSH_DEBOUNCE + 500
     );
-    expect(vault.uploads).toBe(0);
+    expect(vault.uploads).toBe(uploadsBeforeRetry);
 
     const downloadsBeforeRelease = vault.downloads;
     vault.release();
     await expect.poll(() => vault.downloads).toBe(downloadsBeforeRelease + 1);
     await expect(page.locator("#restorePreviewModal")).toBeVisible();
-    expect(vault.uploads).toBe(0);
+    expect(vault.uploads).toBe(uploadsBeforeRetry);
+    await expect.poll(() => vault.uploads, { timeout: 10000 }).toBeGreaterThan(uploadsBeforeRetry);
   });
 });

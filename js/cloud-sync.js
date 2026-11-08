@@ -74,6 +74,30 @@ var _previewPullInFlight = false;
  */
 var _restorePreviewRetryActive = false;
 
+/** @type {boolean} true when the Restore Preview retry cancelled or deferred a push. */
+var _restorePreviewRetryPushHeld = false;
+
+/** Hold pushes for a Restore Preview retry and cancel a queued push. */
+function _holdSyncPushForRetry() {
+  _restorePreviewRetryActive = true;
+  _restorePreviewRetryPushHeld = false;
+  if (typeof scheduleSyncPush !== "function" || typeof scheduleSyncPush.cancel !== "function") {
+    return;
+  }
+  // A wrapper without pending() cannot report a queued push, so treat one as held.
+  var queued = typeof scheduleSyncPush.pending !== "function" || scheduleSyncPush.pending();
+  scheduleSyncPush.cancel();
+  if (queued) _restorePreviewRetryPushHeld = true;
+}
+
+/** End the Restore Preview retry hold and queue the push it held, if any. */
+function _releaseSyncPushAfterRetry() {
+  _restorePreviewRetryActive = false;
+  var held = _restorePreviewRetryPushHeld;
+  _restorePreviewRetryPushHeld = false;
+  if (held && syncIsEnabled() && typeof scheduleSyncPush === "function") scheduleSyncPush();
+}
+
 // ---------------------------------------------------------------------------
 // Device identity
 // ---------------------------------------------------------------------------
@@ -1700,6 +1724,7 @@ async function pushSyncVault() {
 
   if (_restorePreviewRetryActive) {
     debugLog("[CloudSync] Restore Preview retry in progress — push deferred");
+    _restorePreviewRetryPushHeld = true;
     return;
   }
 
@@ -4956,16 +4981,14 @@ function _showRestorePreviewFailure(remoteMeta) {
     modal.style.display = "none";
   };
   retryBtn.onclick = function () {
-    // pullWithPreview drops a call while another pull runs, so keep the modal open.
-    if (_previewPullInFlight) {
+    // pullWithPreview drops a call while another pull runs, and a running push can
+    // replace the vault before the retry reads it, so keep the modal open.
+    if (_previewPullInFlight || _syncPushInFlight) {
       errorEl.textContent = "A sync check is still running. Try again when it finishes.";
       return;
     }
     close();
-    _restorePreviewRetryActive = true;
-    if (typeof scheduleSyncPush === "function" && typeof scheduleSyncPush.cancel === "function") {
-      scheduleSyncPush.cancel();
-    }
+    _holdSyncPushForRetry();
     // Ask for the password again: a wrong saved password fails the same way on every retry.
     getSyncPassword(true)
       .then(function (password) {
@@ -4974,9 +4997,7 @@ function _showRestorePreviewFailure(remoteMeta) {
       .catch(function (err) {
         debugLog("[CloudSync] Restore Preview retry failed:", err);
       })
-      .finally(function () {
-        _restorePreviewRetryActive = false;
-      });
+      .finally(_releaseSyncPushAfterRetry);
   };
   fallbackBtn.onclick = function () {
     close();
