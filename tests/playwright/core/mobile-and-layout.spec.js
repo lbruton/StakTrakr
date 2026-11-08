@@ -4,6 +4,7 @@ import { installStakTrakrNetworkMocks } from "../helpers/mocks/routes.js";
 import { readPhoneFloors } from "../helpers/phone-floors.js";
 import { showSampleDiffReview } from "../helpers/diff-review.js";
 import { readHorizontalOverflow } from "../helpers/horizontal-overflow.js";
+import { readSegmentCorners, SEGMENT_THEMES } from "../helpers/segment-corners.js";
 
 const SETTINGS_TABS = [
   "site",
@@ -130,6 +131,26 @@ async function findRuleCssText(page, selector) {
 }
 
 test.describe("core/mobile-and-layout", () => {
+  test("the Purchase Price Lot/Each toggle keeps the group's outer corners at 390 in every theme", async ({
+    page,
+  }) => {
+    test.setTimeout(test.info().timeout * SEGMENT_THEMES.length);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await seedInventory(page);
+    await gotoApp(page);
+    await openEditModal(page);
+    for (const theme of SEGMENT_THEMES) {
+      await test.step(theme, async () => {
+        await applyTheme(page, theme);
+        const groups = await readSegmentCorners(page, "#purchasePriceModeToggle");
+        expect(groups).toHaveLength(1);
+        expect(groups[0].overflow).toBe("visible");
+        expect(groups[0].first).toEqual([groups[0].radius - 1, groups[0].radius - 1]);
+        expect(groups[0].last).toEqual([groups[0].radius - 1, groups[0].radius - 1]);
+      });
+    }
+  });
+
   test("bulk editor opens on mobile and exposes catalog/capsule fields without raw JSON columns", async ({
     page,
   }) => {

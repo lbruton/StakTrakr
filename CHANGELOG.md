@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.134] - 2026-11-08
+
+### Changed — STRK-578: Segmented toggle corners
+
+- **Segmented toggles**: At 768px and narrower, the first and last segment of each segmented toggle round their outer corners to match the group border. The slot filter, the sort control, the view toggle and the Purchase Price Lot/Each toggle no longer show square corners (STRK-578).
+
 ## [3.36.133] - 2026-11-08
 
 ### Changed — STRK-577: Album toolbar and actions row
