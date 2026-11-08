@@ -7951,7 +7951,7 @@ td input:checked + .slider:before {
   display: inline-flex;
   align-items: center;
   cursor: pointer;
-  color: rgba(255, 255, 255, 0.35); /* gray — never verified */
+  color: var(--text-muted);
   transition: var(--transition);
   padding: 0.15rem;
   border-radius: 50%;
@@ -7974,23 +7974,22 @@ td input:checked + .slider:before {
   color: var(--danger-text);
 }
 .view-cert-verify:hover {
-  color: color-mix(in oklch, var(--text-inverse), transparent 30%);
-  background: color-mix(in oklch, var(--text-inverse), transparent 90%);
+  color: var(--text-secondary);
+  background: var(--bg-tertiary);
 }
 .view-cert-verify.pcgs-verifying {
-  color: color-mix(in oklch, var(--text-inverse), transparent 70%);
+  color: var(--text-muted);
   animation: pcgs-pulse 1s ease-in-out infinite;
 }
-/* The badge sits on the same dark scrim in every theme, so its status colours are fixed. */
 .view-cert-verify.pcgs-verified {
-  color: #86efac;
+  color: var(--success-text);
 }
 .view-cert-verify.pcgs-verified:hover {
-  color: #86efac;
+  color: var(--success-text);
   background: color-mix(in oklch, var(--success), transparent 90%);
 }
 .view-cert-verify.pcgs-verify-failed {
-  color: #fca5a5;
+  color: var(--danger-text);
 }
 
 /* --- Data sections --- */

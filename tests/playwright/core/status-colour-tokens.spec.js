@@ -1027,8 +1027,14 @@ test.describe("Item view image section from theme tokens", () => {
         body: '<svg xmlns="http://www.w3.org/2000/svg" width="80" height="40"><rect width="80" height="40" fill="#999"/></svg>',
       })
     );
-    const item = {
-      ...collectionItem("strk558-pcgs", "PCGS Round", "2024", 1),
+    // A PCGS token enables the verify control inside the chip.
+    await page.addInitScript(() => {
+      localStorage.setItem(
+        "catalog_api_config",
+        JSON.stringify({ pcgs: { bearerToken: "strk558-token" } })
+      );
+    });
+    const cert = {
       gradingAuthority: "PCGS",
       grade: "MS 70",
       pcgsNumber: "1234",
@@ -1037,21 +1043,45 @@ test.describe("Item view image section from theme tokens", () => {
       reverseImageUrl: "https://images.example/frame.svg",
       ignorePatternImages: true,
     };
-    await seedCollectionsPage(page, [item]);
+    const items = [
+      { ...collectionItem("strk558-pcgs", "PCGS Round", "2024", 1), ...cert },
+      {
+        ...collectionItem("strk558-verified", "PCGS Verified Round", "2024", 2),
+        ...cert,
+        pcgsVerified: true,
+      },
+    ];
+    await seedCollectionsPage(page, items);
     await page.waitForFunction(
       () => typeof window.showViewModal === "function" && window.inventory?.length > 0
     );
     await stopTransitions(page);
-    await page.evaluate(() => window.showViewModal(0));
-    await expect(page.locator("#viewItemModal .view-cert-badge")).toBeVisible();
-    await settleAnimations(page);
     const selectors = {
       "OBVERSE and REVERSE labels": "#viewItemModal .view-image-label",
       "PCGS grade chip": "#viewItemModal .view-cert-badge span",
     };
-    for (const theme of THEMES) {
-      await applyTheme(page, theme);
-      expect(await contrastFailures(page, selectors), `${theme} image section`).toEqual([]);
+    for (const [index, state] of [
+      [0, "unverified"],
+      [1, "verified"],
+    ]) {
+      await page.evaluate((i) => window.showViewModal(i), index);
+      await expect(page.locator("#viewItemModal .view-cert-badge")).toBeVisible();
+      await settleAnimations(page);
+      const verify = page.locator("#viewItemModal .view-cert-badge .view-cert-verify");
+      await expect(verify).toHaveCount(1);
+      if (state === "verified") await expect(verify).toHaveClass(/pcgs-verified/);
+      for (const theme of THEMES) {
+        await applyTheme(page, theme);
+        expect(await contrastFailures(page, selectors), `${theme} ${state} image section`).toEqual(
+          []
+        );
+        // The verify icon is non-text, so it needs 3:1 (WCAG 1.4.11), not 4.5:1.
+        const icons = await measureText(page, "#viewItemModal .view-cert-badge .view-cert-verify");
+        for (const icon of icons) {
+          expect(icon.ratio, `${theme} ${state} verify icon`).toBeGreaterThanOrEqual(3);
+        }
+      }
+      await page.evaluate(() => window.closeViewModal());
     }
   });
 });
