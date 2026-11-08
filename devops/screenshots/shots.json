@@ -125,39 +125,33 @@
       "clip": "viewport"
     },
     {
-      "name": "dashboard",
+      "name": "market",
       "set": "release",
       "theme": "dark",
       "viewport": "desktop",
-      "route": "#/dashboard",
-      "target": "#totalsSectionEl",
+      "route": "#/market",
+      "steps": [{ "click": ".vp-tab[data-metal=\"xag\"]" }],
+      "target": "#vendorPricesContainer",
       "clip": "full"
     },
     {
-      "name": "your-stack",
-      "set": "release",
-      "theme": "dark",
-      "viewport": "desktop",
-      "route": "#/dashboard",
-      "target": "#totalsSectionEl",
-      "clip": "element"
-    },
-    {
-      "name": "phone-dashboard",
+      "name": "phone-market",
       "set": "release",
       "theme": "dark",
       "viewport": "mobile",
-      "route": "#/dashboard",
-      "target": "#totalsSectionEl",
+      "route": "#/market",
+      "steps": [{ "click": ".vp-tab[data-metal=\"xag\"]" }],
+      "target": "#vendorPricesContainer",
       "clip": "viewport"
     },
     {
-      "name": "your-stack-sepia",
+      "name": "market-light",
       "set": "release",
-      "theme": "sepia",
+      "theme": "light",
       "viewport": "desktop",
-      "route": "#/dashboard",
-      "target": "#totalsSectionEl",
+      "route": "#/market",
+      "steps": [{ "click": ".vp-tab[data-metal=\"xag\"]" }],
+      "target": "#vendorPricesContainer",
       "clip": "element"
     }
   ]
