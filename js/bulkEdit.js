@@ -563,7 +563,7 @@ const buildBulkItemRow = (item, isPinned, dataColumns) => {
   cbTd.setAttribute("data-column", "cb");
   const cb = document.createElement("input");
   cb.type = "checkbox";
-  cb.setAttribute("aria-label", "Select " + (item.name || "Item " + serial));
+  cb.setAttribute("aria-label", `Select ${item.name || "Item"} (serial ${serial})`);
   cb.checked = isSelected;
   cb.addEventListener("change", () => toggleItemSelection(serial));
   cbTd.appendChild(cb);

@@ -62,16 +62,30 @@ test.describe("modal field accessible names", () => {
     await page.evaluate(() => {
       document.querySelectorAll("#bulkEditModal details").forEach((d) => (d.open = true));
     });
+    await expect(page.locator("#bulkFieldVal_name")).toBeVisible();
     const { total, unnamed } = await findUnnamedControls(page, "#bulkEditModal");
     expect(total).toBeGreaterThan(20);
     expect(unnamed).toEqual([]);
 
-    // A row checkbox names its Item.
+    // Rows that share an Item name stay distinct: the name carries the serial.
     const rowBox = page
       .locator('#bulkEditModal tbody tr[data-serial] input[type="checkbox"]')
       .first();
-    const itemName = await page.evaluate(() => window.inventory[0].name);
-    await expect(rowBox).toHaveAccessibleName(`Select ${itemName}`);
+    const { name, serial } = await page.evaluate(() => window.inventory[0]);
+    await expect(rowBox).toHaveAccessibleName(`Select ${name} (serial ${serial})`);
+
+    // The weight denomination pickers show only for their weight unit.
+    for (const [unit, picker] of [
+      ["gb", "#bulkFieldVal_weightDenom"],
+      ["cu", "#bulkFieldVal_constitutionalVariant"],
+    ]) {
+      await page.locator("#bulkFieldVal_weightUnit").evaluate((el, value) => {
+        el.value = value;
+        el.dispatchEvent(new Event("change", { bubbles: true }));
+      }, unit);
+      await expect(page.locator(picker)).toBeVisible();
+      await expect(page.locator(picker)).not.toHaveAccessibleName("");
+    }
   });
 
   test("PCGS field picker controls each report a non-empty accessible name", async ({ page }) => {
