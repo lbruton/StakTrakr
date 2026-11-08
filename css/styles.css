@@ -19348,10 +19348,10 @@ button.vp-price:hover {
   padding: 7px 2px 6px;
   border-radius: var(--radius);
   cursor: pointer;
-  /* hyphens: auto breaks at syllables where the engine supports it. anywhere is the fallback
-     that keeps a long word such as Collections inside its tab at 32px. */
-  overflow-wrap: anywhere;
-  hyphens: auto;
+  /* Labels break only at the soft hyphens in index.html. break-word splits a word only when no
+     soft hyphen fits, so the break is never mid-syllable unless the tab is narrower than a syllable. */
+  overflow-wrap: break-word;
+  hyphens: manual;
   text-align: center;
 }
 
