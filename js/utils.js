@@ -1735,6 +1735,7 @@ if (typeof window !== "undefined") {
    * @param {{label: string, onClick: Function}} [action] - Optional button; the toast then accepts clicks
    */
   window.showToast = (message, duration = 3000, action = null) => {
+    const delay = Number.isFinite(duration) ? duration : 3000;
     const toast = document.createElement("div");
     toast.className = "cloud-toast";
     const text = document.createElement("span");
@@ -1758,7 +1759,7 @@ if (typeof window !== "undefined") {
       toast.appendChild(button);
     }
     document.body.appendChild(toast);
-    setTimeout(dismiss, duration);
+    setTimeout(dismiss, delay);
   };
 
   window.trapFocus = trapFocus;

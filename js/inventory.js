@@ -1366,7 +1366,11 @@ const _deleteInventoryItem = async (item, idx) => {
   const deletedEntry = changeLog[changeLog.length - 1];
   if (collectionLinks.length) {
     deletedEntry.collectionLinks = collectionLinks;
-    saveDataSync("changeLog", changeLog);
+    try {
+      saveDataSync("changeLog", changeLog);
+    } catch (logErr) {
+      debugLog(`Activity Log write failed — Collection links kept in memory only: ${logErr}`);
+    }
   }
   if (typeof renderChangeLog === "function") renderChangeLog();
   showToast(`Removed ${item.name}.`, 8000, {

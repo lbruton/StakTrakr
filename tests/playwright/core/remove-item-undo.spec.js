@@ -87,6 +87,36 @@ test.describe("core/remove-item-undo", () => {
     expect(slot).toEqual({ primary: "rm-ase-2024", spares: [] });
   });
 
+  test("Redo captures the current links, so a second Undo does not reverse an unlink", async ({
+    page,
+  }) => {
+    await page.evaluate(() => window.collectionsStore.link("ase-type2", "2022", "rm-ase-2022"));
+    await deleteFirstItem(page);
+    await page
+      .locator(".cloud-toast", { hasText: `Removed ${NAME}.` })
+      .getByRole("button", { name: "Undo" })
+      .click();
+    await expect.poll(() => inventoryHas(page, "rm-ase-2022")).toBe(true);
+    await page.evaluate(() => window.collectionsStore.unlink("ase-type2", "2022", "rm-ase-2022"));
+
+    await page.evaluate(() => window.toggleChange(window.changeLog.length - 1));
+    await expect.poll(() => inventoryHas(page, "rm-ase-2022")).toBe(false);
+    await page.evaluate(() => window.toggleChange(window.changeLog.length - 1));
+    await expect.poll(() => inventoryHas(page, "rm-ase-2022")).toBe(true);
+    const slot = await page.evaluate(
+      () => window.collectionsStore.getState().collections["ase-type2"].slots["2022"]
+    );
+    expect(slot?.primary ?? null).toBeNull();
+  });
+
+  test("a toast given an error level keeps the default delay", async ({ page }) => {
+    await page.evaluate(() => window.showToast("Delete failed.", "error"));
+    const toast = page.locator(".cloud-toast", { hasText: "Delete failed." });
+    await expect(toast).toBeVisible();
+    await page.waitForTimeout(500);
+    await expect(toast).not.toHaveClass(/fade-out/);
+  });
+
   test("the Activity Log link lists the removal with its Undo action", async ({ page }) => {
     await deleteFirstItem(page);
     await page.evaluate(() => window.openRemoveItemModal(0, false));
@@ -120,6 +150,9 @@ test.describe("core/remove-item-undo", () => {
     expect(markup).not.toMatch(/>[^<]*change log[^<]*</i);
     await page.evaluate(() => window.openRemoveItemModal(0, false));
     await expect(page.locator("#removeItemOpenLog")).toHaveText("Activity Log");
+    const button = page.locator("#changeLogBtn");
+    await expect(button).toHaveAttribute("title", "Activity Log");
+    await expect(button).toHaveAttribute("aria-label", "Activity Log");
 
     const confirmText = await page.evaluate(async () => {
       let seen = "";
