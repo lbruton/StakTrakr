@@ -134,11 +134,11 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.36.136 &ndash; Bulk Edit and PCGS field names</strong>: Screen readers now announce a name for every field in Bulk Edit and the PCGS field picker. Each value box, the search box, the select-all checkbox and each Item row checkbox says what it controls, and a row checkbox names its Item. The layout does not change (STRK-548).</li>
     <li><strong>v3.36.135 &ndash; Review Changes keyboard access</strong>: In the Review Changes window, the Tab key now reaches every setting choice, including the value pairs, chips, pills, Keep Local and Use Remote. Space and Enter pick a choice, focus stays put after the window redraws, and a ring marks the focused choice. Screen readers hear each choice's role and whether it is picked (STRK-560).</li>
     <li><strong>v3.36.134 &ndash; Segmented toggle corners</strong>: On a phone and tablet, the end segments of a segmented toggle, such as the Album slot filter, the sort control and the Purchase Price Lot/Each toggle, now round their outer corners to match the group border. The square corners that showed inside the rounded edge are gone (STRK-578).</li>
     <li><strong>v3.36.133 &ndash; Album toolbar and actions</strong>: Edit collection, Remove collection and Clone &amp; customize now sit in a row below the Slots instead of in the toolbar. On a phone the toolbar is two tidy rows, the slot filter and then sort with the view toggle, and the actions fill the width at a touch-sized height (STRK-577).</li>
     <li><strong>v3.36.132 &ndash; Phone bottom nav at large text</strong>: The five phone tabs now fit 390px at larger text sizes. Labels wrap to two lines, so Collections and Settings stay on screen and tappable, and Back to top and the page end clear the taller nav (STRK-565).</li>
-    <li><strong>v3.36.131 &ndash; Item image labels and grade chip</strong>: The OBVERSE and REVERSE labels in the Item view and the grade chip over the images now follow the theme, so they read clearly in light and sepia. The grade text uses the chip text colour, and the grading authority colour marks the chip border (STRK-558).</li>
       `;
 };
 

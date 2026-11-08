@@ -521,6 +521,7 @@ const renderPcgsFieldCheckboxes = (result) => {
     cb.type = "checkbox";
     cb.name = "pcgsField";
     cb.value = f.key;
+    cb.setAttribute("aria-label", "Fill " + f.label);
     cb.checked = f.available && !!f.value && f.defaultOn;
     if (!f.value) cb.disabled = true;
 
@@ -534,6 +535,7 @@ const renderPcgsFieldCheckboxes = (result) => {
     input.type = "text";
     input.className = "numista-field-input";
     input.name = "pcgsFieldValue_" + f.key;
+    input.setAttribute("aria-label", f.label + " value");
     input.value = f.value;
     input.placeholder = f.available ? "" : "N/A";
     if (!f.available && !f.value) input.disabled = true;
