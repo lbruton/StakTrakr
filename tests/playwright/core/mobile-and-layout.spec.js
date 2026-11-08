@@ -386,6 +386,61 @@ async function gotoDesktopDashboard(page) {
   await page.goto("/index.html");
 }
 
+/** Scrolls to the page end until Back to top shows; the page grows as the Dashboard renders. */
+async function revealBackToTop(page) {
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        window.scrollTo(0, document.documentElement.scrollHeight);
+        return document.getElementById("backToTopBtn").classList.contains("visible");
+      })
+    )
+    .toBe(true);
+}
+
+/**
+ * Reads a fixed element (the first `selector` match containing `text`) against the
+ * visible bottom-nav tabs and Back to top. Finishes the element's animations first.
+ */
+function readAgainstBottomNav(page, { selector, text = "" }) {
+  return page.evaluate(
+    ({ sel, txt }) => {
+      const el = [...document.querySelectorAll(sel)].find((node) => node.textContent.includes(txt));
+      if (!el) return null;
+      el.getAnimations().forEach((animation) => animation.finish());
+      const box = el.getBoundingClientRect();
+      const overlaps = (r) =>
+        box.left < r.right && r.left < box.right && box.top < r.bottom && r.top < box.bottom;
+      const tabs = [...document.querySelectorAll("#appBottomNav .bottom-nav-btn")].filter(
+        (tab) => tab.getClientRects().length > 0
+      );
+      const backToTop = document.getElementById("backToTopBtn");
+      return {
+        box: {
+          top: box.top,
+          bottom: box.bottom,
+          left: box.left,
+          right: box.right,
+          width: box.width,
+          height: box.height,
+        },
+        viewport: { width: document.documentElement.clientWidth, height: window.innerHeight },
+        tabs: tabs.length,
+        overlapping: tabs.filter((tab) => overlaps(tab.getBoundingClientRect())).length,
+        blocked: tabs
+          .filter((tab) => {
+            const r = tab.getBoundingClientRect();
+            const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+            return !hit || !tab.contains(hit);
+          })
+          .map((tab) => tab.textContent.trim()),
+        overlapsBackToTop: el !== backToTop && overlaps(backToTop.getBoundingClientRect()),
+      };
+    },
+    { sel: selector, txt: text }
+  );
+}
+
 const THEMES = ["light", "dark", "slate", "sepia"];
 
 /** Switches the app theme and waits until the page carries it. */
@@ -1362,16 +1417,6 @@ test.describe("Dashboard at phone width", () => {
   test("Back to top floats clear of the bottom nav on phones and keeps its corner at 1440", async ({
     page,
   }) => {
-    // Scrolls on every poll: the page grows as the Dashboard renders.
-    const showBackToTop = () =>
-      expect
-        .poll(() =>
-          page.evaluate(() => {
-            window.scrollTo(0, document.documentElement.scrollHeight);
-            return document.getElementById("backToTopBtn").classList.contains("visible");
-          })
-        )
-        .toBe(true);
     for (const [width, height] of [
       [390, 844],
       [768, 1024],
@@ -1380,37 +1425,37 @@ test.describe("Dashboard at phone width", () => {
         await page.goto("about:blank");
         await gotoPhoneDashboard(page, { width });
         await page.setViewportSize({ width, height });
-        await showBackToTop();
-        const read = () =>
-          page.evaluate(() => {
-            const btn = document.getElementById("backToTopBtn").getBoundingClientRect();
-            const overlaps = (r) =>
-              btn.left < r.right && r.left < btn.right && btn.top < r.bottom && r.top < btn.bottom;
-            const tabs = [...document.querySelectorAll("#appBottomNav .bottom-nav-btn")].filter(
-              (el) => el.getClientRects().length > 0
-            );
-            return {
-              tabs: tabs.length,
-              overlapping: tabs.filter((el) => overlaps(el.getBoundingClientRect())).length,
-              blocked: tabs
-                .filter((el) => {
-                  const r = el.getBoundingClientRect();
-                  const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
-                  return !hit || !el.contains(hit);
-                })
-                .map((el) => el.textContent.trim()),
-              size: Math.min(btn.width, btn.height) >= 44,
-              onScreen: btn.top >= 0 && btn.bottom <= window.innerHeight,
-            };
+        await revealBackToTop(page);
+        const read = async () => {
+          const r = await readAgainstBottomNav(page, { selector: "#backToTopBtn" });
+          return {
+            tabs: r.tabs,
+            overlapping: r.overlapping,
+            blocked: r.blocked,
+            size: Math.min(r.box.width, r.box.height) >= 44,
+            onScreen: r.box.top >= 0 && r.box.bottom <= r.viewport.height,
+          };
+        };
+        // Larger roots grow the nav. Above 20px the tab row overflows 390px and the
+        // last tabs leave the screen, so tab taps are checked up to 20px only.
+        for (const [rootSize, tapsChecked] of [
+          ["", true],
+          ["20px", true],
+          ["32px", false],
+        ]) {
+          await page.evaluate((size) => {
+            document.documentElement.style.fontSize = size;
+          }, rootSize);
+          await revealBackToTop(page);
+          await expect.poll(read, { message: `root font ${rootSize || "default"}` }).toEqual({
+            tabs: expect.any(Number),
+            overlapping: 0,
+            blocked: tapsChecked ? [] : expect.any(Array),
+            size: true,
+            onScreen: true,
           });
-        await expect.poll(read).toEqual({
-          tabs: expect.any(Number),
-          overlapping: 0,
-          blocked: [],
-          size: true,
-          onScreen: true,
-        });
-        expect((await read()).tabs).toBeGreaterThanOrEqual(4);
+          expect((await read()).tabs).toBeGreaterThanOrEqual(4);
+        }
       });
     }
 
@@ -1424,6 +1469,82 @@ test.describe("Dashboard at phone width", () => {
           return [s.bottom, s.right, s.width, s.height];
         })
       ).toEqual(["32px", "32px", "40px", "40px"]);
+    });
+  });
+
+  test("toasts sit above the bottom nav and Back to top on phones and keep their corner at 1440", async ({
+    page,
+  }) => {
+    const toasts = [
+      {
+        name: "message toast",
+        target: { selector: ".cloud-toast", text: "Phone toast check" },
+        show: () => window.showToast("Phone toast check", 5000),
+      },
+      {
+        name: "What's New card",
+        target: { selector: ".whats-new-toast-card", text: "What’s New" },
+        show: () => window.showWhatsNewPopup(),
+      },
+    ];
+    const removeToasts = () =>
+      page.evaluate(() =>
+        document
+          .querySelectorAll(".cloud-toast, .whats-new-toast-card")
+          .forEach((el) => el.remove())
+      );
+
+    for (const [width, height] of [
+      [390, 844],
+      [768, 1024],
+    ]) {
+      await test.step(`${width}x${height}`, async () => {
+        await page.goto("about:blank");
+        await gotoPhoneDashboard(page, { width });
+        await page.setViewportSize({ width, height });
+        await revealBackToTop(page);
+        for (const toast of toasts) {
+          await removeToasts();
+          await page.evaluate(toast.show);
+          const read = async () => {
+            const r = await readAgainstBottomNav(page, toast.target);
+            if (!r) return null;
+            return {
+              overlapping: r.overlapping,
+              blocked: r.blocked,
+              overlapsBackToTop: r.overlapsBackToTop,
+              inGutters:
+                Math.round(r.box.left) >= 16 &&
+                Math.round(r.viewport.width - r.box.right) >= 16 &&
+                r.box.top >= 0,
+            };
+          };
+          await expect.poll(read, { message: toast.name }).toEqual({
+            overlapping: 0,
+            blocked: [],
+            overlapsBackToTop: false,
+            inGutters: true,
+          });
+        }
+        await removeToasts();
+      });
+    }
+
+    await test.step("1440x900", async () => {
+      await page.goto("about:blank");
+      await gotoDesktopDashboard(page);
+      for (const toast of toasts) {
+        await removeToasts();
+        await page.evaluate(toast.show);
+        const corner = page.locator(toast.target.selector, { hasText: toast.target.text });
+        expect(
+          await corner.evaluate((el) => {
+            const s = getComputedStyle(el);
+            return [s.bottom, s.right];
+          }),
+          toast.name
+        ).toEqual(["24px", "24px"]);
+      }
     });
   });
 
