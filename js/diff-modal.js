@@ -360,8 +360,11 @@
   /** Identify the focused setting choice so a re-render can focus its replacement. */
   function _captureChoiceFocus(container) {
     var active = document.activeElement;
-    if (!active || !container.contains(active) || !active.hasAttribute("data-side")) return null;
+    if (!active || !container.contains(active)) return null;
+    if (!active.hasAttribute("data-side") && !active.hasAttribute("data-settings-bulk"))
+      return null;
     return {
+      settingsBulk: active.getAttribute("data-settings-bulk"),
       field: active.getAttribute("data-field"),
       resolution: active.getAttribute("data-setting-resolution"),
       bulk: active.getAttribute("data-cat-bulk"),
@@ -372,9 +375,10 @@
   /** Focus the rebuilt setting choice that matches a {@link _captureChoiceFocus} result. */
   function _restoreChoiceFocus(container, spec) {
     if (!spec) return;
-    var nodes = container.querySelectorAll("[data-side]");
+    var nodes = container.querySelectorAll("[data-side], [data-settings-bulk]");
     for (var n = 0; n < nodes.length; n++) {
       if (
+        nodes[n].getAttribute("data-settings-bulk") === spec.settingsBulk &&
         nodes[n].getAttribute("data-field") === spec.field &&
         nodes[n].getAttribute("data-setting-resolution") === spec.resolution &&
         nodes[n].getAttribute("data-cat-bulk") === spec.bulk &&

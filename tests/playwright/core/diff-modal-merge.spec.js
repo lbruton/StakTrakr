@@ -749,6 +749,14 @@ test.describe("DiffModal setting choices by keyboard", () => {
     await expect(remote).toHaveAttribute("aria-checked", "false");
   });
 
+  test("Keep All Local keeps focus after the settings redraw", async ({ page }) => {
+    await openKeyboardDiffReview(page);
+    const keepAll = page.locator(`${MODAL} [data-settings-bulk="local"]`);
+    await keepAll.focus();
+    await page.keyboard.press("Enter");
+    await expect(keepAll).toBeFocused();
+  });
+
   test("a choice in the expanded overflow keeps focus after the re-render", async ({ page }) => {
     const names = Array.from({ length: 20 }, (_, i) => "p" + String(i).padStart(2, "0"));
     await page.evaluate((keys) => {
