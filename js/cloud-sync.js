@@ -68,6 +68,12 @@ var _previewPullMeta = null;
  */
 var _previewPullInFlight = false;
 
+/**
+ * @type {boolean} true from a Restore Preview Try again click until its retry pull settles.
+ * pushSyncVault defers while it is set, so a queued push cannot overwrite the vault being retried.
+ */
+var _restorePreviewRetryActive = false;
+
 // ---------------------------------------------------------------------------
 // Device identity
 // ---------------------------------------------------------------------------
@@ -1689,6 +1695,11 @@ async function pushSyncVault() {
 
   if (_syncRemoteChangeActive) {
     console.warn("[CloudSync] Remote change handling in progress — push deferred");
+    return;
+  }
+
+  if (_restorePreviewRetryActive) {
+    debugLog("[CloudSync] Restore Preview retry in progress — push deferred");
     return;
   }
 
@@ -4951,10 +4962,21 @@ function _showRestorePreviewFailure(remoteMeta) {
       return;
     }
     close();
+    _restorePreviewRetryActive = true;
+    if (typeof scheduleSyncPush === "function" && typeof scheduleSyncPush.cancel === "function") {
+      scheduleSyncPush.cancel();
+    }
     // Ask for the password again: a wrong saved password fails the same way on every retry.
-    getSyncPassword(true).then(function (password) {
-      if (password) pullWithPreview(remoteMeta);
-    });
+    getSyncPassword(true)
+      .then(function (password) {
+        if (password) return pullWithPreview(remoteMeta);
+      })
+      .catch(function (err) {
+        debugLog("[CloudSync] Restore Preview retry failed:", err);
+      })
+      .finally(function () {
+        _restorePreviewRetryActive = false;
+      });
   };
   fallbackBtn.onclick = function () {
     close();
@@ -6076,9 +6098,11 @@ async function pullWithPreview(remoteMeta) {
       }
     } catch (decryptErr) {
       debugLog("[CloudSync] Preview decryption failed:", decryptErr.message);
-      if (!_showRestorePreviewFailure(remoteMeta)) {
-        await pullSyncVault(remoteMeta);
+      if (_showRestorePreviewFailure(remoteMeta)) {
+        updateSyncStatusIndicator("error", "Could not read backup");
+        return;
       }
+      await pullSyncVault(remoteMeta);
     }
 
     updateSyncStatusIndicator("idle", "just now");

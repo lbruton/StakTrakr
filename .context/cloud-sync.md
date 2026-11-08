@@ -312,6 +312,8 @@ The guard `typeof ALLOWED_STORAGE_KEYS !== 'undefined'` is **intentional defensi
 
 `scheduleSyncPush` is a debounced (2000ms) wrapper around `pushSyncVault`, exposed on `window` so `saveInventory()` can call it. Every public sync entry point (`initCloudSync`, `pushSyncVault`, `pullSyncVault`, `pollForRemoteChanges`, `scheduleSyncPush`) checks `window._initFailed` as its first guard and returns early with a console warning if true.
 
+`pushSyncVault()` also defers while `_restorePreviewRetryActive` is set. The Restore Preview Try again handler in `_showRestorePreviewFailure()` sets it, cancels `scheduleSyncPush`, and clears it when the password prompt is cancelled or the retried `pullWithPreview()` settles. A backup that cannot be read leaves the status indicator at "Could not read backup".
+
 `SYNC_SCOPE_KEYS` defines what auto-sync includes: inventory, item tags, tag tombstones (`itemRemovedTags`), per-item tag timestamps (`itemTagsLastModified`), the item-price-history clear watermark (`itemPriceHistoryClearedAt`). It also includes display preferences, `chipMinCount`, `metalApiConfig` (spot provider keys), and the added `catalog_api_config` (Numista/PCGS keys). Auto-sync intentionally excludes OAuth tokens, spot price history, and device-specific state.
 
 **Volatile-subfield exclusion (v3.35.81; extended v3.35.82):** **two** synced blobs carry per-device usage counters alongside credentials, and both are stripped before change detection.

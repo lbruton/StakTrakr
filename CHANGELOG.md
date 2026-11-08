@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.124] - 2026-11-07
+
+### Fixed — STRK-566: Restore Preview Try again races a queued push
+
+- **Try again**: Pending and new pushes wait until the retried Restore Preview download finishes, so a push from this device cannot replace the backup that is being read (STRK-566).
+- **Sync status**: A backup that cannot be read shows "Could not read backup" in the sync status instead of "just now" (STRK-566).
+
 ## [3.36.123] - 2026-11-07
 
 ### Fixed — STRK-563: Toasts cover the bottom nav and Back to top on phones

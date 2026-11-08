@@ -139,6 +139,49 @@ async function countKeyDerivations(page) {
   });
 }
 
+/**
+ * Serve an unreadable sync vault and count vault downloads and uploads.
+ * Set `holdNext` to make the next vault download wait until `release()` runs.
+ * @param {import('@playwright/test').Page} page - Page to route
+ * @returns {Promise<object>} Live counters and the hold controls
+ */
+async function routeUnreadableSyncVault(page) {
+  const state = { downloads: 0, uploads: 0, holdNext: false, held: null, release: () => {} };
+  await page.route("https://content.dropboxapi.com/2/files/download", async (route) => {
+    const arg = JSON.parse(route.request().headers()["dropbox-api-arg"] || "{}");
+    if (arg.path !== "/StakTrakr/sync/staktrakr-sync.stvault") {
+      await route.fulfill({ status: 409, body: "{}" });
+      return;
+    }
+    if (state.holdNext) {
+      state.holdNext = false;
+      state.held = new Promise((resolve) => {
+        state.release = resolve;
+      });
+      await state.held;
+    }
+    state.downloads++;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/octet-stream",
+      body: Buffer.from("not a vault file, so decryption fails"),
+    });
+  });
+  await page.route("https://content.dropboxapi.com/2/files/upload", async (route) => {
+    state.uploads++;
+    await route.fulfill({ status: 200, contentType: "application/json", body: "{}" });
+  });
+  return state;
+}
+
+/** Open the Restore Preview failure modal through a real pull of the unreadable vault. */
+async function openFailedPreview(page) {
+  await page.evaluate(() =>
+    window.pullWithPreview({ syncId: "preview-fail", deviceId: "other-device", timestamp: 1 })
+  );
+  await expect(page.locator("#restorePreviewModal")).toBeVisible();
+}
+
 async function submitVaultPassword(page, password) {
   await expect(page.locator("#vaultModal")).toBeVisible();
   await page.locator("#vaultPassword").fill(password);
@@ -274,24 +317,12 @@ test.describe("core/cloud-backup-restore", () => {
   }) => {
     await seedConnectedDevice(page, VAULT_PHRASE);
     await bootApp(page);
-    await page.route("https://content.dropboxapi.com/2/files/download", async (route) => {
-      const arg = JSON.parse(route.request().headers()["dropbox-api-arg"] || "{}");
-      if (arg.path === "/StakTrakr/sync/staktrakr-sync.stvault") {
-        await route.fulfill({
-          status: 200,
-          contentType: "application/octet-stream",
-          body: Buffer.from("not a vault file, so decryption fails"),
-        });
-        return;
-      }
-      await route.fulfill({ status: 409, body: "{}" });
-    });
-    const openFailedPreview = () =>
-      page.evaluate(() =>
-        window.pullWithPreview({ syncId: "preview-fail", deviceId: "other-device", timestamp: 1 })
-      );
+    const vault = await routeUnreadableSyncVault(page);
 
-    await openFailedPreview();
+    await openFailedPreview(page);
+    await expect(page.locator("#cloudAutoSyncStatus .cloud-sync-status-text")).toHaveText(
+      "Could not read backup"
+    );
     const modal = page.locator("#restorePreviewModal");
     await expect(modal).toBeVisible();
     await expect(page.locator("#restorePreviewError")).toHaveText(
@@ -331,26 +362,66 @@ test.describe("core/cloud-backup-restore", () => {
     await page.evaluate(() => {
       window.pullWithPreview = window.__realPullWithPreview;
     });
-    await openFailedPreview();
-    await expect(modal).toBeVisible();
+    await openFailedPreview(page);
     await page.locator("#restorePreviewFallbackBtn").click();
     await expect(modal).toBeHidden();
     expect(await page.evaluate(() => window.__fallbackCalls)).toEqual(["preview-fail"]);
 
-    await openFailedPreview();
+    await openFailedPreview(page);
+    vault.holdNext = true;
     await page.evaluate(() => {
-      window._previewPullInFlight = true;
+      window.__secondPull = window.pullWithPreview({
+        syncId: "preview-fail",
+        deviceId: "other-device",
+        timestamp: 1,
+      });
     });
+    await expect.poll(() => vault.held !== null).toBe(true);
     await page.locator("#restorePreviewApplyBtn").click();
     await expect(modal).toBeVisible();
     await expect(page.locator("#restorePreviewError")).toHaveText(
       "A sync check is still running. Try again when it finishes."
     );
-    await page.evaluate(() => {
-      window._previewPullInFlight = false;
-    });
+    vault.release();
+    await page.evaluate(() => window.__secondPull);
+    await expect(page.locator("#restorePreviewError")).toHaveText(
+      "Could not read this backup. Check the vault password and try again."
+    );
     await page.locator("#restorePreviewCancelBtn").click();
     await expect(modal).toBeHidden();
     expect(await page.evaluate(() => window.__fallbackCalls)).toEqual(["preview-fail"]);
+  });
+
+  test("a push queued during Try again waits for the retry download", async ({ page }) => {
+    await seedConnectedDevice(page, VAULT_PHRASE);
+    await bootApp(page);
+    const vault = await routeUnreadableSyncVault(page);
+    await openFailedPreview(page);
+    // Queue the push and click in one step so the debounce cannot fire first.
+    await page.evaluate(() => {
+      localStorage.setItem("cloud_sync_enabled", "true");
+      window.scheduleSyncPush();
+      window.__pushQueuedAt = Date.now();
+      document.getElementById("restorePreviewApplyBtn").click();
+    });
+    await expect(page.locator("#cloudSyncPasswordModal")).toBeVisible();
+    await page.evaluate(() => window.pushSyncVault());
+    expect(vault.uploads).toBe(0);
+
+    vault.holdNext = true;
+    await page.locator("#syncPasswordInput").fill(VAULT_PHRASE);
+    await page.locator("#syncPasswordConfirmBtn").click();
+    await expect.poll(() => vault.held !== null).toBe(true);
+    await page.evaluate(() => window.pushSyncVault());
+    await page.waitForFunction(
+      () => Date.now() - window.__pushQueuedAt > window.SYNC_PUSH_DEBOUNCE + 500
+    );
+    expect(vault.uploads).toBe(0);
+
+    const downloadsBeforeRelease = vault.downloads;
+    vault.release();
+    await expect.poll(() => vault.downloads).toBe(downloadsBeforeRelease + 1);
+    await expect(page.locator("#restorePreviewModal")).toBeVisible();
+    expect(vault.uploads).toBe(0);
   });
 });
