@@ -4685,31 +4685,6 @@ const setupImportExportListeners = () => {
     });
   }
 
-  // Cloud Sync modal
-  optionalListener(
-    elements.cloudSyncBtn,
-    "click",
-    () => {
-      if (elements.cloudSyncModal) {
-        if (window.openModalById) openModalById("cloudSyncModal");
-        else elements.cloudSyncModal.style.display = "flex";
-      }
-    },
-    "Cloud Sync button"
-  );
-  const cloudSyncCloseBtn = document.getElementById("cloudSyncCloseBtn");
-  if (cloudSyncCloseBtn && elements.cloudSyncModal) {
-    safeAttachListener(
-      cloudSyncCloseBtn,
-      "click",
-      () => {
-        if (window.closeModalById) closeModalById("cloudSyncModal");
-        else elements.cloudSyncModal.style.display = "none";
-      },
-      "Cloud Sync close"
-    );
-  }
-
   setupVaultListeners();
   setupDataManagementListeners();
 };
@@ -5349,36 +5324,43 @@ const setupApiEvents = () => {
 // next retirement would have to re-prove is dead. Passphrase entry lives in
 // #cloudSyncPasswordModal (js/cloud-sync.js), which is unaffected.
 
+/**
+ * Save a new vault password from Dropbox Settings. Both entries must match and meet the minimum length.
+ */
 function handleAdvancedSavePassword() {
   const input = safeGetElement("cloudAdvancedNewPassword");
+  const confirmInput = safeGetElement("cloudAdvancedConfirmPassword");
   const errorEl = safeGetElement("cloudAdvancedPasswordError");
   if (!input) return;
+  const showError = (message) => {
+    if (!errorEl) return;
+    errorEl.textContent = message;
+    errorEl.style.display = "";
+  };
   const pw = input.value;
-  if (!pw || pw.length < 8) {
-    if (errorEl) {
-      errorEl.textContent = "Password must be at least 8 characters.";
-      errorEl.style.display = "";
-    }
+  const minLength = typeof VAULT_MIN_PASSWORD_LENGTH === "number" ? VAULT_MIN_PASSWORD_LENGTH : 8;
+  if (!pw || pw.length < minLength) {
+    showError("Password must be at least " + minLength + " characters. Enter a longer password.");
+    return;
+  }
+  if (confirmInput && confirmInput.value !== pw) {
+    showError("Passwords do not match. Enter the same password in both fields.");
     return;
   }
   if (errorEl) errorEl.style.display = "none";
   input.value = "";
-  if (typeof changeVaultPassword === "function") {
-    changeVaultPassword(pw)
-      .then(function (ok) {
-        if (!ok && errorEl) {
-          errorEl.textContent = "Failed to update password.";
-          errorEl.style.display = "";
-        }
-      })
-      .catch(function (err) {
-        if (errorEl) {
-          errorEl.textContent = "An error occurred — try again.";
-          errorEl.style.display = "";
-        }
-        if (typeof debugLog === "function") debugLog("[Cloud] changeVaultPassword threw:", err);
-      });
-  }
+  if (confirmInput) confirmInput.value = "";
+  if (typeof changeVaultPassword !== "function") return;
+  const saveFailed =
+    "Could not save the new password in this browser. Check that site storage is allowed, then try again.";
+  changeVaultPassword(pw)
+    .then(function (ok) {
+      if (!ok) showError(saveFailed);
+    })
+    .catch(function (err) {
+      showError(saveFailed);
+      if (typeof debugLog === "function") debugLog("[Cloud] changeVaultPassword threw:", err);
+    });
 }
 window.handleAdvancedSavePassword = handleAdvancedSavePassword;
 window.buildNumistaSearchQuery = buildNumistaSearchQuery;

@@ -1310,14 +1310,33 @@ const bindCloudStorageListeners = () => {
   var advancedModal = document.getElementById("cloudSyncAdvancedModal");
   if (advancedModal) advancedModal.addEventListener("click", _cloudBtnHandler);
 
-  // Sync attachments toggle (STRK-45) — persists to syncAttachments localStorage key.
-  // Default is true when the key is absent (opt-out model).
+  // Sync attachments On/Off switch. The syncAttachments key defaults to on when absent.
   var syncAttachToggle = document.getElementById("syncAttachmentsToggle");
   if (syncAttachToggle) {
     var storedVal = loadDataSync("syncAttachments", null);
-    syncAttachToggle.checked = storedVal !== "false" && storedVal !== false;
-    syncAttachToggle.addEventListener("change", function () {
-      saveDataSync("syncAttachments", this.checked);
+    syncChipToggle("syncAttachmentsToggle", storedVal !== "false" && storedVal !== false);
+    syncAttachToggle.addEventListener("click", function (e) {
+      var btn = e.target.closest(".chip-sort-btn");
+      if (!btn) return;
+      var on = btn.dataset.val === "yes";
+      saveDataSync("syncAttachments", on);
+      syncChipToggle("syncAttachmentsToggle", on);
+    });
+  }
+
+  // Auto-sync On/Off switch. A click on the active side changes nothing.
+  var autoSyncToggle = document.getElementById("cloudAutoSyncToggle");
+  if (autoSyncToggle) {
+    autoSyncToggle.addEventListener("click", function (e) {
+      var btn = e.target.closest(".chip-sort-btn");
+      if (!btn || btn.classList.contains("active")) return;
+      var on = btn.dataset.val === "yes";
+      syncChipToggle("cloudAutoSyncToggle", on);
+      if (on) {
+        if (typeof enableCloudSync === "function") enableCloudSync("dropbox");
+      } else if (typeof disableCloudSync === "function") {
+        disableCloudSync();
+      }
     });
   }
 };

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.125] - 2026-11-08
+
+### Changed — STRK-553: Cloud and vault controls
+
+- **Disconnected actions**: While Dropbox is not connected, Sync Now, Backup and Restore are disabled, look disabled in all four themes and take no keyboard focus. The line "Connect Dropbox to back up." names the next step (STRK-553).
+- **On/Off switches**: Auto-sync and Sync attachments use the shared On/Off switch in place of checkboxes (STRK-553).
+- **Announced status**: The connection and sync status lines are status regions, and a sync failure is announced as an alert (STRK-553).
+- **Vault password**: Dropbox Settings asks for the new vault password twice and saves it only when both entries match. The vault modal sets new-password or current-password autocomplete per mode, the show/hide control reports aria-pressed, and each error says what to do next (STRK-553).
+- **Cleanup**: The unused Cloud Sync modal and its styles are gone, and the cloud panel and Dropbox Settings carry no inline styles beyond display toggles (STRK-553).
+
 ## [3.36.124] - 2026-11-07
 
 ### Fixed — STRK-566: Restore Preview Try again races a queued push

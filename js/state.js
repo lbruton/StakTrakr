@@ -108,7 +108,6 @@ const elements = {
   exportJsonBtn: null,
   exportPdfBtn: null,
   printBtn: null,
-  cloudSyncBtn: null,
   syncAllBtn: null,
   // Vault encrypted backup elements
   vaultExportBtn: null,
@@ -199,7 +198,6 @@ const elements = {
   apiInfoModal: null,
   apiHistoryModal: null,
   goldbackHistoryModal: null,
-  cloudSyncModal: null,
   apiQuotaModal: null,
 
   // Spot price action buttons
