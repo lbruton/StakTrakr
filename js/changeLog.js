@@ -674,16 +674,28 @@ const _undoTradeLink = (entry) => {
 
 /**
  * Re-links a restored Item to the Collection slots it occupied when it was deleted.
+ * A former primary rejoins as a spare, then swaps back to primary, so the spare that
+ * the delete promoted keeps its place as the first spare.
  * @param {Object} restored - The restored inventory item
  * @param {{collectionId: string, slotId: string, role: string}[]} [links] - Saved memberships
+ * @returns {number} Count of links that could not be restored
  */
 const _relinkDeletedItem = (restored, links) => {
-  if (!restored?.uuid || !Array.isArray(links) || !window.collectionsStore) return;
+  const store = window.collectionsStore;
+  if (!restored?.uuid || !Array.isArray(links) || !store) return 0;
+  let failed = 0;
   links.forEach(({ collectionId, slotId, role }) => {
-    window.collectionsStore.link(collectionId, slotId, restored.uuid, {
-      asSpare: role === "spare",
-    });
+    const linked = store.link(collectionId, slotId, restored.uuid, { asSpare: true });
+    if (!linked?.ok) {
+      failed += 1;
+      return;
+    }
+    if (role === "primary") {
+      const promoted = store.promote(collectionId, slotId, restored.uuid);
+      if (!promoted?.ok) failed += 1;
+    }
   });
+  return failed;
 };
 
 /**
@@ -718,7 +730,12 @@ const _undoItemDeleted = (entry) => {
     if (restored.serial) {
       catalogMap[restored.serial] = restored.numistaId || "";
     }
-    _relinkDeletedItem(restored, entry.collectionLinks);
+    const failedLinks = _relinkDeletedItem(restored, entry.collectionLinks);
+    if (failedLinks > 0 && typeof showToast === "function") {
+      showToast(
+        `Restored ${restored.name}, but ${failedLinks} Collection link(s) could not be restored.`
+      );
+    }
     entry.undone = true;
   }
   _finalizeInventoryUndo(true);
