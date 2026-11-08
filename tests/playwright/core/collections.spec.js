@@ -848,6 +848,26 @@ test.describe("core/collections — link picker, builder, item view", () => {
     }
   });
 
+  test("a title image link that is added and cleared again leaves the builder unedited", async ({
+    page,
+  }) => {
+    await bootBuilder(page, {});
+    const setLink = async (value) => {
+      await builderModal(page).getByRole("button", { name: "Obverse image options" }).click();
+      await page.locator("#appDialogInput").fill(value);
+      await page.locator("#appDialogOk").click();
+      await expect(page.locator("#appDialogModal")).toBeHidden();
+    };
+    await setLink("https://images.example/obv.png");
+    await closeBuilderBy(page, "Escape");
+    await expect(page.locator("#appDialogModal")).toContainText("Discard the changes");
+    await page.locator("#appDialogCancel").click();
+    await setLink("");
+    await closeBuilderBy(page, "Escape");
+    await expect(builderModal(page)).toBeHidden();
+    await expect(page.locator("#appDialogModal")).toBeHidden();
+  });
+
   test("a Slot edit in a cloned builder also asks before discarding", async ({ page }) => {
     await bootBuilder(page, { cloneFrom: "ase-type2" });
     await builderModal(page).getByLabel("Note").first().fill("Check the tube");

@@ -915,6 +915,7 @@
       getLink: () => link,
       isTouched: () => touched,
       isRemoved: () => removed && (hadStoredImage || Boolean(side)),
+      hasStoredRemoval: () => removed && hadStoredImage,
       /**
        * The image this side would save: a chosen file, nothing once removed (a pending Remove is
        * never resurrected), otherwise the stored blob. A failed stored read rejects (D-9).
@@ -1778,7 +1779,7 @@
           (control) => (control.type === "radio" ? control.checked : control.value)
         ),
         [cover, reverseTitle, ...Array.from(rowsHost.children).map((row) => row._chooser)].map(
-          (chooser) => [chooser.isTouched(), Boolean(chooser.getFile())]
+          (chooser) => [chooser.getLink(), Boolean(chooser.getFile()), chooser.hasStoredRemoval()]
         ),
       ]);
     const openingState = editState();
