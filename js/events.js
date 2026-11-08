@@ -5599,6 +5599,7 @@ if (removeItemOpenLog) {
   removeItemOpenLog.addEventListener("click", (e) => {
     e.preventDefault();
     closeModalById("removeItemModal");
+    if (typeof renderChangeLog === "function") renderChangeLog();
     if (typeof openModalById === "function") openModalById("changeLogModal");
   });
 }

@@ -1965,7 +1965,7 @@ const deleteSelectedItems = async () => {
     !(await showBulkConfirm(
       "Delete " +
         count +
-        " item(s) from your inventory? You can undo each deletion from the Change Log.",
+        " item(s) from your inventory? You can undo each deletion from the Activity Log.",
       { title: "Delete Items", confirmLabel: "Delete " + bulkItemCountLabel(count), danger: true }
     ))
   ) {

@@ -1361,7 +1361,24 @@ const _deleteInventoryItem = async (item, idx) => {
     return;
   }
   closeModalById("removeItemModal");
-  logChange(item.name, "Deleted", JSON.stringify(item), "", idx);
+  const collectionLinks = item?.uuid ? window.collectionsStore?.memberships?.(item.uuid) || [] : [];
+  logChange(
+    item.name,
+    "Deleted",
+    JSON.stringify(item),
+    "",
+    idx,
+    collectionLinks.length ? { collectionLinks } : {}
+  );
+  const deletedEntry = changeLog[changeLog.length - 1];
+  if (typeof renderChangeLog === "function") renderChangeLog();
+  showToast(`Removed ${item.name}.`, 8000, {
+    label: "Undo",
+    onClick: () => {
+      const logIdx = changeLog.indexOf(deletedEntry);
+      if (logIdx !== -1 && !deletedEntry.undone) toggleChange(logIdx);
+    },
+  });
 
   // Clean up user images from IndexedDB (STAK-120)
   if (item?.uuid && window.imageCache?.isAvailable()) {

@@ -60,8 +60,9 @@ const computeItemKey = (item) => {
  * @param {any} oldValue - Previous value
  * @param {any} newValue - New value
  * @param {number} idx - Index of item in inventory array
+ * @param {Object} [extra] - Extra entry fields saved in the same write
  */
-const logChange = (itemName, field, oldValue, newValue, idx) => {
+const logChange = (itemName, field, oldValue, newValue, idx, extra = {}) => {
   changeLog.push({
     timestamp: Date.now(),
     itemName,
@@ -70,6 +71,7 @@ const logChange = (itemName, field, oldValue, newValue, idx) => {
     newValue,
     idx,
     undone: false,
+    ...extra,
   });
   saveDataSync("changeLog", changeLog);
 };
@@ -673,6 +675,32 @@ const _undoTradeLink = (entry) => {
 };
 
 /**
+ * Re-links a restored Item to the Collection slots it occupied when it was deleted.
+ * A former primary rejoins as a spare, then swaps back to primary, so the spare that
+ * the delete promoted keeps its place as the first spare.
+ * @param {Object} restored - The restored inventory item
+ * @param {{collectionId: string, slotId: string, role: string}[]} [links] - Saved memberships
+ * @returns {number} Count of links that could not be restored
+ */
+const _relinkDeletedItem = (restored, links) => {
+  const store = window.collectionsStore;
+  if (!restored?.uuid || !Array.isArray(links) || !store) return 0;
+  let failed = 0;
+  links.forEach(({ collectionId, slotId, role }) => {
+    const linked = store.link(collectionId, slotId, restored.uuid, { asSpare: true });
+    if (!linked?.ok) {
+      failed += 1;
+      return;
+    }
+    if (role === "primary") {
+      const promoted = store.promote(collectionId, slotId, restored.uuid);
+      if (!promoted?.ok) failed += 1;
+    }
+  });
+  return failed;
+};
+
+/**
  * Undo/redo a "Deleted" item change. undone=false restores the snapshot at idx;
  * undone=true re-removes the item (by itemKey when present). Persists + re-renders.
  * @param {Object} entry - changeLog entry with field "Deleted"
@@ -686,6 +714,11 @@ const _undoItemDeleted = (entry) => {
     const removed = inventory.splice(realIdx, 1)[0];
     if (removed.serial) {
       delete catalogMap[removed.serial];
+    }
+    if (removed.uuid && window.collectionsStore) {
+      const current = window.collectionsStore.memberships?.(removed.uuid) || [];
+      entry.collectionLinks = current.length ? current : undefined;
+      window.collectionsStore.pruneItem?.(removed.uuid);
     }
     entry.undone = false;
   } else {
@@ -703,6 +736,12 @@ const _undoItemDeleted = (entry) => {
     inventory.splice(entry.idx, 0, restored);
     if (restored.serial) {
       catalogMap[restored.serial] = restored.numistaId || "";
+    }
+    const failedLinks = _relinkDeletedItem(restored, entry.collectionLinks);
+    if (failedLinks > 0 && typeof showToast === "function") {
+      showToast(
+        `Restored ${restored.name}, but ${failedLinks} Collection link(s) could not be restored.`
+      );
     }
     entry.undone = true;
   }
@@ -1017,9 +1056,9 @@ const clearChangeLog = async () => {
   const confirmed =
     typeof showAppConfirm === "function"
       ? await showAppConfirm(
-          "Delete every Change Log entry? You cannot undo this.",
-          "Clear Change Log",
-          { confirmLabel: "Clear Change Log", danger: true }
+          "Delete every Activity Log entry? You cannot undo this.",
+          "Clear Activity Log",
+          { confirmLabel: "Clear Activity Log", danger: true }
         )
       : false;
   if (!confirmed) return;

@@ -1732,16 +1732,34 @@ if (typeof window !== "undefined") {
    * Reuses the cloud-toast CSS class + keyframes already in styles.css.
    * @param {string} message - Text to display
    * @param {number} [duration=3000] - Auto-dismiss time in ms
+   * @param {{label: string, onClick: Function}} [action] - Optional button; the toast then accepts clicks
    */
-  window.showToast = (message, duration = 3000) => {
+  window.showToast = (message, duration = 3000, action = null) => {
+    const delay = Number.isFinite(duration) ? duration : 3000;
     const toast = document.createElement("div");
     toast.className = "cloud-toast";
-    toast.textContent = message;
-    document.body.appendChild(toast);
-    setTimeout(() => {
+    const text = document.createElement("span");
+    text.textContent = message;
+    toast.appendChild(text);
+    const dismiss = () => {
       toast.classList.add("fade-out");
       toast.addEventListener("animationend", () => toast.remove());
-    }, duration);
+    };
+    if (action && typeof action.onClick === "function") {
+      toast.classList.add("cloud-toast-action");
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "btn secondary cloud-toast-button";
+      button.textContent = action.label;
+      button.addEventListener("click", () => {
+        button.disabled = true;
+        action.onClick();
+        dismiss();
+      });
+      toast.appendChild(button);
+    }
+    document.body.appendChild(toast);
+    setTimeout(dismiss, delay);
   };
 
   window.trapFocus = trapFocus;

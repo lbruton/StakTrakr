@@ -5617,6 +5617,17 @@ input.spot-lookup-flash {
   z-index: 10000;
   animation: cloudToastIn 0.3s ease;
 }
+.cloud-toast.cloud-toast-action {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.cloud-toast-button {
+  flex-shrink: 0;
+  min-height: 44px;
+  min-width: 44px;
+}
 .cloud-toast.fade-out {
   animation: cloudToastOut 0.3s ease forwards;
 }
