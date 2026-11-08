@@ -19348,6 +19348,8 @@ button.vp-price:hover {
   padding: 7px 2px 6px;
   border-radius: var(--radius);
   cursor: pointer;
+  /* hyphens: auto breaks at syllables where the engine supports it. anywhere is the fallback
+     that keeps a long word such as Collections inside its tab at 32px. */
   overflow-wrap: anywhere;
   hyphens: auto;
   text-align: center;
@@ -19413,6 +19415,11 @@ button.vp-price:hover {
   /* Keep scrollable content clear of the fixed bottom nav */
   main.container {
     padding-bottom: var(--phone-nav-clearance);
+  }
+
+  /* The footer sits outside main.container, so the nav clears it through its own margin. */
+  .app-footer {
+    margin-bottom: var(--phone-nav-clearance);
   }
 }
 

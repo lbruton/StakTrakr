@@ -1524,7 +1524,7 @@ test.describe("Dashboard at phone width", () => {
           );
         const fit = await readBottomNavFit(page);
         expect(fit.scrollWidth).toBeLessThanOrEqual(fit.clientWidth);
-        expect(fit.tabs).toBeGreaterThanOrEqual(4);
+        expect(fit.tabs).toBe(5);
       });
     }
   });
