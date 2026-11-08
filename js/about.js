@@ -134,11 +134,11 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.36.132 &ndash; Phone bottom nav at large text</strong>: The five phone tabs now fit 390px at larger text sizes. Labels wrap to two lines, so Collections and Settings stay on screen and tappable, and Back to top and the page end clear the taller nav (STRK-565).</li>
     <li><strong>v3.36.131 &ndash; Item image labels and grade chip</strong>: The OBVERSE and REVERSE labels in the Item view and the grade chip over the images now follow the theme, so they read clearly in light and sepia. The grade text uses the chip text colour, and the grading authority colour marks the chip border (STRK-558).</li>
     <li><strong>v3.36.130 &ndash; Collection builder and picker</strong>: Closing a Collection builder that holds unsaved edits now asks before discarding them, and Keep editing returns you to the form. Every Slot field shows a label, the Slot list comes before the title images, and the Link picker marks an item of the wrong metal and gives it a quieter Link than the matching items (STRK-542).</li>
     <li><strong>v3.36.129 &ndash; Collections keyboard focus</strong>: Every Collections control shows the same clear focus ring in all four themes, including Slot menu items, hub cards, chips and pills. Opening an Album moves focus to its heading, and Back returns focus to the card you opened (STRK-543).</li>
     <li><strong>v3.36.128 &ndash; Undo a removed Item</strong>: Removing an Item shows a toast with an Undo button that puts the Item back in its Collection slots. The Activity Log link in the Remove Item modal opens a log that lists the removal, and the log has one name everywhere (STRK-546).</li>
-    <li><strong>v3.36.127 &ndash; Settings for screen readers</strong>: Every Settings dropdown and Market filter checkbox has a name, and each On/Off group reports whether it is on. The Settings menu marks the current section and moves with the Up and Down keys, and each panel has a heading (STRK-550).</li>
       `;
 };
 

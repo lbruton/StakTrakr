@@ -19333,6 +19333,8 @@ button.vp-price:hover {
    text; max() keeps a larger user font size in effect. */
 .bottom-nav-btn {
   flex: 1;
+  /* Lets each tab shrink below its label width so the row fits at large root sizes. */
+  min-width: 0;
   background: none;
   border: none;
   color: var(--text-secondary);
@@ -19346,6 +19348,11 @@ button.vp-price:hover {
   padding: 7px 2px 6px;
   border-radius: var(--radius);
   cursor: pointer;
+  /* Labels break only at the soft hyphens in index.html. break-word splits a word only when no
+     soft hyphen fits, so the break is never mid-syllable unless the tab is narrower than a syllable. */
+  overflow-wrap: break-word;
+  hyphens: manual;
+  text-align: center;
 }
 
 /* Keyboard users move through the tablist with the arrow keys, so the focused
@@ -19384,9 +19391,10 @@ button.vp-price:hover {
   .app-bottom-nav {
     display: flex;
   }
-  /* The nav top sits about 38px + 1.93rem above the viewport bottom; the rem term tracks text zoom. */
+  /* The nav top reaches about 4.1rem above the viewport bottom at a 32px root, where labels wrap
+     to two lines. 5rem keeps Back to top and the page end clear at every root size. */
   :root {
-    --phone-nav-clearance: calc(48px + 2rem);
+    --phone-nav-clearance: 5rem;
   }
 
   .back-to-top {
@@ -19406,7 +19414,12 @@ button.vp-price:hover {
 
   /* Keep scrollable content clear of the fixed bottom nav */
   main.container {
-    padding-bottom: 72px;
+    padding-bottom: var(--phone-nav-clearance);
+  }
+
+  /* The footer sits outside main.container, so the nav clears it through its own margin. */
+  .app-footer {
+    margin-bottom: var(--phone-nav-clearance);
   }
 }
 
