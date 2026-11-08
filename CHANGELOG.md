@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.132] - 2026-11-08
+
+### Changed — STRK-565: Phone bottom nav at large text sizes
+
+- **Bottom nav tabs**: The five phone tabs fit a 390px screen at a 16, 20, 24 and 32px root font. Labels wrap to two lines instead of pushing Collections and Settings off the screen (STRK-565).
+- **Back to top and page end**: Back to top and the page end clear the taller nav at every root size (STRK-565).
+
+---
+
 ## [3.36.131] - 2026-11-08
 
 ### Changed — STRK-558: Item view image labels and grade chip

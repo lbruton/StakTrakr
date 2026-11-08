@@ -398,6 +398,47 @@ async function revealBackToTop(page) {
     .toBe(true);
 }
 
+/** Sets the document root font size. An empty string restores the default. */
+function setRootFontSize(page, size) {
+  return page.evaluate((value) => {
+    document.documentElement.style.fontSize = value;
+  }, size);
+}
+
+/**
+ * Reads the phone bottom nav: row overflow, tabs outside the viewport, taps that do not
+ * reach their tab centre, and tab label sizes below 12px.
+ */
+function readBottomNavFit(page) {
+  return page.evaluate(() => {
+    const nav = document.getElementById("appBottomNav");
+    const viewportWidth = document.documentElement.clientWidth;
+    const tabs = [...nav.querySelectorAll(".bottom-nav-btn")].filter(
+      (tab) => tab.getClientRects().length > 0
+    );
+    const label = (tab) => tab.textContent.trim();
+    return {
+      scrollWidth: nav.scrollWidth,
+      clientWidth: nav.clientWidth,
+      tabs: tabs.length,
+      offscreen: tabs
+        .filter((tab) => {
+          const r = tab.getBoundingClientRect();
+          return r.left < 0 || r.right > viewportWidth;
+        })
+        .map(label),
+      blocked: tabs
+        .filter((tab) => {
+          const r = tab.getBoundingClientRect();
+          const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+          return !hit || !tab.contains(hit);
+        })
+        .map(label),
+      smallLabels: tabs.filter((tab) => parseFloat(getComputedStyle(tab).fontSize) < 12).map(label),
+    };
+  });
+}
+
 /**
  * Reads a fixed element (the first `selector` match containing `text`) against the
  * visible bottom-nav tabs and Back to top. Finishes the element's animations first.
@@ -1436,21 +1477,14 @@ test.describe("Dashboard at phone width", () => {
             onScreen: r.box.top >= 0 && r.box.bottom <= r.viewport.height,
           };
         };
-        // Larger roots grow the nav. Above 20px the tab row overflows 390px and the
-        // last tabs leave the screen, so tab taps are checked up to 20px only.
-        for (const [rootSize, tapsChecked] of [
-          ["", true],
-          ["20px", true],
-          ["32px", false],
-        ]) {
-          await page.evaluate((size) => {
-            document.documentElement.style.fontSize = size;
-          }, rootSize);
+        // Larger roots grow the nav. Every tab must stay tappable at each size.
+        for (const rootSize of ["", "20px", "24px", "32px"]) {
+          await setRootFontSize(page, rootSize);
           await revealBackToTop(page);
           await expect.poll(read, { message: `root font ${rootSize || "default"}` }).toEqual({
             tabs: expect.any(Number),
             overlapping: 0,
-            blocked: tapsChecked ? [] : expect.any(Array),
+            blocked: [],
             size: true,
             onScreen: true,
           });
@@ -1470,6 +1504,29 @@ test.describe("Dashboard at phone width", () => {
         })
       ).toEqual(["32px", "32px", "40px", "40px"]);
     });
+  });
+
+  test("the phone bottom nav fits 390px and every tab stays tappable at 16, 20, 24 and 32px roots", async ({
+    page,
+  }) => {
+    await gotoPhoneDashboard(page);
+    for (const rootSize of ["", "20px", "24px", "32px"]) {
+      await test.step(`root font ${rootSize || "default"}`, async () => {
+        await setRootFontSize(page, rootSize);
+        await expect
+          .poll(() => readBottomNavFit(page), { message: "bottom nav fit" })
+          .toEqual(
+            expect.objectContaining({
+              offscreen: [],
+              blocked: [],
+              smallLabels: [],
+            })
+          );
+        const fit = await readBottomNavFit(page);
+        expect(fit.scrollWidth).toBeLessThanOrEqual(fit.clientWidth);
+        expect(fit.tabs).toBeGreaterThanOrEqual(4);
+      });
+    }
   });
 
   test("toasts sit above the bottom nav and Back to top on phones and keep their corner at 1440", async ({
@@ -1566,7 +1623,7 @@ test.describe("Dashboard at phone width", () => {
     });
     expect(small).toEqual([]);
 
-    // Each label sits on one line inside its button, with no clipping, down to 320px.
+    // Each label wraps to at most two lines inside its button, with no clipping, down to 320px.
     const cases = [390, 320].flatMap((width) => THEMES.map((theme) => [width, theme]));
     for (const [width, theme] of cases) {
       await test.step(`bottom-nav labels at ${width}px in ${theme}`, async () => {
@@ -1581,7 +1638,7 @@ test.describe("Dashboard at phone width", () => {
               const range = document.createRange();
               range.selectNodeContents(text);
               const lines = new Set([...range.getClientRects()].map((r) => Math.round(r.top)));
-              return lines.size === 1 && btn.scrollWidth <= btn.clientWidth
+              return lines.size <= 2 && btn.scrollWidth <= btn.clientWidth
                 ? null
                 : `${text.textContent.trim()}: ${lines.size} lines`;
             })
