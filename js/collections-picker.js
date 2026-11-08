@@ -1775,6 +1775,7 @@
      */
     const editState = () =>
       JSON.stringify([
+        Array.from(rowsHost.children).map((row) => row.dataset.slotId || ""),
         Array.from(shell.body.querySelectorAll("input:not([type=file]), select, textarea")).map(
           (control) => (control.type === "radio" ? control.checked : control.value)
         ),
