@@ -60,8 +60,9 @@ const computeItemKey = (item) => {
  * @param {any} oldValue - Previous value
  * @param {any} newValue - New value
  * @param {number} idx - Index of item in inventory array
+ * @param {Object} [extra] - Extra entry fields saved in the same write
  */
-const logChange = (itemName, field, oldValue, newValue, idx) => {
+const logChange = (itemName, field, oldValue, newValue, idx, extra = {}) => {
   changeLog.push({
     timestamp: Date.now(),
     itemName,
@@ -70,6 +71,7 @@ const logChange = (itemName, field, oldValue, newValue, idx) => {
     newValue,
     idx,
     undone: false,
+    ...extra,
   });
   saveDataSync("changeLog", changeLog);
 };

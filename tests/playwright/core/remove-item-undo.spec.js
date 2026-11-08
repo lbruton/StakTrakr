@@ -1,7 +1,11 @@
 // Remove Item: toast with Undo, Activity Log link, and the single Activity Log name.
 
 import { test, expect } from "../helpers/mocks/extended-test.js";
-import { collectionItem, seedCollectionsPage } from "../helpers/collections-fixtures.js";
+import {
+  collectionItem,
+  seedCollectionsPage,
+  reloadCollections,
+} from "../helpers/collections-fixtures.js";
 
 const NAME = "2022 American Silver Eagle";
 const SEED = [
@@ -117,6 +121,16 @@ test.describe("core/remove-item-undo", () => {
     await toggleLatest(page, false);
     await toggleLatest(page, true);
     expect((await readSlot(page)).primary).toBeNull();
+  });
+
+  test("the Collection links survive a reload, so Undo from the Activity Log restores them", async ({
+    page,
+  }) => {
+    await linkSlot(page, true);
+    await deleteFirstItem(page);
+    await reloadCollections(page);
+    await toggleLatest(page, true);
+    expect(await readSlot(page)).toEqual({ primary: "rm-ase-2022", spares: ["rm-ase-2024"] });
   });
 
   test("a toast given an error level keeps the default delay", async ({ page }) => {

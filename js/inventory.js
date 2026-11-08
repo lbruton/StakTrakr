@@ -1362,16 +1362,15 @@ const _deleteInventoryItem = async (item, idx) => {
   }
   closeModalById("removeItemModal");
   const collectionLinks = item?.uuid ? window.collectionsStore?.memberships?.(item.uuid) || [] : [];
-  logChange(item.name, "Deleted", JSON.stringify(item), "", idx);
+  logChange(
+    item.name,
+    "Deleted",
+    JSON.stringify(item),
+    "",
+    idx,
+    collectionLinks.length ? { collectionLinks } : {}
+  );
   const deletedEntry = changeLog[changeLog.length - 1];
-  if (collectionLinks.length) {
-    deletedEntry.collectionLinks = collectionLinks;
-    try {
-      saveDataSync("changeLog", changeLog);
-    } catch (logErr) {
-      debugLog(`Activity Log write failed — Collection links kept in memory only: ${logErr}`);
-    }
-  }
   if (typeof renderChangeLog === "function") renderChangeLog();
   showToast(`Removed ${item.name}.`, 8000, {
     label: "Undo",
