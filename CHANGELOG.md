@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.130] - 2026-11-08
+
+### Changed — STRK-542: Collection builder and picker
+
+- **Discard prompt**: Escape, the backdrop, the Close button and Cancel on a builder with unsaved edits ask "Discard the changes to this collection?" with Discard changes and Keep editing. A builder with no edits closes at once (STRK-542).
+- **Slot labels**: Each Slot field in the builder shows a visible label (Slot label, Year, Mintage, Note) in New, Clone and Edit modes. Placeholders are examples only (STRK-542).
+- **Layout**: The Slot list sits above the title images, so the main task is in view when the builder opens (STRK-542).
+- **Picker**: A wrong-metal Item is marked in text (for example "Platinum, not Silver") and gets a secondary Link. Other items sit under "Other active items", and a long match reason wraps (STRK-542).
+
 ## [3.36.129] - 2026-11-08
 
 ### Changed — STRK-543: Collections keyboard focus

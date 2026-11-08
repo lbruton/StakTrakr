@@ -24,6 +24,17 @@ const SEED = [
 const seedAndGoto = (page, items = SEED) => seedCollectionsPage(page, items);
 
 /**
+ * Confirm the discard prompt a builder with unsaved edits shows when it closes.
+ * @param {import('@playwright/test').Page} page - Browser page.
+ * @returns {Promise<void>} When the builder is hidden.
+ */
+const confirmDiscard = async (page) => {
+  await expect(page.locator("#appDialogModal")).toContainText("Discard the changes");
+  await page.locator("#appDialogOk").click();
+  await expect(page.locator("#collectionsBuilderModal")).toBeHidden();
+};
+
+/**
  * Read one ASE Type 2 slot as plain JSON.
  * @param {import('@playwright/test').Page} page - Browser page.
  * @param {string} slotId - Slot identifier.
@@ -763,6 +774,141 @@ test.describe("core/collections — link picker, builder, item view", () => {
     await expect(pickerModal(page).locator(".collections-pick")).toHaveCount(SEED.length);
   });
 
+  /**
+   * Boot on the Collections tab and open the builder.
+   * @param {import('@playwright/test').Page} page - Browser page.
+   * @param {{cloneFrom?: string, editId?: string}} request - Builder request.
+   * @returns {Promise<void>} When the builder is visible.
+   */
+  const bootBuilder = async (page, request) => {
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    await reopenBuilder(page, request);
+  };
+  /**
+   * Open the builder on the current page.
+   * @param {import('@playwright/test').Page} page - Browser page.
+   * @param {{cloneFrom?: string, editId?: string}} request - Builder request.
+   * @returns {Promise<void>} When the builder is visible.
+   */
+  const reopenBuilder = async (page, request) => {
+    await page.evaluate((req) => window.collectionsPicker.openBuilder(req), request);
+    await expect(builderModal(page)).toBeVisible();
+  };
+  /**
+   * Close the builder with the Escape key, the header Close button or Cancel.
+   * @param {import('@playwright/test').Page} page - Browser page.
+   * @param {"Escape"|"Close"|"Cancel"} path - Close path.
+   * @returns {Promise<void>}
+   */
+  const closeBuilderBy = async (page, path) => {
+    if (path === "Escape") await page.keyboard.press("Escape");
+    else await builderModal(page).getByRole("button", { name: path, exact: true }).click();
+  };
+  const CLOSE_PATHS = ["Escape", "Close", "Cancel"];
+
+  for (const path of CLOSE_PATHS) {
+    test(`${path} on a builder with unsaved edits asks before discarding, and Keep editing keeps them`, async ({
+      page,
+    }) => {
+      await bootBuilder(page, {});
+      const name = builderModal(page).getByLabel("Collection name");
+      await name.fill("Draft set");
+      await closeBuilderBy(page, path);
+
+      const dialog = page.locator("#appDialogModal");
+      await expect(dialog).toBeVisible();
+      await expect(dialog).toContainText("Discard the changes to this collection?");
+      await expect(page.locator("#appDialogCancel")).toHaveText("Keep editing");
+      await page.locator("#appDialogCancel").click();
+      await expect(dialog).toBeHidden();
+      await expect(builderModal(page)).toBeVisible();
+      await expect(name).toHaveValue("Draft set");
+
+      await closeBuilderBy(page, path);
+      await expect(page.locator("#appDialogOk")).toHaveText("Discard changes");
+      await page.locator("#appDialogOk").click();
+      await expect(builderModal(page)).toBeHidden();
+    });
+  }
+
+  test("a builder with no edits closes at once, in New and Clone modes", async ({ page }) => {
+    test.setTimeout(test.info().timeout * 2);
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    for (const request of [{}, { cloneFrom: "ase-type2" }]) {
+      for (const path of CLOSE_PATHS) {
+        await test.step(`${path} ${JSON.stringify(request)}`, async () => {
+          await reopenBuilder(page, request);
+          await closeBuilderBy(page, path);
+          await expect(builderModal(page)).toBeHidden();
+          await expect(page.locator("#appDialogModal")).toBeHidden();
+        });
+      }
+    }
+  });
+
+  test("a Slot edit in a cloned builder also asks before discarding", async ({ page }) => {
+    await bootBuilder(page, { cloneFrom: "ase-type2" });
+    await builderModal(page).getByLabel("Note").first().fill("Check the tube");
+    await closeBuilderBy(page, "Escape");
+    await expect(page.locator("#appDialogModal")).toBeVisible();
+  });
+
+  test("every builder field has a visible label, in New and Clone modes", async ({ page }) => {
+    test.setTimeout(test.info().timeout * 2);
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    for (const request of [{}, { cloneFrom: "ase-type2" }]) {
+      await test.step(JSON.stringify(request), async () => {
+        await reopenBuilder(page, request);
+        const unlabelled = await builderModal(page).evaluate((modal) => {
+          modal.querySelectorAll("details").forEach((section) => (section.open = true));
+          return Array.from(modal.querySelectorAll("input, select, textarea"))
+            .filter((control) => control.type !== "file" && control.offsetParent !== null)
+            .filter((control) => !Array.from(control.labels).some((l) => l.textContent.trim()))
+            .map((control) => control.className || control.type);
+        });
+        expect(unlabelled).toEqual([]);
+        await builderModal(page).getByRole("button", { name: "Cancel", exact: true }).click();
+      });
+    }
+  });
+
+  test("the Slot list comes before the title images in the builder", async ({ page }) => {
+    await bootBuilder(page, {});
+    const order = await builderModal(page).evaluate((modal) => {
+      const rows = modal.querySelector(".collections-builder-rows");
+      const hero = modal.querySelector(".collections-builder-hero");
+      return rows.compareDocumentPosition(hero) & Node.DOCUMENT_POSITION_FOLLOWING;
+    });
+    expect(order).toBeTruthy();
+  });
+
+  test("the picker marks a wrong-metal item as a mismatch and gives it a secondary Link", async ({
+    page,
+  }) => {
+    const platinum = {
+      ...baseItem("col-ape-2024", "2024 American Platinum Eagle", "2024", 5),
+      metal: "Platinum",
+      composition: "Platinum",
+    };
+    await seedAndGoto(page, [...SEED, platinum]);
+    await openCollectionsTab(page);
+    await page.evaluate(() =>
+      window.collectionsPicker.openLinkPicker({ collectionId: "ase-type2", slotId: "2024" })
+    );
+    const row = (selector) => pickerModal(page).locator(`.collections-pick${selector}`);
+    const link = (selector) => row(selector).getByRole("button", { name: /Link/ });
+
+    await expect(pickerModal(page)).toContainText("Other active 2024 items");
+    await expect(row('[data-uuid="col-ape-2024"]')).toContainText("Platinum, not Silver");
+    await expect(row('[data-uuid="col-ape-2024"]')).toHaveClass(/is-mismatch/);
+    await expect(link('[data-uuid="col-ape-2024"]')).toHaveClass(/secondary/);
+    await expect(row(".is-suggested")).not.toContainText("not Silver");
+    await expect(link(".is-suggested")).not.toHaveClass(/secondary/);
+  });
+
   test("New collection builds a custom checklist with stable slot ids and opens its album", async ({
     page,
   }) => {
@@ -923,11 +1069,13 @@ test.describe("core/collections — link picker, builder, item view", () => {
     await expect(slotHandle(page, "2020")).toBeFocused();
     await builder.getByRole("button", { name: "Add Slot after 2020", exact: true }).click();
     await builder.getByRole("button", { name: "Cancel", exact: true }).click();
+    await confirmDiscard(page);
     await page.evaluate((id) => window.collectionsPicker.openBuilder({ editId: id }), id);
     await expect(builder.getByLabel("Slot label")).toHaveCount(2);
     await expect(builder.getByLabel("Slot label").first()).toHaveValue("2019");
     await slotHandle(page, "2020").press("ArrowUp");
     await builder.getByRole("button", { name: /Close/ }).click();
+    await confirmDiscard(page);
     await page.evaluate((id) => window.collectionsPicker.openBuilder({ editId: id }), id);
     await expect(builder.getByLabel("Slot label").first()).toHaveValue("2019");
   });
@@ -5607,6 +5755,7 @@ test.describe("Collection title image links", () => {
     );
     await setLink(page, "Obverse", back);
     await builder(page).getByRole("button", { name: "Cancel", exact: true }).click();
+    await confirmDiscard(page);
     expect(
       await page.evaluate(
         (key) => window.collectionsStore.getState().collections[key].definition.obverseImageUrl,

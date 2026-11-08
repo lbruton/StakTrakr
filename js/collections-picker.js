@@ -113,6 +113,16 @@
     return typeof formatCurrency === "function" ? formatCurrency(amount) : `$${amount.toFixed(2)}`;
   };
 
+  /** Close requests by modal id, for a modal that asks before it discards edits. */
+  const closeRequests = Object.create(null);
+
+  /**
+   * Closes a modal through its close request when one is set, else hides it.
+   * @param {string} id - Modal element id
+   * @returns {void}
+   */
+  const requestClose = (id) => (closeRequests[id] || (() => closeModalById(id)))();
+
   /**
    * Builds (once) a modal shell that the app's modal helpers can open and close.
    * @param {string} id - Modal element id
@@ -133,7 +143,7 @@
       const header = el("div", "collections-modal-header");
       const title = el("h2", "collections-modal-title");
       title.id = `${id}Title`;
-      const close = button("modal-close", "×", () => closeModalById(id));
+      const close = button("modal-close", "×", () => requestClose(id));
       close.setAttribute("aria-label", "Close");
       header.append(title, el("p", "collections-modal-subtitle"), close);
       content.append(
@@ -304,14 +314,26 @@
       const why = options.reasons.map((reason) => REASON_LABELS[reason] || reason).join(" + ");
       metaLine.appendChild(el("span", "collections-pick-why", ` · ${why}`));
     }
+    if (options.mismatch) {
+      row.classList.add("is-mismatch");
+      metaLine.appendChild(el("span", "collections-pick-mismatch", ` · ${options.mismatch}`));
+    }
     main.appendChild(metaLine);
 
     row.append(badge, main, el("span", "collections-pick-price", money(item.price)));
     if (options.usedIn) {
       row.appendChild(el("span", "collections-pick-used", `in ${options.usedIn} slot`));
     } else {
-      const link = button("btn collections-btn-pill", "Link", () => options.onLink(item));
-      link.setAttribute("aria-label", `Link ${item.name || "item"}`);
+      // A metal mismatch keeps its Link, but as a secondary action beside the matching rows.
+      const link = button(
+        `btn collections-btn-pill${options.mismatch ? " secondary" : ""}`,
+        "Link",
+        () => options.onLink(item)
+      );
+      link.setAttribute(
+        "aria-label",
+        `Link ${item.name || "item"}${options.mismatch ? ` (${options.mismatch})` : ""}`
+      );
       row.appendChild(link);
     }
     return row;
@@ -334,15 +356,27 @@
 
     const used = linkedUuids(context);
     const active = store.activeItems();
-    const suggestions = window.collectionsCore.suggestItemsForSlot(
-      profileFor(context),
-      slot,
-      active,
-      {
-        normalizeName: window.autocomplete && window.autocomplete.normalizeItemName,
-        excludeUuids: new Set(used.keys()),
-      }
-    );
+    const profile = profileFor(context);
+    const wantedMetal = String(profile.metal || "").trim();
+    /**
+     * Text naming how an item's metal differs from the slot's, or "" when it matches or either
+     * side is unknown or Mixed.
+     * @param {Object} item - Inventory item
+     * @returns {string} Mismatch text such as "Platinum, not Silver"
+     */
+    const mismatchOf = (item) => {
+      const metal = String(item.metal || "").trim();
+      const differs =
+        wantedMetal &&
+        metal &&
+        wantedMetal.toLowerCase() !== "mixed" &&
+        metal.toLowerCase() !== wantedMetal.toLowerCase();
+      return differs ? `${metal}, not ${wantedMetal}` : "";
+    };
+    const suggestions = window.collectionsCore.suggestItemsForSlot(profile, slot, active, {
+      normalizeName: window.autocomplete && window.autocomplete.normalizeItemName,
+      excludeUuids: new Set(used.keys()),
+    });
     const suggestedIds = new Set(suggestions.map((entry) => entry.item.uuid));
 
     const onLink = (item) => {
@@ -361,7 +395,7 @@
 
     const search = el("input", "collections-pick-search");
     search.type = "search";
-    search.placeholder = "Search active inventory by name, year, metal, source…";
+    search.placeholder = "Search active inventory by name, year, metal or source";
     search.setAttribute("aria-label", "Search inventory");
     const list = el("div", "collections-pick-list");
 
@@ -401,7 +435,7 @@
       const heading = el(
         "div",
         "collections-pick-group is-muted",
-        yearOnly ? `Active ${slotYear} items` : "All active items"
+        yearOnly ? `Other active ${slotYear} items` : "Other active items"
       );
       heading.appendChild(
         el("span", "collections-pick-group-note", " · disposed items are never shown")
@@ -410,7 +444,9 @@
       rest
         .slice(0, MAX_LISTED_ITEMS)
         .forEach((item) =>
-          list.appendChild(pickerRow(item, { usedIn: used.get(item.uuid), onLink }))
+          list.appendChild(
+            pickerRow(item, { usedIn: used.get(item.uuid), mismatch: mismatchOf(item), onLink })
+          )
         );
       if (!rest.length) {
         const empty = yearOnly
@@ -936,6 +972,20 @@
   let mintageErrorId = 0;
 
   /**
+   * A Slot field with its visible label. The label wraps the control, so the label text is the
+   * control's accessible name; the placeholder is only an example.
+   * @param {string} modifier - Grid placement name: label, year, mintage or note
+   * @param {string} labelText - Visible label
+   * @param {HTMLElement} control - The input
+   * @returns {HTMLLabelElement} The cell
+   */
+  const slotCell = (modifier, labelText, control) => {
+    const cell = el("label", `collections-builder-cell collections-builder-cell--${modifier}`);
+    cell.append(el("span", "collections-builder-cell-label", labelText), control);
+    return cell;
+  };
+
+  /**
    * One editable slot row in the builder.
    * @param {{id?: string, label?: string, year?: string|number, note?: string}} slot - Slot values
    * @param {Function} onRemove - Called with the row element to remove it
@@ -963,22 +1013,19 @@
     row._chooser = chooser;
     const label = el("input", "collections-builder-label");
     label.type = "text";
-    label.placeholder = "Slot label — e.g. 1881-CC";
+    label.placeholder = "e.g. 1881-CC";
     label.value = slot.label || "";
-    label.setAttribute("aria-label", "Slot label");
     const year = el("input", "collections-builder-year");
     year.type = "text";
     year.inputMode = "numeric";
-    year.placeholder = "Year";
+    year.placeholder = "e.g. 1881";
     year.value = slot.year == null ? "" : String(slot.year);
-    year.setAttribute("aria-label", "Year");
     const mintage = el("input", "collections-builder-mintage");
     mintage.type = "text";
     mintage.inputMode = "numeric";
-    mintage.placeholder = "Mintage (optional)";
+    mintage.placeholder = "Optional";
     mintage.value =
       Number.isSafeInteger(slot.mintage) && slot.mintage >= 0 ? String(slot.mintage) : "";
-    mintage.setAttribute("aria-label", "Mintage");
     const error = el("span", "collections-builder-mintage-error");
     error.id = `collections-mintage-error-${++mintageErrorId}`;
     error.hidden = true;
@@ -991,9 +1038,8 @@
     });
     const note = el("input", "collections-builder-note");
     note.type = "text";
-    note.placeholder = "Note (optional)";
+    note.placeholder = "Optional";
     note.value = slot.note || "";
-    note.setAttribute("aria-label", "Note");
     const remove = button("collections-builder-remove", "×", () => onRemove(row));
     remove.setAttribute("aria-label", "Remove slot");
     const actions = el("div", "collections-builder-row-actions");
@@ -1002,7 +1048,16 @@
     remove.dataset.action = "remove";
     actions.append(insert, remove);
     label.addEventListener("input", onLabelChange);
-    row.append(grip, chooser.node, label, year, mintage, note, actions, error);
+    row.append(
+      grip,
+      chooser.node,
+      slotCell("label", "Slot label", label),
+      slotCell("year", "Year", year),
+      slotCell("mintage", "Mintage", mintage),
+      slotCell("note", "Note", note),
+      actions,
+      error
+    );
     return row;
   };
 
@@ -1700,10 +1755,10 @@
     form.append(
       grid("grid-2", field("Type", itemType), metalField),
       nameField,
-      hero,
       slotsHeading,
       rowsHost,
       rowActions,
+      hero,
       el("div", "collections-builder-divider collections-builder-caption", "Optional details"),
       ...sections
     );
@@ -1712,7 +1767,52 @@
     shell.body.scrollTop = 0;
     applyTypeLock();
 
+    /**
+     * A string of every control value and image choice in the builder, compared against the
+     * opening state to tell whether the user changed anything.
+     * @returns {string} Edit state
+     */
+    const editState = () =>
+      JSON.stringify([
+        Array.from(shell.body.querySelectorAll("input:not([type=file]), select, textarea")).map(
+          (control) => (control.type === "radio" ? control.checked : control.value)
+        ),
+        [cover, reverseTitle, ...Array.from(rowsHost.children).map((row) => row._chooser)].map(
+          (chooser) => [chooser.isTouched(), Boolean(chooser.getFile())]
+        ),
+      ]);
+    const openingState = editState();
+
     let builderClosed = false;
+    let confirmingDiscard = false;
+    /**
+     * Closes the builder, asking first when it holds unsaved edits. Escape, the backdrop,
+     * the header Close button and Cancel all come here.
+     * @returns {Promise<void>}
+     */
+    const requestBuilderClose = async () => {
+      if (confirmingDiscard) return;
+      if (editState() === openingState) {
+        closeModalById(BUILDER_MODAL_ID);
+        return;
+      }
+      confirmingDiscard = true;
+      try {
+        const discard = await showAppConfirm(
+          "Discard the changes to this collection? You cannot undo this.",
+          {
+            title: "Discard changes",
+            confirmLabel: "Discard changes",
+            cancelLabel: "Keep editing",
+            danger: true,
+          }
+        );
+        if (discard && !builderClosed) closeModalById(BUILDER_MODAL_ID);
+      } finally {
+        confirmingDiscard = false;
+      }
+    };
+    closeRequests[BUILDER_MODAL_ID] = requestBuilderClose;
     const modalObserver = new MutationObserver(() => {
       if (shell.modal.style.display === "none") {
         builderClosed = true;
@@ -1900,7 +2000,7 @@
     // Footer mirrors the Add Item action bar: an outlined Cancel and the premium submit.
     const footerActions = el("span", "collections-modal-footer-actions");
     footerActions.append(
-      button("btn collections-builder-cancel", "Cancel", () => closeModalById(BUILDER_MODAL_ID)),
+      button("btn collections-builder-cancel", "Cancel", requestBuilderClose),
       button("btn premium", seed.editId ? "Save changes" : "Create collection", submit)
     );
     shell.footer.classList.add(
@@ -1908,7 +2008,7 @@
       "collections-builder-footer"
     );
     shell.footer.replaceChildren(footerActions);
-    openModalById(BUILDER_MODAL_ID);
+    openModalById(BUILDER_MODAL_ID, requestBuilderClose);
   };
 
   // ---------------------------------------------------------------------------
