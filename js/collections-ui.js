@@ -1685,6 +1685,22 @@
   // ---------------------------------------------------------------------------
 
   /**
+   * Where focus lands after the panel switches between the hub and an Album: the Album
+   * heading, or the hub card of the Collection just left.
+   * @param {HTMLElement} root - Collections panel root
+   * @param {Object|null} entry - The Album now shown, or null for the hub
+   * @param {string} leftRouteId - Collection id shown before this render ("" for the hub)
+   * @returns {HTMLElement|null} Element to focus, if it is rendered
+   */
+  const routeFocusTarget = (root, entry, leftRouteId) => {
+    if (entry) return root.querySelector(".collections-album-info h2");
+    if (!leftRouteId) return null;
+    return Array.from(root.querySelectorAll("[data-focus-key]")).find(
+      (node) => node.dataset.focusKey === `open:${leftRouteId}`
+    );
+  };
+
+  /**
    * Renders the Collections tab from the current route. Safe to call at any time:
    * it does nothing before boot has finished or while the panel is hidden.
    * @returns {void}
@@ -1718,8 +1734,12 @@
     }
     const shownId = entry ? entry.id : "";
     const routeChanged = lastRouteId !== null && lastRouteId !== shownId;
+    const leftRouteId = lastRouteId;
     if (lastRouteId !== shownId) state.albumFilter = SLOTS_ALL;
     lastRouteId = shownId;
+    // Focus follows a hub/Album move only when it was in the panel or already lost to body.
+    const followRoute =
+      routeChanged && (Boolean(focused) || document.activeElement === document.body);
 
     const panel = el("div", "collections-panel");
     panel.appendChild(
@@ -1729,7 +1749,9 @@
     );
     root.replaceChildren(panel);
 
-    for (const candidateKey of [requestedFocusKey, focusKey]) {
+    const routeTarget = followRoute ? routeFocusTarget(root, entry, leftRouteId) : null;
+    if (routeTarget) routeTarget.focus({ preventScroll: true });
+    for (const candidateKey of routeTarget ? [] : [requestedFocusKey, focusKey]) {
       if (!candidateKey) continue;
       // The Ledger's arrange controls exist twice (header row and phone toolbar) with one
       // focus key; prefer the copy that is actually rendered at this width.
