@@ -1325,18 +1325,25 @@ const bindCloudStorageListeners = () => {
   }
 
   // Auto-sync On/Off switch. A click on the active side changes nothing.
+  // On follows the stored flag after enableCloudSync settles: it returns early or reverts on failure.
   var autoSyncToggle = document.getElementById("cloudAutoSyncToggle");
   if (autoSyncToggle) {
+    var showStoredAutoSync = function () {
+      syncChipToggle("cloudAutoSyncToggle", typeof syncIsEnabled === "function" && syncIsEnabled());
+    };
     autoSyncToggle.addEventListener("click", function (e) {
       var btn = e.target.closest(".chip-sort-btn");
       if (!btn || btn.classList.contains("active")) return;
-      var on = btn.dataset.val === "yes";
-      syncChipToggle("cloudAutoSyncToggle", on);
-      if (on) {
-        if (typeof enableCloudSync === "function") enableCloudSync("dropbox");
-      } else if (typeof disableCloudSync === "function") {
-        disableCloudSync();
+      if (btn.dataset.val !== "yes") {
+        syncChipToggle("cloudAutoSyncToggle", false);
+        if (typeof disableCloudSync === "function") disableCloudSync();
+        return;
       }
+      if (typeof enableCloudSync !== "function") {
+        showStoredAutoSync();
+        return;
+      }
+      Promise.resolve(enableCloudSync("dropbox")).then(showStoredAutoSync, showStoredAutoSync);
     });
   }
 };

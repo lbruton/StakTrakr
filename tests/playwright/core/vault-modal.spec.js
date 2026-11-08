@@ -258,10 +258,16 @@ test.describe("vault password fields", () => {
       warning: "Enter the password you set when you created this backup.",
     });
 
-    await page.evaluate(() => window.openVaultModal("export"));
+    await page.evaluate(() => {
+      window.exportEncryptedBackup = async () => ({});
+      window.openVaultModal("export");
+    });
+    // Matching entries below the minimum still fail the length check.
     await page.locator("#vaultPassword").fill("short");
+    await page.locator("#vaultConfirmPassword").fill("short");
     await page.locator("#vaultActionBtn").click();
-    const alert = page.locator("#vaultModal").getByRole("alert");
+    const vaultModal = page.locator("#vaultModal");
+    const alert = vaultModal.getByRole("alert");
     await expect(alert).toHaveText(
       "Password must be at least 8 characters. Enter a longer password."
     );
@@ -271,6 +277,12 @@ test.describe("vault password fields", () => {
     await expect(alert).toHaveText(
       "Passwords do not match. Enter the same password in both fields."
     );
+
+    // A corrected entry exports without reopening the modal, and the status drops the alert role.
+    await page.locator("#vaultConfirmPassword").fill("longenoughpw");
+    await page.locator("#vaultActionBtn").click();
+    await expect(vaultModal.getByRole("status")).toHaveText("Backup exported successfully.");
+    await expect(alert).toHaveCount(0);
   });
 
   test("the show/hide control reports its state", async ({ page }) => {
@@ -326,6 +338,61 @@ test.describe("vault password fields", () => {
     await expect(modal.getByRole("alert")).toBeHidden();
     await expect(page.locator("#cloudAdvancedNewPassword")).toHaveValue("");
     await expect(confirm).toHaveValue("");
+  });
+
+  test("a Dropbox password save that fails keeps both entries and reports the failure", async ({
+    page,
+  }) => {
+    await bootVault(page);
+    await page.evaluate(() => {
+      window.__changedTo = [];
+      window.openModalById("cloudSyncAdvancedModal");
+    });
+    const modal = page.locator("#cloudSyncAdvancedModal");
+    const newPw = page.locator("#cloudAdvancedNewPassword");
+    const confirm = page.locator("#cloudAdvancedConfirmPassword");
+    const saveFailed =
+      "Could not save the new password in this browser. Check that site storage is allowed, then try again.";
+
+    /**
+     * Install a changeVaultPassword stand-in, save matching entries, and check the alert and fields.
+     * @param {string} kind - "falsy", "reject" or "missing".
+     * @param {string} pw - Password typed into both fields.
+     * @param {string} message - Expected alert text.
+     */
+    const saveAndExpect = async (kind, pw, message) => {
+      await page.evaluate((k) => {
+        window.changeVaultPassword =
+          k === "missing"
+            ? undefined
+            : async (value) => {
+                window.__changedTo.push(value);
+                if (k === "reject") throw new Error("storage blocked");
+                return false;
+              };
+      }, kind);
+      await newPw.fill(pw);
+      await confirm.fill(pw);
+      await page.locator("#cloudAdvancedSavePasswordBtn").click();
+      await expect(modal.getByRole("alert"), kind).toHaveText(message);
+      await expect(newPw, kind).toHaveValue(pw);
+      await expect(confirm, kind).toHaveValue(pw);
+    };
+
+    await saveAndExpect(
+      "falsy",
+      "short",
+      "Password must be at least 8 characters. Enter a longer password."
+    );
+    expect(await page.evaluate(() => window.__changedTo)).toEqual([]);
+
+    await saveAndExpect("falsy", "new-vault-pass", saveFailed); // gitleaks:allow
+    await saveAndExpect("reject", "new-vault-pass", saveFailed); // gitleaks:allow
+    await saveAndExpect("missing", "new-vault-pass", saveFailed); // gitleaks:allow
+    expect(await page.evaluate(() => window.__changedTo)).toEqual([
+      "new-vault-pass",
+      "new-vault-pass",
+    ]);
   });
 });
 

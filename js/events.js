@@ -5347,15 +5347,22 @@ function handleAdvancedSavePassword() {
     showError("Passwords do not match. Enter the same password in both fields.");
     return;
   }
-  if (errorEl) errorEl.style.display = "none";
-  input.value = "";
-  if (confirmInput) confirmInput.value = "";
-  if (typeof changeVaultPassword !== "function") return;
   const saveFailed =
     "Could not save the new password in this browser. Check that site storage is allowed, then try again.";
+  // The entries stay in place until the save succeeds, so a retry needs no retyping.
+  if (typeof changeVaultPassword !== "function") {
+    showError(saveFailed);
+    return;
+  }
+  if (errorEl) errorEl.style.display = "none";
   changeVaultPassword(pw)
     .then(function (ok) {
-      if (!ok) showError(saveFailed);
+      if (!ok) {
+        showError(saveFailed);
+        return;
+      }
+      input.value = "";
+      if (confirmInput) confirmInput.value = "";
     })
     .catch(function (err) {
       showError(saveFailed);

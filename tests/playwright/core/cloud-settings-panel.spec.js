@@ -164,6 +164,34 @@ test.describe("Settings › Cloud panel controls", () => {
     expect(await page.evaluate(() => localStorage.getItem("syncAttachments"))).toBe("false");
   });
 
+  test("the auto-sync switch stays Off when enabling is skipped, and On can be retried", async ({
+    page,
+  }) => {
+    await bootApp(page);
+    await page.evaluate(() => {
+      window.__enableCalls = 0;
+      // Stands in for an enable that returns early (failed boot) and leaves sync off.
+      window.enableCloudSync = async () => {
+        window.__enableCalls += 1;
+      };
+    });
+    await connectAndOpenCloud(page, { syncEnabled: false });
+    const on = page.locator('#cloudAutoSyncToggle .chip-sort-btn[data-val="yes"]');
+    const off = ["On:false:false", "Off:true:true"];
+
+    await on.click();
+    await expect.poll(() => readToggle(page, "cloudAutoSyncToggle")).toEqual(off);
+    await on.click();
+    await expect.poll(() => page.evaluate(() => window.__enableCalls)).toBe(2);
+    await expect.poll(() => readToggle(page, "cloudAutoSyncToggle")).toEqual(off);
+
+    await page.evaluate(() => {
+      window.enableCloudSync = undefined;
+    });
+    await on.click();
+    expect(await readToggle(page, "cloudAutoSyncToggle")).toEqual(off);
+  });
+
   test("a sync start, success and failure each reach a live region", async ({ page }) => {
     await bootApp(page);
     await connectAndOpenCloud(page, { syncEnabled: true });
