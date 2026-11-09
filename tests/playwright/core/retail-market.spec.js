@@ -2028,7 +2028,7 @@ test.describe("core/retail-market", () => {
       ).toHaveCount(1);
     }
     await expect(page.locator("#vendorPricesContainer .market-disclaimer")).toContainText(
-      "Percentages show premium over spot (or G1 rate for Goldbacks); their colour compares dealers."
+      "Percentages show premium over spot (or G1 rate for Goldbacks); their color compares dealers."
     );
     await expect(matrixRow.locator(".vp-oos")).toHaveText("OOS");
     await expect(matrixRow.locator(".vp-oos")).not.toHaveAttribute("title", /./);

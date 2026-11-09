@@ -98,9 +98,9 @@ Goldback slug parsing: `_parseGoldbackSlug(slug)` parses the pattern `goldback-{
 
 - `_calcMarketPremium(price, referenceRate)` → `((price - referenceRate) / referenceRate) * 100` or `null` if either arg ≤ 0
 - `_premiumTierClass(pct)` → `"high"` (≥5%), `"mid"` (≥2%), `"low"` (<2%). Only the ticker uses it.
-- `_rankDealerPrices(entries)` (through `_rankVendorData(vData, slug)`) colours the matrix, the phone cards and the detail modal. The reference is the median of the enabled dealers' in-stock, non-carried prices. A price at `MARKET_PREMIUM_BAND_PCT` (1%) or more below it is `"low"`. A price 1% or more above it is `"high"`, and one in between is `"mid"`. A carried price, or every price when fewer than two dealers are in stock, is `"plain"`. Out-of-stock prices get no rank and render `"plain"`. Prices are coerced with `Number()`, and a price that is not finite is not ranked. `_buildPremiumBadge` adds a Low, Mid or High word (`.vp-tier-word`) to a ranked premium. `_isVendorInStock` reads `in_stock` and `inStock` for the ranking, the cells and the modal rows, and the modal table leaves out a dealer the Market filter hides. The Median column and card line show this median, not the feed's `median_price`.
+- `_rankDealerPrices(entries)` (through `_rankVendorData(vData, slug)`) colors the matrix, the phone cards and the detail modal. The reference is the median of the enabled dealers' in-stock, non-carried prices. A price at `MARKET_PREMIUM_BAND_PCT` (1%) or more below it is `"low"`. A price 1% or more above it is `"high"`, and one in between is `"mid"`. A carried price, or every price when fewer than two dealers are in stock, is `"plain"`. Out-of-stock prices get no rank and render `"plain"`. Prices are coerced with `Number()`, and a price that is not finite is not ranked. `_buildPremiumBadge` adds a Low, Mid or High word (`.vp-tier-word`) to a ranked premium. `_isVendorInStock` reads `in_stock` and `inStock` for the ranking, the cells and the modal rows, and the modal table leaves out a dealer the Market filter hides. The Median column and card line show this median, not the feed's `median_price`.
 
-The percentage text is always the premium over spot. For goldback items, when no spot price + weight is available, the reference rate falls back to `_goldbackG1Rate` (the G1 USD value from `goldback/latest.json`, loaded by `initMarketData()`). CSS tier colours: low → `--success-text`, mid → `--warning-text`, high → `--danger-text`, plain → `--text-secondary`.
+The percentage text is always the premium over spot. For goldback items, when no spot price + weight is available, the reference rate falls back to `_goldbackG1Rate` (the G1 USD value from `goldback/latest.json`, loaded by `initMarketData()`). CSS tier colors: low → `--success-text`, mid → `--warning-text`, high → `--danger-text`, plain → `--text-secondary`.
 
 ---
 
@@ -419,4 +419,4 @@ This list aggregates pitfalls documented across Vendor Quirks, Providers Config,
 - .context/deep-dives/retail-modal.md: source for modal lifecycle and data flow
 - Retail Pipeline (deprecated DocVault page): end-to-end pipeline from poller to frontend
 - .context/deep-dives/dom-patterns.md: general DOM utility patterns
-- DESIGN.md: design system and colour tokens
+- DESIGN.md: design system and color tokens

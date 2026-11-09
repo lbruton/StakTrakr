@@ -757,7 +757,7 @@ const _attachChipCloseControl = (close, f, isActiveFilter, displayValue) => {
   };
 };
 
-/** True when the browser can pick chip text colour in CSS (contrast-color(), Baseline 2026). */
+/** True when the browser can pick chip text color in CSS (contrast-color(), Baseline 2026). */
 const CHIP_CONTRAST_IN_CSS =
   typeof CSS !== "undefined" &&
   typeof CSS.supports === "function" &&
@@ -777,7 +777,7 @@ const _buildFilterChipElement = (f, i, container) => {
   // All chip categories render visually identical — no italic/bold distinction
   const firstValue = String(f.value).split(", ")[0];
   const colorKey = f.field === "customGroup" ? f.displayLabel || firstValue : firstValue;
-  // STRK-446: JS hands CSS the background; the stylesheet picks the text colour with
+  // STRK-446: JS hands CSS the background; the stylesheet picks the text color with
   // contrast-color(). Only browsers without contrast-color() get an inline JS pick.
   const { bg } = getChipColors(f.field, colorKey, i);
   chip.style.setProperty("--chip-bg", bg);
@@ -963,13 +963,13 @@ const applyMinCountThreshold = (data, minCount) => {
 };
 
 /**
- * Returns the chip background colour for a given field/value combination. The value is a
+ * Returns the chip background color for a given field/value combination. The value is a
  * theme-reactive CSS expression (a var() token or an hsl() built on theme tokens), never a
- * resolved colour, so chips recolour on theme switch without re-rendering (STRK-446).
+ * resolved color, so chips recolor on theme switch without re-rendering (STRK-446).
  * @param {string} field - Chip field type
  * @param {string} value - Chip value
  * @param {number} index - Chip index for fallback color cycling
- * @returns {{ bg: string }} Background colour expression
+ * @returns {{ bg: string }} Background color expression
  */
 const getChipColors = (field, value, index) => {
   const fallbackColors = [

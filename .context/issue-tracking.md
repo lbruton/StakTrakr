@@ -18,6 +18,8 @@ They are not part of this repo.
 
 ## State conventions
 
+<!-- vale Prose.Spelling = NO -->
+
 | State       | UUID (re-fetch if stale)                         | Use for                                               |
 | ----------- | ------------------------------------------------ | ----------------------------------------------------- |
 | Epic        | `0d1317b4-883f-44f0-b277-8f1f7f0388c0`           | Parent epic issues — appears in its own Kanban column |
@@ -27,6 +29,8 @@ They are not part of this repo.
 | Done        | `b6039898-c1c1-46ea-8396-1ae8b52f0692`           | Merged / closed                                       |
 | Backlog     | `fc9a6f2f-7152-43ee-8f8d-95a05d9b2480`           | Parked, not yet scheduled                             |
 | Cancelled   | `7645f387-5f01-4395-9f40-03d75fda6fda`           | Won't fix                                             |
+
+<!-- vale Prose.Spelling = YES -->
 
 ## Conventions
 

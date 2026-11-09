@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.140] - 2026-11-08
+
+### Changed — STRK-580: US English spelling
+
+- **Spelling**: UI copy, code comments and .context docs use US English spellings, such as color, canceled and labeled. Behavior is unchanged (STRK-580).
+
+---
+
 ## [3.36.139] - 2026-11-08
 
 ### Changed — STRK-568: Market price comparison

@@ -74,7 +74,7 @@ var _previewPullInFlight = false;
  */
 var _restorePreviewRetryActive = false;
 
-/** @type {boolean} true when the Restore Preview retry cancelled or deferred a push. */
+/** @type {boolean} true when the Restore Preview retry canceled or deferred a push. */
 var _restorePreviewRetryPushHeld = false;
 
 /** Hold pushes for a Restore Preview retry and cancel a queued push. */
@@ -980,7 +980,7 @@ function updateSyncStatusIndicator(state, detail) {
     if (state === "syncing") dot.classList.add("cloud-sync-dot--syncing");
     else if (state === "error") dot.classList.add("cloud-sync-dot--error");
     else if (state === "idle") dot.classList.add("cloud-sync-dot--ok");
-    // 'disabled' = no extra class (grey)
+    // 'disabled' = no extra class (gray)
   }
 
   var region = el.querySelector(".cloud-sync-status");
@@ -1871,7 +1871,7 @@ async function pushSyncVault() {
                 "User cancelled potential overwrite after vault password change"
               );
               _syncPushInFlight = false;
-              updateSyncStatusIndicator("idle", "Sync cancelled");
+              updateSyncStatusIndicator("idle", "Sync canceled");
               return;
             }
             // User explicitly accepted the risk; treat as no prior metadata and proceed.
@@ -2096,7 +2096,7 @@ async function pushSyncVault() {
               "Your local vault is empty but the cloud has " +
                 guardMeta.itemCount +
                 " items. " +
-                "Push cancelled to prevent data loss. Pull from cloud instead?",
+                "Push canceled to prevent data loss. Pull from cloud instead?",
               "Sync Update"
             ).then(function (confirmed) {
               if (confirmed) pullWithPreview();
@@ -3787,7 +3787,7 @@ function _hasCollectionStateChange(remoteSettings) {
  * reconciliation until the full apply commits, so rollback cannot lose the local visibility
  * preference. THROWS when the write fails so every caller holds lastPull and the next poll
  * retries — the store itself has already restored its in-memory state (STRK-377).
- * Runs only on apply paths, never on a cancelled preview.
+ * Runs only on apply paths, never on a canceled preview.
  * @param {object} remoteSettings - Remote settings (raw localStorage strings by key)
  * @returns {boolean} Whether local Collections changed
  */
@@ -4048,7 +4048,7 @@ function _mergeOneSidedTagSettings(remoteSettings) {
  * and immediately enforces the clear against local history (applyItemPriceClearWatermark),
  * so the cleared entries drop even when no companion vault is pulled. Mirrors
  * _mergeTagData's role for tag timestamps and runs only on apply paths (never on a
- * cancelled preview — the _vfApplied gate), preserving cancel-safety (AC-7).
+ * canceled preview — the _vfApplied gate), preserving cancel-safety (AC-7).
  *
  * @param {object} remoteSettings - Remote settings (may carry the watermark, as a
  *        raw number or a JSON-encoded string).
@@ -4463,7 +4463,7 @@ function showRestorePreviewModal(diffResult, settingsDiff, remotePayload, remote
   // Delegate to DiffModal (STAK-184) — falls back to null if unavailable.
   // Returns a Promise that resolves when the user completes their modal action.
   // STRK-147: the promise resolves with `true` when the user APPLIED changes and
-  // `false` when they CANCELLED, so callers can gate post-apply work (e.g. the
+  // `false` when they CANCELED, so callers can gate post-apply work (e.g. the
   // companion item-price-history merge) on the user's decision. Returns null when
   // DiffModal is unavailable.
   if (typeof DiffModal === "undefined" || !DiffModal.show) {
@@ -5998,7 +5998,7 @@ async function pullWithPreview(remoteMeta) {
         remoteMeta,
         conflicts
       );
-      // STRK-147: track whether the user applied (vs cancelled) the diff so the
+      // STRK-147: track whether the user applied (vs canceled) the diff so the
       // companion item-price-history merge below runs only on apply.
       var _vfApplied = false;
       if (!shownPromise) {
@@ -6059,7 +6059,7 @@ async function pullWithPreview(remoteMeta) {
       // STRK-147: Vault-first DiffModal post-restore — item-price-history vault.
       // The DiffModal apply has already mutated local inventory, so the
       // post-apply inventory UUIDs are the accepted-Item boundary (D-6). Skip the
-      // merge entirely when the user CANCELLED the diff — merging companion
+      // merge entirely when the user CANCELED the diff — merging companion
       // history (and advancing lastPull.itemPriceHistoryHash) after a cancel would
       // import remote history the user explicitly declined (Codex P2).
       if (_vfApplied) {
@@ -6214,7 +6214,7 @@ async function enableCloudSync(provider) {
     hasAccountId
   );
   if (!password) {
-    // User cancelled password prompt — revert sync enabled flag
+    // User canceled password prompt — revert sync enabled flag
     debugWarn("[CloudSync] No password set — reverting auto-sync enable");
     try {
       localStorage.setItem("cloud_sync_enabled", "false");

@@ -687,7 +687,7 @@
   const DENOMINATION_UNITS = ["gb", "sb", "cu"];
 
   /**
-   * A labelled form field wrapper.
+   * A labeled form field wrapper.
    * @param {string} labelText - Label
    * @param {HTMLElement} control - Input/select element
    * @param {string} [className] - Extra wrapper class
@@ -764,7 +764,7 @@
   };
 
   /**
-   * A labelled segmented control backed by radio inputs, for small either/or choices.
+   * A labeled segmented control backed by radio inputs, for small either/or choices.
    * @param {string} labelText - Group label
    * @param {{value: string, label: string, glyph?: string}[]} options - Choices, in display
    *   order; glyph is a BUILDER_ICONS key drawn before the label
@@ -1506,7 +1506,7 @@
     swapButton.setAttribute("aria-label", "Swap obverse and reverse images");
     swapSlot.append(swapButton);
     covers.append(obverseTitleWrap, swapSlot, reverseTitleWrap);
-    // STRK-421 hero: large centred title images with the Image shape picker beneath them.
+    // STRK-421 hero: large centered title images with the Image shape picker beneath them.
     const hero = el("div", "collections-builder-hero");
     hero.appendChild(covers);
     if (!imagesAvailable()) {
@@ -1966,7 +1966,7 @@
       if (!result.ok) {
         const reasons = {
           "invalid-name": "Give the collection a name.",
-          "no-slots": "Add at least one labelled slot.",
+          "no-slots": "Add at least one labeled slot.",
           "invalid-mintage": "Enter a whole, non-negative safe integer for Mintage.",
           // STRK-440: the store re-hydrates when another tab saves, so an edit whose
           // Collection that tab deleted fails here instead of silently reviving it.

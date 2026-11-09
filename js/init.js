@@ -762,7 +762,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // STRK-320: freshness classes are recomputed only on demand (boot, sync,
     // updateSyncButtonStates) — nothing tracks the passage of time, so a tab
-    // left open across the 60-minute or 24-hour boundary keeps its old colour.
+    // left open across the 60-minute or 24-hour boundary keeps its old color.
     // Repaint when the tab becomes visible again; deliberately no polling timer.
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState !== "visible") return;

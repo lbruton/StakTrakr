@@ -107,7 +107,7 @@ these rules elsewhere. Read before editing or running any Playwright test.
 - Boot finishes in a deferred timer after `DOMContentLoaded`. A helper that waits only for
   `typeof window.someFn === "function"` races the rest of boot.
 - Poll layout and computed-style reads (`expect.poll`). A box measured before layout reads
-  `0/0`, and a colour read during a theme transition holds the old value.
+  `0/0`, and a color read during a theme transition holds the old value.
 - Assert a whole array once (`expect(outOfRange).toEqual([])`), not one `expect()` per
   element: per-element calls cost seconds on large chart datasets.
 - Hash a displayed image from its decoded pixels, not by re-fetching its `blob:` URL. The

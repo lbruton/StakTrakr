@@ -2426,7 +2426,7 @@ const _vendorRowContext = (rowInfo, detailMap) => {
   const inStockPrices = _computeInStockPrices(vData, slug);
   const lowestPrice = inStockPrices.length > 0 ? Math.min(...inStockPrices) : null;
   const highestPrice = inStockPrices.length > 0 ? Math.max(...inStockPrices) : null;
-  // The Median shown is the median the premium colour compares against.
+  // The Median shown is the median the premium color compares against.
   const rank = _rankVendorData(vData, slug);
   const medianVal = rank.median;
 
@@ -2529,7 +2529,7 @@ const _buildVendorCard = (row, vendorIds, vendorMeta) => {
     if (cell.title) tile.title = cell.title;
     const vendor = document.createElement("span");
     vendor.className = "vp-card-vendor";
-    // Brand colours fail 4.5:1 as text, so the colour marks a dot beside the name.
+    // Brand colors fail 4.5:1 as text, so the color marks a dot beside the name.
     const dot = document.createElement("span");
     dot.className = "vp-card-vendor-dot";
     dot.setAttribute("aria-hidden", "true");
@@ -2786,7 +2786,7 @@ const _runMarketRefresh = async () => {
 
 /**
  * Builds the gear icon the app header's Settings button draws, for the Configure button.
- * @returns {SVGSVGElement} A decorative 16px icon that inherits the text colour.
+ * @returns {SVGSVGElement} A decorative 16px icon that inherits the text color.
  */
 const _buildGearIcon = () => {
   const ns = "http://www.w3.org/2000/svg";
@@ -2862,7 +2862,7 @@ const _buildMarketBlockHeader = () => {
   // old .header-cloud-dot was `position: absolute` for a button-corner badge and
   // dropped straight out of this flex row. That base rule is gone as of STRK-298
   // — this must stay .cloud-sync-dot, which is load-bearing, not incidental. The
-  // colour modifiers the painter adds are separate and still exist.
+  // color modifiers the painter adds are separate and still exist.
   const freshnessDot = document.createElement("span");
   freshnessDot.id = "marketFreshnessDot";
   freshnessDot.className = "cloud-sync-dot";
@@ -3047,7 +3047,7 @@ const renderVendorPrices = () => {
   footer.className = "market-disclaimer";
   footer.appendChild(
     document.createTextNode(
-      "Market prices are best effort. Percentages show premium over spot (or G1 rate for Goldbacks); their colour compares dealers."
+      "Market prices are best effort. Percentages show premium over spot (or G1 rate for Goldbacks); their color compares dealers."
     )
   );
   footer.appendChild(

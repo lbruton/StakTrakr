@@ -85,7 +85,7 @@
     /**
      * Phone-only sort select. The Ledger header row is hidden at phone width, so this
      * offers My order plus every column in both directions.
-     * @returns {HTMLElement} Labelled select
+     * @returns {HTMLElement} Labeled select
      */
     const buildCompactSort = () => {
       const { sortKey, direction } = getHubPreferences();

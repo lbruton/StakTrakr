@@ -924,7 +924,7 @@ const WEIGHT_DISPLAY_LENS_UNITS = ["gb", "sb", "g", "kg", "lb", "mg", "avdp"];
  *
  * **Ambiguity is named, not hidden** (PR #1405 review, Codex + Copilot): gb and sb share a
  * conversion factor, so a 1 Goldback and a 1 Silverback both key to "0.00100" and the filter
- * genuinely selects both — correct for a metal-agnostic weight column. Labelling that chip
+ * genuinely selects both — correct for a metal-agnostic weight column. Labeling that chip
  * "1 gb" would hide the Silverbacks and, because it resolved by inventory order, could even
  * render "1 gb" for a click on a `1 sb` cell. When a key matches more than one unit the label
  * names them all ("1 gb/sb"); units are sorted so the result never depends on inventory order.
@@ -1517,9 +1517,9 @@ const openModalById = (id, onClose) => {
 let _contrastProbe = null;
 
 /**
- * Resolves any CSS colour (hex, rgb(), hsl(), oklch(), color-mix(), var(), or a mix of them)
+ * Resolves any CSS color (hex, rgb(), hsl(), oklch(), color-mix(), var(), or a mix of them)
  * to [r, g, b] in 0–255, using the active theme's tokens.
- * @param {string} css - CSS colour expression
+ * @param {string} css - CSS color expression
  * @returns {number[]|null} sRGB channels, or null when the value cannot be resolved
  */
 function _resolveCssColorChannels(css) {
@@ -1541,10 +1541,10 @@ function _resolveCssColorChannels(css) {
 
 /**
  * Returns black or white — whichever has the higher WCAG 2.x contrast ratio against the
- * given background. Accepts any CSS colour syntax, including var() and nested var()
+ * given background. Accepts any CSS color syntax, including var() and nested var()
  * (STRK-446: the old hex-only parser returned black for every oklch/hsl chip). Filter chips
  * use CSS contrast-color() where the browser has it; this is the fallback and the general helper.
- * @param {string} bg - Background colour in any CSS syntax
+ * @param {string} bg - Background color in any CSS syntax
  * @returns {string} '#000000' or '#ffffff'
  */
 function getContrastColor(bg) {
