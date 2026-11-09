@@ -134,11 +134,11 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.36.138 &ndash; Retail sync failures</strong>: A sync now marks prices Current only after it saves them, so a full browser storage no longer shows old prices as fresh and the sync reports the failure. Sync Now in Settings shows a waiting message when it joins a sync that is already running, then shows the result. A price file that stalls mid-download is dropped after 5 seconds, so Refresh no longer hangs (STRK-569).</li>
     <li><strong>v3.36.137 &ndash; Market details modal focus</strong>: Closing the Market details now returns focus to the item button even when the page body held focus as it opened. A dialog stacked above the Market details keeps focus when the details close, and details that finish loading while a dialog is open no longer move focus to the Market title (STRK-567).</li>
     <li><strong>v3.36.136 &ndash; Bulk Edit and PCGS field names</strong>: Screen readers now announce a name for every field in Bulk Edit and the PCGS field picker. Each value box, the search box, the select-all checkbox and each Item row checkbox says what it controls, and a row checkbox names its Item. The layout does not change (STRK-548).</li>
     <li><strong>v3.36.135 &ndash; Review Changes keyboard access</strong>: In the Review Changes window, the Tab key now reaches every setting choice, including the value pairs, chips, pills, Keep Local and Use Remote. Space and Enter pick a choice, focus stays put after the window redraws, and a ring marks the focused choice. Screen readers hear each choice's role and whether it is picked (STRK-560).</li>
     <li><strong>v3.36.134 &ndash; Segmented toggle corners</strong>: On a phone and tablet, the end segments of a segmented toggle, such as the Album slot filter, the sort control and the Purchase Price Lot/Each toggle, now round their outer corners to match the group border. The square corners that showed inside the rounded edge are gone (STRK-578).</li>
-    <li><strong>v3.36.133 &ndash; Album toolbar and actions</strong>: Edit collection, Remove collection and Clone &amp; customize now sit in a row below the Slots instead of in the toolbar. On a phone the toolbar is two tidy rows, the slot filter and then sort with the view toggle, and the actions fill the width at a touch-sized height (STRK-577).</li>
       `;
 };
 

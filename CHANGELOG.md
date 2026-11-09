@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.138] - 2026-11-08
+
+### Changed — STRK-569: Retail sync failures
+
+- **Price save**: A sync marks prices Current only after the price snapshot is saved. When the save fails, the old freshness label stays and the sync reports the storage failure (STRK-569).
+- **Sync Now**: Sync Now in Settings shows a waiting message when it joins a sync that is already running, then shows that sync's result (STRK-569).
+- **Stalled feed**: A price file whose body stalls after its headers is aborted after 5 seconds, so Refresh ends instead of hanging (STRK-569).
+
 ## [3.36.137] - 2026-11-08
 
 ### Changed — STRK-567: Market details modal focus
