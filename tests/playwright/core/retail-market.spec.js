@@ -4575,3 +4575,135 @@ test.describe("market detail modal focus", () => {
     await expect(ok).toBeFocused();
   });
 });
+
+test.describe("retail sync failure paths", () => {
+  const OLD_MANIFEST_AT = "2020-01-01T00:00:00.000Z";
+
+  /**
+   * Boots the Market fixture and waits until the boot sync has settled, so a
+   * test controls the next sync from a known idle state.
+   * @param {import('@playwright/test').Page} page - Playwright page.
+   * @returns {Promise<void>}
+   */
+  const bootIdleMarket = async (page) => {
+    await setupRetailFixture(page);
+    await waitForRetailBackgroundSync(page);
+    await page.evaluate(() => window.syncRetailPrices({ ui: false }));
+  };
+
+  test("a failed price save keeps the old freshness label and reports the failure", async ({
+    page,
+  }) => {
+    await bootIdleMarket(page);
+
+    // One run per failure kind; each reports its own advice and writes nothing else.
+    const runs = await page.evaluate(async (oldManifestAt) => {
+      window.showAppAlert = () => {};
+      const realSetItem = Storage.prototype.setItem;
+      const outcomes = [];
+      for (const errorName of ["QuotaExceededError", "SecurityError"]) {
+        localStorage.setItem("retailManifestGeneratedAt", oldManifestAt);
+        const written = [];
+        Storage.prototype.setItem = function (name, value) {
+          if (name === "v2RetailPrices") throw new DOMException("denied", errorName);
+          written.push(name);
+          return realSetItem.call(this, name, value);
+        };
+        let updated = 0;
+        const onUpdated = () => (updated += 1);
+        document.addEventListener("retail:updated", onUpdated);
+        try {
+          const result = await window.syncRetailPrices({ ui: false });
+          outcomes.push({
+            errorName,
+            result,
+            updated,
+            manifestAt: localStorage.getItem("retailManifestGeneratedAt"),
+            companionWrites: written.filter(
+              (name) => name === "v2RetailIntraday" || name === RETAIL_AVAILABILITY_KEY
+            ),
+          });
+        } finally {
+          Storage.prototype.setItem = realSetItem;
+          document.removeEventListener("retail:updated", onUpdated);
+        }
+      }
+      return outcomes;
+    }, OLD_MANIFEST_AT);
+
+    for (const run of runs) {
+      expect(run.result.ok, run.errorName).toBe(false);
+      expect(run.manifestAt, run.errorName).toBe(OLD_MANIFEST_AT);
+      expect(run.updated, run.errorName).toBe(0);
+      expect(run.companionWrites, run.errorName).toEqual([]);
+    }
+    expect(runs[0].result.error).toContain("storage is full");
+    expect(runs[1].result.error).toContain("blocked");
+    expect(runs[1].result.error).not.toContain("full");
+  });
+
+  test("Sync Now joining a running sync shows its status and result in Settings", async ({
+    page,
+  }) => {
+    await bootIdleMarket(page);
+    const gate = await gatePrimaryRetailLatest(page, SLUG_SILVER_A);
+
+    await page.evaluate(() => {
+      window.__runningSync = window.syncRetailPrices({ ui: false });
+    });
+    await gate.requested;
+
+    const joined = page.evaluate(() => window.syncRetailPrices());
+    const button = page.locator("#retailSyncBtn");
+    const status = page.locator("#retailSyncStatus");
+    await expect(button).toBeDisabled();
+    await expect(button).toHaveText("Syncing…");
+    await expect(status).toContainText("already running");
+
+    await page.evaluate(() => localStorage.setItem("appTimeZone", "Pacific/Honolulu"));
+    gate.release();
+    const result = await joined;
+    expect(result.ok).toBe(true);
+    await expect(button).toBeEnabled();
+    await expect(button).toHaveText("Sync Now");
+    // The clock is pinned at 18:00 UTC, which is 8:00 in the configured zone.
+    await expect(status).toContainText(/Synced \u00b7 8:00/);
+  });
+
+  test("a slug body that stalls after its headers is aborted instead of hanging", async ({
+    page,
+  }) => {
+    test.setTimeout(30000);
+    await bootIdleMarket(page);
+
+    const outcome = await page.evaluate(async () => {
+      const realFetch = window.fetch;
+      window.fetch = (url, init = {}) => {
+        if (!String(url).includes("stalled-slug")) return realFetch(url, init);
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            new Promise((_, reject) => {
+              init.signal.addEventListener("abort", () =>
+                reject(new DOMException("aborted", "AbortError"))
+              );
+            }),
+        });
+      };
+      try {
+        const bounded = await Promise.race([
+          window._fetchV2Json(
+            "https://api.staktrakr.com/data/v2",
+            "retail/stalled-slug/latest.json"
+          ),
+          new Promise((resolve) => setTimeout(() => resolve("hung"), 12000)),
+        ]);
+        return bounded;
+      } finally {
+        window.fetch = realFetch;
+      }
+    });
+
+    expect(outcome).toBeNull();
+  });
+});

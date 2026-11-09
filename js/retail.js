@@ -353,6 +353,8 @@ let retailLastAvailableDates = {};
 
 /** True while syncRetailPrices() is running — triggers skeleton render */
 let _retailSyncInProgress = false;
+/** True when the running sync paints the Settings Sync Now button itself */
+let _retailSyncShowsUi = false;
 
 /** @type {(Promise<{ok: boolean, error?: string}>|null)} The running sync, shared by concurrent callers */
 let _retailSyncPromise = null;
@@ -510,12 +512,40 @@ const saveRetailAvailability = () => {
 // v2 Persistence (STAK-503)
 // ---------------------------------------------------------------------------
 
+/**
+ * Writes the price snapshot to storage.
+ * @returns {null|"quota"|"blocked"|"unavailable"} Null when saved, else why it was not:
+ *   storage full, storage access refused, or the compression engine missing.
+ */
 const _saveV2RetailPrices = () => {
+  if (
+    typeof __wouldClobberCompressed === "function" &&
+    __wouldClobberCompressed(_V2_RETAIL_PRICES_KEY)
+  ) {
+    return "unavailable";
+  }
   try {
     saveDataSync(_V2_RETAIL_PRICES_KEY, retailPrices);
+    return null;
   } catch (err) {
     _handleSaveError("v2 retail prices", err);
+    return err && err.name === "QuotaExceededError" ? "quota" : "blocked";
   }
+};
+
+/**
+ * Names why the price snapshot was not saved and what to do next.
+ * @param {"quota"|"blocked"|"unavailable"} reason - Result of _saveV2RetailPrices.
+ * @returns {string} The sync error message.
+ */
+const _priceSaveFailureText = (reason) => {
+  if (reason === "quota") {
+    return "Prices were not saved because browser storage is full. Free some space, then sync again.";
+  }
+  if (reason === "unavailable") {
+    return "Prices were not saved because the compression library did not load. Reload the page, then sync again.";
+  }
+  return "Prices were not saved because the browser blocked storage access. Allow site storage, then sync again.";
 };
 
 const _loadV2RetailPrices = () => {
@@ -780,12 +810,12 @@ function _isV2SlugEnvelopeFresh(envelope) {
  * @returns {Promise<any|null>} The unwrapped payload, or null on failure or staleness
  */
 async function _fetchV2Json(base, path) {
+  // The timer stays armed through the body read: a body that stalls after its
+  // headers must abort, not hang the sync.
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 5000);
   try {
-    const resp = await fetch(`${base}/${path}`, { signal: controller.signal }).finally(() =>
-      clearTimeout(timeoutId)
-    );
+    const resp = await fetch(`${base}/${path}`, { signal: controller.signal });
     if (!resp.ok) return null;
     const envelope = await resp.json();
     // Returning null on a stale payload deliberately reuses the missing-file
@@ -798,6 +828,8 @@ async function _fetchV2Json(base, path) {
     return envelope && envelope.v === 2 && envelope.data !== undefined ? envelope.data : envelope;
   } catch {
     return null;
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 
@@ -1232,13 +1264,32 @@ const _fetchAndApplyV2Providers = async (apiBase) => {
 
 /**
  * Persists all v2 sync outputs (prices, history, intraday, availability) after a
- * successful sync.
+ * sync that fetched prices.
+ * Writes nothing else when the price snapshot fails, so a reload never pairs new
+ * history with old prices.
+ * @returns {null|"quota"|"blocked"|"unavailable"} Null when saved, else the failure reason.
  */
 const _persistV2SyncResults = () => {
-  _saveV2RetailPrices();
+  const failure = _saveV2RetailPrices();
+  if (failure) return failure;
   _saveV2RetailHistory();
   _saveV2RetailIntraday();
   saveRetailAvailability();
+  return null;
+};
+
+/**
+ * Formats the current time for sync status lines in the configured time zone.
+ * @returns {string} The time as hour and minute.
+ */
+const _formatSyncClock = () => {
+  const tz =
+    (typeof TIMEZONE_KEY !== "undefined" && localStorage.getItem(TIMEZONE_KEY)) || undefined;
+  const tzOpts =
+    tz && tz !== "auto"
+      ? { timeZone: tz, hour: "numeric", minute: "2-digit" }
+      : { hour: "numeric", minute: "2-digit" };
+  return new Date().toLocaleTimeString(undefined, tzOpts);
 };
 
 /**
@@ -1250,13 +1301,7 @@ const _persistV2SyncResults = () => {
  * @param {Element} [syncStatus] - Optional status text element.
  */
 const _reportV2SyncSuccess = (successCount, generatedAt, ui, syncStatus) => {
-  const tz =
-    (typeof TIMEZONE_KEY !== "undefined" && localStorage.getItem(TIMEZONE_KEY)) || undefined;
-  const tzOpts =
-    tz && tz !== "auto"
-      ? { timeZone: tz, hour: "numeric", minute: "2-digit" }
-      : { hour: "numeric", minute: "2-digit" };
-  const syncTime = new Date().toLocaleTimeString(undefined, tzOpts);
+  const syncTime = _formatSyncClock();
   const statusMsg = `Synced ${successCount} coin(s) · ${syncTime}`;
   if (ui && syncStatus) syncStatus.textContent = statusMsg;
   debugLog(`[retail-v2] Sync complete: ${statusMsg}`, "info");
@@ -1349,9 +1394,15 @@ async function _syncRetailV2({ ui, syncStatus }) {
   }
 
   if (successCount > 0) {
-    // The manifest time is the data age only once its prices are accepted.
+    // The manifest time is the data age only once its prices are saved.
+    const saveFailure = _persistV2SyncResults();
+    if (saveFailure) {
+      const errorMsg = _priceSaveFailureText(saveFailure);
+      if (ui && syncStatus) syncStatus.textContent = errorMsg;
+      _appendSyncLogEntry({ success: false, coins: 0, window: null, error: errorMsg });
+      return { ok: false, error: errorMsg };
+    }
     if (generatedAt) _safeLocalStorageSet(RETAIL_MANIFEST_TS_KEY, generatedAt);
-    _persistV2SyncResults();
     document.dispatchEvent(new CustomEvent("retail:updated"));
   }
 
@@ -1376,12 +1427,34 @@ async function _syncRetailV2({ ui, syncStatus }) {
 const syncRetailPrices = ({ ui = true } = {}) => {
   if (_retailSyncPromise) {
     debugLog("[retail] Sync already in progress — sharing its result", "info");
-    return _retailSyncPromise;
+    return ui && !_retailSyncShowsUi ? _showJoinedSync(_retailSyncPromise) : _retailSyncPromise;
   }
+  _retailSyncShowsUi = ui;
   _retailSyncPromise = _runRetailSync({ ui }).finally(() => {
     _retailSyncPromise = null;
   });
   return _retailSyncPromise;
+};
+
+/**
+ * Shows a running silent sync in Settings for a Sync Now request that joined it,
+ * then reports the shared result.
+ * @param {Promise<{ok: boolean, error?: string}>} running - The in-flight sync.
+ * @returns {Promise<{ok: boolean, error?: string}>} The shared result.
+ */
+const _showJoinedSync = async (running) => {
+  const syncBtn = safeGetElement("retailSyncBtn");
+  const syncStatus = safeGetElement("retailSyncStatus");
+  syncBtn.disabled = true;
+  syncBtn.textContent = "Syncing\u2026";
+  syncStatus.textContent = "A sync is already running. Waiting for its result.";
+  const result = await running;
+  syncBtn.disabled = false;
+  syncBtn.textContent = "Sync Now";
+  syncStatus.textContent = result.ok
+    ? `Synced \u00b7 ${_formatSyncClock()}`
+    : `Sync failed: ${result.error}`;
+  return result;
 };
 
 /**
