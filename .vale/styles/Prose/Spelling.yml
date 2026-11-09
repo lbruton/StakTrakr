@@ -1,0 +1,52 @@
+# prose-core "Sentences": use US English spelling. Code spans and URLs are not linted.
+extends: substitution
+message: "Use the US spelling '%s' instead of '%s' (prose-core Sentences)."
+level: warning
+ignorecase: true
+swap:
+  colour: color
+  colours: colors
+  coloured: colored
+  colouring: coloring
+  behaviour: behavior
+  behaviours: behaviors
+  favour: favor
+  favourite: favorite
+  honour: honor
+  honours: honors
+  neighbour: neighbor
+  neighbours: neighbors
+  centre: center
+  centred: centered
+  centres: centers
+  grey: gray
+  greyed: grayed
+  catalogue: catalog
+  catalogues: catalogs
+  licence: license
+  analyse: analyze
+  analysed: analyzed
+  analysing: analyzing
+  organise: organize
+  organised: organized
+  normalise: normalize
+  normalised: normalized
+  normalises: normalizes
+  initialise: initialize
+  initialised: initialized
+  recognise: recognize
+  prioritise: prioritize
+  summarise: summarize
+  optimise: optimize
+  customise: customize
+  customised: customized
+  minimise: minimize
+  serialise: serialize
+  serialised: serialized
+  cancelled: canceled
+  cancelling: canceling
+  labelled: labeled
+  labelling: labeling
+  modelled: modeled
+  travelled: traveled
+  full stop: period
