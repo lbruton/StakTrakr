@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.142] - 2026-11-08
+
+### Changed — STRK-582: Collections builder keeps year-only slots
+
+- **Slots**: The collection builder saves a slot row that has a label or a year, so a collection can start as a list of years and gain labels later. A row with neither is still dropped (STRK-582).
+- **Slot ids**: A slot without a label takes its id from its year, such as `2020` and `2020-2` (STRK-582).
+- **Editing**: A year-only slot reopens in the builder with an empty label and its year (STRK-582).
+
+---
+
 ## [3.36.141] - 2026-11-08
 
 ### Changed — STRK-581: Zero Realized cells use the display currency

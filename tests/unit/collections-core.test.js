@@ -1113,6 +1113,19 @@ describe("custom collections", () => {
     });
     assert.equal(core.createCustomCollection(state, base).ok, true);
     assert.deepEqual(core.createCustomCollection(state, base), { ok: false, reason: "exists" });
+    const yearOnly = core.createCustomCollection(state, {
+      ...base,
+      id: "custom-2",
+      slots: [{ year: "2020" }, { year: "2020" }, { label: "", year: 2021 }],
+    });
+    assert.equal(yearOnly.ok, true);
+    assert.equal(yearOnly.collection.definition.slots[2].label, "");
+    assert.equal(yearOnly.collection.definition.slots[2].year, "2021");
+    assert.deepEqual(plain(yearOnly.collection.definition.slots.map((slot) => slot.id)), [
+      "2020",
+      "2020-2",
+      "2021",
+    ]);
   });
 
   test("updateCustomDefinition keeps ids across renames and tombstones links in removed slots", () => {

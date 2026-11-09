@@ -876,6 +876,70 @@ test.describe("core/collections — link picker, builder, item view", () => {
     await expect(page.locator("#appDialogModal")).toBeVisible();
   });
 
+  test("a year-only Slot saves, reopens with its year and takes a label later; an empty row is dropped", async ({
+    page,
+  }) => {
+    await bootBuilder(page, {});
+    const builder = builderModal(page);
+    await builder.getByLabel("Collection name").fill("Rough draft");
+    const rowCount = await builder.locator(".collections-builder-row").count();
+    for (let index = rowCount; index < 4; index += 1) {
+      await builder.getByRole("button", { name: "+ Add slot", exact: true }).click();
+    }
+    const years = ["2020", "2020", "2021"];
+    for (const [index, year] of years.entries()) {
+      await builder.getByLabel("Year", { exact: true }).nth(index).fill(year);
+    }
+    await builder.getByRole("button", { name: "Create collection", exact: true }).click();
+    await expect(builder).toBeHidden();
+    const readSlots = () =>
+      page.evaluate(() => {
+        const state = window.collectionsStore.getState();
+        const made = window.collectionsCore
+          .listCollections(state)
+          .find((c) => c.name === "Rough draft");
+        return { id: made.id, slots: state.collections[made.id].definition.slots };
+      });
+    const { id, slots } = await readSlots();
+    expect(slots.map((slot) => [slot.id, slot.label, slot.year])).toEqual([
+      ["2020", "", "2020"],
+      ["2020-2", "", "2020"],
+      ["2021", "", "2021"],
+    ]);
+    await page.evaluate((id) => window.collectionsStore.link(id, "2020-2", "col-ase-2022-a"), id);
+    await reopenBuilder(page, { editId: id });
+    await expect(
+      builder.getByRole("button", { name: "Reorder 2020 (Slot 2)", exact: true })
+    ).toBeVisible();
+    await builder.getByLabel("Year", { exact: true }).nth(1).fill("2022");
+    await expect(
+      builder.getByRole("button", { name: "Reorder 2022 (Slot 2)", exact: true })
+    ).toBeVisible();
+    await builder.getByLabel("Year", { exact: true }).nth(1).fill("2020");
+    await expect(builder.getByLabel("Year", { exact: true }).nth(0)).toHaveValue("2020");
+    await expect(builder.getByLabel("Year", { exact: true }).nth(2)).toHaveValue("2021");
+    await builder.getByLabel("Slot label").nth(2).fill("2021 Proof");
+    await builder.getByRole("button", { name: "Save changes" }).click();
+    await expect(builder).toBeHidden();
+    expect((await readSlots()).slots.map((slot) => [slot.id, slot.label, slot.year])).toEqual([
+      ["2020", "", "2020"],
+      ["2020-2", "", "2020"],
+      ["2021", "2021 Proof", "2021"],
+    ]);
+    expect(
+      await page.evaluate(
+        (id) => window.collectionsStore.getState().collections[id].slots["2020-2"].primary,
+        id
+      )
+    ).toBe("col-ase-2022-a");
+    await page.evaluate((id) => window.collectionsStore.requestNewItem(id, "2021"), id);
+    await expect(page.locator("#itemName")).toHaveValue("2021 Proof");
+    await page.click("#cancelItem");
+    await page.evaluate((id) => window.collectionsStore.requestNewItem(id, "2020"), id);
+    await expect(page.locator("#itemName")).toHaveValue("2020");
+    await page.click("#cancelItem");
+  });
+
   test("every builder field has a visible label, in New and Clone modes", async ({ page }) => {
     test.setTimeout(test.info().timeout * 2);
     await seedAndGoto(page);

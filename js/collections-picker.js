@@ -1049,6 +1049,7 @@
     remove.dataset.action = "remove";
     actions.append(insert, remove);
     label.addEventListener("input", onLabelChange);
+    year.addEventListener("input", onLabelChange);
     row.append(
       grip,
       chooser.node,
@@ -1143,7 +1144,10 @@
     const slots = context.slots.map((slot) => ({
       // Ids carry over only when EDITING; a clone is a new collection and mints its own.
       id: request.editId ? slot.id : undefined,
-      label: `${slot.label || slot.year || ""}${slot.tag ? ` ${slot.tag}` : ""}`.trim(),
+      // An edit keeps a year-only Slot unlabeled; only a clone borrows the year as its label.
+      label: `${slot.label || (request.editId ? "" : slot.year) || ""}${
+        slot.tag ? ` ${slot.tag}` : ""
+      }`.trim(),
       year: slot.year,
       mintage: slot.mintage,
       note: request.editId ? slot.note : "",
@@ -1569,10 +1573,21 @@
     const slotCount = el("span", "form-section-count");
     const orderStatus = el("div", "sr-only");
     orderStatus.setAttribute("role", "status");
+    /**
+     * Accessible name of a Slot row: its label, else its year with the position (repeated
+     * years stay distinct), else the position alone.
+     * @param {HTMLElement} row - Slot row
+     * @param {number} index - Zero-based row position
+     * @returns {string} Row name
+     */
+    const rowName = (row, index) => {
+      const label = row.querySelector(".collections-builder-label").value.trim();
+      const year = row.querySelector(".collections-builder-year").value.trim();
+      return label || (year ? `${year} (Slot ${index + 1})` : `Slot ${index + 1}`);
+    };
     const refreshRowActions = () => {
       Array.from(rowsHost.children).forEach((row, index) => {
-        const label =
-          row.querySelector(".collections-builder-label").value.trim() || `Slot ${index + 1}`;
+        const label = rowName(row, index);
         const names = {
           grip: `Reorder ${label}`,
           insert: `Add Slot after ${label}`,
@@ -1590,7 +1605,7 @@
     };
     const announceMove = (row) => {
       const position = Array.from(rowsHost.children).indexOf(row) + 1;
-      const label = row.querySelector(".collections-builder-label").value.trim() || "Slot";
+      const label = rowName(row, position - 1);
       orderStatus.textContent = `${label} moved to position ${position} of ${rowsHost.children.length}.`;
     };
     let dragRowId = 0;
@@ -1891,7 +1906,9 @@
         return;
       }
       const rows = Array.from(rowsHost.children).filter((row) =>
-        row.querySelector(".collections-builder-label").value.trim()
+        ["label", "year"].some((field) =>
+          row.querySelector(`.collections-builder-${field}`).value.trim()
+        )
       );
       let firstInvalid = null;
       const counts = new Map();
@@ -1966,7 +1983,7 @@
       if (!result.ok) {
         const reasons = {
           "invalid-name": "Give the collection a name.",
-          "no-slots": "Add at least one labeled slot.",
+          "no-slots": "Add at least one slot with a label or a year.",
           "invalid-mintage": "Enter a whole, non-negative safe integer for Mintage.",
           // STRK-440: the store re-hydrates when another tab saves, so an edit whose
           // Collection that tab deleted fails here instead of silently reviving it.

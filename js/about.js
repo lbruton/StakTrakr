@@ -134,11 +134,11 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
-    <li><strong>v3.36.141 &ndash; Zero Realized currency</strong>: A zero Realized cell in the Dashboard stack ledger now shows the display currency symbol, so a GBP view shows &pound;0.00 instead of $0.00. Nonzero Realized values were already formatted this way, and the zero cell stays neutral with no gain or loss color (STRK-581).</li>
+    <li><strong>v3.36.142 &ndash; Year-only collection slots</strong>: The collection builder now saves a slot row that has a year but no label, so you can rough out a collection by year and add labels later. A row with neither a label nor a year is still dropped. A year-only slot reopens with its year and an empty label, and shows its year as its name in the collection (STRK-582).</li>
+    <li><strong>v3.36.141&ndash; Zero Realized currency</strong>: A zero Realized cell in the Dashboard stack ledger now shows the display currency symbol, so a GBP view shows &pound;0.00 instead of $0.00. Nonzero Realized values were already formatted this way, and the zero cell stays neutral with no gain or loss color (STRK-581).</li>
     <li><strong>v3.36.140 &ndash; US English spelling</strong>: UI copy, code comments and developer docs now use US English spellings, such as color, canceled and labeled. Sync and Market messages change to match. Behavior is unchanged (STRK-580).
     <li><strong>v3.36.139 &ndash; Market price comparison</strong>: Each colored premium on the Market tab now carries a Low, Mid or High word, so the comparison with other dealers no longer depends on color. The details modal leaves out a dealer you hide in the Market filter and shows stock correctly for every feed. A price time that cannot be read shows no date, and a carried price on a phone card shows the day it was last seen (STRK-568).</li>
     <li><strong>v3.36.138 &ndash; Retail sync failures</strong>: A sync now marks prices Current only after it saves them, so a full browser storage no longer shows old prices as fresh and the sync reports the failure. Sync Now in Settings shows a waiting message when it joins a sync that is already running, then shows the result. A price file that stalls mid-download is dropped after 5 seconds, so Refresh no longer hangs (STRK-569).</li>
-    <li><strong>v3.36.137 &ndash; Market details modal focus</strong>: Closing the Market details now returns focus to the item button even when the page body held focus as it opened. A dialog stacked above the Market details keeps focus when the details close, and details that finish loading while a dialog is open no longer move focus to the Market title (STRK-567).</li>
       `;
 };
 
