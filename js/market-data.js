@@ -1297,6 +1297,7 @@ const _findMarketDetailSpikes = (series) => {
       const prev = points[index - 1].usdPrice;
       const next = points[index + 1].usdPrice;
       const neighborAvg = (prev + next) / 2;
+      if (!(neighborAvg > 0)) continue;
       if (Math.abs(prev - next) / neighborAvg > tolerance) continue;
       if (Math.abs(points[index].usdPrice - neighborAvg) / neighborAvg > tolerance) {
         spikeKeys.add(`${vendorId}|${points[index].time}`);

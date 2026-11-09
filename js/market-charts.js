@@ -87,6 +87,7 @@ const _shortName = (vid) => {
     gainesvillecoins: "Gville",
     providentmetals: "Provident",
     goldback: "Goldback",
+    mintbuilder: "MintBuilder",
   };
   return map[vid] || vid;
 };
