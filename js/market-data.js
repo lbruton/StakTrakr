@@ -145,7 +145,11 @@ const MARKET_PREMIUM_BAND_PCT = 1;
  * @returns {{median:(number|null), liveCount:number, byId:Object}} Tier and distance per ranked id.
  */
 const _rankDealerPrices = (entries) => {
-  const priced = entries.filter((e) => e && e.inStock && e.price > 0);
+  // A legacy snapshot can hold numeric-string prices; only finite numbers rank.
+  const priced = entries
+    .filter((e) => e && e.inStock)
+    .map((e) => ({ ...e, price: Number(e.price) }))
+    .filter((e) => Number.isFinite(e.price) && e.price > 0);
   const live = priced
     .filter((e) => !e.carried)
     .map((e) => e.price)
@@ -169,6 +173,14 @@ const _rankDealerPrices = (entries) => {
 };
 
 /**
+ * Whether a dealer entry is in stock under either feed flag.
+ * @param {(Object|null|undefined)} entry - Dealer entry carrying in_stock or inStock.
+ * @returns {boolean} True only when a flag is strictly true.
+ */
+const _isVendorInStock = (entry) =>
+  Boolean(entry && (entry.in_stock === true || entry.inStock === true));
+
+/**
  * Ranks one item's dealer prices, skipping dealers the Market filter hides.
  * @param {Object} vData - Per-vendor data map for one item.
  * @param {string} slug - Retail coin slug (for the market-filter check).
@@ -183,7 +195,7 @@ const _rankVendorData = (vData, slug) => {
     entries.push({
       id: vid,
       price: v.price,
-      inStock: v.in_stock === true || v.inStock === true,
+      inStock: _isVendorInStock(v),
       carried: Boolean(v.carried),
     });
   }
@@ -201,6 +213,29 @@ const _medianDistancePhrase = (ranked) => {
   const size = Math.abs(ranked.distancePct);
   if (size < 0.05) return ", at the dealer median";
   return `, ${size.toFixed(1)}% ${ranked.distancePct < 0 ? "below" : "above"} the dealer median`;
+};
+
+/** Short words for the premium tiers, so the comparison does not rest on color alone. */
+const _TIER_WORDS = { low: "Low", mid: "Mid", high: "High" };
+
+/**
+ * Builds a premium badge: the premium text, plus a tier word when the price is ranked.
+ * @param {string} text - Premium text such as "+1.4%".
+ * @param {(Object|undefined)} ranked - One byId entry from _rankDealerPrices.
+ * @returns {HTMLSpanElement} The badge element.
+ */
+const _buildPremiumBadge = (text, ranked) => {
+  const tier = (ranked && ranked.tier) || "plain";
+  const badge = document.createElement("span");
+  badge.className = "vp-premium " + tier;
+  badge.textContent = text;
+  if (_TIER_WORDS[tier]) {
+    const word = document.createElement("span");
+    word.className = "vp-tier-word";
+    word.textContent = _TIER_WORDS[tier];
+    badge.append(" ", word);
+  }
+  return badge;
 };
 
 /**
@@ -1719,10 +1754,12 @@ const _buildModalVendorRow = (entry, vendorMeta, slug, metalCode, weightOz, spot
     _modalPremium = _calcMarketPremium(entry.price, _goldbackG1Rate);
   }
   if (_modalPremium != null) {
-    const badge = document.createElement("span");
-    badge.className = "vp-premium " + (rank?.byId[entry.vid]?.tier || "plain");
-    badge.textContent = (_modalPremium >= 0 ? "+" : "") + _modalPremium.toFixed(1) + "%";
-    tdPrem.appendChild(badge);
+    tdPrem.appendChild(
+      _buildPremiumBadge(
+        (_modalPremium >= 0 ? "+" : "") + _modalPremium.toFixed(1) + "%",
+        rank?.byId[entry.vid]
+      )
+    );
   } else {
     tdPrem.textContent = "—";
     tdPrem.className = "vp-muted";
@@ -1745,7 +1782,7 @@ const _buildModalVendorRow = (entry, vendorMeta, slug, metalCode, weightOz, spot
       // Touch never shows a title, so the phone line names the day it was last seen.
       stockSubWord = `Carried ${_formatMarketTimestamp(entry.carried_from).split(",")[0]}`;
     }
-  } else if (entry.in_stock) {
+  } else if (_isVendorInStock(entry)) {
     stockState = "in";
     stockWord = "In Stock";
     stockSubWord = stockWord;
@@ -1786,6 +1823,8 @@ const _buildModalVendorTable = (content, detail, slug, vendorMeta, metalCode, we
     for (const vid in vData) {
       const v = vData[vid];
       if (!v) continue;
+      // The ranking skips a dealer the Market filter hides, so the table does too.
+      if (typeof _isMarketItemEnabled === "function" && !_isMarketItemEnabled(slug, vid)) continue;
       vendorEntries.push({ vid, ...v });
     }
     vendorEntries.sort((a, b) => {
@@ -1929,8 +1968,7 @@ const openMarketDetailModal = async (slug, { preservePeriod = false } = {}) => {
     metalCode,
     metalLower,
     weightOz,
-    // v2 feeds name the price window `t`; window_start is the v1 name.
-    detail && (detail.t || detail.window_start)
+    _detailWindowTime(detail, null)
   );
   const title = safeGetElement("marketDetailTitle");
   if (
@@ -2229,8 +2267,9 @@ const _computeInStockPrices = (vData, slug) => {
     // STAK-515: Skip disabled vendors in price calculations
     if (typeof _isMarketItemEnabled === "function" && !_isMarketItemEnabled(slug, vid)) continue;
     const _vs = vData[vid];
-    if (_vs && _vs.price > 0 && (_vs.in_stock === true || _vs.inStock === true) && !_vs.carried) {
-      inStockPrices.push(vData[vid].price);
+    const price = _vs ? Number(_vs.price) : NaN;
+    if (Number.isFinite(price) && price > 0 && _isVendorInStock(_vs) && !_vs.carried) {
+      inStockPrices.push(price);
     }
   }
   return inStockPrices;
@@ -2282,7 +2321,7 @@ const _buildVendorPriceCell = (
     return td;
   }
 
-  if (!vInfo.in_stock && !vInfo.inStock) {
+  if (!_isVendorInStock(vInfo)) {
     td.classList.add("vp-oos");
     const oosSpan = document.createElement("span");
     oosSpan.textContent = "OOS";
@@ -2294,7 +2333,7 @@ const _buildVendorPriceCell = (
     td.classList.add("vp-carried");
   }
 
-  if (vInfo.price === lowestPrice && !vInfo.carried) td.classList.add("vp-best");
+  if (Number(vInfo.price) === lowestPrice && !vInfo.carried) td.classList.add("vp-best");
   // A carried price was seen before this window, so only its carried_from names the time.
   const lastSeen = _lastSeenTitle(vInfo.carried ? vInfo.carried_from : windowTime);
 
@@ -2331,10 +2370,7 @@ const _buildVendorPriceCell = (
   td.appendChild(priceEl);
 
   if (premium != null) {
-    const premBadge = document.createElement("span");
-    premBadge.className = "vp-premium " + (rank.byId[vid]?.tier || "plain");
-    premBadge.textContent = premiumText;
-    td.appendChild(premBadge);
+    td.appendChild(_buildPremiumBadge(premiumText, rank.byId[vid]));
   }
 
   if (lastSeen) {
@@ -2501,6 +2537,13 @@ const _buildVendorCard = (row, vendorIds, vendorMeta) => {
     vendor.append(dot, _shortVendor(vid));
     tile.appendChild(vendor);
     tile.append(...cell.childNodes);
+    // Touch never shows the title, so a carried tile says when it was last seen.
+    if (cell.classList.contains("vp-carried") && cell.title) {
+      const seen = document.createElement("span");
+      seen.className = "vp-card-seen";
+      seen.textContent = cell.title;
+      tile.appendChild(seen);
+    }
     dealers.appendChild(tile);
   }
   card.appendChild(dealers);

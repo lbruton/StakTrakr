@@ -1129,6 +1129,41 @@ async function clickStrk260MarketDetail(page) {
 }
 
 /**
+ * Boots the Market fixture with one Alpha Silver Bar price row built from `vendors`.
+ * @param {import('@playwright/test').Page} page - Playwright page.
+ * @param {Object} params - Fixture inputs.
+ * @param {Object} params.vendors - Per-dealer price entries for SLUG_SILVER_A.
+ * @param {Object} [params.row] - Fields that override the price row, such as t.
+ * @param {string} [params.windowStart] - window_start of the latest feed.
+ * @param {Object} [params.marketFilter] - Market filter to seed.
+ * @returns {Promise<void>}
+ */
+async function setupComparisonFixture(
+  page,
+  { vendors, row = {}, windowStart = GENERATED_AT, marketFilter }
+) {
+  const priceRow = { t: GENERATED_AT, median_price: 37, vendors, ...row };
+  await setupRetailFixture(page, {
+    marketFilter,
+    retailPriceRows: { [SLUG_SILVER_A]: priceRow },
+    retailFeeds: {
+      [SLUG_SILVER_A]: { latest: { weight_oz: 1, window_start: windowStart, ...priceRow } },
+    },
+  });
+}
+
+/**
+ * Opens the Alpha Silver Bar detail modal through the page API.
+ * @param {import('@playwright/test').Page} page - Playwright page.
+ * @returns {Promise<void>}
+ */
+async function openAlphaModal(page) {
+  await page.evaluate((slug) => window.openMarketDetailModal(slug), SLUG_SILVER_A);
+  await expect(page.locator("#marketDetailModal")).toBeVisible();
+  await expect(page.locator("#marketDetailContent .market-detail-vendors")).toBeVisible();
+}
+
+/**
  * Seeds SLUG_SILVER_A's 30-day history feed with `rows`, pins the clock at
  * `now`, opens the STRK-260 market detail modal, switches to the 7D period,
  * and asserts exactly one active chart renders with a series payload equal
@@ -2104,6 +2139,124 @@ test.describe("core/retail-market", () => {
         .poll(() => contrastFailures(page, MARKET_STATUS_TEXT, { ancestorOpacity: true }), {
           message: `${theme} Market status text`,
         })
+        .toEqual([]);
+    }
+  });
+
+  test("the modal leaves out filtered dealers and reads stock from either flag", async ({
+    page,
+  }) => {
+    await setupComparisonFixture(page, {
+      vendors: {
+        apmex: { price: 36.5, in_stock: true, inStock: true },
+        jmbullion: { price: 37, in_stock: true, inStock: true },
+        herobullion: { price: 40, in_stock: true, inStock: true },
+        // A feed that sets only inStock still counts as live in the ranking.
+        bullionexchanges: { price: 38, inStock: true },
+      },
+      marketFilter: { [SLUG_SILVER_A]: { herobullion: false } },
+    });
+    await openAlphaModal(page);
+    const rows = page.locator("#marketDetailContent .market-detail-vendors tbody tr");
+    await expect(rows).toHaveCount(3);
+    await expect(page.locator("#marketDetailContent .market-stock")).toHaveText([
+      "In Stock",
+      "In Stock",
+      "In Stock",
+    ]);
+    await expect(rows.locator(".market-price")).toHaveText(["$36.50", "$37.00", "$38.00"]);
+  });
+
+  test("a premium names its dealer comparison in text, not only in color", async ({ page }) => {
+    await setupComparisonFixture(page, {
+      vendors: {
+        apmex: { price: 36.5, in_stock: true, inStock: true },
+        jmbullion: { price: 37, in_stock: true, inStock: true },
+        herobullion: { price: 40, in_stock: true, inStock: true },
+        bullionexchanges: { price: 41, in_stock: false, inStock: false },
+      },
+    });
+    const matrixRow = page
+      .locator(".vendor-prices-table tbody tr")
+      .filter({ has: page.getByText("Alpha Silver Bar", { exact: true }) });
+    for (const [tier, word] of [
+      ["low", "Low"],
+      ["mid", "Mid"],
+      ["high", "High"],
+    ]) {
+      await expect(matrixRow.locator(`.vp-premium.${tier} .vp-tier-word`)).toHaveText(word);
+    }
+    await openAlphaModal(page);
+    await expect(page.locator("#marketDetailContent .vp-premium .vp-tier-word")).toHaveText([
+      "Low",
+      "Mid",
+      "High",
+    ]);
+  });
+
+  test("the modal header takes the first parseable price time", async ({ page }) => {
+    await setupComparisonFixture(page, {
+      vendors: { apmex: { price: 36.5, in_stock: true, inStock: true } },
+      row: { t: "not-a-time" },
+    });
+    await openAlphaModal(page);
+    await expect(page.locator("#marketDetailContent .market-detail-asof")).toContainText(
+      "Prices from 2026-05-26"
+    );
+  });
+
+  test("a modal with no parseable price time shows no date at all", async ({ page }) => {
+    await setupComparisonFixture(page, {
+      vendors: { apmex: { price: 36.5, in_stock: true, inStock: true } },
+      row: { t: "not-a-time" },
+      windowStart: "also-bad",
+    });
+    await openAlphaModal(page);
+    await expect(page.locator("#marketDetailContent .market-detail-asof")).toHaveCount(0);
+    await expect(page.locator("#marketDetailContent")).not.toContainText("Invalid Date");
+  });
+
+  test("a carried tile on a phone card names the day it was last seen", async ({ page }) => {
+    await setupComparisonFixture(page, {
+      vendors: {
+        apmex: { price: 36.5, in_stock: true, inStock: true },
+        jmbullion: { price: 37, in_stock: true, inStock: true },
+        goldback: {
+          price: 38,
+          in_stock: true,
+          inStock: true,
+          carried: true,
+          carried_from: `${RECENT_DATE}T18:00:00Z`,
+        },
+      },
+    });
+    await page.setViewportSize({ width: 390, height: 844 });
+    const card = page
+      .locator(".vp-card")
+      .filter({ has: page.locator(".vp-coin-link", { hasText: "Alpha Silver Bar" }) });
+    const seen = card.locator(".vp-card-dealer.vp-carried .vp-card-seen");
+    await expect(seen).toBeVisible();
+    await expect(seen).toHaveText(/^Last seen \d{4}-\d{2}-\d{2}, \d{2}:\d{2}/);
+    // The phone floor for text is 12px.
+    expect(
+      await seen.evaluate((el) => parseFloat(getComputedStyle(el).fontSize))
+    ).toBeGreaterThanOrEqual(12);
+    await expect(card.locator(".vp-card-dealer:not(.vp-carried) .vp-card-seen")).toHaveCount(0);
+    for (const theme of THEMES) {
+      await page.evaluate((name) => window.setTheme(name), theme);
+      await expect
+        .poll(
+          () =>
+            contrastFailures(
+              page,
+              {
+                "carried last seen": "#vendorPricesContainer .vp-card-seen",
+                "tier word": "#vendorPricesContainer .vp-card .vp-tier-word",
+              },
+              { ancestorOpacity: true }
+            ),
+          { message: `${theme} phone card comparison text` }
+        )
         .toEqual([]);
     }
   });

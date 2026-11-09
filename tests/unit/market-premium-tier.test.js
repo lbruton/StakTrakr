@@ -30,6 +30,19 @@ describe("_rankDealerPrices", () => {
     assert.ok(Math.abs(rank.byId.c.distancePct - (3 / 37) * 100) < 1e-9);
   });
 
+  test("numeric-string prices count as numbers and non-numeric ones drop out", () => {
+    const rank = rankDealerPrices([
+      live("a", "10"),
+      live("b", "20"),
+      live("c", "30"),
+      live("d", "40"),
+      live("e", "n/a"),
+    ]);
+    assert.equal(rank.median, 25);
+    assert.equal(rank.liveCount, 4);
+    assert.equal(rank.byId.e, undefined);
+  });
+
   test("an even count uses the mean of the two middle prices", () => {
     const rank = rankDealerPrices([live("a", 10), live("b", 20), live("c", 30), live("d", 40)]);
     assert.equal(rank.median, 25);
