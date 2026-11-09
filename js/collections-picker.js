@@ -404,13 +404,40 @@
     let yearOnly = slotYear !== "";
     const inYear = (item) => !yearOnly || window.collectionsCore.itemYear(item) === slotYear;
 
+    const matcherFor = (query) => (item) =>
+      !query ||
+      [item.name, item.year, item.metal, item.purchaseLocation, item.type]
+        .filter(Boolean)
+        .some((field) => String(field).toLowerCase().includes(query));
+
+    // The search opens on the slot label when that label finds an item in the opening view.
+    const labelQuery = String(slot.label || "").trim();
+    if (labelQuery && labelQuery !== slotYear) {
+      const labelMatches = matcherFor(labelQuery.toLowerCase());
+      if (
+        suggestions.some((entry) => labelMatches(entry.item)) ||
+        active.some((item) => inYear(item) && labelMatches(item))
+      ) {
+        search.value = labelQuery;
+      }
+    }
+
+    const clearButton = button("collections-pick-clear", "", () => {
+      search.value = "";
+      renderList();
+      search.focus();
+    });
+    clearButton.setAttribute("aria-label", "Clear search");
+    clearButton.title = "Clear search";
+    clearButton.innerHTML =
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18M6 6l12 12"/></svg>';
+    const searchWrap = el("div", "collections-pick-searchwrap");
+    searchWrap.append(search, clearButton);
+
     const renderList = () => {
       const query = search.value.trim().toLowerCase();
-      const matches = (item) =>
-        !query ||
-        [item.name, item.year, item.metal, item.purchaseLocation, item.type]
-          .filter(Boolean)
-          .some((field) => String(field).toLowerCase().includes(query));
+      const matches = matcherFor(query);
+      clearButton.hidden = search.value === "";
       list.replaceChildren();
 
       const suggested = suggestions.filter((entry) => matches(entry.item));
@@ -469,7 +496,7 @@
         })
       : null;
 
-    shell.body.replaceChildren(...[search, yearFilter, list].filter(Boolean));
+    shell.body.replaceChildren(...[searchWrap, yearFilter, list].filter(Boolean));
     shell.footer.replaceChildren(
       button("collections-textlink", "+ Add a new item instead", () => {
         closeModalById(PICKER_MODAL_ID);

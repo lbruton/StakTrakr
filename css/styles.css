@@ -21279,9 +21279,44 @@ button.vp-price:hover {
   justify-content: flex-end;
 }
 
+.collections-pick-searchwrap {
+  position: relative;
+  margin-bottom: var(--spacing);
+}
+
 .collections-pick-search {
   width: 100%;
-  margin-bottom: var(--spacing);
+  padding-right: 2.75rem;
+}
+
+.collections-pick-search::-webkit-search-cancel-button {
+  display: none;
+}
+
+.collections-pick-clear {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  transform: translateY(-50%);
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.collections-pick-clear[hidden] {
+  display: none;
+}
+
+.collections-pick-clear:hover,
+.collections-pick-clear:focus-visible {
+  color: var(--text-primary);
 }
 
 .collections-pick-group {
