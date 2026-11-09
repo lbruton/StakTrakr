@@ -1049,6 +1049,7 @@
     remove.dataset.action = "remove";
     actions.append(insert, remove);
     label.addEventListener("input", onLabelChange);
+    year.addEventListener("input", onLabelChange);
     row.append(
       grip,
       chooser.node,
@@ -1572,10 +1573,21 @@
     const slotCount = el("span", "form-section-count");
     const orderStatus = el("div", "sr-only");
     orderStatus.setAttribute("role", "status");
+    /**
+     * Accessible name of a Slot row: its label, else its year with the position (repeated
+     * years stay distinct), else the position alone.
+     * @param {HTMLElement} row - Slot row
+     * @param {number} index - Zero-based row position
+     * @returns {string} Row name
+     */
+    const rowName = (row, index) => {
+      const label = row.querySelector(".collections-builder-label").value.trim();
+      const year = row.querySelector(".collections-builder-year").value.trim();
+      return label || (year ? `${year} (Slot ${index + 1})` : `Slot ${index + 1}`);
+    };
     const refreshRowActions = () => {
       Array.from(rowsHost.children).forEach((row, index) => {
-        const label =
-          row.querySelector(".collections-builder-label").value.trim() || `Slot ${index + 1}`;
+        const label = rowName(row, index);
         const names = {
           grip: `Reorder ${label}`,
           insert: `Add Slot after ${label}`,
@@ -1593,7 +1605,7 @@
     };
     const announceMove = (row) => {
       const position = Array.from(rowsHost.children).indexOf(row) + 1;
-      const label = row.querySelector(".collections-builder-label").value.trim() || "Slot";
+      const label = rowName(row, position - 1);
       orderStatus.textContent = `${label} moved to position ${position} of ${rowsHost.children.length}.`;
     };
     let dragRowId = 0;

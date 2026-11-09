@@ -722,7 +722,7 @@
       const lock = core().typeLockFor(definition.itemType);
       const unitFits = !lock || definition.weightUnit === lock.weightUnit;
       return {
-        name: slot.label || "",
+        name: slot.label || year,
         metal: lock ? lock.metal : definition.metal || "",
         type: definition.itemType || "Coin",
         weight: definition.weight == null || !unitFits ? undefined : definition.weight,

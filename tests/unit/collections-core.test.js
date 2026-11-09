@@ -1119,6 +1119,8 @@ describe("custom collections", () => {
       slots: [{ year: "2020" }, { year: "2020" }, { label: "", year: 2021 }],
     });
     assert.equal(yearOnly.ok, true);
+    assert.equal(yearOnly.collection.definition.slots[2].label, "");
+    assert.equal(yearOnly.collection.definition.slots[2].year, "2021");
     assert.deepEqual(plain(yearOnly.collection.definition.slots.map((slot) => slot.id)), [
       "2020",
       "2020-2",

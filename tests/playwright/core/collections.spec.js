@@ -908,6 +908,14 @@ test.describe("core/collections — link picker, builder, item view", () => {
     ]);
     await page.evaluate((id) => window.collectionsStore.link(id, "2020-2", "col-ase-2022-a"), id);
     await reopenBuilder(page, { editId: id });
+    await expect(
+      builder.getByRole("button", { name: "Reorder 2020 (Slot 2)", exact: true })
+    ).toBeVisible();
+    await builder.getByLabel("Year", { exact: true }).nth(1).fill("2022");
+    await expect(
+      builder.getByRole("button", { name: "Reorder 2022 (Slot 2)", exact: true })
+    ).toBeVisible();
+    await builder.getByLabel("Year", { exact: true }).nth(1).fill("2020");
     await expect(builder.getByLabel("Year", { exact: true }).nth(0)).toHaveValue("2020");
     await expect(builder.getByLabel("Year", { exact: true }).nth(2)).toHaveValue("2021");
     await builder.getByLabel("Slot label").nth(2).fill("2021 Proof");
@@ -924,6 +932,12 @@ test.describe("core/collections — link picker, builder, item view", () => {
         id
       )
     ).toBe("col-ase-2022-a");
+    await page.evaluate((id) => window.collectionsStore.requestNewItem(id, "2021"), id);
+    await expect(page.locator("#itemName")).toHaveValue("2021 Proof");
+    await page.click("#cancelItem");
+    await page.evaluate((id) => window.collectionsStore.requestNewItem(id, "2020"), id);
+    await expect(page.locator("#itemName")).toHaveValue("2020");
+    await page.click("#cancelItem");
   });
 
   test("every builder field has a visible label, in New and Clone modes", async ({ page }) => {
