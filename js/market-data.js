@@ -215,7 +215,7 @@ const _medianDistancePhrase = (ranked) => {
   return `, ${size.toFixed(1)}% ${ranked.distancePct < 0 ? "below" : "above"} the dealer median`;
 };
 
-/** Short words for the premium tiers, so the comparison does not rest on colour alone. */
+/** Short words for the premium tiers, so the comparison does not rest on color alone. */
 const _TIER_WORDS = { low: "Low", mid: "Mid", high: "High" };
 
 /**

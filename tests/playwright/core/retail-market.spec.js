@@ -2167,7 +2167,7 @@ test.describe("core/retail-market", () => {
     await expect(rows.locator(".market-price")).toHaveText(["$36.50", "$37.00", "$38.00"]);
   });
 
-  test("a premium names its dealer comparison in text, not only in colour", async ({ page }) => {
+  test("a premium names its dealer comparison in text, not only in color", async ({ page }) => {
     await setupComparisonFixture(page, {
       vendors: {
         apmex: { price: 36.5, in_stock: true, inStock: true },
