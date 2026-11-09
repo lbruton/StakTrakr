@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.143] - 2026-11-08
+
+### Changed — STRK-583: Link picker starts with the slot label
+
+- **Search**: The link picker opens with the slot label in the search box when that label finds an item in the opening list. A year-only slot, or a label that finds nothing, opens with an empty search (STRK-583).
+- **Clear search**: A clear button inside the search box empties the search, restores the year-filtered list and returns focus to the box. It stays hidden while the box is empty and has a 44px hit area (STRK-583).
+
+---
+
 ## [3.36.142] - 2026-11-08
 
 ### Changed — STRK-582: Collections builder keeps year-only slots

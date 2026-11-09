@@ -775,6 +775,96 @@ test.describe("core/collections — link picker, builder, item view", () => {
     await expect(pickerModal(page).locator(".collections-pick")).toHaveCount(SEED.length);
   });
 
+  const AMW_ITEM = baseItem("col-amw-2022", "Anna May Wong 2022 Quarter", "2022", 5);
+
+  /**
+   * Open the link picker on a one-slot custom collection.
+   * @param {import('@playwright/test').Page} page - Browser page.
+   * @param {{label?: string, year?: string}} slot - Slot input.
+   * @returns {Promise<{search: import('@playwright/test').Locator, clear: import('@playwright/test').Locator}>} Search box and its clear button.
+   */
+  const openPickerOnSlot = async (page, slot) => {
+    await seedAndGoto(page, [...SEED, AMW_ITEM]);
+    await openCollectionsTab(page);
+    await page.evaluate((input) => {
+      const made = window.collectionsStore.createCustom({
+        name: "Quarters",
+        metal: "Silver",
+        slots: [input],
+      });
+      window.collectionsPicker.openLinkPicker({
+        collectionId: made.collection.id,
+        slotId: made.collection.definition.slots[0].id,
+      });
+    }, slot);
+    await expect(pickerModal(page)).toBeVisible();
+    return {
+      search: pickerModal(page).getByRole("searchbox"),
+      clear: pickerModal(page).getByRole("button", { name: "Clear search" }),
+    };
+  };
+
+  test("the picker starts a labeled slot's search with its label and narrows the list", async ({
+    page,
+  }) => {
+    const { search, clear } = await openPickerOnSlot(page, {
+      label: "Anna May Wong",
+      year: "2022",
+    });
+    await expect(search).toHaveValue("Anna May Wong");
+    await expect(clear).toBeVisible();
+    await expect(pickerModal(page).locator(".collections-pick")).toHaveCount(1);
+    await expect(pickerModal(page).locator(".collections-pick")).toContainText(
+      "Anna May Wong 2022 Quarter"
+    );
+  });
+
+  for (const [why, slot] of [
+    ["the label matches no item", { label: "Zebra Unmatched", year: "2022" }],
+    ["the slot has only a year", { year: "2022" }],
+  ]) {
+    test(`the picker opens with an empty search when ${why}`, async ({ page }) => {
+      const { search, clear } = await openPickerOnSlot(page, slot);
+      await expect(search).toHaveValue("");
+      await expect(clear).toBeHidden();
+      await expect(
+        pickerModal(page).locator('.collections-pick[data-uuid="col-ase-2022-a"]')
+      ).toBeVisible();
+    });
+  }
+
+  test("Clear search empties the search, restores the year list, keeps the year filter and focuses the box", async ({
+    page,
+  }) => {
+    const { search, clear } = await openPickerOnSlot(page, {
+      label: "Anna May Wong",
+      year: "2022",
+    });
+    await clear.click();
+    await expect(search).toHaveValue("");
+    await expect(search).toBeFocused();
+    await expect(clear).toBeHidden();
+    const row = (uuid) => pickerModal(page).locator(`.collections-pick[data-uuid="${uuid}"]`);
+    await expect(row("col-ase-2022-a")).toBeVisible();
+    await expect(row("col-amw-2022")).toBeVisible();
+    await expect(row("col-maple-2024")).toHaveCount(0);
+    await expect(pickerModal(page).getByRole("button", { name: "2022 only" })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+
+    await search.fill("maple");
+    await expect(clear).toBeVisible();
+  });
+
+  test("on a 390px phone the Clear search button has a 44px hit area", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const { clear } = await openPickerOnSlot(page, { label: "Anna May Wong", year: "2022" });
+    const box = await clear.boundingBox();
+    expect(box.width).toBeGreaterThanOrEqual(44);
+    expect(box.height).toBeGreaterThanOrEqual(44);
+  });
+
   /**
    * Boot on the Collections tab and open the builder.
    * @param {import('@playwright/test').Page} page - Browser page.
