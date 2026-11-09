@@ -2237,6 +2237,10 @@ test.describe("core/retail-market", () => {
     const seen = card.locator(".vp-card-dealer.vp-carried .vp-card-seen");
     await expect(seen).toBeVisible();
     await expect(seen).toHaveText(/^Last seen \d{4}-\d{2}-\d{2}, \d{2}:\d{2}/);
+    // The phone floor for text is 12px.
+    expect(
+      await seen.evaluate((el) => parseFloat(getComputedStyle(el).fontSize))
+    ).toBeGreaterThanOrEqual(12);
     await expect(card.locator(".vp-card-dealer:not(.vp-carried) .vp-card-seen")).toHaveCount(0);
     for (const theme of THEMES) {
       await page.evaluate((name) => window.setTheme(name), theme);

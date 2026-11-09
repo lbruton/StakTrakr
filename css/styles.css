@@ -17801,7 +17801,7 @@ button.vp-price:hover {
 .vp-card-seen {
   display: block;
   color: var(--text-secondary);
-  font-size: 11px;
+  font-size: 0.75rem;
 }
 
 .vp-card-dealer .vp-premium {
