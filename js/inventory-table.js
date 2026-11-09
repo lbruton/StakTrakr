@@ -1323,7 +1323,7 @@
     const rgl = totals.realizedGainLoss || 0;
     const rglPct = totals.totalDisposedCost > 0 ? (rgl / totals.totalDisposedCost) * 100 : 0;
     // nosemgrep: javascript.browser.security.insecure-innerhtml.insecure-innerhtml
-    el.innerHTML = rgl === 0 ? "$0.00" : formatLossProfit(rgl, rglPct);
+    el.innerHTML = rgl === 0 ? formatCurrency(0) : formatLossProfit(rgl, rglPct);
   }
 
   /**
