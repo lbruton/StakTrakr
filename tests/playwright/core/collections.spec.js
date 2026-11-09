@@ -906,6 +906,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
       ["2020-2", "", "2020"],
       ["2021", "", "2021"],
     ]);
+    await page.evaluate((id) => window.collectionsStore.link(id, "2020-2", "col-ase-2022-a"), id);
     await reopenBuilder(page, { editId: id });
     await expect(builder.getByLabel("Year", { exact: true }).nth(0)).toHaveValue("2020");
     await expect(builder.getByLabel("Year", { exact: true }).nth(2)).toHaveValue("2021");
@@ -917,6 +918,12 @@ test.describe("core/collections — link picker, builder, item view", () => {
       ["2020-2", "", "2020"],
       ["2021", "2021 Proof", "2021"],
     ]);
+    expect(
+      await page.evaluate(
+        (id) => window.collectionsStore.getState().collections[id].slots["2020-2"].primary,
+        id
+      )
+    ).toBe("col-ase-2022-a");
   });
 
   test("every builder field has a visible label, in New and Clone modes", async ({ page }) => {
