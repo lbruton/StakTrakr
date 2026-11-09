@@ -239,7 +239,7 @@ The detail modal keeps this focus contract:
 `_renderVendorTable` builds two layouts from one row context (`_vendorRowContext`):
 
 - The matrix (`.vp-scroll` > `.vendor-prices-table`) shows from 481px up. Below 768px each cell is a 44px target through a `::after` box.
-- The cards (`ul.vp-cards`, named "<metal> dealer prices") show below 480px. `_buildVendorCard` moves each matrix price cell's content into a `.vp-card-dealer` tile and skips dealers that do not list the item.
+- The cards (`ul.vp-cards`, named "<metal> dealer prices") show below 480px. `_buildVendorCard` moves each matrix price cell's content into a `.vp-card-dealer` tile and skips dealers that do not list the item. A carried tile also gets a `.vp-card-seen` line with the last-seen text, because touch shows no title.
 - CSS hides one layout, so both sets of `.vp-coin-link[data-slug]` buttons exist. Focus code looks up the shown one with `_findShownCoinButton`.
 - `_watchVendorTabOverflow` toggles `.vp-tabs-more` on the scrolling metal tab bar while tabs wait past its right edge.
 - Below 560px the detail modal hides `.market-detail-stock-col` and shows the stock word as `.market-stock-sub` under the dealer name.

@@ -17637,6 +17637,9 @@ button.vp-price:hover {
 .vp-premium.plain {
   color: var(--text-secondary);
 }
+.vp-tier-word {
+  font-weight: 600;
+}
 
 /* ── Best Price Highlight ── */
 .vp-best {
@@ -17793,6 +17796,12 @@ button.vp-price:hover {
   content: "";
   position: absolute;
   inset: -1px;
+}
+
+.vp-card-seen {
+  display: block;
+  color: var(--text-secondary);
+  font-size: 11px;
 }
 
 .vp-card-dealer .vp-premium {

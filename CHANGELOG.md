@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.139] - 2026-11-08
+
+### Changed — STRK-568: Market price comparison
+
+- **Median**: A numeric-string price counts as a number, and a price that is not a finite number is left out, so the median and the dealer colours stay right (STRK-568).
+- **Comparison words**: Each coloured premium carries a Low, Mid or High word, so the comparison no longer rests on colour alone (STRK-568).
+- **Details modal**: The dealer table leaves out a dealer the Market filter hides, and reads stock from either feed flag (STRK-568).
+- **Price time**: The modal header takes the first parseable price time, and an unparseable one shows no date (STRK-568).
+- **Phone cards**: A carried price shows its last-seen date on the tile (STRK-568).
+
 ## [3.36.138] - 2026-11-08
 
 ### Changed — STRK-569: Retail sync failures
