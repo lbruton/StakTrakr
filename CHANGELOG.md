@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [3.36.141] - 2026-11-09
+## [3.36.141] - 2026-11-08
 
 ### Changed — STRK-581: Zero Realized cells use the display currency
 
