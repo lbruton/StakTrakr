@@ -514,16 +514,38 @@ const saveRetailAvailability = () => {
 
 /**
  * Writes the price snapshot to storage.
- * @returns {boolean} True when the write succeeded.
+ * @returns {null|"quota"|"blocked"|"unavailable"} Null when saved, else why it was not:
+ *   storage full, storage access refused, or the compression engine missing.
  */
 const _saveV2RetailPrices = () => {
+  if (
+    typeof __wouldClobberCompressed === "function" &&
+    __wouldClobberCompressed(_V2_RETAIL_PRICES_KEY)
+  ) {
+    return "unavailable";
+  }
   try {
     saveDataSync(_V2_RETAIL_PRICES_KEY, retailPrices);
-    return true;
+    return null;
   } catch (err) {
     _handleSaveError("v2 retail prices", err);
-    return false;
+    return err && err.name === "QuotaExceededError" ? "quota" : "blocked";
   }
+};
+
+/**
+ * Names why the price snapshot was not saved and what to do next.
+ * @param {"quota"|"blocked"|"unavailable"} reason - Result of _saveV2RetailPrices.
+ * @returns {string} The sync error message.
+ */
+const _priceSaveFailureText = (reason) => {
+  if (reason === "quota") {
+    return "Prices were not saved because browser storage is full. Free some space, then sync again.";
+  }
+  if (reason === "unavailable") {
+    return "Prices were not saved because the compression library did not load. Reload the page, then sync again.";
+  }
+  return "Prices were not saved because the browser blocked storage access. Allow site storage, then sync again.";
 };
 
 const _loadV2RetailPrices = () => {
@@ -1243,14 +1265,31 @@ const _fetchAndApplyV2Providers = async (apiBase) => {
 /**
  * Persists all v2 sync outputs (prices, history, intraday, availability) after a
  * sync that fetched prices.
- * @returns {boolean} True when the price snapshot was saved.
+ * Writes nothing else when the price snapshot fails, so a reload never pairs new
+ * history with old prices.
+ * @returns {null|"quota"|"blocked"|"unavailable"} Null when saved, else the failure reason.
  */
 const _persistV2SyncResults = () => {
-  const pricesSaved = _saveV2RetailPrices();
+  const failure = _saveV2RetailPrices();
+  if (failure) return failure;
   _saveV2RetailHistory();
   _saveV2RetailIntraday();
   saveRetailAvailability();
-  return pricesSaved;
+  return null;
+};
+
+/**
+ * Formats the current time for sync status lines in the configured time zone.
+ * @returns {string} The time as hour and minute.
+ */
+const _formatSyncClock = () => {
+  const tz =
+    (typeof TIMEZONE_KEY !== "undefined" && localStorage.getItem(TIMEZONE_KEY)) || undefined;
+  const tzOpts =
+    tz && tz !== "auto"
+      ? { timeZone: tz, hour: "numeric", minute: "2-digit" }
+      : { hour: "numeric", minute: "2-digit" };
+  return new Date().toLocaleTimeString(undefined, tzOpts);
 };
 
 /**
@@ -1262,13 +1301,7 @@ const _persistV2SyncResults = () => {
  * @param {Element} [syncStatus] - Optional status text element.
  */
 const _reportV2SyncSuccess = (successCount, generatedAt, ui, syncStatus) => {
-  const tz =
-    (typeof TIMEZONE_KEY !== "undefined" && localStorage.getItem(TIMEZONE_KEY)) || undefined;
-  const tzOpts =
-    tz && tz !== "auto"
-      ? { timeZone: tz, hour: "numeric", minute: "2-digit" }
-      : { hour: "numeric", minute: "2-digit" };
-  const syncTime = new Date().toLocaleTimeString(undefined, tzOpts);
+  const syncTime = _formatSyncClock();
   const statusMsg = `Synced ${successCount} coin(s) · ${syncTime}`;
   if (ui && syncStatus) syncStatus.textContent = statusMsg;
   debugLog(`[retail-v2] Sync complete: ${statusMsg}`, "info");
@@ -1362,9 +1395,9 @@ async function _syncRetailV2({ ui, syncStatus }) {
 
   if (successCount > 0) {
     // The manifest time is the data age only once its prices are saved.
-    if (!_persistV2SyncResults()) {
-      const errorMsg =
-        "Prices were not saved because browser storage is full. Free some space, then sync again.";
+    const saveFailure = _persistV2SyncResults();
+    if (saveFailure) {
+      const errorMsg = _priceSaveFailureText(saveFailure);
       if (ui && syncStatus) syncStatus.textContent = errorMsg;
       _appendSyncLogEntry({ success: false, coins: 0, window: null, error: errorMsg });
       return { ok: false, error: errorMsg };
@@ -1419,7 +1452,7 @@ const _showJoinedSync = async (running) => {
   syncBtn.disabled = false;
   syncBtn.textContent = "Sync Now";
   syncStatus.textContent = result.ok
-    ? `Synced \u00b7 ${new Date().toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`
+    ? `Synced \u00b7 ${_formatSyncClock()}`
     : `Sync failed: ${result.error}`;
   return result;
 };

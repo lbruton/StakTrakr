@@ -4596,32 +4596,50 @@ test.describe("retail sync failure paths", () => {
   }) => {
     await bootIdleMarket(page);
 
-    const outcome = await page.evaluate(async (oldManifestAt) => {
-      localStorage.setItem("retailManifestGeneratedAt", oldManifestAt);
+    // One run per failure kind; each reports its own advice and writes nothing else.
+    const runs = await page.evaluate(async (oldManifestAt) => {
       window.showAppAlert = () => {};
       const realSetItem = Storage.prototype.setItem;
-      Storage.prototype.setItem = function (name, value) {
-        if (name === "v2RetailPrices") throw new DOMException("full", "QuotaExceededError");
-        return realSetItem.call(this, name, value);
-      };
-      let updated = 0;
-      document.addEventListener("retail:updated", () => (updated += 1));
-      try {
-        const result = await window.syncRetailPrices({ ui: false });
-        return {
-          result,
-          updated,
-          manifestAt: localStorage.getItem("retailManifestGeneratedAt"),
+      const outcomes = [];
+      for (const errorName of ["QuotaExceededError", "SecurityError"]) {
+        localStorage.setItem("retailManifestGeneratedAt", oldManifestAt);
+        const written = [];
+        Storage.prototype.setItem = function (name, value) {
+          if (name === "v2RetailPrices") throw new DOMException("denied", errorName);
+          written.push(name);
+          return realSetItem.call(this, name, value);
         };
-      } finally {
-        Storage.prototype.setItem = realSetItem;
+        let updated = 0;
+        const onUpdated = () => (updated += 1);
+        document.addEventListener("retail:updated", onUpdated);
+        try {
+          const result = await window.syncRetailPrices({ ui: false });
+          outcomes.push({
+            errorName,
+            result,
+            updated,
+            manifestAt: localStorage.getItem("retailManifestGeneratedAt"),
+            companionWrites: written.filter(
+              (name) => name === "v2RetailIntraday" || name === RETAIL_AVAILABILITY_KEY
+            ),
+          });
+        } finally {
+          Storage.prototype.setItem = realSetItem;
+          document.removeEventListener("retail:updated", onUpdated);
+        }
       }
+      return outcomes;
     }, OLD_MANIFEST_AT);
 
-    expect(outcome.result.ok).toBe(false);
-    expect(outcome.result.error).toContain("storage");
-    expect(outcome.manifestAt).toBe(OLD_MANIFEST_AT);
-    expect(outcome.updated).toBe(0);
+    for (const run of runs) {
+      expect(run.result.ok, run.errorName).toBe(false);
+      expect(run.manifestAt, run.errorName).toBe(OLD_MANIFEST_AT);
+      expect(run.updated, run.errorName).toBe(0);
+      expect(run.companionWrites, run.errorName).toEqual([]);
+    }
+    expect(runs[0].result.error).toContain("storage is full");
+    expect(runs[1].result.error).toContain("blocked");
+    expect(runs[1].result.error).not.toContain("full");
   });
 
   test("Sync Now joining a running sync shows its status and result in Settings", async ({
@@ -4642,12 +4660,14 @@ test.describe("retail sync failure paths", () => {
     await expect(button).toHaveText("Syncing…");
     await expect(status).toContainText("already running");
 
+    await page.evaluate(() => localStorage.setItem("appTimeZone", "Pacific/Honolulu"));
     gate.release();
     const result = await joined;
     expect(result.ok).toBe(true);
     await expect(button).toBeEnabled();
     await expect(button).toHaveText("Sync Now");
-    await expect(status).toContainText("Synced");
+    // The clock is pinned at 18:00 UTC, which is 8:00 in the configured zone.
+    await expect(status).toContainText(/Synced \u00b7 8:00/);
   });
 
   test("a slug body that stalls after its headers is aborted instead of hanging", async ({
