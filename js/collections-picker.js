@@ -1143,7 +1143,10 @@
     const slots = context.slots.map((slot) => ({
       // Ids carry over only when EDITING; a clone is a new collection and mints its own.
       id: request.editId ? slot.id : undefined,
-      label: `${slot.label || slot.year || ""}${slot.tag ? ` ${slot.tag}` : ""}`.trim(),
+      // An edit keeps a year-only Slot unlabeled; only a clone borrows the year as its label.
+      label: `${slot.label || (request.editId ? "" : slot.year) || ""}${
+        slot.tag ? ` ${slot.tag}` : ""
+      }`.trim(),
       year: slot.year,
       mintage: slot.mintage,
       note: request.editId ? slot.note : "",
@@ -1891,7 +1894,9 @@
         return;
       }
       const rows = Array.from(rowsHost.children).filter((row) =>
-        row.querySelector(".collections-builder-label").value.trim()
+        ["label", "year"].some((field) =>
+          row.querySelector(`.collections-builder-${field}`).value.trim()
+        )
       );
       let firstInvalid = null;
       const counts = new Map();
@@ -1966,7 +1971,7 @@
       if (!result.ok) {
         const reasons = {
           "invalid-name": "Give the collection a name.",
-          "no-slots": "Add at least one labeled slot.",
+          "no-slots": "Add at least one slot with a label or a year.",
           "invalid-mintage": "Enter a whole, non-negative safe integer for Mintage.",
           // STRK-440: the store re-hydrates when another tab saves, so an edit whose
           // Collection that tab deleted fails here instead of silently reviving it.

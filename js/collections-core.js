@@ -646,7 +646,7 @@
     return inputs.map((input) => {
       const carried = isId(input.id) && keepIds.has(input.id) && !carriedIds.has(input.id);
       if (carried) carriedIds.add(input.id);
-      const id = carried ? input.id : slugifySlotId(input.label, taken);
+      const id = carried ? input.id : slugifySlotId(text(input.label) || input.year, taken);
       taken.add(id);
       return {
         id,
