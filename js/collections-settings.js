@@ -488,7 +488,7 @@
   };
 
   /**
-   * Handles a Move up / Move down click by moving past the neighbouring row.
+   * Handles a Move up / Move down click by moving past the neighboring row.
    * @param {string} action - MOVE_UP or MOVE_DOWN
    * @param {string} id - Collection being moved
    * @returns {void}

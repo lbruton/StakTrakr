@@ -221,7 +221,7 @@ ESLint9 is on, so the dashboard pattern list does not apply.
 - **Rule changes:** edit `eslint.config.cjs`, never the Codacy dashboard patterns.
 - **Ignores:** the config's ignore list mirrors `exclude_paths` in `.codacy.yml`. Change both together.
 - **Errors fail the Tests check.** `eslint-plugin-security` rules are warnings: they show in
-  local output and on the Codacy dashboard but do not block a merge. The `js/` colour guard
+  local output and on the Codacy dashboard but do not block a merge. The `js/` color guard
   (`staktrakr/no-colour-literal`, a local rule in `devops/eslint/`) is an error; its cases
   live in `tests/unit/js-theme-tokens.test.js`.
 - **One-off exceptions:** use `// eslint-disable-next-line <rule> -- <reason>`, which local
@@ -250,7 +250,7 @@ Codacy runs agentlint policies on instruction files (CLAUDE.md, AGENTS.md, skill
 - Accepted deduction: `consistency/referenced-files-exist` reports `PRODUCT.md` and `DESIGN.md` as missing
   from `CLAUDE.md` and `AGENTS.md`. The rule checks only the files agentlinter scans (`CLAUDE.md`,
   `AGENTS.md`, `SECURITY.md`); both files exist at the repo root, where Impeccable reads them.
-- Add the `coderabbit-review` label when you want a full CodeRabbit review. It is the one reviewer that skips unlabelled PRs. Codacy AI and Copilot run automatically, so budget for their threads on every PR including docs-only chores. Codex reviews once when the PR is opened or marked ready; after a substantial fix, comment `@codex review` if you want a second pass. (See "Review routing" above.)
+- Add the `coderabbit-review` label when you want a full CodeRabbit review. It is the one reviewer that skips unlabeled PRs. Codacy AI and Copilot run automatically, so budget for their threads on every PR including docs-only chores. Codex reviews once when the PR is opened or marked ready; after a substantial fix, comment `@codex review` if you want a second pass. (See "Review routing" above.)
 
 ## Known Reviewer False Positives
 

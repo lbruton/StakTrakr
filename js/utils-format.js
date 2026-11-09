@@ -520,7 +520,7 @@ const fetchExchangeRates = async () => {
 };
 
 /**
- * Formats a profit/loss value, coloured by the .gl-gain / .gl-loss text-token classes
+ * Formats a profit/loss value, colored by the .gl-gain / .gl-loss text-token classes
  *
  * @param {number} value - Profit/loss value
  * @param {number} [percent] - Percentage shown as a prefix when non-zero
@@ -751,12 +751,12 @@ const GB_DENOMINATION_GLYPHS = { 0.25: "¼", 0.5: "½" };
  *
  * A denomination is an exact enum value from `GOLDBACK_DENOMINATIONS`, not a measurement, so it
  * must never be rounded. The previous `toFixed(1)` turned a ¼ Goldback into "0.3 gb" and made
- * two distinct denominations look like near-neighbours on the same scale — the bug this fixes.
+ * two distinct denominations look like near-neighbors on the same scale — the bug this fixes.
  *
  * Sub-1 standard denominations render as fraction glyphs to match the names the app already
  * uses for them; everything else renders exactly, with no trailing zeros (`String` on a Number
  * already drops them, so 1 → "1" and 2.5 → "2.5"). An unrecognised or hand-entered value still
- * renders exactly rather than being rounded into a neighbouring denomination.
+ * renders exactly rather than being rounded into a neighboring denomination.
  *
  * @param {number|string} denomination - The stored denomination (item.weight for gb/sb)
  * @returns {string} Display text, e.g. "¼", "½", "1", "100"
@@ -800,7 +800,7 @@ const formatWeight = (ozt, weightUnit, item) => {
     // Constitutional items store a face value in `weight`; the derived pure-silver oz (the ASW,
     // with qty + worn/fresh basis folded in) is what shares a scale with every other row and
     // the portfolio totals, so the 3-arg form returns that. STRK-235 fallback (legacy 2-arg
-    // callers): a per-coin face string, suffix normalised to `fv` by STRK-300 so the change
+    // callers): a per-coin face string, suffix normalized to `fv` by STRK-300 so the change
     // log, bulk edit preview, backup print, add toast, and print/export rows all name the
     // figure the same way the Weight cell does.
     if (item && typeof getConstitutionalSilverOz === "function") {

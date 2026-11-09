@@ -90,7 +90,7 @@
    *
    * Accepted trade-off: the ASW becomes hover-only in the table and so is invisible on mobile —
    * the inverse of the complaint STRK-237 addressed. Acceptable because Melt on the same row
-   * already prices the ASW, and the detail modal shows it labelled, one tap away.
+   * already prices the ASW, and the detail modal shows it labeled, one tap away.
    *
    * @param {Object} item - Constitutional inventory item
    * @param {string} basis - The active valuation basis ("worn" or "fresh")
@@ -161,7 +161,7 @@
       map[key] = Math.abs(hash) % 360;
     }
     // Only the hue is data; saturation and lightness are per-theme tokens in css/styles.css,
-    // so the colour follows a theme switch through the cascade (STRK-446).
+    // so the color follows a theme switch through the cascade (STRK-446).
     // eslint-disable-next-line staktrakr/no-colour-literal -- legit: CSS cannot hash, JS passes only the hue
     return `hsl(${map[key]}, var(--hashed-color-s), var(--hashed-color-l))`;
   };
@@ -175,8 +175,8 @@
   const ACTIVATE_ON_KEY =
     "if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}";
 
-  // A null color takes the static primary text colour from .filter-text--primary;
-  // any other value is a runtime chip colour and goes inline.
+  // A null color takes the static primary text color from .filter-text--primary;
+  // any other value is a runtime chip color and goes inline.
   const filterLink = (field, value, color, displayValue = value, title, allowHtml = false) => {
     const handler = `applyColumnFilter('${field}', ${JSON.stringify(value)})`;
     const escaped = escapeAttribute(handler);
@@ -1280,7 +1280,7 @@
   }
 
   /**
-   * Write the gain/loss cell (signed, coloured value with its percent on cost) at the
+   * Write the gain/loss cell (signed, colored value with its percent on cost) at the
    * basis of the Your stack lead. Shared by per-metal and "All" rows.
    * @param {object} els - Element bag with a `lossProfit` node.
    * @param {object} totals - Totals accumulator for that row.

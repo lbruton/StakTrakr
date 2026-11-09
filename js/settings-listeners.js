@@ -179,7 +179,7 @@ const bindAppearanceAndHeaderListeners = () => {
 
   // Vault + Restore header buttons retired (STRK-285, STRK-286). Both were the
   // identical showSettingsModal("system") shortcut — two icons for one
-  // behaviour. Settings › System still holds the import/export controls they
+  // behavior. Settings › System still holds the import/export controls they
   // pointed at, so nothing moved.
 
   const ippSelect = getExistingElement("settingsItemsPerPage");

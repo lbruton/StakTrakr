@@ -337,7 +337,7 @@ function _applyHeaderMetal(metalKey) {
 }
 
 /**
- * Browsers without CSS contrast-color() get the header text colour inline, picked against
+ * Browsers without CSS contrast-color() get the header text color inline, picked against
  * the metal token. setTheme() re-runs this so an open Item View follows a theme switch.
  */
 function _refreshViewHeaderTextColor() {
@@ -552,7 +552,7 @@ function _buildInventorySection(item, metrics) {
   _addDetail(invGrid, "Purity", purityDisplay);
   // STRK-300: constitutional lots are quoted and bought by face value, so the modal leads with
   // it under a label that says what it is — the 2-arg formatWeight fallback previously rendered
-  // it as "Weight: $14.75 fv", labelling a dollar figure as a weight. Total face (qty folded
+  // it as "Weight: $14.75 fv", labeling a dollar figure as a weight. Total face (qty folded
   // in) keeps it frame-consistent with the qty-folded ASW row below. Bullion and goldback items
   // are byte-identical.
   if (item.weightUnit === "cu" && typeof getConstitutionalTotalFace === "function") {

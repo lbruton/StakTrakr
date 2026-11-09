@@ -94,7 +94,7 @@ const handleSettingsNavKeydown = (e) => {
 };
 
 /**
- * Marks each Settings panel as a region labelled by its first heading.
+ * Marks each Settings panel as a region labeled by its first heading.
  */
 const initSettingsPanelSemantics = () => {
   document.querySelectorAll(".settings-section-panel").forEach((panel) => {

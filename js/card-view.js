@@ -1355,7 +1355,7 @@ const cycleSpotTrend = () => {
 window.cycleSpotTrend = cycleSpotTrend;
 
 /**
- * Initialises spot controls: wires the per-card period chips and applies the
+ * Initializes spot controls: wires the per-card period chips and applies the
  * persisted trend period on load.
  *
  * The per-card <select> elements remain in the DOM (hidden via CSS) so that
@@ -1364,7 +1364,7 @@ window.cycleSpotTrend = cycleSpotTrend;
  * repaints the sparklines.
  *
  * The chips are native <button> elements, so Enter/Space activation, focus
- * order, and the "does not scroll on Space" behaviour all come from the
+ * order, and the "does not scroll on Space" behavior all come from the
  * platform; no delegated keydown handler is needed (contrast the ratio chips
  * in spot-ratio-chips.js, which are built dynamically as role="button" divs
  * and therefore must handle keys themselves).
@@ -1377,7 +1377,7 @@ const _initSpotControls = () => {
   _applyTrend(localStorage.getItem(SPOT_TREND_KEY) || "90");
 };
 
-// On page load: initialise sort bar event handlers (needed even in D mode where
+// On page load: initialize sort bar event handlers (needed even in D mode where
 // inventory.js never calls initCardSortBar) and fix initial bar visibility.
 document.addEventListener("DOMContentLoaded", () => {
   initCardSortBar();

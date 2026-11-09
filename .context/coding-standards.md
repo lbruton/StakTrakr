@@ -287,7 +287,7 @@ const theme = await loadData(THEME_KEY, "light");
 
 ### ALLOWED_STORAGE_KEYS guard
 
-`ALLOWED_STORAGE_KEYS` in `js/constants.js` gates cloud-sync apply and vault import/restore: keys outside it are refused. `cleanupStorage()` (runs at `DOMContentLoaded`) does not use it. It deletes only keys in `RETIRED_STORAGE_KEYS` (`js/utils-storage.js`) and never a key it does not recognise, so an older build cannot wipe a newer build's data. To retire a key, add it to `RETIRED_STORAGE_KEYS`.
+`ALLOWED_STORAGE_KEYS` in `js/constants.js` gates cloud-sync apply and vault import/restore: keys outside it are refused. `cleanupStorage()` (runs at `DOMContentLoaded`) does not use it. It deletes only keys in `RETIRED_STORAGE_KEYS` (`js/utils-storage.js`) and never a key it does not recognize, so an older build cannot wipe a newer build's data. To retire a key, add it to `RETIRED_STORAGE_KEYS`.
 
 The `typeof ALLOWED_STORAGE_KEYS !== 'undefined'` guard seen in `cloud-sync.js` is intentional defensive coding. Automated reviewer flags on this pattern are false positives.
 
@@ -717,6 +717,7 @@ Every PR that touches `tests/playwright/` must do exactly one of:
 - **Move** a test between tiers (unit ↔ smoke ↔ core ↔ extended)
 - **Delete** a test with a one-line rationale in the PR body
 - **Create a new file** with the required justification line in the PR body
+- **Update** an existing assertion to match changed copy or behavior (no inventory change)
 
 The release PR's closing tasks include a "test inventory delta" line: `+N -M tests, +X -Y files` matched against the budget.
 
@@ -972,9 +973,9 @@ border-radius: 8px;
 padding: 0.75rem;
 ```
 
-### Colours computed in JS: hand CSS the data, not the colour
+### Colors computed in JS: hand CSS the data, not the color
 
-When JS must choose a colour (a per-value hue, a token picked by item type), pass a
+When JS must choose a color (a per-value hue, a token picked by item type), pass a
 theme-reactive expression. Let the stylesheet do the rest:
 
 - **Filter chips:** `_buildFilterChipElement` (`js/filters.js`) sets only the `--chip-bg`
@@ -986,17 +987,17 @@ theme-reactive expression. Let the stylesheet do the rest:
   `data-metal` on `#viewItemModal`. The stylesheet maps it to `--view-metal` and paints
   the header gradient, the image section and the `contrast-color()` title from that
   token. The diff modal builds its thumbnail tint from the metal token in `color-mix()`.
-  Do not keep a metal RGB table in JS. The only inline colour is the
+  Do not keep a metal RGB table in JS. The only inline color is the
   `CHIP_CONTRAST_IN_CSS` fallback: `_refreshViewHeaderTextColor()` sets the header and
-  title colour with `getContrastColor()`, and `setTheme()` calls it again.
-- **Hashed colours:** `getColor()` (`js/inventory-table.js`) returns
+  title color with `getContrastColor()`, and `setTheme()` calls it again.
+- **Hashed colors:** `getColor()` (`js/inventory-table.js`) returns
   `hsl(<hue>, var(--hashed-color-s), var(--hashed-color-l))`. Only the hue is data; the
   saturation and lightness are per-theme tokens. Do not branch on `data-theme` in JS.
-- **`getContrastColor(bg)`** (`js/utils.js`) accepts any CSS colour, including `var()`. It
-  returns the black or white text colour with the higher WCAG 2.x ratio. The better of
+- **`getContrastColor(bg)`** (`js/utils.js`) accepts any CSS color, including `var()`. It
+  returns the black or white text color with the higher WCAG 2.x ratio. The better of
   the two is always at least 4.58:1 on an opaque background.
-- **No colour literals in `js/`.** The `staktrakr/no-colour-literal` rule
-  (`devops/eslint/no-colour-literal.cjs`) reports hex, colour functions and named colours
+- **No color literals in `js/`.** The `staktrakr/no-colour-literal` rule
+  (`devops/eslint/no-colour-literal.cjs`) reports hex, color functions and named colors
   outside `js/theme.js`. A legitimate site carries
   `// eslint-disable-next-line staktrakr/no-colour-literal -- legit: <reason>`.
 - **Every `var(--x)` names a defined token.** `tests/unit/js-theme-tokens.test.js` fails on
@@ -1014,13 +1015,13 @@ theme-reactive expression. Let the stylesheet do the rest:
   take theirs from `css/styles.css`. There, a test in
   `tests/playwright/core/settings-search-images.spec.js` allows only `width` and `display`
   inline. The Market filter matrix keeps its
-  vendor dot colour inline because it comes from the vendor token. The static Pattern Image
+  vendor dot color inline because it comes from the vendor token. The static Pattern Image
   Rules form in `index.html` shares the `pattern-rule-card` classes with the inline rule
   editor and inlines only `display`. The ticker, Market block and detail
   modal that `js/market-data.js` builds also use `css/styles.css`. A test in
-  `tests/playwright/core/retail-market.spec.js` allows only vendor and stock colours there,
+  `tests/playwright/core/retail-market.spec.js` allows only vendor and stock colors there,
   plus the ticker track's phase and hand-off positioning. Inventory rows from `js/inventory-table.js`
-  inline only hashed or metal chip colours, the Gain/Loss colour and weight, and thumbnail
+  inline only hashed or metal chip colors, the Gain/Loss color and weight, and thumbnail
   visibility, as a test in `tests/playwright/core/inventory-crud.spec.js` checks. Pass
   `null` to `filterLink` for primary text; it adds `.filter-text--primary`. New checks of this kind call
   `collectInlineStyleOffenders` in `tests/playwright/helpers/inline-styles.js`.
@@ -1057,7 +1058,7 @@ meets 4.5:1 in all four themes.
 | `.btn.premium`   | Premium / paid feature | `--warning-fill`, `--on-warning`     |
 | `.btn.btn-sm`    | Small variant          | (same as parent)                     |
 
-Text in a status colour takes `--<role>-text`, never the raw role token.
+Text in a status color takes `--<role>-text`, never the raw role token.
 
 ### Settings group pattern
 

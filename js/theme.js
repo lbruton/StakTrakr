@@ -20,7 +20,7 @@ const setTheme = (theme) => {
     renderTable();
   }
   // Chips and the Item View header follow the cascade where CSS contrast-color() exists;
-  // older browsers carry an inline JS text colour that must be re-picked for the new theme.
+  // older browsers carry an inline JS text color that must be re-picked for the new theme.
   if (typeof CHIP_CONTRAST_IN_CSS !== "undefined" && !CHIP_CONTRAST_IN_CSS) {
     if (typeof renderActiveFilters === "function") renderActiveFilters();
     window._refreshViewHeaderTextColor?.();

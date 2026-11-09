@@ -3195,7 +3195,7 @@ const setupItemFormListeners = () => {
     clearUploadState();
     // STRK-433: a pending Numista cache load must not write into a later form
     if (typeof invalidateNumistaMetadataLoads === "function") invalidateNumistaMetadataLoads();
-    // STRK-437: a cancelled Duplicate's source provenance must not reach a later Add
+    // STRK-437: a canceled Duplicate's source provenance must not reach a later Add
     if (typeof clearDuplicateProvenance === "function") clearDuplicateProvenance();
     // Dismiss any open autocomplete dropdowns (BUG-002/003)
     if (typeof dismissAllAutocompletes === "function") dismissAllAutocompletes();

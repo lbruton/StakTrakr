@@ -34,7 +34,7 @@ dials. Where the two differ, this file is stricter.
 
 ## UI copy
 
-- Toasts and alerts are short statements. Join two clauses with a full stop or a colon, not an em-dash:
+- Toasts and alerts are short statements. Join two clauses with a period or a colon, not an em-dash:
   "Spot sync failed. Check the API settings."
 - Name metals and units the way the app shows them: Gold, Silver, Platinum, Palladium, troy oz.
 - Use the terms in `.context/GLOSSARY.md`.

@@ -134,7 +134,7 @@ function _parseInstant(val) {
 
 /**
  * Returns true when two values are considered equal for diff purposes.
- * Uses strict equality after normalising undefined, null, and empty strings
+ * Uses strict equality after normalizing undefined, null, and empty strings
  * to null so that a missing field, an explicit null, and an empty string
  * are all treated identically. For INSTANT_FIELDS (e.g. lastModified) it compares
  * by epoch ms so two serializations of the same instant are equal (STRK-158).

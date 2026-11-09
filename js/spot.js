@@ -363,7 +363,7 @@ const applySpotFreshnessClasses = () => {
   Object.values(METALS).forEach((metalConfig) => {
     const icon = document.getElementById(`syncIcon${metalConfig.name}`);
     if (!icon) return;
-    // The colour alone carries the state, so the accessible name repeats it in words.
+    // The color alone carries the state, so the accessible name repeats it in words.
     // The title prefix stays owned by updateSyncButtonStates.
     const action = (icon.title || "Sync from API").replace(/\.$/, "");
     icon.setAttribute("aria-label", `${action}. ${metalConfig.name} prices are ${status}.`);

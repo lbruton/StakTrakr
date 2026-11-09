@@ -179,8 +179,8 @@ const readStackLead = () =>
   loadDataSync(STACK_HEADLINE_LEAD_KEY, "retail") === "melt" ? "melt" : "retail";
 
 /**
- * Builds a span coloured by the sign of a value, with the gain and loss text tokens.
- * @param {number} value - Signed value that picks the colour.
+ * Builds a span colored by the sign of a value, with the gain and loss text tokens.
+ * @param {number} value - Signed value that picks the color.
  * @param {string} text - Text to show.
  * @returns {HTMLSpanElement}
  */
@@ -245,7 +245,7 @@ const _arrangeStackLead = (lead) => {
 
 /**
  * Builds a decorative bullion-bar mark from the #metalBarIcon symbol in index.html.
- * @returns {SVGSVGElement} The mark, coloured by the metal class on its row.
+ * @returns {SVGSVGElement} The mark, colored by the metal class on its row.
  */
 const _createMetalBarMark = () => {
   const ns = "http://www.w3.org/2000/svg";

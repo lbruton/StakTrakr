@@ -221,7 +221,7 @@
    * Check if an item matches any enabled custom group whose label matches the
    * search term.  Used by both filterInventory() and filterInventoryAdvanced()
    * so that searching "black flag" surfaces items tagged under a custom group
-   * labelled "Black Flag".
+   * labeled "Black Flag".
    *
    * @param {Object} item        - Inventory item (needs .name)
    * @param {string} searchTerm  - Lowercase, trimmed search phrase

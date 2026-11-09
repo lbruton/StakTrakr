@@ -1843,7 +1843,7 @@ const updateMarketHealthDot = () => {
 };
 
 /**
- * Writes the data-age word beside the dot, because colour alone carries no meaning.
+ * Writes the data-age word beside the dot, because color alone carries no meaning.
  * @param {('--green'|'--orange'|'--red'|null)} healthClass - Manifest age class, or null for no data
  * @returns {void}
  */

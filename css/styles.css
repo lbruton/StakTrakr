@@ -98,7 +98,7 @@
   --bg-secondary: var(--bg-elev-1);
   --bg-tertiary: var(--bg-elev-2);
   --bg-card: var(--surface);
-  /* A surface set on a frame (--bg-secondary) sits one step off it, away from its text colour:
+  /* A surface set on a frame (--bg-secondary) sits one step off it, away from its text color:
      lighter in the light themes, darker in the dark themes, so muted labels keep 4.5:1. */
   --bg-on-frame: var(--bg-card);
 
@@ -122,7 +122,7 @@
   --vendor-providentmetals: #3f6212;
   --vendor-gainesvillecoins: #9a3412;
   --vendor-mintbuilder: #4338ca;
-  /* Hashed colours (name/location/tag chips + table filter links): JS supplies only the hue */
+  /* Hashed colors (name/location/tag chips + table filter links): JS supplies only the hue */
   --hashed-color-s: 70%;
   --hashed-color-l: 35%;
   --chip-active-outline: oklch(0 0 0 / 0.75);
@@ -278,7 +278,7 @@
   --primary-text: var(--primary);
   --info-text: var(--info);
 
-  /* Bright fills carry a dark label; grey and red carry a light one. */
+  /* Bright fills carry a dark label; gray and red carry a light one. */
   --primary-fill: oklch(0.72 0.16 75);
   --primary-fill-hover: oklch(0.79 0.14 78);
   --on-primary: oklch(0.18 0.02 75);
@@ -446,7 +446,7 @@
   --primary-text: #60a5fa;
   --info-text: #38bdf8;
 
-  /* Blue, grey and red carry a white label; green, sky and amber a dark one. */
+  /* Blue, gray and red carry a white label; green, sky and amber a dark one. */
   --primary-fill: #2563eb;
   --primary-fill-hover: #1d4ed8;
   --on-primary: #ffffff;
@@ -1052,7 +1052,7 @@ section {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
-/* The dot is a non-text indicator in the *-text tokens, the only status colours at 3:1 on the
+/* The dot is a non-text indicator in the *-text tokens, the only status colors at 3:1 on the
    frame in every theme. The state word beside it carries the meaning. */
 .footer-dot {
   width: 8px;
@@ -2733,7 +2733,7 @@ input[type="submit"] {
 }
 
 /* Spot-data freshness (STRK-291) — written by applySpotFreshnessClasses
-   (js/spot.js). Colours the icon itself rather than pinning a corner badge:
+   (js/spot.js). Colors the icon itself rather than pinning a corner badge:
    .spot-sync-icon is inline-flex with no `position: relative`, so it is not a
    containing block and an absolutely-positioned dot would anchor to an
    unrelated ancestor (see the note by .header-cloud-dot--* below).
@@ -2792,7 +2792,7 @@ input[type="submit"] {
 }
 
 /* The price stays neutral: the arrow glyph shows the direction and only the change
-   line below carries the gain and loss colours. */
+   line below carries the gain and loss colors. */
 .spot-card-value {
   position: relative;
   z-index: 1;
@@ -2823,7 +2823,7 @@ input[type="submit"] {
 }
 
 /* Gain/loss percentage prefix: size and weight de-emphasise it, never opacity, which would
-   push the status colour under 4.5:1. */
+   push the status color under 4.5:1. */
 .gain-loss-pct {
   font-size: var(--font-size-xs);
   font-weight: 400;
@@ -2831,7 +2831,7 @@ input[type="submit"] {
 }
 
 /* Gain and loss text set by formatLossProfit and the totals and table gain/loss writers.
-   The compound selectors outrank the later .gainloss-estimated colour. */
+   The compound selectors outrank the later .gainloss-estimated color. */
 .gl-gain,
 .gainloss-estimated.gl-gain {
   color: var(--success-text);
@@ -3317,7 +3317,7 @@ input[type="submit"] {
 }
 
 /* Header toggle buttons: unboxed icons at the weight of the tab labels, with a 44px hit area.
-   The id scope outranks the theme-coloured .theme-btn and .btn box rules. */
+   The id scope outranks the theme-colored .theme-btn and .btn box rules. */
 #headerBtnContainer .header-toggle-btn {
   display: inline-flex;
   flex-direction: row;
@@ -3388,7 +3388,7 @@ input[type="submit"] {
 }
 
 /* Header currency dropdown styles removed with the button (STRK-288). Unlike
-   .cloud-sync-dot and the .header-cloud-dot--* colour modifiers — which the
+   .cloud-sync-dot and the .header-cloud-dot--* color modifiers — which the
    spot/retail freshness dots share, so STRK-287 had to keep them —
    .header-currency-dropdown and .header-currency-item were used by nothing but
    the retired picker that toggleCurrencyDropdown() built, so they are safe to
@@ -4711,9 +4711,9 @@ label.settings-group-label {
   color: var(--primary-text);
 }
 
-/* Touch targets: a true 44px square centred on the icon or badge, without growing either. It is
-   centred with top/left 50% and a translate, not an inset, because an inset is measured from the
-   padding box and the 1px border shifted it off centre and 2px short of 44px. The builder's
+/* Touch targets: a true 44px square centered on the icon or badge, without growing either. It is
+   centered with top/left 50% and a translate, not an inset, because an inset is measured from the
+   padding box and the 1px border shifted it off center and 2px short of 44px. The builder's
    badge shares the rule (it also sits inside .ife). */
 @media (max-width: 768px) {
   .ife-link::after,
@@ -4728,7 +4728,7 @@ label.settings-group-label {
   }
 }
 
-/* The landscape Note frame is only ~63px tall on a phone (the 140px box, narrowed to half the modal), so the centred 44px targets of
+/* The landscape Note frame is only ~63px tall on a phone (the 140px box, narrowed to half the modal), so the centered 44px targets of
    the upper-right × and the lower-right link would overlap by a few pixels (a tap on the bottom of
    the destructive × would open the link dialog). Lifting the badge to straddle the frame's top edge
    keeps the two targets apart on the item modal, where both exist. */
@@ -5020,7 +5020,7 @@ label.settings-group-label {
   font-size: 0.8rem;
   white-space: nowrap;
 }
-/* Two classes outrank .chip-grouping-table td, which sets the cell colour. */
+/* Two classes outrank .chip-grouping-table td, which sets the cell color. */
 .cache-status.cache-status--synced,
 .cache-log-line--success {
   color: var(--success-text);
@@ -5679,7 +5679,7 @@ input.spot-lookup-flash {
 /* #headerCloudSyncBtn positioning removed with the button (STRK-287).
    .cloud-sync-dot STAYS — it is the inline-flow dot used by the spot and retail
    freshness indicators, including #marketFreshnessDot (created in
-   js/market-data.js; its colour is driven by updateMarketHealthDot in
+   js/market-data.js; its color is driven by updateMarketHealthDot in
    js/retail.js), so deleting it as "cloud" styling would break unrelated
    indicators.
 
@@ -5694,12 +5694,12 @@ input.spot-lookup-flash {
    Nothing re-adds it. STRK-291 (shipped) retargeted updateSpotSyncHealthDot at
    the four syncIcon{Metal} buttons, and those could not host it either:
    .spot-sync-icon (~line 2088) is inline-flex with no `position: relative`, so
-   it is not a containing block. STRK-291 therefore colours the icon itself via
+   it is not a containing block. STRK-291 therefore colors the icon itself via
    the .spot-sync-icon--{fresh,stale,expired} modifiers defined up there.
    Recover from git history if a corner badge is ever wanted.
 
    The .header-cloud-dot--{green,orange,red} modifiers below DO stay: they are
-   pure colour (background + box-shadow only), they compose with .cloud-sync-dot
+   pure color (background + box-shadow only), they compose with .cloud-sync-dot
    as well as they did with the deleted base, and js/spot.js + js/retail.js both
    apply them. */
 .header-cloud-dot--green {
@@ -7922,7 +7922,7 @@ td input:checked + .slider:before {
   white-space: nowrap;
 }
 
-/* --- Authority colour marks the chip border only; the grade text takes the chip text token --- */
+/* --- Authority color marks the chip border only; the grade text takes the chip text token --- */
 .view-cert-badge[data-authority="PCGS"] {
   border-color: color-mix(in oklch, var(--authority-pcgs), transparent 60%);
 }
@@ -10117,7 +10117,7 @@ table.dm-ledger {
 }
 
 /* STRK-446: black or white text, whichever has the higher WCAG contrast over the chip.
-   The better of the two is always >= 4.58:1, so every opaque chip colour meets AA.
+   The better of the two is always >= 4.58:1, so every opaque chip color meets AA.
    Browsers without contrast-color() get an inline pick from getContrastColor() instead.
    Never fade a chip with opacity (excluded, hover, ×): it blends text and background
    toward the page and drops the pair below AA. Signal state with outline/shadow/lift. */
@@ -12029,7 +12029,7 @@ th {
 }
 
 /* STRK-434: the side captions share the form's micro-label style with the builder's
-   "Obverse title image" captions (same size, weight, casing, tracking and colour). */
+   "Obverse title image" captions (same size, weight, casing, tracking and color). */
 #inventoryForm .image-side-label {
   font-size: var(--font-size-xs);
   font-weight: 700;
@@ -16685,7 +16685,7 @@ input[type="number"] {
   height: 6px;
   margin-top: 0.25rem;
   accent-color: var(--primary);
-  /* Reset native appearance so background colour shows in all browsers */
+  /* Reset native appearance so background color shows in all browsers */
   -webkit-appearance: none;
   appearance: none;
   border: none;
@@ -18785,7 +18785,7 @@ button.vp-price:hover {
 .spot-ratio-chip.metal-copper {
   --metal: var(--copper);
 }
-/* --type-goldback-bg is a fill colour and fails 4.5:1 as text in light and sepia. */
+/* --type-goldback-bg is a fill color and fails 4.5:1 as text in light and sepia. */
 .spot-ratio-chip.metal-gold {
   --metal: var(--gold);
 }
@@ -19451,12 +19451,12 @@ button.vp-price:hover {
 
    Tokens only, authored dark-first; --primary carries the accent in all four
    themes (gold on dark, blue on light/slate, bronze on sepia), so "owned" reads
-   as the theme's own accent rather than a fifth hard-coded colour.
+   as the theme's own accent rather than a fifth hard-coded color.
 
    Reused as-is rather than restyled: .btn / .btn.secondary / .btn.danger,
    .chip-sort-toggle + .chip-sort-btn, .vendor-prices-tabs, .empty-state.
    Literal px values below are component DIMENSIONS (medallion, badge, ring) —
-   spacing, colour and radius always come from tokens.
+   spacing, color and radius always come from tokens.
    ============================================================================= */
 
 /* The card chrome (background, border, radius, padding) comes from the global
@@ -19510,7 +19510,7 @@ button.vp-price:hover {
   letter-spacing: 0.08em;
 }
 
-/* Pill buttons: .btn supplies colour + hover; this only reshapes it. The doubled
+/* Pill buttons: .btn supplies color + hover; this only reshapes it. The doubled
    class beats .btn's own padding/min-height without reaching for !important. */
 .btn.collections-btn-pill {
   border-radius: var(--radius-pill);
@@ -21459,7 +21459,7 @@ button.vp-price:hover {
   display: none;
 }
 
-/* Hero: the two title images, large and centred, with the Image shape picker beneath.
+/* Hero: the two title images, large and centered, with the Image shape picker beneath.
    The images take the chosen outline, so the picker previews its own effect. */
 .collections-builder-hero {
   display: flex;
@@ -21653,7 +21653,7 @@ button.vp-price:hover {
   color: var(--text-primary);
   cursor: pointer;
   /* STRK-434: the cross is drawn, not typed. A "×" glyph sits low in its line box and the offset
-     varies by font, so two 1.5px diagonals centred in the circle (in the badge's own colour)
+     varies by font, so two 1.5px diagonals centered in the circle (in the badge's own color)
      replace the text; the label stays for assistive tech through aria-label. */
   font-size: 0;
   line-height: 0;
@@ -22287,7 +22287,7 @@ button.vp-price:hover {
 }
 
 /* STRK-442: a Slot thumbnail is the largest frame of the collection's ratio inside the row's
-   44px box (so the row keeps its height), centred in its grid column, and fits the photo whole
+   44px box (so the row keeps its height), centered in its grid column, and fits the photo whole
    like the title images and the item modal: neither modal crops (STRK-434). */
 .collections-builder-rows[data-shape] .collections-builder-row {
   /* A landscape thumbnail is shorter than 44px; the track minimum keeps every row the height a
@@ -22323,7 +22323,7 @@ button.vp-price:hover {
   border-radius: inherit;
 }
 /* A shaped Slot button is narrower (portrait) or shorter (landscape) than 44px, and the rounded
-   corners of any shape are not hit-tested, so a transparent 44px square centred on it keeps the
+   corners of any shape are not hit-tested, so a transparent 44px square centered on it keeps the
    full touch target (the item modal's .ife-link pattern). */
 .collections-builder-rows[data-shape] .collections-image-pick::after {
   content: "";
@@ -22554,7 +22554,7 @@ button.vp-price:hover {
     overflow: visible;
   }
 
-  /* Neighbouring hit areas must not overlap, so the controls sit 44px apart. */
+  /* Neighboring hit areas must not overlap, so the controls sit 44px apart. */
   .spot-card-period {
     margin-right: 20px;
   }
@@ -22563,7 +22563,7 @@ button.vp-price:hover {
     margin-left: 0;
   }
 
-  /* A 44px hit area centred on each control whose visible box is smaller. */
+  /* A 44px hit area centered on each control whose visible box is smaller. */
   #tabViewDashboard
     :is(
       .spot-card-period,
@@ -22850,7 +22850,7 @@ button.vp-price:hover {
 #diffReviewModal .dm-field-head .dm-field-arrow {
   visibility: hidden;
 }
-/* The chosen side reads in text as well as colour. */
+/* The chosen side reads in text as well as color. */
 #diffReviewModal .dm-field-value .dm-pick-tag {
   display: none;
 }

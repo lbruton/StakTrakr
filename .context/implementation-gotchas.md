@@ -194,9 +194,9 @@ Color accent words, such as the collection card count, with `--primary-text`.
 Each of the four theme blocks in `css/styles.css` sets all five at 4.5:1 or more on `--bg-secondary`.
 A control that puts a label on a fill uses the `--<role>-fill`, `--<role>-fill-hover` and `--on-<role>` set.
 The label meets 4.5:1 on both fills in every theme, and dark and slate use a dark label on bright fills.
-Keep the base `--primary`, `--secondary`, `--success`, `--info`, `--warning` and `--danger` tokens for unlabelled marks: bars, dots, borders, tints and icons.
-Do not darken `--secondary` for a button: `--col-weight` and the filter chip colours read it.
-`status-colour-tokens.spec.js` fails on a text colour or a labelled fill that uses a base role token.
+Keep the base `--primary`, `--secondary`, `--success`, `--info`, `--warning` and `--danger` tokens for unlabeled marks: bars, dots, borders, tints and icons.
+Do not darken `--secondary` for a button: `--col-weight` and the filter chip colors read it.
+`status-colour-tokens.spec.js` fails on a text color or a labeled fill that uses a base role token.
 `--text-muted` meets 4.5:1 on all five frame surfaces in every theme, so a striped table needs no override.
 Do not fade a card with `opacity` to show its state: the faded text falls below 4.5:1.
 `tests/unit/js-theme-tokens.test.js` fails when `js/`, `css/` or `index.html` reads a custom property that no stylesheet defines.
