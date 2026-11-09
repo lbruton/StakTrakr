@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.141] - 2026-11-09
+
+### Changed — STRK-581: Zero Realized cells use the display currency
+
+- **Realized**: A zero Realized cell in the Dashboard stack ledger shows the selected display currency, such as £0.00, instead of a fixed $0.00 (STRK-581).
+
+---
+
 ## [3.36.140] - 2026-11-08
 
 ### Changed — STRK-580: US English spelling

@@ -788,6 +788,27 @@ test.describe("core/disposition", () => {
     await expect(page.getByText("Summary Totals", { exact: true })).toHaveCount(0);
   });
 
+  test("zero realized cells render in the active display currency", async ({ page }) => {
+    const GOLD_HELD = {
+      ...BASE_ITEM,
+      uuid: "core-disposition-gold-held",
+      name: "Core Held Gold",
+      metal: "Gold",
+      composition: "Gold",
+      qty: 1,
+    };
+    await seedDispositionData(page, {
+      inventory: [GOLD_HELD, NON_DISPOSED_ITEM],
+      displayCurrency: "GBP",
+      exchangeRates: { GBP: 0.8 },
+    });
+    await page.goto("/index.html");
+    await expect(page.locator("#realizedGainLossGold")).toHaveText("£0.00");
+    await expect(page.locator("#realizedGainLossSilver")).toHaveText("£0.00");
+    await expect(page.locator("#realizedGainLossAll")).toHaveText("£0.00");
+    await expect(page.locator("#realizedGainLossGold")).not.toHaveClass(/gain|loss/);
+  });
+
   test.describe("trade-linking", () => {
     const RECEIVED_ROUND = {
       ...BASE_ITEM,
