@@ -3835,7 +3835,10 @@ test.describe("core/retail-market", () => {
             intraday: [
               { t: "2026-05-26T13:00:00.000Z", vendors: { herobullion: 100 } },
               { t: "2026-05-26T14:00:00.000Z", vendors: { herobullion: 100 } },
-              { t: "2026-05-26T15:00:00.000Z", vendors: { herobullion: 150 } },
+              // A valid 95 shares the spike's second. The chart keeps the later 150 and
+              // hides it; the summary drops only the 150, so 95 stays the low.
+              { t: "2026-05-26T15:00:00.000Z", vendors: { herobullion: 95 } },
+              { t: "2026-05-26T15:00:00.500Z", vendors: { herobullion: 150 } },
               { t: "2026-05-26T16:00:00.000Z", vendors: { herobullion: 101 } },
               { t: "2026-05-26T17:00:00.000Z", vendors: { herobullion: 100 } },
             ],
@@ -3844,7 +3847,7 @@ test.describe("core/retail-market", () => {
       });
       await clickMarketPeriod(page, "24H");
       await expectUsableMarketChart(page, {
-        summary: { Median: "$100.00", Low: "$100.00", High: "$101.00", Spread: "$1.00" },
+        summary: { Median: "$100.00", Low: "$95.00", High: "$101.00", Spread: "$6.00" },
         series: [
           {
             title: "Hero",

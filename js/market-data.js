@@ -1393,6 +1393,7 @@ const _buildMarketDetailRangeModel = (periodId, modalData, nowMs) => {
   // insertion order, so points stay time-ordered. The daily path is deduped
   // upstream already, making this a no-op there.
   const seriesByVendor = new Map();
+  const chartObservationByKey = new Map();
   for (const observation of observations) {
     let pointsByChartTime = seriesByVendor.get(observation.vendorId);
     if (!pointsByChartTime) {
@@ -1403,6 +1404,7 @@ const _buildMarketDetailRangeModel = (periodId, modalData, nowMs) => {
       time: observation.chartTime,
       usdPrice: observation.usdPrice,
     });
+    chartObservationByKey.set(`${observation.vendorId}|${observation.chartTime}`, observation);
   }
 
   const rawSeries = Array.from(seriesByVendor, ([vendorId, pointsByChartTime]) => ({
@@ -1415,8 +1417,10 @@ const _buildMarketDetailRangeModel = (periodId, modalData, nowMs) => {
     vendorId,
     points: points.filter((point) => !spikeKeys.has(`${vendorId}|${point.time}`)),
   }));
+  // Drop only the observation each spike point charts; same-second rows it replaced stay.
+  const spikeObservations = new Set(Array.from(spikeKeys, (key) => chartObservationByKey.get(key)));
   const summaryObservations = observations.filter(
-    (observation) => !spikeKeys.has(`${observation.vendorId}|${observation.chartTime}`)
+    (observation) => !spikeObservations.has(observation)
   );
 
   return {
