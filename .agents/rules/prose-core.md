@@ -1,5 +1,5 @@
 ---
-library-version: 4b65e212cbd7
+library-version: e4a9ac03e062
 ---
 # Prose-core rules
 
@@ -15,10 +15,11 @@ relax them otherwise.
 - Use simple words with one meaning. Use one term for one concept: the glossary term, where one exists.
 - Keep the articles. Do not drop "the" and "a" to save space.
 - Do not use idioms. Do not use contractions in docs and UI copy.
+- Use US English spelling: color, behavior, center, gray, catalog, license and -ize endings.
 
 ## Emphasis and rhetoric
 
-- Do not use em-dash asides. Use a full stop, a colon or parentheses.
+- Do not use em-dash asides. Use a period, a colon or parentheses.
 - Do not use bold, italics or capitals for stress in human-facing prose: docs, READMEs, comments, docstrings
   and UI copy.
 - **Exception:** agent instruction files (CLAUDE.md, AGENTS.md, rules, skills) may bold the leading keyword of

@@ -5,7 +5,7 @@ license: MIT
 metadata:
   author: Codacy
   version: 1.5.0
-library-version: 4b65e212cbd7
+library-version: e4a9ac03e062
 ---
 
 # Codacy Analysis CLI
