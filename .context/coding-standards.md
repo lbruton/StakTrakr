@@ -717,6 +717,7 @@ Every PR that touches `tests/playwright/` must do exactly one of:
 - **Move** a test between tiers (unit ↔ smoke ↔ core ↔ extended)
 - **Delete** a test with a one-line rationale in the PR body
 - **Create a new file** with the required justification line in the PR body
+- **Update** an existing assertion to match changed copy or behavior (no inventory change)
 
 The release PR's closing tasks include a "test inventory delta" line: `+N -M tests, +X -Y files` matched against the budget.
 
