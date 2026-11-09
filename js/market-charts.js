@@ -192,6 +192,17 @@ const _createVendorRangeChart = (
 
   const colors = getChartThemeColors();
   const context = currencyContext || _getMarketChartCurrencyContext();
+  // Lightweight Charts draws every series title at the line end, so stacked lines
+  // overlap their labels. Only the lowest latest price is labeled; the legend names the rest.
+  let labeledVendorId = null;
+  let lowestLatest = Infinity;
+  for (const vendorSeries of validSeries) {
+    const latest = vendorSeries.points[vendorSeries.points.length - 1].usdPrice;
+    if (latest < lowestLatest) {
+      lowestLatest = latest;
+      labeledVendorId = vendorSeries.vendorId;
+    }
+  }
   let chart = null;
 
   try {
@@ -211,7 +222,7 @@ const _createVendorRangeChart = (
         crosshairMarkerVisible: true,
         priceLineVisible: false,
         lastValueVisible: false,
-        title: _shortName(vendorId),
+        title: vendorId === labeledVendorId ? _shortName(vendorId) : "",
       });
       series.setData(
         vendorSeries.points.map((point) => ({

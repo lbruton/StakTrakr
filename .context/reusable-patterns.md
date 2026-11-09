@@ -282,6 +282,8 @@ Applied by `_flagAnomalies()` before intraday chart/table rendering:
 
 Constants: `RETAIL_SPIKE_NEIGHBOR_TOLERANCE` (default 5%), `RETAIL_ANOMALY_THRESHOLD` (default 40%).
 
+The Market Detail Modal in `market-data.js` applies Pass 1 only, per Vendor line on the 24H range, through `_findMarketDetailSpikes`. A flagged point leaves the chart line and the summary, and `.market-detail-chart-note` counts the hidden spikes.
+
 ### History (Price History Tab) Pipeline
 
 ```text
