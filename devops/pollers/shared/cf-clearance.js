@@ -29,11 +29,10 @@ const CF_CLEARANCE_TIMEOUT_MS = process.env.CF_CLEARANCE_TIMEOUT_MS ?? "30000";
 // Byparr reports HTTP 200 every time, so the only signal of a thin response is
 // inspecting the HTML.
 //
-// Heuristic: count dollar amounts in the HTML. Full BE product pages contain
-// 9+ price tokens (single-unit + tier pricing); shells contain 0–4 (mostly
-// header tickers). When below threshold, retry the Byparr call. This is
-// vendor-agnostic — other Byparr-protected vendors with the same hydration
-// race benefit too.
+// isUsableByparrHtml decides whether a response is loaded; thin responses are
+// retried. Every host needs CF_CLEARANCE_MIN_DOLLARS dollar amounts. Hosts in
+// HYDRATION_MARKERS also need their price-table marker, because a site-wide
+// ticker can reach the dollar count on a page with no product price.
 const _rawMaxAttempts = Number(process.env.CF_CLEARANCE_MAX_ATTEMPTS ?? "3");
 const CF_CLEARANCE_MAX_ATTEMPTS =
   Number.isFinite(_rawMaxAttempts) && _rawMaxAttempts > 0 ? _rawMaxAttempts : 3;
@@ -53,6 +52,41 @@ function countDollarTokens(html) {
   if (!html) return 0;
   const matches = html.match(DOLLAR_TOKEN_RE);
   return matches ? matches.length : 0;
+}
+
+// Host (without "www.") → text that only the loaded price table contains.
+// Bullion Exchanges renders its quantity-tier table client-side; its metals
+// ticker holds a price and a daily change per metal on every page.
+const HYDRATION_MARKERS = {
+  "bullionexchanges.com": /\(E\)check\s*\/\s*Wire/i,
+};
+
+/**
+ * Price-table marker for a URL's host, or null when the host has none.
+ * @param {string} url - Vendor product URL.
+ * @returns {RegExp|null}
+ */
+function hydrationMarkerFor(url) {
+  let host;
+  try {
+    host = new URL(url).hostname.toLowerCase().replace(/^www\./, "");
+  } catch {
+    return null;
+  }
+  return HYDRATION_MARKERS[host] ?? null;
+}
+
+/**
+ * Whether Byparr HTML holds a loaded product page: enough dollar amounts and,
+ * for hosts in HYDRATION_MARKERS, the price-table marker.
+ * @param {string} url - Vendor product URL the HTML came from.
+ * @param {string|null} html - Byparr `solution.response`.
+ * @returns {boolean}
+ */
+export function isUsableByparrHtml(url, html) {
+  if (countDollarTokens(html) < CF_CLEARANCE_MIN_DOLLARS) return false;
+  const marker = hydrationMarkerFor(url);
+  return marker ? marker.test(html) : true;
 }
 
 function sleep(ms) {
@@ -99,7 +133,7 @@ async function fetchByparrOnce(url, timeoutMs) {
  * Harvest a cf_clearance cookie (and pre-fetched HTML) from the Byparr sidecar.
  *
  * Retries up to CF_CLEARANCE_MAX_ATTEMPTS times when Byparr returns thin HTML
- * (fewer than CF_CLEARANCE_MIN_DOLLARS dollar tokens) — symptomatic of the
+ * (isUsableByparrHtml is false) — symptomatic of the
  * React hydration race documented in STRK-106. Network errors and HTTP
  * failures are NOT retried here; the caller's existing fallback chain handles
  * those.
@@ -131,6 +165,9 @@ export async function getCFClearanceCookie(url) {
     const cfCookie = cookies.find((c) => c.name === "cf_clearance");
     const responseHtml = data.solution.response ?? null;
     const dollarCount = countDollarTokens(responseHtml);
+    const usable = isUsableByparrHtml(url, responseHtml);
+    const markerNote =
+      !usable && dollarCount >= CF_CLEARANCE_MIN_DOLLARS ? ", no price-table marker" : "";
 
     lastResult = {
       cfClearance: cfCookie?.value ?? null,
@@ -141,7 +178,7 @@ export async function getCFClearanceCookie(url) {
 
     // Quality check: is the rendered HTML usable, or did we snapshot before
     // hydration finished? Retry up to MAX_ATTEMPTS on thin HTML.
-    if (dollarCount >= CF_CLEARANCE_MIN_DOLLARS) {
+    if (usable) {
       if (attempt > 1) {
         console.log(
           `[cf-clearance] attempt ${attempt}/${CF_CLEARANCE_MAX_ATTEMPTS}: ` +
@@ -154,14 +191,14 @@ export async function getCFClearanceCookie(url) {
     if (attempt < CF_CLEARANCE_MAX_ATTEMPTS) {
       console.warn(
         `[cf-clearance] attempt ${attempt}/${CF_CLEARANCE_MAX_ATTEMPTS}: ` +
-          `thin HTML (${dollarCount} price tokens, len=${responseHtml?.length ?? 0}) — ` +
+          `thin HTML (${dollarCount} price tokens${markerNote}, len=${responseHtml?.length ?? 0}) — ` +
           `retrying after ${CF_CLEARANCE_RETRY_DELAY_MS}ms`
       );
       await sleep(CF_CLEARANCE_RETRY_DELAY_MS);
     } else {
       console.warn(
         `[cf-clearance] all ${CF_CLEARANCE_MAX_ATTEMPTS} attempts returned ` +
-          `thin HTML (${dollarCount} price tokens) — returning best-effort response`
+          `thin HTML (${dollarCount} price tokens${markerNote}) — returning best-effort response`
       );
     }
   }
