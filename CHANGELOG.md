@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.144] - 2026-11-09
+
+### Changed — STRK-518: Market detail modal polish
+
+- **Dealer order**: The details modal lists in-stock dealers first by price, then carried prices, then out-of-stock dealers. Only an in-stock dealer offers Buy; the others offer a quieter Visit link (STRK-518).
+- **Period labels**: The modal summary names its period, such as 24H median and 7D spread. The Market matrix column and the phone card read Median now (STRK-518).
+- **Chart labels**: The chart lines carry no end labels, which stacked on top of each other. A legend under the chart lists every dealer with its line color and latest price, and hovering the chart names the nearest dealer and its price (STRK-518).
+- **Price spikes**: A 24H price that its neighbors on both sides do not confirm stays out of the chart line and the summary, and a note under the chart counts the hidden spikes (STRK-518).
+- **Figures and tokens**: Median and Spread use Geist Mono with tabular figures. The modal heading uses weight 400, and the overlay and modal shadow use the new `--scrim` and `--shadow-modal` tokens (STRK-518).
+
+---
+
 ## [3.36.143] - 2026-11-08
 
 ### Changed — STRK-583: Link picker starts with the slot label

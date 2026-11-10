@@ -243,6 +243,9 @@ The detail modal keeps this focus contract:
 - CSS hides one layout, so both sets of `.vp-coin-link[data-slug]` buttons exist. Focus code looks up the shown one with `_findShownCoinButton`.
 - `_watchVendorTabOverflow` toggles `.vp-tabs-more` on the scrolling metal tab bar while tabs wait past its right edge.
 - Below 560px the detail modal hides `.market-detail-stock-col` and shows the stock word as `.market-stock-sub` under the dealer name.
+- The detail modal sorts dealers by `_modalStockTier` (in stock, carried, out of stock) and then by price. Only an in-stock row gets `.market-detail-buy`; the others get `.market-detail-visit`.
+- The modal summary labels name the selected period ("24H median"). The matrix column and the phone card read "Median now".
+- The chart lines carry no `title`, because Lightweight Charts draws a series title at the line end and close lines stack their labels. `ul.market-detail-legend` under the chart names every line with its color and latest price. `_attachVendorHoverLabel` in `js/market-charts.js` shows the line nearest the crosshair in an aria-hidden `.market-chart-hover-label`.
 
 The Market block header (`_buildMarketBlockHeader`) states its status in words:
 

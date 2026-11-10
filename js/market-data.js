@@ -1281,6 +1281,33 @@ const _calculateMarketDetailSummary = (observations) => {
 };
 
 /**
+ * Find single-point price spikes in each Vendor's intraday line. A point is a spike
+ * when the points on both sides agree within RETAIL_SPIKE_NEIGHBOR_TOLERANCE and the
+ * point differs from their average by more than that tolerance.
+ * @param {Array<{vendorId:string, points:Array<{time:number, usdPrice:number}>}>} series - Vendor series.
+ * @returns {Set<string>} `vendorId|time` keys of the spike points.
+ */
+const _findMarketDetailSpikes = (series) => {
+  const tolerance =
+    typeof RETAIL_SPIKE_NEIGHBOR_TOLERANCE === "number" ? RETAIL_SPIKE_NEIGHBOR_TOLERANCE : 0.05;
+  const spikeKeys = new Set();
+  for (const { vendorId, points } of series) {
+    // The first and last points have no neighbor pair, so they are never flagged.
+    for (let index = 1; index < points.length - 1; index += 1) {
+      const prev = points[index - 1].usdPrice;
+      const next = points[index + 1].usdPrice;
+      const neighborAvg = (prev + next) / 2;
+      if (!(neighborAvg > 0)) continue;
+      if (Math.abs(prev - next) / neighborAvg > tolerance) continue;
+      if (Math.abs(points[index].usdPrice - neighborAvg) / neighborAvg > tolerance) {
+        spikeKeys.add(`${vendorId}|${points[index].time}`);
+      }
+    }
+  }
+  return spikeKeys;
+};
+
+/**
  * Build the authoritative date-bounded observations, summary, and Vendor
  * series for a Retail View period.
  * @param {string} periodId - Allow-listed period identifier.
@@ -1367,6 +1394,7 @@ const _buildMarketDetailRangeModel = (periodId, modalData, nowMs) => {
   // insertion order, so points stay time-ordered. The daily path is deduped
   // upstream already, making this a no-op there.
   const seriesByVendor = new Map();
+  const chartObservationByKey = new Map();
   for (const observation of observations) {
     let pointsByChartTime = seriesByVendor.get(observation.vendorId);
     if (!pointsByChartTime) {
@@ -1377,12 +1405,24 @@ const _buildMarketDetailRangeModel = (periodId, modalData, nowMs) => {
       time: observation.chartTime,
       usdPrice: observation.usdPrice,
     });
+    chartObservationByKey.set(`${observation.vendorId}|${observation.chartTime}`, observation);
   }
 
-  const series = Array.from(seriesByVendor, ([vendorId, pointsByChartTime]) => ({
+  const rawSeries = Array.from(seriesByVendor, ([vendorId, pointsByChartTime]) => ({
     vendorId,
     points: Array.from(pointsByChartTime.values()),
   })).sort((left, right) => left.vendorId.localeCompare(right.vendorId));
+
+  const spikeKeys = period?.intraday ? _findMarketDetailSpikes(rawSeries) : new Set();
+  const series = rawSeries.map(({ vendorId, points }) => ({
+    vendorId,
+    points: points.filter((point) => !spikeKeys.has(`${vendorId}|${point.time}`)),
+  }));
+  // Drop only the observation each spike point charts; same-second rows it replaced stay.
+  const spikeObservations = new Set(Array.from(spikeKeys, (key) => chartObservationByKey.get(key)));
+  const summaryObservations = observations.filter(
+    (observation) => !spikeObservations.has(observation)
+  );
 
   return {
     periodId: period ? period.id : periodId,
@@ -1391,7 +1431,8 @@ const _buildMarketDetailRangeModel = (periodId, modalData, nowMs) => {
     intraday: !!period?.intraday,
     observations,
     series,
-    summary: _calculateMarketDetailSummary(observations),
+    spikeCount: spikeKeys.size,
+    summary: _calculateMarketDetailSummary(summaryObservations),
     hasChartData: series.some((vendorSeries) => vendorSeries.points.length > 0),
   };
 };
@@ -1493,27 +1534,26 @@ const _buildModalHeader = (content, coinMeta, slug, metalCode, metalLower, weigh
 };
 
 /**
- * Render four stable selected-period summary cells.
+ * Render four stable selected-period summary cells. Each label names the period,
+ * so the modal median never reads like the matrix "Median now".
  * @param {HTMLElement} content - Modal content container.
- * @returns {function(Object):void} Raw-USD summary updater.
+ * @returns {function(Object, string):void} Raw-USD summary updater taking the period label.
  */
 const _buildModalPriceSummary = (content) => {
   const priceRow = document.createElement("div");
   priceRow.className = "market-detail-summary";
   priceRow.setAttribute("aria-live", "polite");
   const valueElements = {};
+  const labelElements = {};
+  const STAT_WORDS = { median: "median", low: "low", high: "high", spread: "spread" };
 
-  for (const [key, label] of [
-    ["median", "Median"],
-    ["low", "Low"],
-    ["high", "High"],
-    ["spread", "Spread"],
-  ]) {
+  for (const [key, word] of Object.entries(STAT_WORDS)) {
     const stat = document.createElement("div");
     const lbl = document.createElement("div");
     lbl.className = "market-detail-stat-label";
-    lbl.textContent = label;
+    lbl.textContent = word;
     stat.appendChild(lbl);
+    labelElements[key] = lbl;
     const val = document.createElement("div");
     val.classList.add("market-value");
     val.textContent = "\u2014";
@@ -1524,10 +1564,11 @@ const _buildModalPriceSummary = (content) => {
 
   content.appendChild(priceRow);
 
-  return (summary = {}) => {
+  return (summary = {}, periodLabel = "") => {
     for (const [key, element] of Object.entries(valueElements)) {
       const value = summary[key];
       element.textContent = Number.isFinite(value) ? formatCurrency(value) : "\u2014";
+      labelElements[key].textContent = `${periodLabel} ${STAT_WORDS[key]}`.trim();
     }
   };
 };
@@ -1537,7 +1578,7 @@ const _buildModalPriceSummary = (content) => {
  * @param {HTMLElement} content - Modal content container.
  * @param {Object} modalData - Independently fetched Retail View payloads.
  * @param {Object} vendorMeta - Vendor-meta map (for chart series styling).
- * @param {function(Object):void} updateSummary - Selected-range summary updater.
+ * @param {function(Object, string):void} updateSummary - Selected-range summary updater.
  * @param {string} initialPeriodId - Period selected for this reconstruction.
  * @returns {void}
  */
@@ -1569,6 +1610,49 @@ const _buildModalChartSection = (
     ])
   );
   const periodButtons = new Map();
+  const legend = document.createElement("ul");
+  legend.className = "market-detail-legend";
+  legend.setAttribute("aria-label", "Dealers by latest price");
+  const chartNote = document.createElement("p");
+  chartNote.className = "market-detail-chart-note";
+
+  /**
+   * List each charted dealer by latest price with its line color, and name hidden spikes.
+   * @param {Object} rangeModel - Normalized range model the chart renders.
+   * @returns {void}
+   */
+  const _renderChartKey = (rangeModel) => {
+    const latest = rangeModel.series
+      .filter((vendorSeries) => vendorSeries.points.length > 0)
+      .map(({ vendorId, points }) => ({ vendorId, usdPrice: points[points.length - 1].usdPrice }))
+      .sort((left, right) => left.usdPrice - right.usdPrice);
+    for (const { vendorId, usdPrice } of latest) {
+      const item = document.createElement("li");
+      const swatch = document.createElement("span");
+      swatch.className = "market-detail-legend-swatch";
+      // The swatch fills with currentColor, so the vendor color rides the color property.
+      swatch.style.color =
+        typeof getRetailVendorColor === "function"
+          ? getRetailVendorColor(vendorId)
+          : "var(--text-muted)";
+      const name = document.createElement("span");
+      name.className = "market-detail-legend-name";
+      name.textContent = _shortVendor(vendorId);
+      const price = document.createElement("span");
+      price.className = "market-detail-legend-price";
+      price.textContent = formatCurrency(usdPrice);
+      item.append(swatch, name, price);
+      legend.appendChild(item);
+    }
+    const spikes = rangeModel.spikeCount || 0;
+    if (spikes > 0) {
+      chartNote.textContent =
+        spikes === 1
+          ? "1 price spike is hidden. The prices before and after it agree."
+          : `${spikes} price spikes are hidden. The prices before and after each agree.`;
+      chartSection.appendChild(chartNote);
+    }
+  };
 
   const NO_CHART_DATA = "No dealer prices were recorded for this period. Select another period.";
   const NO_CHART_LIBRARY = "The chart did not load. Reload the page to try again.";
@@ -1623,9 +1707,11 @@ const _buildModalChartSection = (
       button.setAttribute("aria-pressed", String(isSelected));
     }
 
-    updateSummary(rangeModel.summary);
+    updateSummary(rangeModel.summary, period.label);
     _destroyActiveMarketDetailChart();
     chartWrap.textContent = "";
+    legend.textContent = "";
+    chartNote.remove();
 
     if (typeof LightweightCharts === "undefined") {
       _showNoChart(NO_CHART_LIBRARY);
@@ -1657,7 +1743,9 @@ const _buildModalChartSection = (
       _destroyActiveMarketDetailChart();
     }
 
-    if (!_activeModalChart) {
+    if (_activeModalChart) {
+      _renderChartKey(rangeModel);
+    } else {
       _showNoChart(NO_CHART_LIBRARY);
     }
   };
@@ -1674,8 +1762,7 @@ const _buildModalChartSection = (
     periodButtons.set(period.id, btn);
   }
 
-  chartSection.appendChild(chartTabBar);
-  chartSection.appendChild(chartWrap);
+  chartSection.append(chartTabBar, chartWrap, legend);
   content.appendChild(chartSection);
 
   const selectedPeriodId = rangeModels.has(initialPeriodId)
@@ -1685,8 +1772,19 @@ const _buildModalChartSection = (
 };
 
 /**
- * Build the buy-link cell for a detail-modal vendor row. Renders a "Buy" link
- * (opening a detached popup) when a safe vendor URL resolves, else a muted dash.
+ * Rank a detail-modal vendor entry by stock: 0 in stock, 1 carried, 2 out of stock.
+ * @param {Object} entry - Vendor entry ({in_stock, inStock, carried}).
+ * @returns {number} Stock tier; lower sorts first.
+ */
+const _modalStockTier = (entry) => {
+  if (entry.carried) return 1;
+  return _isVendorInStock(entry) ? 0 : 2;
+};
+
+/**
+ * Build the link cell for a detail-modal vendor row. Renders "Buy" for an in-stock
+ * dealer and "Visit" otherwise (both open a detached popup) when a safe vendor URL
+ * resolves, else a muted dash.
  * @param {Object} entry - Vendor entry ({vid, url, ...}).
  * @param {string} slug - Retail coin slug (provider URL lookup).
  * @param {Object} vendorMeta - Vendor-meta map (url fallback for entry.vid).
@@ -1698,13 +1796,24 @@ const _buildModalBuyCell = (entry, slug, vendorMeta) => {
   if (_isSafeUrl(url)) {
     const buyBtn = document.createElement("button");
     buyBtn.type = "button";
-    buyBtn.textContent = "Buy";
-    buyBtn.className = "market-detail-buy";
     const pricePart = entry.price > 0 ? `, ${formatCurrency(entry.price)}` : "";
-    buyBtn.setAttribute(
-      "aria-label",
-      `Buy at ${_shortVendor(entry.vid)}${pricePart}. Opens the dealer page in a new window.`
-    );
+    // Only a live in-stock listing gets Buy; a carried or sold-out price links as Visit.
+    if (_modalStockTier(entry) === 0) {
+      buyBtn.textContent = "Buy";
+      buyBtn.className = "market-detail-buy";
+      buyBtn.setAttribute(
+        "aria-label",
+        `Buy at ${_shortVendor(entry.vid)}${pricePart}. Opens the dealer page in a new window.`
+      );
+    } else {
+      buyBtn.textContent = "Visit";
+      buyBtn.className = "market-detail-visit";
+      const stockPart = entry.carried ? "Price from an earlier check" : "Out of stock";
+      buyBtn.setAttribute(
+        "aria-label",
+        `Visit ${_shortVendor(entry.vid)}. ${stockPart}. Opens the dealer page in a new window.`
+      );
+    }
     buyBtn.addEventListener("click", () => {
       _openVendorPopup(url, entry.vid);
     });
@@ -1803,7 +1912,8 @@ const _buildModalVendorRow = (entry, vendorMeta, slug, metalCode, weightOz, spot
 };
 
 /**
- * Render the detail-modal vendor comparison table (sorted by price), or a
+ * Render the detail-modal vendor comparison table (in stock, carried, then out of
+ * stock, each by price), or a
  * "vendor data unavailable" placeholder when no vendor data exists.
  * @param {HTMLElement} content - Modal content container.
  * @param {Object|null} detail - Normalized retail detail (with vendors map).
@@ -1828,6 +1938,8 @@ const _buildModalVendorTable = (content, detail, slug, vendorMeta, metalCode, we
       vendorEntries.push({ vid, ...v });
     }
     vendorEntries.sort((a, b) => {
+      const tierDiff = _modalStockTier(a) - _modalStockTier(b);
+      if (tierDiff !== 0) return tierDiff;
       if (a.price > 0 && b.price > 0) return a.price - b.price;
       if (a.price > 0) return -1;
       if (b.price > 0) return 1;
@@ -2248,7 +2360,7 @@ const _buildVendorTableHead = (vendorIds) => {
       typeof getRetailVendorColor === "function" ? getRetailVendorColor(vid) : "var(--text-muted)";
   }
 
-  addHeader("MEDIAN");
+  addHeader("MEDIAN NOW");
   addHeader("SPREAD");
 
   thead.appendChild(headRow);
@@ -2405,6 +2517,7 @@ const _buildVendorTableRow = (row, vendorIds, vendorMeta) => {
 
   for (const text of [row.medianText, row.spreadText]) {
     const td = document.createElement("td");
+    td.className = "vp-stat";
     td.textContent = text;
     tr.appendChild(td);
   }
@@ -2506,7 +2619,7 @@ const _buildVendorCard = (row, vendorIds, vendorMeta) => {
   const metaLine = document.createElement("p");
   metaLine.className = "vp-card-meta";
   for (const [label, text] of [
-    ["Median", row.medianText],
+    ["Median now", row.medianText],
     ["Spread", row.spreadText],
   ]) {
     const part = document.createElement("span");

@@ -540,9 +540,17 @@ const lightweightChartsStub = `
           applyOptions(next) {
             Object.assign(record.options, next);
           },
+          // A fixed pane mapping: a higher price sits higher on the pane.
+          priceToCoordinate(price) {
+            return 1000 - price;
+          },
         };
       };
-      return {
+      instance.crosshairHandlers = [];
+      const api = {
+        subscribeCrosshairMove(handler) {
+          instance.crosshairHandlers.push(handler);
+        },
         addLineSeries(options) {
           return addSeries("line", options);
         },
@@ -575,6 +583,8 @@ const lightweightChartsStub = `
           recordRootEvent("remove", instance.id);
         },
       };
+      instance.api = api;
+      return api;
     },
   };
   })();
@@ -1086,6 +1096,7 @@ const marketSummaryValues = (page) => page.locator("#marketDetailContent .market
 
 /**
  * Asserts the market-detail summary stats match expected label/value pairs, in order.
+ * Each label names the selected period, so "Median" reads "7D median" on the 7D period.
  * @param {import('@playwright/test').Page} page - Playwright page.
  * @param {Object<string,string>} expectedSummary - Ordered map of stat label to expected display value.
  * @returns {Promise<void>}
@@ -1094,9 +1105,14 @@ async function expectMarketSummary(page, expectedSummary) {
   const stats = marketSummaryValues(page).locator("..");
   const entries = Object.entries(expectedSummary);
   await expect(stats).toHaveCount(entries.length);
+  const period = (
+    await page.locator("#marketDetailContent .market-detail-period-btn.active").textContent()
+  ).trim();
   for (const [index, [label, value]] of entries.entries()) {
     const stat = stats.nth(index);
-    await expect(stat.locator(":scope > div").first()).toHaveText(label);
+    await expect(stat.locator(":scope > div").first()).toHaveText(
+      `${period} ${label.toLowerCase()}`
+    );
     await expect(stat.locator(":scope > .market-value")).toHaveText(value);
   }
 }
@@ -1254,11 +1270,16 @@ async function getMarketChartHarness(page) {
           typeof instance.options?.localization?.priceFormatter === "function"
             ? instance.options.localization.priceFormatter(100)
             : null,
-        series: instance.series.map((series) => ({
-          type: series.type,
-          title: series.options?.title || "",
-          data: series.data.map((point) => ({ ...point })),
-        })),
+        // title names the dealer of each line; label is the end label the chart draws.
+        series: instance.series.map((series, index) => {
+          const vendorId = instance.api?._retailVendorSeries?.[index]?.vendorId;
+          return {
+            type: series.type,
+            title: vendorId ? _shortName(vendorId) : series.options?.title || "",
+            label: series.options?.title || "",
+            data: series.data.map((point) => ({ ...point })),
+          };
+        }),
       })),
     };
   });
@@ -1362,9 +1383,12 @@ async function measureCompletedMarketSwitches(page, periods, cycles = 3) {
         const activeInstance = window.__marketChartHarness?.instances.find(
           (instance) => instance.id === activeId && !instance.removed
         );
+        const vendorLines = activeInstance?.api?._retailVendorSeries || [];
         const series = (activeInstance?.series || [])
-          .map((vendorSeries) => ({
-            title: vendorSeries.options?.title || "",
+          .map((vendorSeries, index) => ({
+            title: vendorLines[index]
+              ? _shortName(vendorLines[index].vendorId)
+              : vendorSeries.options?.title || "",
             data: vendorSeries.data.map((point) => ({
               time: point.time,
               value: point.value,
@@ -1519,7 +1543,7 @@ test.describe("core/retail-market", () => {
 
     const headers = await page.locator(".vendor-prices-table thead th").allTextContents();
     expect(
-      headers.map((h) => h.trim()).filter((h) => !["ITEM", "MEDIAN", "SPREAD"].includes(h))
+      headers.map((h) => h.trim()).filter((h) => !["ITEM", "MEDIAN NOW", "SPREAD"].includes(h))
     ).toEqual(["APMEX", "BullionX", "Goldback", "Hero", "JM"]);
 
     expect(await getVendorCellText(page, "Alpha Gold Coin", "APMEX")).toContain("+10.0%");
@@ -1809,19 +1833,6 @@ test.describe("core/retail-market", () => {
     await page.evaluate((slug) => window.openMarketDetailModal(slug), SLUG_SILVER_A);
     await expect(page.locator("#marketDetailModal")).toBeVisible();
 
-    const marketChartVendorTitles = {
-      apmex: "APMEX",
-      jmbullion: "JM",
-      sdbullion: "SD",
-      monumentmetals: "Monument",
-      herobullion: "Hero",
-      bullionexchanges: "BullionX",
-      summitmetals: "Summit",
-      goldback: "Goldback",
-      providentmetals: "Provident",
-      gainesvillecoins: "Gville",
-      mintbuilder: "mintbuilder",
-    };
     for (const theme of ["light", "dark", "slate", "sepia"]) {
       await page.evaluate((name) => window.setTheme(name), theme);
       const chartColors = await page.evaluate(() => {
@@ -1829,18 +1840,15 @@ test.describe("core/retail-market", () => {
           (instance) => instance.containerId === "marketDetailChartArea" && !instance.removed
         );
         return {
-          series: (chart?.series || []).map((series) => ({
-            title: series.options.title,
+          series: (chart?.series || []).map((series, index) => ({
+            vendorId: chart.api._retailVendorSeries?.[index]?.vendorId,
             color: series.options.color,
           })),
         };
       });
       expect(chartColors.series, `${theme} market chart vendor lines`).not.toHaveLength(0);
-      for (const vendorSeries of chartColors.series) {
-        const vendorId = Object.entries(marketChartVendorTitles).find(
-          ([, title]) => title === vendorSeries.title
-        )?.[0];
-        expect(vendorId, `${theme} market chart series title ${vendorSeries.title}`).toBeTruthy();
+      for (const { vendorId, ...vendorSeries } of chartColors.series) {
+        expect(vendorId, `${theme} market chart series vendor`).toBeTruthy();
         expect(vendorSeries.color, `${theme} market chart ${vendorId} color`).toBe(
           await page.evaluate((id) => window.getRetailVendorColorRGB(id), vendorId)
         );
@@ -2097,7 +2105,8 @@ test.describe("core/retail-market", () => {
     await page.evaluate((slug) => window.openMarketDetailModal(slug), SLUG_SILVER_A);
     await expect(page.locator("#marketDetailModal")).toBeVisible();
     const stock = page.locator("#marketDetailContent .market-stock");
-    await expect(stock).toHaveText(["In Stock", "In Stock", "Carried", "In Stock", "Out of Stock"]);
+    // In-stock dealers rank first by price, then carried, then out of stock.
+    await expect(stock).toHaveText(["In Stock", "In Stock", "In Stock", "Carried", "Out of Stock"]);
     // The modal colours each dealer by the same rule; the out-of-stock $41 is not ranked.
     expect(
       await tiersByPrice(page.locator("#marketDetailContent .market-detail-vendors tbody tr"))
@@ -2108,7 +2117,7 @@ test.describe("core/retail-market", () => {
       "$40.00": "high",
       "$41.00": "plain",
     });
-    await expect(stock.nth(2)).toHaveAttribute("title", lastSeen);
+    await expect(stock.nth(3)).toHaveAttribute("title", lastSeen);
     // Phones hide the Stock column, so the stock line under the dealer carries the date in view.
     const carriedSub = page.locator("#marketDetailContent .market-stock-sub.market-stock--carried");
     await expect(carriedSub).toHaveText(`Carried ${localDate}`);
@@ -2131,6 +2140,7 @@ test.describe("core/retail-market", () => {
       "modal stock word": "#marketDetailContent .market-stock",
       "modal period chip": "#marketDetailContent .market-detail-period-btn.active",
       "modal buy link": "#marketDetailContent .market-detail-buy",
+      "modal visit link": "#marketDetailContent .market-detail-visit",
     };
     for (const theme of THEMES) {
       await page.evaluate((name) => window.setTheme(name), theme);
@@ -2192,6 +2202,83 @@ test.describe("core/retail-market", () => {
       "Mid",
       "High",
     ]);
+  });
+
+  test("an out-of-stock dealer ranks below in-stock dealers and offers Visit, not Buy", async ({
+    page,
+  }) => {
+    await setupComparisonFixture(page, {
+      vendors: {
+        // The cheapest price is out of stock, so it must not lead the table or offer Buy.
+        bullionexchanges: { price: 30, in_stock: false, inStock: false },
+        apmex: { price: 36.5, in_stock: true, inStock: true },
+        jmbullion: { price: 37, in_stock: true, inStock: true },
+        herobullion: { price: 40, in_stock: true, inStock: true },
+      },
+    });
+    await openAlphaModal(page);
+    const rows = page.locator("#marketDetailContent .market-detail-vendors tbody tr");
+    await expect(rows.locator(".market-price")).toHaveText([
+      "$36.50",
+      "$37.00",
+      "$40.00",
+      "$30.00",
+    ]);
+    await expect(page.locator("#marketDetailContent .market-stock")).toHaveText([
+      "In Stock",
+      "In Stock",
+      "In Stock",
+      "Out of Stock",
+    ]);
+    for (const index of [0, 1, 2]) {
+      await expect(rows.nth(index).locator(".market-detail-buy")).toHaveText("Buy");
+    }
+    const outRow = rows.nth(3);
+    await expect(outRow.locator(".market-detail-buy")).toHaveCount(0);
+    const visit = outRow.locator(".market-detail-visit");
+    await expect(visit).toHaveText("Visit");
+    await expect(visit).toHaveAttribute(
+      "aria-label",
+      "Visit BullionX. Out of stock. Opens the dealer page in a new window."
+    );
+  });
+
+  test("Median and Spread figures use the mono family with tabular figures", async ({ page }) => {
+    await setupComparisonFixture(page, {
+      vendors: {
+        apmex: { price: 36.5, in_stock: true, inStock: true },
+        jmbullion: { price: 37, in_stock: true, inStock: true },
+      },
+    });
+    const headers = await page.locator(".vendor-prices-table thead th").allTextContents();
+    expect(headers.map((h) => h.trim())).toContain("MEDIAN NOW");
+    const matrixRow = page
+      .locator(".vendor-prices-table tbody tr")
+      .filter({ has: page.getByText("Alpha Silver Bar", { exact: true }) });
+    const figureStyle = (locator) =>
+      locator.evaluate((el) => {
+        const style = getComputedStyle(el);
+        return { family: style.fontFamily, numeric: style.fontVariantNumeric };
+      });
+    const matrixCells = matrixRow.locator("td.vp-stat");
+    await expect(matrixCells).toHaveText([/^\$/, /^\$/]);
+    for (const index of [0, 1]) {
+      const style = await figureStyle(matrixCells.nth(index));
+      expect(style.family).toContain("Geist Mono");
+      expect(style.numeric).toBe("tabular-nums");
+    }
+
+    await openAlphaModal(page);
+    const heading = page.locator("#marketDetailTitle");
+    await expect(heading).toHaveCSS("font-weight", "400");
+    for (const locator of [
+      page.locator("#marketDetailContent .market-value").first(),
+      page.locator("#marketDetailContent .market-detail-vendors .market-price").first(),
+    ]) {
+      const style = await figureStyle(locator);
+      expect(style.family).toContain("Geist Mono");
+      expect(style.numeric).toBe("tabular-nums");
+    }
   });
 
   test("the modal header takes the first parseable price time", async ({ page }) => {
@@ -3698,6 +3785,106 @@ test.describe("core/retail-market", () => {
         High: "$130.00",
         Spread: "$30.00",
       });
+    });
+
+    test("chart lines carry no end labels; hover names the nearest dealer and the legend names every line", async ({
+      page,
+    }) => {
+      await openStrk260MarketDetail(page);
+      await clickMarketPeriod(page, "24H");
+      await expectUsableMarketChart(page, STRK260_PERIOD_EXPECTATIONS["24H"]);
+      const chart = activeMarketChart(await getMarketChartHarness(page));
+      // Latest prices: APMEX $111, Hero $109, JM $107. End labels stack, so no line has one.
+      expect(chart.series.map(({ label }) => label)).toEqual(["", "", ""]);
+
+      const hoverLabel = page.locator("#marketDetailChartArea .market-chart-hover-label");
+      await expect(hoverLabel).toBeHidden();
+      // The stub pane puts a price at y = 1000 - price: APMEX 889, Hero 891, JM 893.
+      await page.evaluate((chartId) => {
+        const instance = window.__marketChartHarness.instances.find(({ id }) => id === chartId);
+        const seriesData = new Map(
+          instance.api._retailVendorSeries.map(({ vendorId, series }) => [
+            series,
+            { value: { apmex: 111, herobullion: 109, jmbullion: 107 }[vendorId] },
+          ])
+        );
+        instance.crosshairHandlers.forEach((handler) =>
+          handler({ time: 1, point: { x: 40, y: 891.4 }, seriesData })
+        );
+      }, chart.id);
+      await expect(hoverLabel).toBeVisible();
+      await expect(hoverLabel.locator(".market-chart-hover-name")).toHaveText("Hero");
+      await expect(hoverLabel.locator(".market-chart-hover-price")).toHaveText("$109.00");
+      await expect(hoverLabel).toHaveAttribute("aria-hidden", "true");
+
+      await page.evaluate((chartId) => {
+        const instance = window.__marketChartHarness.instances.find(({ id }) => id === chartId);
+        instance.crosshairHandlers.forEach((handler) => handler({ seriesData: new Map() }));
+      }, chart.id);
+      await expect(hoverLabel).toBeHidden();
+      const legend = page.locator("#marketDetailContent .market-detail-legend li");
+      await expect(legend.locator(".market-detail-legend-name")).toHaveText([
+        "JM",
+        "Hero",
+        "APMEX",
+      ]);
+      await expect(legend.locator(".market-detail-legend-price")).toHaveText([
+        "$107.00",
+        "$109.00",
+        "$111.00",
+      ]);
+    });
+
+    test("a 24H price spike that its neighbors do not confirm stays out of the chart and summary", async ({
+      page,
+    }) => {
+      await openStrk260MarketDetail(page, {
+        retailFeeds: {
+          [SLUG_SILVER_A]: {
+            ...STRK260_MODAL_FEEDS[SLUG_SILVER_A],
+            intraday: [
+              { t: "2026-05-26T13:00:00.000Z", vendors: { herobullion: 100 } },
+              { t: "2026-05-26T14:00:00.000Z", vendors: { herobullion: 100 } },
+              // A valid 95 shares the spike's second. The chart keeps the later 150 and
+              // hides it; the summary drops only the 150, so 95 stays the low.
+              { t: "2026-05-26T15:00:00.000Z", vendors: { herobullion: 95 } },
+              { t: "2026-05-26T15:00:00.500Z", vendors: { herobullion: 150 } },
+              { t: "2026-05-26T16:00:00.000Z", vendors: { herobullion: 101 } },
+              { t: "2026-05-26T17:00:00.000Z", vendors: { herobullion: 100 } },
+            ],
+          },
+        },
+      });
+      await clickMarketPeriod(page, "24H");
+      await expectUsableMarketChart(page, {
+        summary: { Median: "$100.00", Low: "$95.00", High: "$101.00", Spread: "$6.00" },
+        series: [
+          {
+            title: "Hero",
+            data: [
+              { time: toUnixSeconds("2026-05-26T13:00:00.000Z"), value: 100 },
+              { time: toUnixSeconds("2026-05-26T14:00:00.000Z"), value: 100 },
+              { time: toUnixSeconds("2026-05-26T16:00:00.000Z"), value: 101 },
+              { time: toUnixSeconds("2026-05-26T17:00:00.000Z"), value: 100 },
+            ],
+          },
+        ],
+      });
+      const note = page.locator("#marketDetailContent .market-detail-chart-note");
+      await expect(note).toHaveText(
+        "1 price spike is hidden. The prices before and after it agree."
+      );
+      await clickMarketPeriod(page, "7D");
+      await expect(note).toHaveCount(0);
+    });
+
+    test("the summary labels name the selected period", async ({ page }) => {
+      await openStrk260MarketDetail(page);
+      const labels = page.locator("#marketDetailContent .market-detail-stat-label");
+      await clickMarketPeriod(page, "24H");
+      await expect(labels).toHaveText(["24H median", "24H low", "24H high", "24H spread"]);
+      await clickMarketPeriod(page, "90D");
+      await expect(labels).toHaveText(["90D median", "90D low", "90D high", "90D spread"]);
     });
 
     // STRK-260 regression coverage: daily aggregates are always
