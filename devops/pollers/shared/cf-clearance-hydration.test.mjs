@@ -11,7 +11,8 @@ import assert from "node:assert/strict";
 
 process.env.CF_CLEARANCE_ENABLED = "1";
 process.env.CF_CLEARANCE_RETRY_DELAY_MS = "0";
-process.env.CF_CLEARANCE_MAX_ATTEMPTS = "3";
+delete process.env.CF_CLEARANCE_MAX_ATTEMPTS;
+delete process.env.CF_CLEARANCE_BUDGET_MS;
 
 const importModule = () => import(new URL("./cf-clearance.js", import.meta.url));
 
@@ -33,17 +34,25 @@ const BE_TIER_TABLE =
 const BE_UNLOADED = `<html><body>${BE_TICKER}<h1>2026 1 oz Gold American Eagle</h1></body></html>`;
 const BE_LOADED = `<html><body>${BE_TICKER}<h1>2026 1 oz Gold American Eagle</h1>${BE_TIER_TABLE}</body></html>`;
 
+// The poller's own request timeout, as fetch reports it.
+const ABORTED = new DOMException("This operation was aborted", "AbortError");
+
 /**
  * Replace global fetch with a Byparr stub that answers each call with the next page.
- * @param {string[]} pages - Response HTML per call, in order.
- * @returns {{ calls: number, restore: () => void }}
+ * An Error entry is thrown instead of answered. Request bodies land in `bodies`.
+ * @param {Array<string|Error>} pages - Response HTML or error per call, in order.
+ * @param {() => void} [onCall] - Runs on every call, before the answer.
+ * @returns {{ calls: number, bodies: object[], restore: () => void }}
  */
-function stubByparr(pages) {
+function stubByparr(pages, onCall = () => {}) {
   const original = globalThis.fetch;
-  const state = { calls: 0, restore: () => (globalThis.fetch = original) };
-  globalThis.fetch = async () => {
+  const state = { calls: 0, bodies: [], restore: () => (globalThis.fetch = original) };
+  globalThis.fetch = async (_url, init) => {
     const html = pages[Math.min(state.calls, pages.length - 1)];
     state.calls++;
+    state.bodies.push(JSON.parse(init.body));
+    onCall();
+    if (html instanceof Error) throw html;
     return new Response(
       JSON.stringify({
         status: "ok",
@@ -79,6 +88,138 @@ test("getCFClearanceCookie retries a ticker-only Bullion Exchanges page", async 
     const result = await getCFClearanceCookie(BE_URL);
     assert.equal(stub.calls, 2);
     assert.ok(result.responseHtml.includes("$4,346.03"));
+  } finally {
+    stub.restore();
+  }
+});
+
+const BE_OOS_JSONLD =
+  '<script type="application/ld+json">' +
+  '{"@context":"https://schema.org","@type":"Product","name":"2026 1 oz Gold American Eagle",' +
+  '"offers":{"@type":"Offer","availability":"https://schema.org/OutOfStock"}}</script>';
+const BE_OOS = `<html><head>${BE_OOS_JSONLD}</head><body>${BE_TICKER}<h1>2026 1 oz Gold American Eagle</h1></body></html>`;
+
+test("a Bullion Exchanges page marked out of stock in JSON-LD is usable without the tier table", async () => {
+  const { isUsableByparrHtml } = await importModule();
+  assert.equal(isUsableByparrHtml(BE_URL, BE_OOS), true);
+});
+
+test("getCFClearanceCookie accepts an out-of-stock Bullion Exchanges page on the first attempt", async () => {
+  const { getCFClearanceCookie } = await importModule();
+  const stub = stubByparr([BE_OOS, BE_LOADED]);
+  try {
+    const result = await getCFClearanceCookie(BE_URL);
+    assert.equal(stub.calls, 1);
+    assert.ok(result.responseHtml.includes("OutOfStock"));
+  } finally {
+    stub.restore();
+  }
+});
+
+test("the Byparr request carries max_timeout in whole seconds", async () => {
+  const { getCFClearanceCookie } = await importModule();
+  const stub = stubByparr([BE_LOADED]);
+  try {
+    await getCFClearanceCookie(BE_URL);
+    const body = stub.bodies[0];
+    assert.ok(Number.isInteger(body.max_timeout) && body.max_timeout > 0);
+    assert.equal(body.max_timeout, Math.ceil(body.maxTimeout / 1000));
+  } finally {
+    stub.restore();
+  }
+});
+
+test("getCFClearanceCookie retries an attempt the poller timeout aborted", async () => {
+  const { getCFClearanceCookie } = await importModule();
+  const stub = stubByparr([ABORTED, BE_LOADED]);
+  try {
+    const result = await getCFClearanceCookie(BE_URL);
+    assert.equal(stub.calls, 2);
+    assert.ok(result.responseHtml.includes("$4,346.03"));
+  } finally {
+    stub.restore();
+  }
+});
+
+test("getCFClearanceCookie retries an attempt that Byparr timed out", async () => {
+  const { getCFClearanceCookie } = await importModule();
+  const original = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls++;
+    if (calls === 1) {
+      return new Response('{"detail":"Timed out while solving the challenge"}', { status: 408 });
+    }
+    return new Response(
+      JSON.stringify({
+        status: "ok",
+        solution: { cookies: [], userAgent: "ua", response: BE_LOADED },
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } }
+    );
+  };
+  try {
+    const result = await getCFClearanceCookie(BE_URL);
+    assert.equal(calls, 2);
+    assert.ok(result.responseHtml.includes("$4,346.03"));
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test("getCFClearanceCookie does not retry an error that only names a timeout URL", async () => {
+  const { getCFClearanceCookie } = await importModule();
+  const original = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls++;
+    return new Response(
+      '{"detail":"page.goto: net::ERR_NAME_NOT_RESOLVED at https://x.test/timeout-page"}',
+      { status: 502 }
+    );
+  };
+  try {
+    assert.equal(await getCFClearanceCookie(BE_URL), null);
+    assert.equal(calls, 1);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test("getCFClearanceCookie returns null after one Byparr HTTP error", async () => {
+  const { getCFClearanceCookie } = await importModule();
+  const original = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls++;
+    return new Response("boom", { status: 500 });
+  };
+  try {
+    assert.equal(await getCFClearanceCookie(BE_URL), null);
+    assert.equal(calls, 1);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test("getCFClearanceCookie makes six attempts by default", async () => {
+  const { getCFClearanceCookie } = await importModule();
+  const stub = stubByparr([BE_UNLOADED]);
+  try {
+    await getCFClearanceCookie(BE_URL);
+    assert.equal(stub.calls, 6);
+  } finally {
+    stub.restore();
+  }
+});
+
+test("getCFClearanceCookie starts no attempt after the time budget is spent", async () => {
+  const { getCFClearanceCookie } = await importModule();
+  let clock = 0;
+  const stub = stubByparr([BE_UNLOADED], () => (clock += 25000));
+  try {
+    await getCFClearanceCookie(BE_URL, { budgetMs: 60000, now: () => clock });
+    assert.equal(stub.calls, 3);
   } finally {
     stub.restore();
   }

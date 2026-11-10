@@ -46,7 +46,7 @@ services:
       - FLYIO_HTTP_URL=${FLYIO_HTTP_URL:-https://api2.staktrakr.com/data/retail/providers.json}
       - CF_CLEARANCE_SCRAPER_URL=${CF_CLEARANCE_SCRAPER_URL:-http://byparr:8191}
       - CF_CLEARANCE_ENABLED=${CF_CLEARANCE_ENABLED:-1}
-      - CF_CLEARANCE_TIMEOUT_MS=${CF_CLEARANCE_TIMEOUT_MS:-30000}
+      - CF_CLEARANCE_TIMEOUT_MS=${CF_CLEARANCE_TIMEOUT_MS:-20000}
       # Webscale Protection Mode bypass — per-host wspc cookie + base64 UA (STRK-230).
       # Values supplied by the Portainer stack env; re-solve ~weekly via webscale-solve.mjs.
       # MUST be listed here or compose drops them (the stack env array alone is not enough).
