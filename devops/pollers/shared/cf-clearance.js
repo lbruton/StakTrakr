@@ -5,7 +5,9 @@
 //
 // Endpoint (verified 2026-03-10 against live bullionexchanges.com):
 //   POST /v1
-//   Body:    { "cmd": "request.get", "url": "https://...", "maxTimeout": 30000 }
+//   Body:    { "cmd": "request.get", "url": "https://...", "max_timeout": 20 }
+//   Byparr reads only snake_case max_timeout, in seconds; maxTimeout (ms) is kept
+//   for FlareSolverr compatibility.
 //   Returns: { "status": "ok", "solution": {
 //               "cookies": [{ "name": "cf_clearance", "value": "..." }, ...],
 //               "userAgent": "<ua-string>" }}
@@ -20,7 +22,13 @@ const CF_CLEARANCE_SIDECAR_URL =
   process.env.CF_CLEARANCE_SCRAPER_URL ??
   "http://staktrakr-byparr:8191";
 const CF_CLEARANCE_ENABLED = process.env.CF_CLEARANCE_ENABLED ?? "1";
-const CF_CLEARANCE_TIMEOUT_MS = process.env.CF_CLEARANCE_TIMEOUT_MS ?? "30000";
+import {
+  extractJsonLdAvailability,
+  extractJsonLdScriptsFromHtml,
+  JSONLD_OOS_VALUES,
+} from "./price-extract-shared.js";
+
+const CF_CLEARANCE_TIMEOUT_MS = process.env.CF_CLEARANCE_TIMEOUT_MS ?? "20000";
 
 // STRK-106: Byparr returns Playwright's HTML at the `load` event, before React
 // hydration finishes. Heavier vendor pages (Bullion Exchanges gold in particular)
@@ -32,10 +40,14 @@ const CF_CLEARANCE_TIMEOUT_MS = process.env.CF_CLEARANCE_TIMEOUT_MS ?? "30000";
 // isUsableByparrHtml decides whether a response is loaded; thin responses are
 // retried. Every host needs CF_CLEARANCE_MIN_DOLLARS dollar amounts. Hosts in
 // HYDRATION_MARKERS also need their price-table marker, because a site-wide
-// ticker can reach the dollar count on a page with no product price.
-const _rawMaxAttempts = Number(process.env.CF_CLEARANCE_MAX_ATTEMPTS ?? "3");
+// ticker can reach the dollar count on a page with no product price. A page
+// that JSON-LD marks out of stock has no price table and is usable as is.
+const _rawMaxAttempts = Number(process.env.CF_CLEARANCE_MAX_ATTEMPTS ?? "6");
 const CF_CLEARANCE_MAX_ATTEMPTS =
-  Number.isFinite(_rawMaxAttempts) && _rawMaxAttempts > 0 ? _rawMaxAttempts : 3;
+  Number.isFinite(_rawMaxAttempts) && _rawMaxAttempts > 0 ? _rawMaxAttempts : 6;
+// No new attempt starts once this much time has passed since the first one.
+const _rawBudget = Number(process.env.CF_CLEARANCE_BUDGET_MS ?? "60000");
+const CF_CLEARANCE_BUDGET_MS = Number.isFinite(_rawBudget) && _rawBudget > 0 ? _rawBudget : 60000;
 const _rawMinDollars = Number(process.env.CF_CLEARANCE_MIN_DOLLARS ?? "6");
 const CF_CLEARANCE_MIN_DOLLARS =
   Number.isFinite(_rawMinDollars) && _rawMinDollars >= 0 ? _rawMinDollars : 6;
@@ -77,8 +89,19 @@ function hydrationMarkerFor(url) {
 }
 
 /**
+ * Whether JSON-LD in the HTML marks the product out of stock.
+ * @param {string} html - Byparr `solution.response`.
+ * @returns {boolean}
+ */
+function isJsonLdOutOfStock(html) {
+  const availability = extractJsonLdAvailability(extractJsonLdScriptsFromHtml(html));
+  return JSONLD_OOS_VALUES.has(availability);
+}
+
+/**
  * Whether Byparr HTML holds a loaded product page: enough dollar amounts and,
- * for hosts in HYDRATION_MARKERS, the price-table marker.
+ * for hosts in HYDRATION_MARKERS, the price-table marker or a JSON-LD
+ * out-of-stock flag.
  * @param {string} url - Vendor product URL the HTML came from.
  * @param {string|null} html - Byparr `solution.response`.
  * @returns {boolean}
@@ -86,7 +109,8 @@ function hydrationMarkerFor(url) {
 export function isUsableByparrHtml(url, html) {
   if (countDollarTokens(html) < CF_CLEARANCE_MIN_DOLLARS) return false;
   const marker = hydrationMarkerFor(url);
-  return marker ? marker.test(html) : true;
+  if (!marker || marker.test(html)) return true;
+  return isJsonLdOutOfStock(html);
 }
 
 function sleep(ms) {
@@ -94,8 +118,8 @@ function sleep(ms) {
 }
 
 /**
- * Single Byparr fetch attempt. Returns { ok, data, errorMsg } so the retry
- * loop can branch cleanly without nesting try/catch per iteration.
+ * Single Byparr fetch attempt. Returns { ok, data, errorMsg, timedOut }; timedOut
+ * is true when the poller or Byparr ran out of time on the page.
  */
 async function fetchByparrOnce(url, timeoutMs) {
   const controller = new AbortController();
@@ -104,7 +128,12 @@ async function fetchByparrOnce(url, timeoutMs) {
     const response = await fetch(`${CF_CLEARANCE_SIDECAR_URL}/v1`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ cmd: "request.get", url, maxTimeout: timeoutMs }),
+      body: JSON.stringify({
+        cmd: "request.get",
+        url,
+        maxTimeout: timeoutMs,
+        max_timeout: Math.ceil(timeoutMs / 1000),
+      }),
       signal: controller.signal,
     });
     if (!response.ok) {
@@ -112,6 +141,8 @@ async function fetchByparrOnce(url, timeoutMs) {
       return {
         ok: false,
         errorMsg: `HTTP ${response.status}: ${text.slice(0, 120)}`,
+        // Byparr answers 408 when its own max_timeout runs out.
+        timedOut: response.status === 408 || /timed?\s*out|timeout/i.test(text),
       };
     }
     const data = await response.json();
@@ -123,7 +154,7 @@ async function fetchByparrOnce(url, timeoutMs) {
     }
     return { ok: true, data };
   } catch (err) {
-    return { ok: false, errorMsg: err.message };
+    return { ok: false, errorMsg: err.message, timedOut: err.name === "AbortError" };
   } finally {
     clearTimeout(timer);
   }
@@ -133,32 +164,40 @@ async function fetchByparrOnce(url, timeoutMs) {
  * Harvest a cf_clearance cookie (and pre-fetched HTML) from the Byparr sidecar.
  *
  * Retries up to CF_CLEARANCE_MAX_ATTEMPTS times when Byparr returns thin HTML
- * (isUsableByparrHtml is false) — symptomatic of the
- * React hydration race documented in STRK-106. Network errors and HTTP
- * failures are NOT retried here; the caller's existing fallback chain handles
- * those.
+ * (isUsableByparrHtml is false) or the page load times out. Other
+ * network and HTTP failures return null for the caller's fallback chain. No
+ * attempt starts after CF_CLEARANCE_BUDGET_MS.
  *
  * @param {string} url - Vendor product URL to solve CF challenge for
+ * @param {{ budgetMs?: number, now?: () => number }} [opts] - Time budget and clock.
  * @returns {Promise<{ cfClearance: string|null, userAgent: string, responseHtml: string|null } | null>}
  *   Returns solution on success (cfClearance may be null if Cloudflare didn't
  *   set a cookie, but responseHtml may still contain usable page content).
  *   Returns null only if disabled or sidecar unavailable.
  */
-export async function getCFClearanceCookie(url) {
+export async function getCFClearanceCookie(url, opts = {}) {
   if (CF_CLEARANCE_ENABLED !== "1") {
     return null;
   }
 
   const timeoutMs = Number(CF_CLEARANCE_TIMEOUT_MS);
+  const budgetMs = opts.budgetMs ?? CF_CLEARANCE_BUDGET_MS;
+  const now = opts.now ?? Date.now;
+  const startedAt = now();
   let lastResult = null;
 
   for (let attempt = 1; attempt <= CF_CLEARANCE_MAX_ATTEMPTS; attempt++) {
-    const { ok, data, errorMsg } = await fetchByparrOnce(url, timeoutMs);
+    if (attempt > 1 && now() - startedAt >= budgetMs) {
+      console.warn(`[cf-clearance] time budget ${budgetMs}ms spent after ${attempt - 1} attempts`);
+      break;
+    }
+    const { ok, data, errorMsg, timedOut } = await fetchByparrOnce(url, timeoutMs);
     if (!ok) {
       console.warn(`[cf-clearance] sidecar error (attempt ${attempt}): ${errorMsg}`);
-      // Network / shape failures don't benefit from immediate retry — return
-      // null so the caller falls through to its existing fallback chain.
-      return null;
+      // A timed-out snapshot is an independent draw, so it is worth another try.
+      // Other failures return null for the caller's fallback chain.
+      if (!timedOut) return null;
+      continue;
     }
 
     const cookies = Array.isArray(data.solution?.cookies) ? data.solution.cookies : [];

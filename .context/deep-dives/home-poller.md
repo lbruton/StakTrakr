@@ -192,6 +192,19 @@ After scraping, `price-extract.js` extracts the wire/ACH price via:
 
 Controlled by `CF_CLEARANCE_ENABLED` env var on the home-poller container. Set to `0` to disable Phase 2 without stopping the sidecar container.
 
+### Byparr Attempts
+
+`getCFClearanceCookie()` in `shared/cf-clearance.js` sets these limits:
+
+| Env var                       | Default | Meaning                                                            |
+| ----------------------------- | ------- | ------------------------------------------------------------------ |
+| `CF_CLEARANCE_TIMEOUT_MS`     | 20000   | Limit per attempt. Byparr receives it as `max_timeout` in seconds. |
+| `CF_CLEARANCE_MAX_ATTEMPTS`   | 6       | Attempts per page.                                                 |
+| `CF_CLEARANCE_BUDGET_MS`      | 60000   | No new attempt starts after this much time per page.               |
+| `CF_CLEARANCE_RETRY_DELAY_MS` | 1000    | Pause between attempts.                                            |
+
+An attempt is retried when the HTML is thin (`isUsableByparrHtml()` is false) or the page load times out (poller abort or Byparr HTTP 408). Other sidecar errors return null. A Bullion Exchanges page needs the tier-table marker, or a JSON-LD out-of-stock flag, to count as loaded.
+
 ---
 
 ## Fly.io Health Check
