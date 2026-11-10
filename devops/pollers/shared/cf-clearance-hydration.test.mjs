@@ -167,6 +167,25 @@ test("getCFClearanceCookie retries an attempt that Byparr timed out", async () =
   }
 });
 
+test("getCFClearanceCookie does not retry an error that only names a timeout URL", async () => {
+  const { getCFClearanceCookie } = await importModule();
+  const original = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls++;
+    return new Response(
+      '{"detail":"page.goto: net::ERR_NAME_NOT_RESOLVED at https://x.test/timeout-page"}',
+      { status: 502 }
+    );
+  };
+  try {
+    assert.equal(await getCFClearanceCookie(BE_URL), null);
+    assert.equal(calls, 1);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
 test("getCFClearanceCookie returns null after one Byparr HTTP error", async () => {
   const { getCFClearanceCookie } = await importModule();
   const original = globalThis.fetch;

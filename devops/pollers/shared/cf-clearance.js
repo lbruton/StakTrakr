@@ -141,8 +141,9 @@ async function fetchByparrOnce(url, timeoutMs) {
       return {
         ok: false,
         errorMsg: `HTTP ${response.status}: ${text.slice(0, 120)}`,
-        // Byparr answers 408 when its own max_timeout runs out.
-        timedOut: response.status === 408 || /timed?\s*out|timeout/i.test(text),
+        // Byparr answers 408 when its own max_timeout runs out; an uncaught
+        // Playwright timeout surfaces with its "Timeout Nms exceeded" message.
+        timedOut: response.status === 408 || /\bTimeout \d+(?:\.\d+)?ms exceeded/.test(text),
       };
     }
     const data = await response.json();
