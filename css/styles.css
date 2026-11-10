@@ -18184,10 +18184,50 @@ button.vp-price:hover {
 
 /* ── Modal Chart Container ── */
 .market-detail-chart {
+  position: relative;
   height: 250px;
   margin-bottom: 1rem;
   border-radius: var(--radius);
   overflow: hidden;
+}
+
+/* Hover label: names the line nearest the crosshair. Sits right of the pointer, or left past the middle. */
+.market-chart-hover-label {
+  position: absolute;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.5rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-sm);
+  font-size: max(12px, var(--font-size-sm));
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translate(12px, -50%);
+}
+
+.market-chart-hover-label--left {
+  transform: translate(calc(-100% - 12px), -50%);
+}
+
+.market-chart-hover-swatch {
+  width: 12px;
+  height: 3px;
+  background: currentColor;
+  border-radius: var(--radius-sm);
+}
+
+.market-chart-hover-name {
+  color: var(--text-secondary);
+}
+
+.market-chart-hover-price {
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
 }
 
 .market-detail-chart-unavailable {

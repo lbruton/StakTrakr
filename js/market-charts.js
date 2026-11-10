@@ -139,6 +139,74 @@ const _clearMarketChartContainer = (container) => {
 };
 
 /**
+ * Find the Vendor line nearest the crosshair: the hovered line, else the line whose
+ * value at the crosshair time sits closest to the pointer on the pane.
+ * @param {Object} chart - Lightweight Charts instance with `_retailVendorSeries`.
+ * @param {Object} param - Crosshair move parameters.
+ * @returns {({vendorId:string, value:number, y:number}|null)} Nearest line, or null.
+ */
+const _nearestVendorAtCrosshair = (chart, param) => {
+  let nearest = null;
+  for (const { vendorId, series } of chart._retailVendorSeries || []) {
+    const value = param.seriesData.get(series)?.value;
+    if (!Number.isFinite(value)) continue;
+    const y = series.priceToCoordinate(value);
+    if (!Number.isFinite(y)) continue;
+    if (param.hoveredSeries === series) return { vendorId, value, y };
+    const distance = Math.abs(y - param.point.y);
+    if (!nearest || distance < nearest.distance) nearest = { vendorId, value, y, distance };
+  }
+  return nearest;
+};
+
+/**
+ * Show the nearest Vendor's name and price beside the crosshair. The label is
+ * pointer-only and aria-hidden; the chart legend carries the same names for assistive tech.
+ * @param {Object} chart - Lightweight Charts instance.
+ * @param {HTMLElement} container - Chart container; the label is cleared with it.
+ * @param {function(number):string} formatDisplayValue - Display-currency formatter.
+ * @returns {void}
+ */
+const _attachVendorHoverLabel = (chart, container, formatDisplayValue) => {
+  if (typeof chart.subscribeCrosshairMove !== "function") return;
+  const label = document.createElement("div");
+  label.className = "market-chart-hover-label";
+  label.setAttribute("aria-hidden", "true");
+  label.style.visibility = "hidden";
+  const swatch = document.createElement("span");
+  swatch.className = "market-chart-hover-swatch";
+  const name = document.createElement("span");
+  name.className = "market-chart-hover-name";
+  const price = document.createElement("span");
+  price.className = "market-chart-hover-price";
+  label.append(swatch, name, price);
+  container.appendChild(label);
+
+  chart.subscribeCrosshairMove((param) => {
+    const nearest =
+      param && param.point && param.seriesData instanceof Map
+        ? _nearestVendorAtCrosshair(chart, param)
+        : null;
+    if (!nearest) {
+      label.style.visibility = "hidden";
+      return;
+    }
+    swatch.style.color =
+      typeof getRetailVendorColor === "function" ? getRetailVendorColor(nearest.vendorId) : "";
+    name.textContent = _shortName(nearest.vendorId);
+    price.textContent = formatDisplayValue(nearest.value);
+    // Past the middle of the pane the label sits left of the pointer so it stays inside.
+    label.classList.toggle(
+      "market-chart-hover-label--left",
+      param.point.x > container.clientWidth / 2
+    );
+    label.style.left = `${param.point.x}px`;
+    label.style.top = `${nearest.y}px`;
+    label.style.visibility = "visible";
+  });
+};
+
+/**
  * Create a multi-Vendor line chart from a normalized range model.
  * @param {string} containerId - Target chart container ID.
  * @param {Object} rangeModel - Normalized date-bounded range model.
@@ -193,17 +261,6 @@ const _createVendorRangeChart = (
 
   const colors = getChartThemeColors();
   const context = currencyContext || _getMarketChartCurrencyContext();
-  // Lightweight Charts draws every series title at the line end, so stacked lines
-  // overlap their labels. Only the lowest latest price is labeled; the legend names the rest.
-  let labeledVendorId = null;
-  let lowestLatest = Infinity;
-  for (const vendorSeries of validSeries) {
-    const latest = vendorSeries.points[vendorSeries.points.length - 1].usdPrice;
-    if (latest < lowestLatest) {
-      lowestLatest = latest;
-      labeledVendorId = vendorSeries.vendorId;
-    }
-  }
   let chart = null;
 
   try {
@@ -223,7 +280,9 @@ const _createVendorRangeChart = (
         crosshairMarkerVisible: true,
         priceLineVisible: false,
         lastValueVisible: false,
-        title: vendorId === labeledVendorId ? _shortName(vendorId) : "",
+        // Lightweight Charts draws a series title at the line end, where close lines stack
+        // their labels. The legend and the hover label name each line instead.
+        title: "",
       });
       series.setData(
         vendorSeries.points.map((point) => ({
@@ -234,6 +293,7 @@ const _createVendorRangeChart = (
       chart._retailVendorSeries.push({ vendorId, series });
     }
 
+    _attachVendorHoverLabel(chart, container, context.formatDisplayValue);
     _fitAfterLayout(chart);
   } catch (e) {
     debugLog("[market-charts] Vendor range chart error: " + e.message, "warn");

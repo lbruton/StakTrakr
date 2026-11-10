@@ -540,9 +540,17 @@ const lightweightChartsStub = `
           applyOptions(next) {
             Object.assign(record.options, next);
           },
+          // A fixed pane mapping: a higher price sits higher on the pane.
+          priceToCoordinate(price) {
+            return 1000 - price;
+          },
         };
       };
+      instance.crosshairHandlers = [];
       const api = {
+        subscribeCrosshairMove(handler) {
+          instance.crosshairHandlers.push(handler);
+        },
         addLineSeries(options) {
           return addSeries("line", options);
         },
@@ -1825,19 +1833,6 @@ test.describe("core/retail-market", () => {
     await page.evaluate((slug) => window.openMarketDetailModal(slug), SLUG_SILVER_A);
     await expect(page.locator("#marketDetailModal")).toBeVisible();
 
-    const marketChartVendorTitles = {
-      apmex: "APMEX",
-      jmbullion: "JM",
-      sdbullion: "SD",
-      monumentmetals: "Monument",
-      herobullion: "Hero",
-      bullionexchanges: "BullionX",
-      summitmetals: "Summit",
-      goldback: "Goldback",
-      providentmetals: "Provident",
-      gainesvillecoins: "Gville",
-      mintbuilder: "mintbuilder",
-    };
     for (const theme of ["light", "dark", "slate", "sepia"]) {
       await page.evaluate((name) => window.setTheme(name), theme);
       const chartColors = await page.evaluate(() => {
@@ -1845,18 +1840,15 @@ test.describe("core/retail-market", () => {
           (instance) => instance.containerId === "marketDetailChartArea" && !instance.removed
         );
         return {
-          series: (chart?.series || []).map((series) => ({
-            title: series.options.title,
+          series: (chart?.series || []).map((series, index) => ({
+            vendorId: chart.api._retailVendorSeries?.[index]?.vendorId,
             color: series.options.color,
           })),
         };
       });
       expect(chartColors.series, `${theme} market chart vendor lines`).not.toHaveLength(0);
-      for (const vendorSeries of chartColors.series) {
-        const vendorId = Object.entries(marketChartVendorTitles).find(
-          ([, title]) => title === vendorSeries.title
-        )?.[0];
-        expect(vendorId, `${theme} market chart series title ${vendorSeries.title}`).toBeTruthy();
+      for (const { vendorId, ...vendorSeries } of chartColors.series) {
+        expect(vendorId, `${theme} market chart series vendor`).toBeTruthy();
         expect(vendorSeries.color, `${theme} market chart ${vendorId} color`).toBe(
           await page.evaluate((id) => window.getRetailVendorColorRGB(id), vendorId)
         );
@@ -3795,23 +3787,41 @@ test.describe("core/retail-market", () => {
       });
     });
 
-    test("only the lowest latest price carries a chart end label; the legend names every line", async ({
+    test("chart lines carry no end labels; hover names the nearest dealer and the legend names every line", async ({
       page,
     }) => {
       await openStrk260MarketDetail(page);
       await clickMarketPeriod(page, "24H");
       await expectUsableMarketChart(page, STRK260_PERIOD_EXPECTATIONS["24H"]);
       const chart = activeMarketChart(await getMarketChartHarness(page));
-      // Latest prices: APMEX $111, Hero $109, JM $107. One end label avoids stacked labels.
-      expect(
-        chart.series
-          .map(({ title, label }) => ({ title, label }))
-          .sort((a, b) => a.title.localeCompare(b.title))
-      ).toEqual([
-        { title: "APMEX", label: "" },
-        { title: "Hero", label: "" },
-        { title: "JM", label: "JM" },
-      ]);
+      // Latest prices: APMEX $111, Hero $109, JM $107. End labels stack, so no line has one.
+      expect(chart.series.map(({ label }) => label)).toEqual(["", "", ""]);
+
+      const hoverLabel = page.locator("#marketDetailChartArea .market-chart-hover-label");
+      await expect(hoverLabel).toBeHidden();
+      // The stub pane puts a price at y = 1000 - price: APMEX 889, Hero 891, JM 893.
+      await page.evaluate((chartId) => {
+        const instance = window.__marketChartHarness.instances.find(({ id }) => id === chartId);
+        const seriesData = new Map(
+          instance.api._retailVendorSeries.map(({ vendorId, series }) => [
+            series,
+            { value: { apmex: 111, herobullion: 109, jmbullion: 107 }[vendorId] },
+          ])
+        );
+        instance.crosshairHandlers.forEach((handler) =>
+          handler({ time: 1, point: { x: 40, y: 891.4 }, seriesData })
+        );
+      }, chart.id);
+      await expect(hoverLabel).toBeVisible();
+      await expect(hoverLabel.locator(".market-chart-hover-name")).toHaveText("Hero");
+      await expect(hoverLabel.locator(".market-chart-hover-price")).toHaveText("$109.00");
+      await expect(hoverLabel).toHaveAttribute("aria-hidden", "true");
+
+      await page.evaluate((chartId) => {
+        const instance = window.__marketChartHarness.instances.find(({ id }) => id === chartId);
+        instance.crosshairHandlers.forEach((handler) => handler({ seriesData: new Map() }));
+      }, chart.id);
+      await expect(hoverLabel).toBeHidden();
       const legend = page.locator("#marketDetailContent .market-detail-legend li");
       await expect(legend.locator(".market-detail-legend-name")).toHaveText([
         "JM",
