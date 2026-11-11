@@ -388,6 +388,27 @@ test("fetchGraphqlViaByparr does not retry other Byparr failures", async () => {
   assert.deepEqual(result, { ok: false, reason: "byparr_failed" });
 });
 
+test("fetchGraphqlViaByparr makes no request when CF_CLEARANCE_ENABLED is not 1", async () => {
+  const client = await loadClient();
+  const saved = process.env.CF_CLEARANCE_ENABLED;
+  process.env.CF_CLEARANCE_ENABLED = "0";
+  let attempts = 0;
+  try {
+    const result = await client.fetchGraphqlViaByparr("{x}", {
+      byparrFetch: async () => {
+        attempts++;
+        return { ok: true, data: { status: "ok", solution: { response: PRODUCTS_HTML } } };
+      },
+      warn: silent,
+    });
+    assert.equal(attempts, 0);
+    assert.deepEqual(result, { ok: false, reason: "byparr_disabled" });
+  } finally {
+    if (saved === undefined) delete process.env.CF_CLEARANCE_ENABLED;
+    else process.env.CF_CLEARANCE_ENABLED = saved;
+  }
+});
+
 test("fetchGraphqlViaByparr reports a challenge page as bad_payload", async () => {
   const client = await loadClient();
   const result = await client.fetchGraphqlViaByparr("{x}", {

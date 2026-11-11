@@ -111,7 +111,8 @@ export function livePricesQuery(ids) {
 
 /**
  * Run one GraphQL query through Byparr. Retries one timed-out attempt; other
- * failures return at once. Never throws.
+ * failures return at once. Makes no request unless CF_CLEARANCE_ENABLED is "1"
+ * (the default), the flag getCFClearanceCookie honors. Never throws.
  * @param {string} query - GraphQL query text.
  * @param {object} [opts] - byparrFetch (test seam), timeoutMs, warn.
  * @returns {Promise<{ok: true, data: object}|{ok: false, reason: string}>}
@@ -120,6 +121,9 @@ export async function fetchGraphqlViaByparr(
   query,
   { byparrFetch = fetchByparrOnce, timeoutMs, warn = console.warn } = {}
 ) {
+  if ((process.env.CF_CLEARANCE_ENABLED ?? "1") !== "1") {
+    return { ok: false, reason: "byparr_disabled" };
+  }
   const limit = timeoutMs ?? (Number(process.env.CF_CLEARANCE_TIMEOUT_MS) || DEFAULT_TIMEOUT_MS);
   const url = `${BE_GRAPHQL_URL}?query=${encodeURIComponent(query)}`;
   let result = null;
