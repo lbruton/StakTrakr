@@ -8,7 +8,7 @@
  * client asks Byparr to load the GraphQL URL instead and reads the JSON from
  * the page Firefox renders.
  *
- * The index costs two Byparr loads per process: a products query maps every
+ * The index costs two Byparr loads per run scope: a products query maps every
  * url_key to an id and stock status, and a LivePrices query returns the tier
  * prices of the in-stock ids. The server rejects more than 10 aliases per
  * query, so both queries use list filters instead of aliases.
@@ -23,8 +23,9 @@ const PRODUCTS_CHUNK = 50;
 const LIVE_PRICES_CHUNK = 50;
 const DEFAULT_TIMEOUT_MS = 20_000;
 
-// Per-process memo. Promise-valued so concurrent lookups share one build.
-let _indexState = null;
+// Index memo per scope object (a poll run's target list, or one single-vendor
+// scrape). Promise-valued so concurrent lookups share one build.
+const _indexByScope = new WeakMap();
 
 /**
  * url_key of a Bullion Exchanges product URL: its path without slashes.
@@ -148,7 +149,12 @@ export async function fetchGraphqlViaByparr(
   return { ok: true, data: json.data };
 }
 
-/** Split a list into chunks of at most `size` items. */
+/**
+ * Split a list into chunks of at most `size` items.
+ * @param {Array} list - Items to split.
+ * @param {number} size - Maximum chunk length.
+ * @returns {Array[]}
+ */
 function chunk(list, size) {
   const out = [];
   for (let i = 0; i < list.length; i += size) out.push(list.slice(i, i + size));
@@ -156,9 +162,10 @@ function chunk(list, size) {
 }
 
 /**
- * Build the url_key index. Resolves to { ok: true, requested, byKey } or
- * { ok: false, reason }. A failed LivePrices call keeps the stock data, so
+ * Build the url_key index. A failed LivePrices call keeps the stock data, so
  * out-of-stock rows still resolve and in-stock rows fall back to the page.
+ * @param {object} opts - keys (url_keys), fetchJson, log, warn.
+ * @returns {Promise<object>} { ok: true, requested, byKey } or { ok: false, reason }.
  */
 async function buildIndex({ keys, fetchJson, log, warn }) {
   const requested = new Set(keys);
@@ -206,25 +213,27 @@ async function buildIndex({ keys, fetchJson, log, warn }) {
 }
 
 /**
- * Memoized index for the run. The first caller's URL list fixes the request
- * set; later URLs outside it resolve as a miss.
- * @param {object} opts - urls, fetchJson, log, warn.
+ * Index for one scope. The scope's first caller fixes the request set; later
+ * URLs outside it resolve as a miss. Without a scope, every call builds anew.
+ * @param {object} opts - urls, scope (object key for the memo), fetchJson, log, warn.
  * @returns {Promise<object>} The index state; never rejects.
  */
-export function getBullionExchangesIndex({ urls, fetchJson, log, warn }) {
-  if (_indexState) return _indexState;
+export function getBullionExchangesIndex({ urls, scope, fetchJson, log, warn }) {
+  const memoized = scope ? _indexByScope.get(scope) : undefined;
+  if (memoized) return memoized;
   const keys = [...new Set(urls.map(beUrlKey).filter(Boolean))];
-  _indexState = buildIndex({ keys, fetchJson, log, warn }).catch((err) => {
+  const state = buildIndex({ keys, fetchJson, log, warn }).catch((err) => {
     warn(`[be-graphql] index build failed: ${String(err?.message ?? err).slice(0, 120)}`);
     return { ok: false, reason: "fetch_failed" };
   });
-  return _indexState;
+  if (scope) _indexByScope.set(scope, state);
+  return state;
 }
 
 /**
  * Resolve one Bullion Exchanges product URL. Never throws.
- * @param {object} opts - url (target), urls (every BE URL in the run),
- *   fetchJson (default: fetchGraphqlViaByparr), log, warn.
+ * @param {object} opts - url (target), urls (every BE URL in the scope), scope
+ *   (memo key), fetchJson (default: fetchGraphqlViaByparr), log, warn.
  * @returns {Promise<object>} {status:"hit", product:{id, inStock, price}} |
  *   {status:"miss", reason} | {status:"unavailable", reason}. An out-of-stock
  *   hit has price null.
@@ -232,6 +241,7 @@ export function getBullionExchangesIndex({ urls, fetchJson, log, warn }) {
 export async function lookupBullionExchangesProduct({
   url,
   urls,
+  scope,
   fetchJson,
   log = console.log,
   warn = console.warn,
@@ -241,7 +251,13 @@ export async function lookupBullionExchangesProduct({
 
   const fetcher = fetchJson ?? ((query) => fetchGraphqlViaByparr(query, { warn }));
   const all = Array.isArray(urls) ? [...urls, url] : [url];
-  const state = await getBullionExchangesIndex({ urls: all, fetchJson: fetcher, log, warn });
+  const state = await getBullionExchangesIndex({
+    urls: all,
+    scope,
+    fetchJson: fetcher,
+    log,
+    warn,
+  });
   if (!state.ok) return { status: "unavailable", reason: state.reason };
   if (!state.requested.has(key)) return { status: "miss", reason: "not_requested" };
 
@@ -251,9 +267,4 @@ export async function lookupBullionExchangesProduct({
     return { status: "hit", product: { id: entry.id, inStock: false, price: null } };
   if (entry.price === null) return { status: "miss", reason: "no_live_price" };
   return { status: "hit", product: { id: entry.id, inStock: true, price: entry.price } };
-}
-
-/** Reset the per-process index memo (test hook). */
-export function _resetIndexCacheForTests() {
-  _indexState = null;
 }

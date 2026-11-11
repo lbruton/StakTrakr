@@ -46,12 +46,8 @@ const ALL_URLS = [ASE_URL, AGE_URL, BAR_URL, GOLDBACK_URL, APE_URL];
 
 const silent = () => {};
 
-/** Load the client with a fresh memo. */
-const loadClient = async () => {
-  const mod = await import(clientUrl);
-  mod._resetIndexCacheForTests();
-  return mod;
-};
+/** Load the client. Index memos are per scope object, so tests share none. */
+const loadClient = async () => import(clientUrl);
 
 /**
  * Fake fetchJson that answers from the recorded fixtures and counts calls.
@@ -178,11 +174,18 @@ test("lookup reports an OUT_OF_STOCK product as out of stock with no price", asy
   assert.deepEqual(result, { status: "hit", product: { id: 277, inStock: false, price: null } });
 });
 
-test("the index costs one products call and one LivePrices call per process", async () => {
+test("the index costs one products call and one LivePrices call per run scope", async () => {
   const client = await loadClient();
   const { fetchJson, calls } = fixtureFetch(client);
+  const scope = {};
   for (const url of ALL_URLS) {
-    await client.lookupBullionExchangesProduct({ url, urls: ALL_URLS, fetchJson, log: silent });
+    await client.lookupBullionExchangesProduct({
+      url,
+      urls: ALL_URLS,
+      scope,
+      fetchJson,
+      log: silent,
+    });
   }
   assert.equal(calls.length, 2);
   assert.match(calls[0], /products\(filter:\{url_key:\{in:\[/);
@@ -243,22 +246,59 @@ test("a url_key the store does not return is a miss", async () => {
   assert.deepEqual(result, { status: "miss", reason: "not_found" });
 });
 
-test("a URL outside the memoized request set is a miss", async () => {
+test("a URL outside the scope's memoized request set is a miss", async () => {
   const client = await loadClient();
   const { fetchJson } = fixtureFetch(client);
+  const scope = {};
   await client.lookupBullionExchangesProduct({
     url: ASE_URL,
     urls: [ASE_URL],
+    scope,
     fetchJson,
     log: silent,
   });
   const result = await client.lookupBullionExchangesProduct({
     url: AGE_URL,
     urls: [AGE_URL],
+    scope,
     fetchJson,
     log: silent,
   });
   assert.deepEqual(result, { status: "miss", reason: "not_requested" });
+});
+
+test("lookups in separate scopes build separate indexes", async () => {
+  const client = await loadClient();
+  const { fetchJson, calls } = fixtureFetch(client);
+  await client.lookupBullionExchangesProduct({
+    url: ASE_URL,
+    urls: [ASE_URL],
+    scope: {},
+    fetchJson,
+    log: silent,
+  });
+  const result = await client.lookupBullionExchangesProduct({
+    url: AGE_URL,
+    urls: [AGE_URL],
+    scope: {},
+    fetchJson,
+    log: silent,
+  });
+  assert.equal(result.status, "hit");
+  assert.equal(calls.length, 4);
+});
+
+test("a lookup without a scope keeps no index for later calls", async () => {
+  const client = await loadClient();
+  const { fetchJson, calls } = fixtureFetch(client);
+  await client.lookupBullionExchangesProduct({ url: ASE_URL, fetchJson, log: silent });
+  const result = await client.lookupBullionExchangesProduct({
+    url: AGE_URL,
+    fetchJson,
+    log: silent,
+  });
+  assert.equal(result.status, "hit");
+  assert.equal(calls.length, 4);
 });
 
 test("an in-stock product without a live price is a miss", async () => {
@@ -295,7 +335,7 @@ test("a failed products call is unavailable and is memoized", async () => {
   const { fetchJson, calls } = fixtureFetch(client, {
     products: { ok: false, reason: "byparr_failed" },
   });
-  const opts = { urls: ALL_URLS, fetchJson, log: silent, warn: silent };
+  const opts = { urls: ALL_URLS, scope: {}, fetchJson, log: silent, warn: silent };
   assert.deepEqual(await client.lookupBullionExchangesProduct({ url: ASE_URL, ...opts }), {
     status: "unavailable",
     reason: "byparr_failed",
@@ -436,7 +476,7 @@ test("fetchGraphqlViaByparr reports GraphQL errors without data", async () => {
 
 /** Scrape context with a fake lookup and a recording scrapeGeneric. */
 const vendorContext = (lookupResult, extra = {}) => {
-  const state = { genericCalls: 0, lookupArgs: null };
+  const state = { genericCalls: 0, lookupArgs: null, lookupCalls: [] };
   const context = {
     coinSlug: "ase",
     coin: { metal: "silver", weight_oz: 1 },
@@ -446,8 +486,9 @@ const vendorContext = (lookupResult, extra = {}) => {
     log: silent,
     warn: silent,
     beGraphqlLookup: async (args) => {
-      state.lookupArgs = args;
-      return lookupResult;
+      state.lookupArgs ??= args;
+      state.lookupCalls.push(args);
+      return typeof lookupResult === "function" ? lookupResult(args) : lookupResult;
     },
     scrapeGeneric: async () => {
       state.genericCalls++;
@@ -540,6 +581,72 @@ test("without runTargets the module looks up the target's own URLs", async () =>
   const { context, state } = vendorContext({ status: "miss", reason: "not_found" });
   await vendor.scrape(context);
   assert.deepEqual(state.lookupArgs.urls, [ASE_URL]);
+});
+
+test("a poll run shares one index scope across its rows", async () => {
+  const { vendor } = await import(vendorUrl);
+  const runTargets = [{ coinSlug: "ase", provider: { id: "bullionexchanges" }, urls: [ASE_URL] }];
+  const hit = { status: "hit", product: { id: 26648, inStock: true, price: 58.49 } };
+  const first = vendorContext(hit, { runTargets });
+  const second = vendorContext(hit, { runTargets });
+  await vendor.scrape(first.context);
+  await vendor.scrape(second.context);
+  assert.equal(first.state.lookupArgs.scope, runTargets);
+  assert.equal(second.state.lookupArgs.scope, runTargets);
+});
+
+test("each single-vendor scrape gets its own index scope", async () => {
+  const { vendor } = await import(vendorUrl);
+  const miss = { status: "miss", reason: "not_found" };
+  const first = vendorContext(miss);
+  const second = vendorContext(miss);
+  await vendor.scrape(first.context);
+  await vendor.scrape(second.context);
+  assert.equal(typeof first.state.lookupArgs.scope, "object");
+  assert.notEqual(first.state.lookupArgs.scope, second.state.lookupArgs.scope);
+});
+
+/** Lookup double that answers per URL. */
+const byUrl = (map) => (args) => map[args.url];
+const OOS_HIT = { status: "hit", product: { id: 277, inStock: false, price: null } };
+
+test("an out-of-stock first URL tries the row's next URL", async () => {
+  const { vendor } = await import(vendorUrl);
+  const { context, state } = vendorContext(
+    byUrl({
+      [ASE_URL]: OOS_HIT,
+      [AGE_URL]: { status: "hit", product: { id: 26671, inStock: true, price: 4250.2 } },
+    }),
+    { urls: [ASE_URL, AGE_URL] }
+  );
+  const result = await vendor.scrape(context);
+  assert.equal(result.price, 4250.2);
+  assert.equal(result.inStock, true);
+  assert.equal(result.url, AGE_URL);
+  assert.equal(state.genericCalls, 0);
+  assert.equal(state.lookupCalls[0].scope, state.lookupCalls[1].scope);
+});
+
+test("a row whose URLs are all out of stock records the first as out of stock", async () => {
+  const { vendor } = await import(vendorUrl);
+  const { context, state } = vendorContext(byUrl({ [ASE_URL]: OOS_HIT, [AGE_URL]: OOS_HIT }), {
+    urls: [ASE_URL, AGE_URL],
+  });
+  const result = await vendor.scrape(context);
+  assert.equal(result.inStock, false);
+  assert.equal(result.price, null);
+  assert.equal(result.url, ASE_URL);
+  assert.equal(state.genericCalls, 0);
+});
+
+test("an out-of-stock URL next to a GraphQL miss falls back to the page scrape", async () => {
+  const { vendor } = await import(vendorUrl);
+  const { context, state } = vendorContext(
+    byUrl({ [ASE_URL]: OOS_HIT, [AGE_URL]: { status: "miss", reason: "not_found" } }),
+    { urls: [ASE_URL, AGE_URL] }
+  );
+  await vendor.scrape(context);
+  assert.equal(state.genericCalls, 1);
 });
 
 let passed = 0;
