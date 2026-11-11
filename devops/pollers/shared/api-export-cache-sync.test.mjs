@@ -11,8 +11,10 @@ import { DatabaseSync } from "node:sqlite";
 
 import { syncCacheFromSqld } from "./api-export-cache-sync.js";
 
-const T = "2026-11-11T03:30:01.239Z";
-const W = "2026-11-11T03:30:00Z";
+// One hour ago keeps the run inside the 31-day backfill cutoff on any run date.
+const RUN_START_MS = Date.now() - 60 * 60 * 1000;
+const T = new Date(RUN_START_MS).toISOString();
+const W = new Date(Math.floor(RUN_START_MS / 900000) * 900000).toISOString().replace(".000Z", "Z");
 
 /**
  * In-memory cache with the better-sqlite3 calls the sync uses.
