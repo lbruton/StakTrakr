@@ -123,7 +123,7 @@ Do not mix `.price` and `.avg`: they represent different aggregation windows.
 
 SDB and Bullion Exchanges publish their Product `offer.price` as the deepest "As Low As" bulk-tier value. For example, SDB silver maple `offer.price = "78.23"` is the 50+ tier, not the 1-unit $79.23 price. Neither vendor includes a tier-aware `priceSpecification` array with `eligibleQuantity.minValue === 1` and `appliesToPaymentMethod` set to wire/ACH. Believed to be an SEO / Google Shopping template change.
 
-The retail poller's `extractJsonLdPrice()` enforces an `UNTRUSTED_OFFER_PRICE_VENDORS = new Set(["sdbullion", "bullionexchanges"])` denylist that skips the bare `offer.price` fallback for these two vendors. The zero-price OOS sentinel and a future tiered `priceSpecification` block are still honored.
+The retail poller's `extractJsonLdPrice()` skips the bare `offer.price` fallback for these two vendors: `sdbullion` through `LEGACY_UNTRUSTED_OFFER_PRICE_VENDORS`, and `bullionexchanges` through `untrustedOfferPrice: true` on its vendor module. The zero-price OOS sentinel and a future tiered `priceSpecification` block are still honored.
 
 Verified live 2026-05-23 via Playwright with real Chromium UA against `https://sdbullion.com/canadian-silver-maple-leaf-coin-random-year`.
 
@@ -198,9 +198,11 @@ This section documents how each vendor's website is structured for scraping purp
 ### Bullion Exchanges
 
 - **Stack:** Magento 2 PWA
-- **Pricing API:** Full GraphQL API at `/graphql` with tiered wire/crypto/PayPal price breakdowns.
-  - `route(url: "slug")` → returns product ID
-  - `LivePrices(ids: [ID])` → returns tier pricing
+- **Pricing API:** Full GraphQL API at `/graphql` with tiered wire/crypto/PayPal price breakdowns. The poller reads it through Byparr (see `.context/data-pipelines.md`, Bullion Exchanges GraphQL).
+  - `products(filter:{url_key:{in:[…]}})` → ids and `stock_status` for many url_keys in one query
+  - `route(url: "slug")` → one product ID; more than 10 aliases per query returns an error
+  - `LivePrices(ids: [ID])` → tier pricing; out-of-stock ids are omitted
+  - `cf_clearance` is bound to the browser's TLS fingerprint: a Node fetch that reuses the cookie gets HTTP 403
 - **Bot detection:** Cloudflare-gated. CF challenge blocks Docker headless Chromium. The block is **fingerprinting-based, not IP-based**: the same residential IP works from a Mac browser but fails from Docker. FlareSolverr or `curl_cffi` with exported `cf_clearance` cookies is required (see CF Bypass section below).
 
 ### Monument Metals

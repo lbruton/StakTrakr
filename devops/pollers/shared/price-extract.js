@@ -1308,6 +1308,8 @@ export async function runFullPoller(options = {}) {
             // module-owned config is not outranked by a bare provider default
             // (STRK-314).
             scrapeGeneric: scrapeGenericTarget,
+            // Lets a vendor module batch one API request for all of its rows.
+            runTargets: targets,
             log,
             warn,
           }),
