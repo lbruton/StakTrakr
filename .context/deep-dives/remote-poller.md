@@ -84,7 +84,7 @@ Written by `docker-entrypoint-slim.sh` at container start. Slim image has no ret
 
 This is the Fly.io container's primary job. Runs 4x/hour, ~3 min after spot polls complete.
 
-1. **`api-export.js`**: Syncs `price_snapshots` from sqld into a local SQLite cache, then generates:
+1. **`api-export.js`**: Syncs `price_snapshots` from sqld into a local SQLite cache (`syncCacheFromSqld` in `api-export-cache-sync.js`), then generates the files below. A home run stamps every row with the run start, so each sync reloads all rows at the cache's newest `scraped_at`.
    - `data/api/manifest.json`: coin list, last updated, window counts
    - `data/api/latest.json`: all coins, current 15-min window prices
    - `data/api/{slug}/latest.json`: per-coin detail + 24h series
