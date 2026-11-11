@@ -120,8 +120,11 @@ function sleep(ms) {
 /**
  * Single Byparr fetch attempt. Returns { ok, data, errorMsg, timedOut }; timedOut
  * is true when the poller or Byparr ran out of time on the page.
+ * @param {string} url - Page URL for Byparr to load.
+ * @param {number} timeoutMs - Poller-side and Byparr-side time limit.
+ * @returns {Promise<{ok: boolean, data?: object, errorMsg?: string, timedOut?: boolean}>}
  */
-async function fetchByparrOnce(url, timeoutMs) {
+export async function fetchByparrOnce(url, timeoutMs) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {

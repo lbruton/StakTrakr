@@ -147,7 +147,7 @@ Tinyproxy shares the sidecar's network namespace. The home-poller container does
 | Init          | `init: true` (Docker's init as PID 1 reaps orphaned browser processes)                                             |
 | Internal URL  | `http://staktrakr-byparr:8191` (Docker DNS via container name)                                                     |
 | Host URL      | `http://<home-vm>:8191` (host-exposed on port 8191 for debugging and Fly.io → Tailscale → Byparr CF bypass access) |
-| Purpose       | Phase 2 fallback for CF-protected vendors (Bullion Exchanges, JM Bullion)                                          |
+| Purpose       | Bullion Exchanges GraphQL loads; Phase 2 fallback for CF-protected vendors                                         |
 | Network       | `staktrakr-net` bridge, port 8191 exposed to host                                                                  |
 | Shared memory | `shm_size: "1g"` (required by Camoufox Firefox)                                                                    |
 

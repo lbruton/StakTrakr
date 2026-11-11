@@ -34,6 +34,8 @@ api-export.js  (sqld + vision JSON → data/api/ REST endpoints → api branch)
 
 **Exception — MintBuilder is feed-first (STRK-321/325):** resolved against the direct vendor API (one memoized GET per run) with page-scrape fallback; see the Direct API Access table below.
 
+**Exception — Bullion Exchanges is GraphQL-first (STRK-588):** two Byparr loads of its GraphQL GET endpoint per run (`products` then `LivePrices`) price every row; misses page-scrape.
+
 **No GHA cloud failsafe for retail.** `retail-price-poller.yml` was deleted 2026-02-22 (was sending requests to public Firecrawl cloud API, burning paid credits — STAK-268). Manage containers via Portainer REST API — see `home-infrastructure` skill.
 
 **Key constraint:** `providers.json` lives on the **`api` branch**, not `main` or `dev`.
@@ -45,24 +47,26 @@ Path on disk: `$DATA_REPO_PATH/data/retail/providers.json`
 
 ## File Map
 
-| File                                                        | Purpose                                                                        |
-| ----------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| `devops/pollers/shared/price-extract.js`                    | Primary scraper — Firecrawl + Playwright fallback → sqld                       |
-| `devops/pollers/shared/capture.js`                          | Screenshot capture — `BROWSER_MODE=browserless` / `browserbase` / `local`      |
-| `devops/pollers/shared/extract-vision.js`                   | Gemini Vision price extraction from screenshots → per-coin JSON files          |
-| `devops/pollers/shared/api-export.js`                       | sqld + vision JSON → `data/api/` static JSON endpoints with confidence scoring |
-| `devops/pollers/shared/export-providers-json.js`            | sqld → `/data/retail/providers.json` (runs every 5 min via cron)               |
-| `devops/pollers/shared/turso-client.js`                     | sqld/libSQL client factory                                                     |
-| `devops/pollers/shared/provider-db.js`                      | Provider CRUD + export from sqld                                               |
-| `devops/pollers/shared/price-extract-vendors.js`            | Vendor module registry + `scrapeVendor()` dispatch (STRK-32/314)               |
-| `devops/pollers/shared/price-extract-vendor-mintbuilder.js` | MintBuilder feed-first `scrape()` with page-scrape fallback (STRK-321/325)     |
-| `devops/pollers/shared/price-extract-mintbuilder-feed.js`   | MintBuilder feed client — memoized index, URL matching, hybrid stock predicate |
-| `devops/pollers/remote-poller/run-local.sh`                 | Fly.io run wrapper — retail scraping disabled in production (STAK-478)         |
-| `devops/pollers/remote-poller/run-publish.sh`               | API export + git push to api branch                                            |
-| `devops/pollers/remote-poller/docker-entrypoint.sh`         | Container startup (creates `/data/retail/`, writes crontab, exports env)       |
-| `devops/pollers/remote-poller/Dockerfile`                   | Fly.io all-in-one container image                                              |
-| `devops/pollers/home-poller/run-home.sh`                    | Home VM retail scrape run                                                      |
-| `devops/pollers/home-poller/docker-entrypoint.sh`           | Home container startup                                                         |
+| File                                                              | Purpose                                                                         |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `devops/pollers/shared/price-extract.js`                          | Primary scraper — Firecrawl + Playwright fallback → sqld                        |
+| `devops/pollers/shared/capture.js`                                | Screenshot capture — `BROWSER_MODE=browserless` / `browserbase` / `local`       |
+| `devops/pollers/shared/extract-vision.js`                         | Gemini Vision price extraction from screenshots → per-coin JSON files           |
+| `devops/pollers/shared/api-export.js`                             | sqld + vision JSON → `data/api/` static JSON endpoints with confidence scoring  |
+| `devops/pollers/shared/export-providers-json.js`                  | sqld → `/data/retail/providers.json` (runs every 5 min via cron)                |
+| `devops/pollers/shared/turso-client.js`                           | sqld/libSQL client factory                                                      |
+| `devops/pollers/shared/provider-db.js`                            | Provider CRUD + export from sqld                                                |
+| `devops/pollers/shared/price-extract-vendors.js`                  | Vendor module registry + `scrapeVendor()` dispatch (STRK-32/314)                |
+| `devops/pollers/shared/price-extract-vendor-mintbuilder.js`       | MintBuilder feed-first `scrape()` with page-scrape fallback (STRK-321/325)      |
+| `devops/pollers/shared/price-extract-vendor-bullionexchanges.js`  | Bullion Exchanges GraphQL-first `scrape()` with page-scrape fallback (STRK-588) |
+| `devops/pollers/shared/price-extract-bullionexchanges-graphql.js` | Bullion Exchanges GraphQL client: Byparr transport, memoized url_key index      |
+| `devops/pollers/shared/price-extract-mintbuilder-feed.js`         | MintBuilder feed client — memoized index, URL matching, hybrid stock predicate  |
+| `devops/pollers/remote-poller/run-local.sh`                       | Fly.io run wrapper — retail scraping disabled in production (STAK-478)          |
+| `devops/pollers/remote-poller/run-publish.sh`                     | API export + git push to api branch                                             |
+| `devops/pollers/remote-poller/docker-entrypoint.sh`               | Container startup (creates `/data/retail/`, writes crontab, exports env)        |
+| `devops/pollers/remote-poller/Dockerfile`                         | Fly.io all-in-one container image                                               |
+| `devops/pollers/home-poller/run-home.sh`                          | Home VM retail scrape run                                                       |
+| `devops/pollers/home-poller/docker-entrypoint.sh`                 | Home container startup                                                          |
 
 ---
 
@@ -78,10 +82,10 @@ Path on disk: `$DATA_REPO_PATH/data/retail/providers.json`
 
 ### Cloudflare-Gated APIs (Need CF Cookie)
 
-| Vendor                | Platform              | API                | Notes                                                          |
-| --------------------- | --------------------- | ------------------ | -------------------------------------------------------------- |
-| **Bullion Exchanges** | Magento 2 PWA         | GraphQL `/graphql` | `route()` → product ID, `LivePrices(ids:[ID])` → tier pricing  |
-| **Monument Metals**   | Magento 2 + ScandiPWA | GraphQL `/graphql` | `getProductDetailForProductPage` → tiers, `metalPrices` → spot |
+| Vendor                | Platform              | API                | Notes                                                                                                                                                    |
+| --------------------- | --------------------- | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Bullion Exchanges** | Magento 2 PWA         | GraphQL `/graphql` | **LIVE (STRK-588)** through Byparr: `products(url_key in […])` → ids + stock, `LivePrices(ids:[…])` → tiers; cookie reuse from Node gets 403 (TLS-bound) |
+| **Monument Metals**   | Magento 2 + ScandiPWA | GraphQL `/graphql` | `getProductDetailForProductPage` → tiers, `metalPrices` → spot                                                                                           |
 
 ### HTML Scraping Only
 

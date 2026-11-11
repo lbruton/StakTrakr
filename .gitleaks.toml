@@ -1,0 +1,9 @@
+# Default gitleaks rules plus repo allowlists.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Recorded vendor API fixtures hold public product URL slugs that trip generic-api-key."
+paths = [
+  '''^devops/pollers/shared/fixtures/be-graphql-products\.html$''',
+]

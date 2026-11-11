@@ -73,7 +73,7 @@ const LEGACY_PREORDER_TOLERANT_PROVIDERS = new Set(["jmbullion", "monumentmetals
 
 // Providers whose JSON-LD/offer.price is the CC price (untrusted as the wire price);
 // extract the qty-tier table price instead.
-const LEGACY_UNTRUSTED_OFFER_PRICE_VENDORS = new Set(["sdbullion", "bullionexchanges"]);
+const LEGACY_UNTRUSTED_OFFER_PRICE_VENDORS = new Set(["sdbullion"]);
 
 const LEGACY_MARKDOWN_CUTOFF_PATTERNS = {
   sdbullion: [

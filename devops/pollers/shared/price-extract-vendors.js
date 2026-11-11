@@ -3,6 +3,7 @@ import goldbackVendor from "./price-extract-vendor-goldback.js";
 import summitVendor from "./price-extract-vendor-summit.js";
 import mintbuilderVendor from "./price-extract-vendor-mintbuilder.js";
 import jmbullionFbpVendor from "./price-extract-vendor-jmbullion-fbp.js";
+import bullionexchangesVendor from "./price-extract-vendor-bullionexchanges.js";
 import legacyVendor from "./price-extract-vendor-legacy.js";
 import { mergeProviderConfig, providerCfg } from "./price-extract-provider-config.js";
 
@@ -12,6 +13,7 @@ const MIGRATED_VENDOR_MAP = new Map([
   [summitVendor.id, summitVendor],
   [mintbuilderVendor.id, mintbuilderVendor],
   [jmbullionFbpVendor.id, jmbullionFbpVendor],
+  [bullionexchangesVendor.id, bullionexchangesVendor],
 ]);
 
 export const MIGRATED_VENDOR_IDS = Array.from(MIGRATED_VENDOR_MAP.keys());
