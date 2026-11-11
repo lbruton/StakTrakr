@@ -42,6 +42,7 @@ import {
   windowFloor,
 } from "./db.js";
 import { refreshSpotYearFiles } from "./spot-year-history.js";
+import { syncCacheFromSqld } from "./api-export-cache-sync.js";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 
@@ -554,69 +555,14 @@ async function main() {
     const generatedAt = new Date().toISOString();
     const tursoClient = await openTursoDb();
 
-    // Determine watermark — what's the most recent data we have?
-    let watermark = null;
-    if (!isNew) {
-      const row = db.prepare("SELECT MAX(scraped_at) AS wm FROM price_snapshots").get();
-      watermark = row?.wm || null;
-    }
-
-    // Query sqld: full backfill if new, incremental if existing
-    let tursoRows;
-    if (watermark) {
-      log(`Incremental sync from watermark: ${watermark}`);
-      const result = await tursoClient.execute({
-        sql: `SELECT coin_slug, vendor, price, window_start, scraped_at, source, confidence, in_stock
-              FROM price_snapshots WHERE scraped_at > ? ORDER BY scraped_at`,
-        args: [watermark],
-      });
-      tursoRows = result.rows;
-      log(`Fetched ${tursoRows.length} new rows from sqld`);
-    } else {
-      log("Full backfill from sqld (new cache)...");
-      const cutoff = new Date(Date.now() - 31 * 24 * 60 * 60 * 1000).toISOString();
-      const result = await tursoClient.execute({
-        sql: `SELECT coin_slug, vendor, price, window_start, scraped_at, source, confidence, in_stock
-              FROM price_snapshots WHERE window_start >= ? ORDER BY window_start DESC`,
-        args: [cutoff],
-      });
-      tursoRows = result.rows;
-      log(`Backfill: loaded ${tursoRows.length} rows from sqld`);
-    }
+    // The cache is a mirror of sqld with no UNIQUE constraint; aggregateWindows() keeps
+    // the latest scraped_at per vendor per time bucket.
+    const tursoRows = await syncCacheFromSqld({ cache: db, sqld: tursoClient, isNew, log });
     tursoClient.close();
 
     if (!tursoRows.length && isNew) {
       warn("No price data in sqld — skipping API export");
       return;
-    }
-
-    // Insert all sqld rows into cache — no UNIQUE constraint, no deduplication.
-    // The cache is a dumb mirror of sqld. aggregateWindows() handles deduplication
-    // by keeping the latest scraped_at per vendor per time bucket.
-    if (tursoRows.length > 0) {
-      const insertStmt = db.prepare(`
-        INSERT INTO price_snapshots (
-          scraped_at, window_start, coin_slug, vendor, price,
-          source, confidence, is_failed, in_stock
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `);
-      const insertMany = db.transaction((rows) => {
-        for (const row of rows) {
-          insertStmt.run(
-            row.scraped_at,
-            row.window_start,
-            row.coin_slug,
-            row.vendor,
-            row.price,
-            row.source,
-            row.confidence || null,
-            0,
-            row.in_stock !== undefined ? row.in_stock : 1
-          );
-        }
-      });
-      insertMany(tursoRows);
-      log(`Inserted ${tursoRows.length} rows into cache`);
     }
 
     // Prune old data (keep 31 days)
