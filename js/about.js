@@ -134,11 +134,11 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.36.145 &ndash; One modal shell</strong>: Every modal now shares one shell, with a serif title, a 44px close button and a footer that keeps its buttons on the right. The frosted-glass blur is gone, so modals sit on a solid card over an opaque overlay. On a phone, modals open as a bottom sheet (STRK-538).</li>
     <li><strong>v3.36.144 &ndash; Market details polish</strong>: The Market details modal now lists in-stock dealers first, and only they offer Buy; carried and out-of-stock dealers offer Visit. The summary names its period, such as 24H median, and the matrix column reads Median now. The chart lines carry no end labels: a legend names every line, hovering the chart names the nearest dealer and its price, and a 24H price spike that its neighbors do not confirm stays out of the chart and summary (STRK-518).</li>
     <li><strong>v3.36.143 &ndash; Link picker search</strong>: The link picker now opens with the slot name in the search box, so a series such as American Women Quarters lists the one matching coin instead of every item from that year. A year-only slot, or a name that matches no item, opens with an empty search. A clear button in the box empties the search and keeps the year filter (STRK-583).</li>
     <li><strong>v3.36.142 &ndash; Year-only collection slots</strong>: The collection builder now saves a slot row that has a year but no label, so you can rough out a collection by year and add labels later. A row with neither a label nor a year is still dropped. A year-only slot reopens with its year and an empty label, and shows its year as its name in the collection (STRK-582).</li>
     <li><strong>v3.36.141&ndash; Zero Realized currency</strong>: A zero Realized cell in the Dashboard stack ledger now shows the display currency symbol, so a GBP view shows &pound;0.00 instead of $0.00. Nonzero Realized values were already formatted this way, and the zero cell stays neutral with no gain or loss color (STRK-581).</li>
-    <li><strong>v3.36.140 &ndash; US English spelling</strong>: UI copy, code comments and developer docs now use US English spellings, such as color, canceled and labeled. Sync and Market messages change to match. Behavior is unchanged (STRK-580).</li>
       `;
 };
 

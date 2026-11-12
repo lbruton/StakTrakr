@@ -646,6 +646,10 @@ test.describe("card chart colours from theme tokens", () => {
 
 const FILL_ROLES = ["primary", "secondary", "success", "info", "warning", "danger"];
 
+// A static .modal host, so the shell rules apply without the fixed overlay.
+const SHELL_HOST =
+  '<div class="modal" style="position:static;display:block;width:auto;height:auto;padding:0;background:none;animation:none">';
+
 // Each entry renders one filled control, or one control that fills on hover, with its own
 // selector context. The element marked data-probe is measured at rest and on hover.
 const FILLED_CONTROLS = {
@@ -700,16 +704,9 @@ const FILLED_CONTROLS = {
   "toggle key": '<button class="btn-toggle-key" data-probe>Show</button>',
   "image upload": '<button class="btn img-btn-upload" data-probe>Upload</button>',
   "stale sync": '<button class="market-sync-btn stale" data-probe>Sync</button>',
-  "footer secondary":
-    '<div class="modal-footer"><button class="btn secondary" data-probe>Cancel</button></div>',
-  "history title":
-    '<div id="apiHistoryModal"><div class="modal-header"><h2 data-probe>History</h2></div></div>',
-  "bulk edit title":
-    '<div class="bulk-edit-content"><div class="modal-header"><h2 data-probe>Bulk Edit</h2></div></div>',
-  "history close":
-    '<div id="apiHistoryModal" style="position:relative;width:96px"><div class="modal-header"><button class="modal-close" data-probe>×</button></div></div>',
-  "bulk edit close":
-    '<div class="bulk-edit-content" style="position:relative;width:96px"><div class="modal-header"><button class="modal-close" data-probe>×</button></div></div>',
+  "footer cancel": `${SHELL_HOST}<div class="modal-shell-footer"><button class="btn secondary" data-probe>Cancel</button></div></div>`,
+  "shell title": `${SHELL_HOST}<div class="modal-shell-header"><h2 class="modal-shell-title" data-probe>History</h2></div></div>`,
+  "shell close": `${SHELL_HOST}<div class="modal-shell-header"><button class="modal-shell-close" data-probe>×</button></div></div>`,
   "settings link":
     '<div class="settings-section-panel"><a href="#sample" data-probe>Download sample CSV</a></div>',
 };

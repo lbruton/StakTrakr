@@ -1722,6 +1722,25 @@ function compareIsoFreshnessDesc(aIso, bIso) {
 }
 window.compareIsoFreshnessDesc = compareIsoFreshnessDesc;
 
+/**
+ * Builds the close (X) icon for a modal shell close button (`.modal-shell-close`).
+ * @returns {SVGSVGElement} A 24-unit stroked cross that inherits the button color
+ */
+const buildModalCloseIcon = () => {
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(ns, "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke-width", "2");
+  svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("aria-hidden", "true");
+  const path = document.createElementNS(ns, "path");
+  path.setAttribute("d", "M6 6l12 12M18 6L6 18");
+  svg.appendChild(path);
+  return svg;
+};
+
 if (typeof window !== "undefined") {
   window.getContrastColor = getContrastColor;
   window.generateUUID = generateUUID;
@@ -1788,6 +1807,7 @@ if (typeof window !== "undefined") {
   window.buildCsvValueCells = buildCsvValueCells;
   window.setButtonLoading = setButtonLoading;
   window.escapeHtml = escapeHtml;
+  window.buildModalCloseIcon = buildModalCloseIcon;
 }
 
 if (typeof module !== "undefined" && module.exports) {

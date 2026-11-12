@@ -1,0 +1,679 @@
+<!doctype html>
+<!--
+  STRK-538 mockup: one modal shell.
+  Loads the production stylesheet; the rules under "Proposed shell" move to css/styles.css.
+  States: A small confirm, B medium form, C large data view, D the same three as phone sheets.
+  The phone frames apply the sheet rules through .mock-phone; production applies them under
+  @media (max-width: 767px).
+-->
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>STRK-538 Modal Shell</title>
+    <link rel="stylesheet" href="../css/styles.css" />
+    <style>
+      body {
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        padding: 16px;
+        margin: 0;
+      }
+      .mock-bar {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        align-items: center;
+        max-width: 1200px;
+        margin: 0 auto 1rem;
+      }
+      .mock-bar h1 {
+        font-size: 1.25rem;
+        margin: 0 1rem 0 0;
+      }
+      .mock-state {
+        max-width: 1200px;
+        margin: 0 auto 2.5rem;
+        padding: 0;
+        background: none;
+        border: 0;
+        box-shadow: none;
+      }
+      .mock-state:hover {
+        background: none;
+        box-shadow: none;
+      }
+      .mock-state > h3 {
+        font-size: 1rem;
+        margin: 0 0 0.25rem;
+        font-family: var(--font-body);
+        font-weight: 600;
+      }
+      .mock-note {
+        margin: 0 0 0.75rem;
+        color: var(--text-muted);
+        font-size: 0.85rem;
+        max-width: 72ch;
+      }
+      /* Stand-in for the page behind the overlay, so the scrim reads against content. */
+      .mock-stage {
+        position: relative;
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+        padding: 2.5rem 1rem;
+        background: repeating-linear-gradient(
+          0deg,
+          var(--bg-secondary) 0 28px,
+          var(--bg-primary) 28px 56px
+        );
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+      .mock-stage::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: var(--modal-overlay);
+      }
+      .mock-stage > .modal-shell {
+        position: relative;
+      }
+      .mock-phones {
+        display: flex;
+        gap: 1.5rem;
+        flex-wrap: wrap;
+      }
+      .mock-phone {
+        width: 390px;
+        height: 760px;
+        border: 1px solid var(--border);
+        border-radius: 28px;
+        position: relative;
+        overflow: hidden;
+        background: repeating-linear-gradient(
+          0deg,
+          var(--bg-secondary) 0 28px,
+          var(--bg-primary) 28px 56px
+        );
+        flex: none;
+      }
+      .mock-phone::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: var(--modal-overlay);
+      }
+      .mock-phone-label {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+        margin: 0 0 0.4rem;
+      }
+
+      /* ── Proposed shell (move to css/styles.css) ─────────────────────────── */
+
+      /* Opaque overlay: no backdrop-filter on any modal layer. */
+      :root {
+        --modal-overlay: rgb(0 0 0 / 0.6);
+      }
+      [data-theme="light"],
+      [data-theme="sepia"] {
+        --modal-overlay: rgb(0 0 0 / 0.45);
+      }
+
+      .modal-shell {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        max-height: 90vh;
+        background: var(--bg-card);
+        color: var(--text-primary);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-modal);
+        overflow: hidden;
+      }
+      .modal-shell--sm {
+        max-width: 30rem;
+      }
+      .modal-shell--md {
+        max-width: 42rem;
+      }
+      .modal-shell--lg {
+        max-width: 72rem;
+      }
+
+      .modal-shell-header {
+        display: flex;
+        align-items: center;
+        gap: var(--spacing);
+        padding: var(--spacing) var(--spacing) var(--spacing) var(--spacing-xl);
+        border-bottom: 1px solid var(--border);
+        flex: none;
+      }
+      .modal-shell-title {
+        flex: 1;
+        min-width: 0;
+        margin: 0;
+        font-family: var(--font-heading);
+        font-weight: 400;
+        font-size: 1.25rem;
+        line-height: 1.3;
+        color: var(--text-primary);
+        text-align: left;
+        overflow-wrap: anywhere;
+      }
+      .modal-shell-close {
+        flex: none;
+        width: 44px;
+        height: 44px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        background: none;
+        border: 0;
+        border-radius: var(--radius);
+        color: var(--text-secondary);
+        cursor: pointer;
+        transition: var(--transition);
+      }
+      .modal-shell-close svg {
+        width: 20px;
+        height: 20px;
+      }
+      .modal-shell-close:hover {
+        color: var(--text-primary);
+        background: var(--bg-tertiary);
+      }
+      .modal-shell-close:focus-visible {
+        outline: 2px solid var(--primary);
+        outline-offset: 1px;
+        color: var(--text-primary);
+      }
+
+      .modal-shell-body {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        padding: var(--spacing-xl);
+        font-size: var(--font-size-base);
+        line-height: 1.6;
+      }
+
+      .modal-shell-footer {
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        gap: var(--spacing-sm);
+        padding: var(--spacing) var(--spacing-xl);
+        border-top: 1px solid var(--border);
+        flex: none;
+      }
+      /* A footer action that is not Cancel or the primary (Clear log, Delete) sits on the left. */
+      .modal-shell-footer .modal-shell-aside {
+        margin-right: auto;
+      }
+      .modal-shell-footer .btn {
+        min-height: 2.75rem;
+        padding: 0 1.5rem;
+        border-radius: var(--radius);
+        font-weight: 500;
+        font-size: var(--font-size-base);
+      }
+      .modal-shell-footer .btn::before {
+        display: none;
+      }
+      /* Cancel is one neutral outline in every modal and theme. */
+      .modal-shell-footer .btn.modal-shell-cancel {
+        background: transparent;
+        color: var(--text-primary);
+        border: 1px solid var(--border);
+      }
+      .modal-shell-footer .btn.modal-shell-cancel:hover {
+        background: var(--bg-tertiary);
+        border-color: var(--border-hover, var(--border));
+      }
+
+      /* Phone sheet: anchored to the bottom, sized to its content, actions last. */
+      .mock-phone .modal-shell {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        max-width: none;
+        max-height: 92%;
+        border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+        border-bottom: 0;
+      }
+      .mock-phone .modal-shell-header {
+        padding-left: var(--spacing);
+      }
+      .mock-phone .modal-shell-body {
+        padding: var(--spacing);
+        font-size: 16px;
+      }
+      .mock-phone .modal-shell-footer {
+        padding: var(--spacing);
+        padding-bottom: calc(var(--spacing) + env(safe-area-inset-bottom, 0px));
+      }
+      .mock-phone .modal-shell-footer .btn {
+        flex: 1;
+        padding: 0 0.75rem;
+      }
+      .mock-phone .modal-shell-footer .modal-shell-aside {
+        flex: 0 0 auto;
+        margin-right: 0;
+      }
+
+      /* ── Demo content only ───────────────────────────────────────────────── */
+      .demo-field {
+        margin-bottom: var(--spacing);
+      }
+      .demo-field textarea,
+      .demo-field input {
+        width: 100%;
+        box-sizing: border-box;
+      }
+      .demo-figures {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+        gap: var(--spacing);
+        margin-bottom: var(--spacing-xl);
+      }
+      .demo-figure dt {
+        font-size: var(--font-size-xs);
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .demo-figure dd {
+        margin: 0.15rem 0 0;
+        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
+        font-size: 1.25rem;
+      }
+      .demo-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
+        font-size: var(--font-size-sm);
+        background: none;
+        box-shadow: none;
+      }
+      .demo-table th,
+      .demo-table td {
+        padding: 0.5rem 0.6rem;
+        border-bottom: 1px solid var(--border);
+        text-align: right;
+        background: none;
+      }
+      .demo-table th:first-child,
+      .demo-table td:first-child {
+        text-align: left;
+        font-family: var(--font-body);
+      }
+      .demo-table th {
+        color: var(--text-secondary);
+        font-weight: 500;
+        font-family: var(--font-body);
+      }
+      .demo-muted {
+        color: var(--text-secondary);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="mock-bar">
+      <h1>STRK-538 modal shell</h1>
+      <button class="btn secondary" data-set-theme="dark">Dark</button>
+      <button class="btn secondary" data-set-theme="light">Light</button>
+      <button class="btn secondary" data-set-theme="slate">Slate</button>
+      <button class="btn secondary" data-set-theme="sepia">Sepia</button>
+    </div>
+
+    <section class="mock-state">
+      <h3>The shell</h3>
+      <p class="mock-note">
+        One header: Instrument Serif 400 title on the left, one 44px close button on the right, a
+        1px rule under it. The body scrolls; the header and footer stay put. The footer puts the
+        primary action on the right with a neutral outlined Cancel beside it. An extra action (Clear
+        log, Delete) sits on the left. The card is opaque on an opaque overlay: no backdrop blur on
+        either layer. The header has no gradient or tinted fill.
+      </p>
+    </section>
+
+    <section class="mock-state">
+      <h3>A. Small (30rem): confirms and short prompts</h3>
+      <p class="mock-note">For Remove Item, Notes, vault prompts and the app confirm dialog.</p>
+      <div class="mock-stage">
+        <div class="modal-shell modal-shell--sm" role="dialog" aria-labelledby="a-title">
+          <div class="modal-shell-header">
+            <h2 class="modal-shell-title" id="a-title">Remove Item</h2>
+            <button class="modal-shell-close" aria-label="Close">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                aria-hidden="true"
+              >
+                <path d="M6 6l12 12M18 6L6 18" />
+              </svg>
+            </button>
+          </div>
+          <div class="modal-shell-body">
+            <p style="margin-top: 0">
+              Remove <strong>2024 American Silver Eagle</strong> (1 oz, qty 5) from your inventory?
+              You can undo it from the Activity Log.
+            </p>
+            <div class="demo-field">
+              <label for="a-reason">Reason (optional)</label>
+              <input id="a-reason" type="text" placeholder="Sold, traded, gifted" />
+            </div>
+          </div>
+          <div class="modal-shell-footer">
+            <button class="btn modal-shell-cancel">Cancel</button>
+            <button class="btn danger">Remove Item</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="mock-state">
+      <h3>B. Medium (42rem): forms</h3>
+      <p class="mock-note">
+        For Add/Edit Item, Filters, the builder and the cloud and API settings modals.
+      </p>
+      <div class="mock-stage">
+        <div class="modal-shell modal-shell--md" role="dialog" aria-labelledby="b-title">
+          <div class="modal-shell-header">
+            <h2 class="modal-shell-title" id="b-title">Edit Item</h2>
+            <button class="modal-shell-close" aria-label="Close">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                aria-hidden="true"
+              >
+                <path d="M6 6l12 12M18 6L6 18" />
+              </svg>
+            </button>
+          </div>
+          <div class="modal-shell-body">
+            <div class="demo-field">
+              <label for="b-name">Name</label>
+              <input id="b-name" type="text" value="2024 American Silver Eagle" />
+            </div>
+            <div class="grid-2">
+              <div class="demo-field">
+                <label for="b-qty">Quantity</label>
+                <input id="b-qty" type="text" value="5" />
+              </div>
+              <div class="demo-field">
+                <label for="b-weight">Weight (oz)</label>
+                <input id="b-weight" type="text" value="1.000" />
+              </div>
+            </div>
+            <div class="demo-field">
+              <label for="b-notes">Notes</label>
+              <textarea id="b-notes" rows="3">Bought at the October show.</textarea>
+            </div>
+          </div>
+          <div class="modal-shell-footer">
+            <button class="btn modal-shell-cancel">Cancel</button>
+            <button class="btn">Save Item</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="mock-state">
+      <h3>C. Large (72rem): data views</h3>
+      <p class="mock-note">
+        For Details, Change Log, storage report and API history. A view with nothing to submit has
+        no footer, or only its extra action on the left (Clear log).
+      </p>
+      <div class="mock-stage">
+        <div class="modal-shell modal-shell--lg" role="dialog" aria-labelledby="c-title">
+          <div class="modal-shell-header">
+            <h2 class="modal-shell-title" id="c-title">Change Log</h2>
+            <button class="modal-shell-close" aria-label="Close">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                aria-hidden="true"
+              >
+                <path d="M6 6l12 12M18 6L6 18" />
+              </svg>
+            </button>
+          </div>
+          <div class="modal-shell-body">
+            <dl class="demo-figures">
+              <div class="demo-figure">
+                <dt>Entries</dt>
+                <dd>148</dd>
+              </div>
+              <div class="demo-figure">
+                <dt>Last change</dt>
+                <dd>2026-11-11</dd>
+              </div>
+              <div class="demo-figure">
+                <dt>Undoable</dt>
+                <dd>12</dd>
+              </div>
+            </dl>
+            <table class="demo-table">
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th>Field</th>
+                  <th>Before</th>
+                  <th>After</th>
+                  <th>Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>2024 American Silver Eagle</td>
+                  <td>Qty</td>
+                  <td>4</td>
+                  <td>5</td>
+                  <td>2026-11-11</td>
+                </tr>
+                <tr>
+                  <td>1 oz Gold Buffalo</td>
+                  <td>Price</td>
+                  <td>$2,410.00</td>
+                  <td>$2,455.00</td>
+                  <td>2026-11-09</td>
+                </tr>
+                <tr>
+                  <td>10 oz Silver Bar</td>
+                  <td>Removed</td>
+                  <td>1</td>
+                  <td>0</td>
+                  <td>2026-11-02</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="modal-shell-footer">
+            <button class="btn modal-shell-cancel modal-shell-aside">Clear log</button>
+            <button class="btn modal-shell-cancel">Close</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="mock-state">
+      <h3>D. Phone (below 768px): sheets that size to their content</h3>
+      <p class="mock-note">
+        Every size becomes a bottom sheet the full width of the screen. A short modal stays short,
+        and the page shows above it. A tall one stops at 92% of the screen and its body scrolls. The
+        actions stay at the bottom, within thumb reach, and share the row. Fields use 16px text, and
+        the controls stay 44px.
+      </p>
+      <div class="mock-phones">
+        <div>
+          <p class="mock-phone-label">A on a phone</p>
+          <div class="mock-phone">
+            <div class="modal-shell modal-shell--sm" role="dialog" aria-labelledby="da-title">
+              <div class="modal-shell-header">
+                <h2 class="modal-shell-title" id="da-title">Remove Item</h2>
+                <button class="modal-shell-close" aria-label="Close">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M6 6l12 12M18 6L6 18" />
+                  </svg>
+                </button>
+              </div>
+              <div class="modal-shell-body">
+                <p style="margin-top: 0">
+                  Remove <strong>2024 American Silver Eagle</strong> (1 oz, qty 5) from your
+                  inventory? You can undo it from the Activity Log.
+                </p>
+              </div>
+              <div class="modal-shell-footer">
+                <button class="btn modal-shell-cancel">Cancel</button>
+                <button class="btn danger">Remove Item</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <p class="mock-phone-label">B on a phone</p>
+          <div class="mock-phone">
+            <div class="modal-shell modal-shell--md" role="dialog" aria-labelledby="db-title">
+              <div class="modal-shell-header">
+                <h2 class="modal-shell-title" id="db-title">Edit Item</h2>
+                <button class="modal-shell-close" aria-label="Close">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M6 6l12 12M18 6L6 18" />
+                  </svg>
+                </button>
+              </div>
+              <div class="modal-shell-body">
+                <div class="demo-field">
+                  <label for="db-name">Name</label>
+                  <input id="db-name" type="text" value="2024 American Silver Eagle" />
+                </div>
+                <div class="demo-field">
+                  <label for="db-qty">Quantity</label>
+                  <input id="db-qty" type="text" value="5" />
+                </div>
+                <div class="demo-field">
+                  <label for="db-weight">Weight (oz)</label>
+                  <input id="db-weight" type="text" value="1.000" />
+                </div>
+                <div class="demo-field">
+                  <label for="db-notes">Notes</label>
+                  <textarea id="db-notes" rows="4">Bought at the October show.</textarea>
+                </div>
+                <p class="demo-muted">
+                  More fields scroll here; the header and the actions stay in place.
+                </p>
+              </div>
+              <div class="modal-shell-footer">
+                <button class="btn modal-shell-cancel">Cancel</button>
+                <button class="btn">Save Item</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <p class="mock-phone-label">C on a phone</p>
+          <div class="mock-phone">
+            <div class="modal-shell modal-shell--lg" role="dialog" aria-labelledby="dc-title">
+              <div class="modal-shell-header">
+                <h2 class="modal-shell-title" id="dc-title">Change Log</h2>
+                <button class="modal-shell-close" aria-label="Close">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M6 6l12 12M18 6L6 18" />
+                  </svg>
+                </button>
+              </div>
+              <div class="modal-shell-body">
+                <dl class="demo-figures">
+                  <div class="demo-figure">
+                    <dt>Entries</dt>
+                    <dd>148</dd>
+                  </div>
+                  <div class="demo-figure">
+                    <dt>Undoable</dt>
+                    <dd>12</dd>
+                  </div>
+                </dl>
+                <table class="demo-table">
+                  <thead>
+                    <tr>
+                      <th>Item</th>
+                      <th>Before</th>
+                      <th>After</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>2024 American Silver Eagle</td>
+                      <td>4</td>
+                      <td>5</td>
+                    </tr>
+                    <tr>
+                      <td>1 oz Gold Buffalo</td>
+                      <td>$2,410.00</td>
+                      <td>$2,455.00</td>
+                    </tr>
+                    <tr>
+                      <td>10 oz Silver Bar</td>
+                      <td>1</td>
+                      <td>0</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="modal-shell-footer">
+                <button class="btn modal-shell-cancel modal-shell-aside">Clear log</button>
+                <button class="btn modal-shell-cancel">Close</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <script>
+      document.querySelectorAll("[data-set-theme]").forEach(function (b) {
+        b.addEventListener("click", function () {
+          document.documentElement.setAttribute("data-theme", b.getAttribute("data-set-theme"));
+        });
+      });
+    </script>
+  </body>
+</html>

@@ -2125,7 +2125,7 @@ const wireCatalogActions = () => {
  *     modal) opens the modal for the provider from `data-provider`.
  *   - Escape closes it through the shared modal stack (`openBulkSyncModal`).
  *   - Backdrop click on `#bulkSyncModal` (but not `.modal-content`) closes it.
- *   - `.modal-close` inside the modal closes it.
+ *   - `.modal-shell-close` inside the modal closes it.
  *   - `.bulk-tab` clicks switch the active tab via `window.switchBulkSyncTab`.
  * Document-level listeners are intentional (modal is a floating overlay) and
  * idempotency-guarded so repeat calls do not stack listeners. REQ-7.
@@ -2160,7 +2160,7 @@ const wireBulkSyncModal = () => {
 
     // Delegated click inside the modal: handle close button + tab switching.
     bulkModal.addEventListener("click", (e) => {
-      const closeBtn = e.target.closest(".modal-close");
+      const closeBtn = e.target.closest(".modal-shell-close");
       if (closeBtn && bulkModal.contains(closeBtn)) {
         if (typeof window.closeBulkSyncModal === "function") {
           window.closeBulkSyncModal();

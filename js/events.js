@@ -5629,7 +5629,7 @@ if (removeItemQtyInput) {
 // STRK-44: Restore-choice modal — wire X button to click the Cancel action button
 const restoreChoiceModalEl = document.getElementById("restoreChoiceModal");
 if (restoreChoiceModalEl) {
-  const restoreCloseBtn = restoreChoiceModalEl.querySelector(".modal-close");
+  const restoreCloseBtn = restoreChoiceModalEl.querySelector(".modal-shell-close");
   if (restoreCloseBtn) {
     restoreCloseBtn.addEventListener("click", () => {
       const cancelBtn = restoreChoiceModalEl.querySelector('[data-action="cancel"]');

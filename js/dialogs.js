@@ -39,12 +39,12 @@
     root.style.display = "none";
     root.style.zIndex = "10060";
     root.innerHTML = `
-      <div class="modal-content" style="max-width: 460px; width: calc(100% - 2rem)">
-        <div class="modal-header">
-          <h3 id="appDialogTitle">Notice</h3>
-          <button type="button" id="appDialogClose" class="modal-close" aria-label="Close dialog">&times;</button>
+      <div class="modal-content modal-shell modal-shell--sm">
+        <div class="modal-header modal-shell-header">
+          <h3 id="appDialogTitle" class="modal-shell-title">Notice</h3>
+          <button type="button" id="appDialogClose" class="modal-shell-close" aria-label="Close dialog"></button>
         </div>
-        <div class="modal-body">
+        <div class="modal-body modal-shell-body">
           <p id="appDialogMessage" style="margin:0 0 1rem 0; line-height:1.5"></p>
           <input id="appDialogInput" type="text" class="form-control" style="display:none; width:100%" />
           <label id="appDialogOptionRow" class="app-dialog-option" style="display:none">
@@ -52,12 +52,13 @@
             <span id="appDialogOptionLabel"></span>
           </label>
         </div>
-        <div class="modal-footer" style="display:flex; justify-content:flex-end; gap:.5rem">
+        <div class="modal-footer modal-shell-footer">
           <button type="button" id="appDialogCancel" class="btn secondary" style="display:none">Cancel</button>
           <button type="button" id="appDialogOk" class="btn premium">OK</button>
         </div>
       </div>`;
 
+    root.querySelector("#appDialogClose").appendChild(buildModalCloseIcon());
     document.body.appendChild(root);
     return root;
   };

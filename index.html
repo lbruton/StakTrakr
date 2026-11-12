@@ -1999,12 +1999,23 @@
       aria-modal="true"
       aria-labelledby="itemModalTitle"
     >
-      <div class="modal-content">
-        <div class="modal-header">
-          <h2 id="itemModalTitle">Add Inventory Item</h2>
-          <button aria-label="Close modal" class="modal-close" id="itemCloseBtn">×</button>
+      <div class="modal-content modal-shell modal-shell--md">
+        <div class="modal-header modal-shell-header">
+          <h2 class="modal-shell-title" id="itemModalTitle">Add Inventory Item</h2>
+          <button aria-label="Close modal" class="modal-shell-close" id="itemCloseBtn">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              aria-hidden="true"
+            >
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
         </div>
-        <div class="modal-body">
+        <div class="modal-body modal-shell-body">
           <form id="inventoryForm">
             <!-- Hidden fields -->
             <input type="hidden" id="itemSerial" value="" />
@@ -3295,12 +3306,23 @@
       aria-modal="true"
       aria-labelledby="notesModalTitle"
     >
-      <div class="modal-content">
-        <div class="modal-header">
-          <h2 id="notesModalTitle">Item Notes</h2>
-          <button aria-label="Close modal" class="modal-close" id="notesCloseBtn">×</button>
+      <div class="modal-content modal-shell modal-shell--md">
+        <div class="modal-header modal-shell-header">
+          <h2 class="modal-shell-title" id="notesModalTitle">Item Notes</h2>
+          <button aria-label="Close modal" class="modal-shell-close" id="notesCloseBtn">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              aria-hidden="true"
+            >
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
         </div>
-        <div class="modal-body">
+        <div class="modal-body modal-shell-body">
           <textarea id="notesTextarea" rows="6" style="width: 100%"></textarea>
           <div style="margin-top: 1rem; text-align: right">
             <button class="btn" id="cancelNotes" type="button">Cancel</button>
@@ -3324,12 +3346,23 @@
       aria-modal="true"
       aria-labelledby="notesViewTitle"
     >
-      <div class="modal-content" style="max-width: 32rem">
-        <div class="modal-header">
-          <h2 id="notesViewTitle">Notes</h2>
-          <button aria-label="Close modal" class="modal-close" id="notesViewCloseBtn">×</button>
+      <div class="modal-content modal-shell modal-shell--sm">
+        <div class="modal-header modal-shell-header">
+          <h2 class="modal-shell-title" id="notesViewTitle">Notes</h2>
+          <button aria-label="Close modal" class="modal-shell-close" id="notesViewCloseBtn">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              aria-hidden="true"
+            >
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
         </div>
-        <div class="modal-body">
+        <div class="modal-body modal-shell-body">
           <div
             id="notesViewContent"
             style="
@@ -3361,12 +3394,23 @@
       aria-modal="true"
       aria-labelledby="changeLogModalTitle"
     >
-      <div class="modal-content">
-        <div class="modal-header">
-          <h2 id="changeLogModalTitle">Activity Log</h2>
-          <button aria-label="Close modal" class="modal-close" id="changeLogCloseBtn">×</button>
+      <div class="modal-content modal-shell modal-shell--lg">
+        <div class="modal-header modal-shell-header">
+          <h2 class="modal-shell-title" id="changeLogModalTitle">Activity Log</h2>
+          <button aria-label="Close modal" class="modal-shell-close" id="changeLogCloseBtn">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              aria-hidden="true"
+            >
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
         </div>
-        <div class="modal-body">
+        <div class="modal-body modal-shell-body">
           <table id="changeLogTable">
             <thead>
               <tr>
@@ -3381,7 +3425,7 @@
             <tbody></tbody>
           </table>
         </div>
-        <div class="modal-footer">
+        <div class="modal-footer modal-shell-footer">
           <button
             class="btn secondary icon-btn"
             id="changeLogClearBtn"
@@ -3417,9 +3461,20 @@
       aria-labelledby="detailsModalTitle"
     >
       <!-- tabindex="-1": initial-focus target on open (STRK-359), never in the tab order -->
-      <div class="modal-content" tabindex="-1">
+      <div class="modal-content modal-shell modal-shell--lg" tabindex="-1">
         <div class="dm-topbar">
-          <button aria-label="Close modal" class="modal-close" id="detailsCloseBtn">×</button>
+          <button aria-label="Close modal" class="modal-shell-close" id="detailsCloseBtn">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              aria-hidden="true"
+            >
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
         </div>
         <div class="dm-header" id="dmHeader" data-accent="all">
           <h2 class="dm-title" id="detailsModalTitle"></h2>
@@ -3560,14 +3615,23 @@
       aria-modal="true"
       aria-labelledby="apiHealthModalTitle"
     >
-      <div class="modal-content" style="max-width: 580px">
-        <div class="modal-header">
-          <h3 id="apiHealthModalTitle">API Health Status</h3>
-          <button aria-label="Close modal" class="modal-close" id="apiHealthCloseBtn">
-            &times;
+      <div class="modal-content modal-shell modal-shell--md">
+        <div class="modal-header modal-shell-header">
+          <h3 class="modal-shell-title" id="apiHealthModalTitle">API Health Status</h3>
+          <button aria-label="Close modal" class="modal-shell-close" id="apiHealthCloseBtn">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              aria-hidden="true"
+            >
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
           </button>
         </div>
-        <div class="modal-body" style="padding: 1rem 1.5rem">
+        <div class="modal-body modal-shell-body" style="padding: 1rem 1.5rem">
           <div class="about-section">
             <div class="section-title">Status: <span id="apiHealthStatus">Checking…</span></div>
             <table
@@ -3651,11 +3715,20 @@
       aria-modal="true"
       aria-labelledby="ratiosPanelModalTitle"
     >
-      <div class="modal-content ratios-modal-content">
-        <div class="modal-header">
-          <h3 id="ratiosPanelModalTitle">Metal Ratios</h3>
-          <button aria-label="Close modal" class="modal-close" id="ratiosPanelCloseBtn">
-            &times;
+      <div class="modal-content ratios-modal-content modal-shell modal-shell--lg">
+        <div class="modal-header modal-shell-header">
+          <h3 class="modal-shell-title" id="ratiosPanelModalTitle">Metal Ratios</h3>
+          <button aria-label="Close modal" class="modal-shell-close" id="ratiosPanelCloseBtn">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              aria-hidden="true"
+            >
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
           </button>
         </div>
         <div id="ratiosPanelMount"></div>
@@ -3676,11 +3749,20 @@
       aria-modal="true"
       aria-labelledby="settingsModalTitle"
     >
-      <div class="modal-content settings-modal-content">
-        <div class="modal-header">
-          <h2 id="settingsModalTitle">Settings</h2>
-          <button aria-label="Close modal" class="modal-close" id="settingsCloseBtn">
-            &times;
+      <div class="modal-content settings-modal-content modal-shell modal-shell--lg">
+        <div class="modal-header modal-shell-header">
+          <h2 class="modal-shell-title" id="settingsModalTitle">Settings</h2>
+          <button aria-label="Close modal" class="modal-shell-close" id="settingsCloseBtn">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              aria-hidden="true"
+            >
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
           </button>
         </div>
         <div class="settings-modal-layout">
@@ -7099,7 +7181,7 @@
           <!-- .settings-content-area -->
         </div>
         <!-- .settings-modal-layout -->
-        <div class="settings-footer" id="settingsFooter"></div>
+        <div class="settings-footer modal-shell-footer" id="settingsFooter"></div>
       </div>
       <!-- .settings-modal-content -->
     </div>
@@ -7114,12 +7196,23 @@
       aria-modal="true"
       aria-labelledby="vaultModalTitle"
     >
-      <div class="modal-content">
-        <div class="modal-header">
-          <h2 id="vaultModalTitle">Encrypted Backup</h2>
-          <button aria-label="Close modal" class="modal-close" id="vaultCloseBtn">&times;</button>
+      <div class="modal-content modal-shell modal-shell--lg">
+        <div class="modal-header modal-shell-header">
+          <h2 class="modal-shell-title" id="vaultModalTitle">Encrypted Backup</h2>
+          <button aria-label="Close modal" class="modal-shell-close" id="vaultCloseBtn">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              aria-hidden="true"
+            >
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
         </div>
-        <div class="modal-body">
+        <div class="modal-body modal-shell-body">
           <div id="vaultDescExport" class="encryption-info">
             <strong>Included:</strong> All inventory data, settings, API keys, and price history.
             Your photos will be saved as a separate companion file.
@@ -7248,9 +7341,9 @@
       aria-modal="true"
       aria-labelledby="cloudSyncAdvancedModalTitle"
     >
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3 class="modal-title" id="cloudSyncAdvancedModalTitle">
+      <div class="modal-content modal-shell modal-shell--lg">
+        <div class="modal-header modal-shell-header">
+          <h3 class="modal-title modal-shell-title" id="cloudSyncAdvancedModalTitle">
             <svg
               class="cloud-title-icon cloud-title-icon--spaced"
               width="16"
@@ -7265,16 +7358,25 @@
             Dropbox Settings
           </h3>
           <button
-            class="modal-close"
+            class="modal-shell-close"
             onclick="
               if (typeof closeModalById === 'function') closeModalById('cloudSyncAdvancedModal');
             "
             aria-label="Close"
           >
-            &times;
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              aria-hidden="true"
+            >
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
           </button>
         </div>
-        <div class="modal-body">
+        <div class="modal-body modal-shell-body">
           <!-- Vault Password -->
           <div class="settings-fieldset cloud-advanced-fieldset">
             <div class="settings-fieldset-title">Vault Password</div>
@@ -7375,14 +7477,23 @@
       aria-modal="true"
       aria-labelledby="syncPasswordModalTitle"
     >
-      <div class="modal-content" style="max-width: 400px">
-        <div class="modal-header">
-          <h2 id="syncPasswordModalTitle">Sync Password</h2>
-          <button aria-label="Close modal" class="modal-close" id="syncPasswordCancelBtn">
-            &times;
+      <div class="modal-content modal-shell modal-shell--sm">
+        <div class="modal-header modal-shell-header">
+          <h2 class="modal-shell-title" id="syncPasswordModalTitle">Sync Password</h2>
+          <button aria-label="Close modal" class="modal-shell-close" id="syncPasswordCancelBtn">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              aria-hidden="true"
+            >
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
           </button>
         </div>
-        <div class="modal-body">
+        <div class="modal-body modal-shell-body">
           <p id="syncPasswordModalSubtitle" class="settings-subtext" style="margin-bottom: 1rem">
             Enter your vault password to encrypt your inventory before syncing. Your password is
             stored in this browser and combined with your Dropbox account ID to create the
@@ -7420,14 +7531,23 @@
       aria-modal="true"
       aria-labelledby="restorePreviewModalTitle"
     >
-      <div class="modal-content" style="max-width: 600px">
-        <div class="modal-header">
-          <h2 id="restorePreviewModalTitle">Restore Preview</h2>
-          <button aria-label="Close modal" class="modal-close" id="restorePreviewDismissX">
-            &times;
+      <div class="modal-content modal-shell modal-shell--md">
+        <div class="modal-header modal-shell-header">
+          <h2 class="modal-shell-title" id="restorePreviewModalTitle">Restore Preview</h2>
+          <button aria-label="Close modal" class="modal-shell-close" id="restorePreviewDismissX">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              aria-hidden="true"
+            >
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
           </button>
         </div>
-        <div class="modal-body">
+        <div class="modal-body modal-shell-body">
           <div class="cloud-sync-update-meta" id="restorePreviewMeta">
             <div class="cloud-sync-update-row">
               <span>Remote items</span><strong id="restorePreviewRemoteCount">&mdash;</strong>
@@ -7493,14 +7613,23 @@
       aria-modal="true"
       aria-labelledby="diffReviewTitle"
     >
-      <div class="modal-content" style="max-width: 860px">
-        <div class="modal-header">
-          <h2 id="diffReviewTitle">Review Changes</h2>
-          <button aria-label="Close modal" class="modal-close" id="diffReviewDismissX">
-            &times;
+      <div class="modal-content modal-shell modal-shell--lg">
+        <div class="modal-header modal-shell-header">
+          <h2 class="modal-shell-title" id="diffReviewTitle">Review Changes</h2>
+          <button aria-label="Close modal" class="modal-shell-close" id="diffReviewDismissX">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              aria-hidden="true"
+            >
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
           </button>
         </div>
-        <div class="modal-body">
+        <div class="modal-body modal-shell-body">
           <div class="cloud-sync-update-meta" id="diffReviewSource"></div>
           <div
             id="diffReviewCountRow"
@@ -7557,12 +7686,23 @@
       aria-modal="true"
       aria-labelledby="apiQuotaModalTitle"
     >
-      <div class="modal-content">
-        <div class="modal-header">
-          <h2 id="apiQuotaModalTitle">API Quota</h2>
-          <button aria-label="Close modal" class="modal-close" id="apiQuotaCloseBtn">×</button>
+      <div class="modal-content modal-shell modal-shell--md">
+        <div class="modal-header modal-shell-header">
+          <h2 class="modal-shell-title" id="apiQuotaModalTitle">API Quota</h2>
+          <button aria-label="Close modal" class="modal-shell-close" id="apiQuotaCloseBtn">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              aria-hidden="true"
+            >
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
         </div>
-        <div class="modal-body" style="text-align: center">
+        <div class="modal-body modal-shell-body" style="text-align: center">
           <label for="apiQuotaInput">Monthly quota:</label>
           <input type="number" id="apiQuotaInput" min="1" />
           <div style="margin-top: 1rem">
@@ -7580,12 +7720,23 @@
       aria-modal="true"
       aria-labelledby="apiInfoTitle"
     >
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3 id="apiInfoTitle">Provider Information</h3>
-          <button aria-label="Close modal" class="modal-close" id="apiInfoCloseBtn">×</button>
+      <div class="modal-content modal-shell modal-shell--sm">
+        <div class="modal-header modal-shell-header">
+          <h3 class="modal-shell-title" id="apiInfoTitle">Provider Information</h3>
+          <button aria-label="Close modal" class="modal-shell-close" id="apiInfoCloseBtn">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              aria-hidden="true"
+            >
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
         </div>
-        <div class="modal-body">
+        <div class="modal-body modal-shell-body">
           <div id="apiInfoBody" class="api-info-body"></div>
         </div>
       </div>
@@ -7598,12 +7749,23 @@
       aria-modal="true"
       aria-labelledby="apiHistoryModalTitle"
     >
-      <div class="modal-content">
-        <div class="modal-header">
-          <h2 id="apiHistoryModalTitle">Metals Price History</h2>
-          <button aria-label="Close modal" class="modal-close" id="apiHistoryCloseBtn">×</button>
+      <div class="modal-content modal-shell modal-shell--lg">
+        <div class="modal-header modal-shell-header">
+          <h2 class="modal-shell-title" id="apiHistoryModalTitle">Metals Price History</h2>
+          <button aria-label="Close modal" class="modal-shell-close" id="apiHistoryCloseBtn">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              aria-hidden="true"
+            >
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
         </div>
-        <div class="modal-body">
+        <div class="modal-body modal-shell-body">
           <div class="api-history-body">
             <div class="api-history-table">
               <div class="api-history-filter">
@@ -7618,7 +7780,7 @@
             </div>
           </div>
         </div>
-        <div class="modal-footer api-history-footer">
+        <div class="modal-footer api-history-footer modal-shell-footer">
           <button type="button" class="btn" id="exportSpotHistoryBtn">Export History</button>
           <button type="button" class="btn" id="importSpotHistoryBtn">Import History</button>
           <button type="button" class="btn secondary" id="restoreHistoricalDataBtn">
@@ -7637,19 +7799,28 @@
       aria-labelledby="bulkSyncModalTitle"
       style="display: none"
     >
-      <div class="modal-content">
-        <div class="modal-header">
-          <h2 id="bulkSyncModalTitle">Bulk Sync &amp; Advanced</h2>
+      <div class="modal-content modal-shell modal-shell--lg">
+        <div class="modal-header modal-shell-header">
+          <h2 class="modal-shell-title" id="bulkSyncModalTitle">Bulk Sync &amp; Advanced</h2>
           <button
             type="button"
-            class="modal-close btn-action-neutral"
+            class="modal-shell-close"
             id="bulkSyncCloseBtn"
             aria-label="Close modal"
           >
-            ×
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              aria-hidden="true"
+            >
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
           </button>
         </div>
-        <div class="modal-body">
+        <div class="modal-body modal-shell-body">
           <div class="bulk-modal-tabs" role="tablist">
             <button
               class="bulk-tab"
@@ -7728,7 +7899,7 @@
             <div id="numistaTagSettingsGroup"></div>
           </div>
         </div>
-        <div class="modal-footer"></div>
+        <div class="modal-footer modal-shell-footer"></div>
       </div>
     </div>
 
@@ -7746,14 +7917,23 @@
       aria-modal="true"
       aria-labelledby="goldbackHistoryModalTitle"
     >
-      <div class="modal-content">
-        <div class="modal-header">
-          <h2 id="goldbackHistoryModalTitle">Goldback Price History</h2>
-          <button aria-label="Close modal" class="modal-close" id="goldbackHistoryCloseBtn">
-            &times;
+      <div class="modal-content modal-shell modal-shell--lg">
+        <div class="modal-header modal-shell-header">
+          <h2 class="modal-shell-title" id="goldbackHistoryModalTitle">Goldback Price History</h2>
+          <button aria-label="Close modal" class="modal-shell-close" id="goldbackHistoryCloseBtn">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              aria-hidden="true"
+            >
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
           </button>
         </div>
-        <div class="modal-body">
+        <div class="modal-body modal-shell-body">
           <div class="api-history-body">
             <div class="api-history-table">
               <div class="api-history-filter">
@@ -7768,7 +7948,7 @@
             </div>
           </div>
         </div>
-        <div class="modal-footer api-history-footer">
+        <div class="modal-footer api-history-footer modal-shell-footer">
           <button type="button" class="btn" id="exportGoldbackHistoryBtn">Export History</button>
         </div>
       </div>
@@ -7789,14 +7969,23 @@
       aria-modal="true"
       aria-labelledby="itemPriceHistoryTitle"
     >
-      <div class="modal-content">
-        <div class="modal-header">
-          <h2 id="itemPriceHistoryTitle">Item Price History</h2>
-          <button aria-label="Close modal" class="modal-close" id="itemPriceHistoryCloseBtn">
-            &times;
+      <div class="modal-content modal-shell modal-shell--lg">
+        <div class="modal-header modal-shell-header">
+          <h2 class="modal-shell-title" id="itemPriceHistoryTitle">Item Price History</h2>
+          <button aria-label="Close modal" class="modal-shell-close" id="itemPriceHistoryCloseBtn">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              aria-hidden="true"
+            >
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
           </button>
         </div>
-        <div class="modal-body">
+        <div class="modal-body modal-shell-body">
           <div class="api-history-body">
             <div class="api-history-table">
               <div class="api-history-filter">
@@ -7839,14 +8028,23 @@
       aria-modal="true"
       aria-labelledby="catalogHistoryModalTitle"
     >
-      <div class="modal-content">
-        <div class="modal-header">
-          <h2 id="catalogHistoryModalTitle">Catalog API History</h2>
-          <button aria-label="Close modal" class="modal-close" id="catalogHistoryCloseBtn">
-            &times;
+      <div class="modal-content modal-shell modal-shell--lg">
+        <div class="modal-header modal-shell-header">
+          <h2 class="modal-shell-title" id="catalogHistoryModalTitle">Catalog API History</h2>
+          <button aria-label="Close modal" class="modal-shell-close" id="catalogHistoryCloseBtn">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              aria-hidden="true"
+            >
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
           </button>
         </div>
-        <div class="modal-body">
+        <div class="modal-body modal-shell-body">
           <div class="api-history-body">
             <div class="api-history-table">
               <div class="api-history-filter">
@@ -7880,14 +8078,23 @@
       aria-modal="true"
       aria-labelledby="numistaResultsTitle"
     >
-      <div class="modal-content numista-results-modal-content">
-        <div class="modal-header">
-          <h2 id="numistaResultsTitle">Numista Results</h2>
-          <button aria-label="Close modal" class="modal-close" id="numistaResultsCloseBtn">
-            &times;
+      <div class="modal-content numista-results-modal-content modal-shell modal-shell--lg">
+        <div class="modal-header modal-shell-header">
+          <h2 class="modal-shell-title" id="numistaResultsTitle">Numista Results</h2>
+          <button aria-label="Close modal" class="modal-shell-close" id="numistaResultsCloseBtn">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              aria-hidden="true"
+            >
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
           </button>
         </div>
-        <div class="modal-body">
+        <div class="modal-body modal-shell-body">
           <!-- Search results list -->
           <div id="numistaResultsList" class="numista-results-list"></div>
 
@@ -7921,14 +8128,23 @@
       aria-modal="true"
       aria-labelledby="pcgsFieldPickerTitle"
     >
-      <div class="modal-content numista-results-modal-content">
-        <div class="modal-header">
-          <h2 id="pcgsFieldPickerTitle">PCGS Item Found</h2>
-          <button aria-label="Close modal" class="modal-close" id="pcgsFieldPickerCloseBtn">
-            &times;
+      <div class="modal-content numista-results-modal-content modal-shell modal-shell--lg">
+        <div class="modal-header modal-shell-header">
+          <h2 class="modal-shell-title" id="pcgsFieldPickerTitle">PCGS Item Found</h2>
+          <button aria-label="Close modal" class="modal-shell-close" id="pcgsFieldPickerCloseBtn">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              aria-hidden="true"
+            >
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
           </button>
         </div>
-        <div class="modal-body">
+        <div class="modal-body modal-shell-body">
           <div id="pcgsSelectedItem" class="numista-selected-preview"></div>
           <div id="pcgsFieldCheckboxes" class="numista-field-checkboxes">
             <div class="numista-fields-heading">Fields to fill:</div>
@@ -7955,14 +8171,23 @@
       aria-modal="true"
       aria-labelledby="spotLookupTitle"
     >
-      <div class="modal-content numista-results-modal-content">
-        <div class="modal-header">
-          <h2 id="spotLookupTitle">Spot Price Lookup</h2>
-          <button aria-label="Close modal" class="modal-close" id="spotLookupCloseBtn">
-            &times;
+      <div class="modal-content numista-results-modal-content modal-shell modal-shell--lg">
+        <div class="modal-header modal-shell-header">
+          <h2 class="modal-shell-title" id="spotLookupTitle">Spot Price Lookup</h2>
+          <button aria-label="Close modal" class="modal-shell-close" id="spotLookupCloseBtn">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              aria-hidden="true"
+            >
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
           </button>
         </div>
-        <div class="modal-body" id="spotLookupBody"></div>
+        <div class="modal-body modal-shell-body" id="spotLookupBody"></div>
       </div>
     </div>
 
@@ -7981,13 +8206,22 @@
       aria-modal="true"
       aria-labelledby="viewModalTitle"
     >
-      <div class="modal-content">
-        <div class="modal-header">
-          <button class="view-modal-close" id="viewModalCloseX" aria-label="Close modal">
-            &times;
-          </button>
+      <div class="modal-content modal-shell modal-shell--lg">
+        <div class="modal-header modal-shell-header">
           <div class="view-header-title-row">
-            <h2 id="viewModalTitle"></h2>
+            <h2 class="modal-shell-title" id="viewModalTitle"></h2>
+            <button class="modal-shell-close" id="viewModalCloseX" aria-label="Close modal">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                aria-hidden="true"
+              >
+                <path d="M6 6l12 12M18 6L6 18" />
+              </svg>
+            </button>
           </div>
           <div class="view-header-badges">
             <span class="view-modal-catalog-id" id="viewModalCatalogId"></span>
@@ -7995,8 +8229,8 @@
             <div class="view-header-actions" id="viewHeaderActions"></div>
           </div>
         </div>
-        <div class="modal-body" id="viewModalBody"></div>
-        <div class="view-modal-footer" id="viewModalFooter"></div>
+        <div class="modal-body modal-shell-body" id="viewModalBody"></div>
+        <div class="view-modal-footer modal-shell-footer" id="viewModalFooter"></div>
       </div>
     </div>
 
@@ -8013,12 +8247,23 @@
       aria-modal="true"
       aria-labelledby="debugModalTitle"
     >
-      <div class="modal-content">
-        <div class="modal-header">
-          <h2 id="debugModalTitle">Debug Log</h2>
-          <button aria-label="Close modal" class="modal-close" id="debugCloseBtn">×</button>
+      <div class="modal-content modal-shell modal-shell--lg">
+        <div class="modal-header modal-shell-header">
+          <h2 class="modal-shell-title" id="debugModalTitle">Debug Log</h2>
+          <button aria-label="Close modal" class="modal-shell-close" id="debugCloseBtn">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              aria-hidden="true"
+            >
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
         </div>
-        <div class="modal-body">
+        <div class="modal-body modal-shell-body">
           <pre id="debugModalContent"></pre>
         </div>
       </div>
@@ -8037,14 +8282,23 @@
       aria-modal="true"
       aria-labelledby="bulkEditModalTitle"
     >
-      <div class="modal-content bulk-edit-content">
-        <div class="modal-header">
-          <h2 id="bulkEditModalTitle">Bulk Edit</h2>
-          <button aria-label="Close modal" class="modal-close" id="bulkEditCloseBtn">
-            &times;
+      <div class="modal-content bulk-edit-content modal-shell modal-shell--lg">
+        <div class="modal-header modal-shell-header">
+          <h2 class="modal-shell-title" id="bulkEditModalTitle">Bulk Edit</h2>
+          <button aria-label="Close modal" class="modal-shell-close" id="bulkEditCloseBtn">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              aria-hidden="true"
+            >
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
           </button>
         </div>
-        <div class="modal-body bulk-edit-body">
+        <div class="modal-body bulk-edit-body modal-shell-body">
           <!-- Left: Field panel -->
           <div class="bulk-edit-fields" id="bulkEditFieldPanel"></div>
           <!-- Right: Item selection table -->
@@ -8053,7 +8307,7 @@
             <div class="bulk-edit-table-wrap" id="bulkEditTableWrap"></div>
           </div>
         </div>
-        <div class="modal-footer bulk-edit-footer" id="bulkEditFooter"></div>
+        <div class="modal-footer bulk-edit-footer modal-shell-footer" id="bulkEditFooter"></div>
       </div>
     </div>
 
@@ -8066,14 +8320,14 @@
       aria-modal="true"
       aria-labelledby="bulkConfirmModalTitle"
     >
-      <div class="modal-content" style="max-width: 380px">
-        <div class="modal-header">
-          <h2 id="bulkConfirmModalTitle">Confirm</h2>
+      <div class="modal-content modal-shell modal-shell--sm">
+        <div class="modal-header modal-shell-header">
+          <h2 class="modal-shell-title" id="bulkConfirmModalTitle">Confirm</h2>
         </div>
-        <div class="modal-body">
+        <div class="modal-body modal-shell-body">
           <p id="bulkConfirmMessage" style="margin: 0"></p>
         </div>
-        <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 0.5rem">
+        <div class="modal-footer modal-shell-footer">
           <button type="button" class="btn secondary" id="bulkConfirmCancelBtn">Cancel</button>
           <button type="button" class="btn premium" id="bulkConfirmOkBtn">Confirm</button>
         </div>
@@ -8089,21 +8343,30 @@
       aria-modal="true"
       aria-labelledby="privacyModalTitle"
     >
-      <div class="modal-content" style="max-width: 760px">
-        <div class="modal-header">
-          <h3 id="privacyModalTitle">Privacy Policy</h3>
+      <div class="modal-content modal-shell modal-shell--md">
+        <div class="modal-header modal-shell-header">
+          <h3 class="modal-shell-title" id="privacyModalTitle">Privacy Policy</h3>
           <button
             aria-label="Close modal"
-            class="modal-close"
+            class="modal-shell-close"
             onclick="
               if (window.closeModalById) closeModalById('privacyModal');
               else this.closest('.modal').style.display = 'none';
             "
           >
-            &times;
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              aria-hidden="true"
+            >
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
           </button>
         </div>
-        <div class="modal-body" style="padding: 1rem 1.5rem">
+        <div class="modal-body modal-shell-body" style="padding: 1rem 1.5rem">
           <!-- Overview -->
           <div class="about-section">
             <div class="section-title">🏠 Overview</div>
@@ -8309,18 +8572,27 @@
       aria-modal="true"
       aria-labelledby="removeItemModalTitle"
     >
-      <div class="modal-content" style="max-width: 440px">
-        <div class="modal-header">
-          <h2 id="removeItemModalTitle">Remove Item</h2>
+      <div class="modal-content modal-shell modal-shell--sm">
+        <div class="modal-header modal-shell-header">
+          <h2 class="modal-shell-title" id="removeItemModalTitle">Remove Item</h2>
           <button
             aria-label="Close modal"
-            class="modal-close"
+            class="modal-shell-close"
             onclick="closeModalById('removeItemModal')"
           >
-            &times;
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              aria-hidden="true"
+            >
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
           </button>
         </div>
-        <div class="modal-body">
+        <div class="modal-body modal-shell-body">
           <input type="hidden" id="removeItemIdx" />
           <p id="removeItemName" style="margin: 0 0 0.75rem; font-weight: 600"></p>
           <p
@@ -8448,7 +8720,7 @@
             </section>
           </div>
         </div>
-        <div class="modal-footer" style="justify-content: space-between">
+        <div class="modal-footer modal-shell-footer" style="justify-content: space-between">
           <button class="btn secondary" type="button" onclick="closeModalById('removeItemModal')">
             Cancel
           </button>
@@ -8476,22 +8748,31 @@
       aria-modal="true"
       aria-labelledby="restoreChoiceModalTitle"
     >
-      <div class="modal-content" style="max-width: 440px">
-        <div class="modal-header">
-          <h2 id="restoreChoiceModalTitle">Restore disposed item?</h2>
+      <div class="modal-content modal-shell modal-shell--sm">
+        <div class="modal-header modal-shell-header">
+          <h2 class="modal-shell-title" id="restoreChoiceModalTitle">Restore disposed item?</h2>
           <button
             aria-label="Close modal"
-            class="modal-close"
+            class="modal-shell-close"
             type="button"
             onclick="closeModalById('restoreChoiceModal')"
           >
-            &times;
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              aria-hidden="true"
+            >
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
           </button>
         </div>
-        <div class="modal-body">
+        <div class="modal-body modal-shell-body">
           <p id="restoreChoiceMessage" aria-live="polite" style="margin: 0 0 1rem"></p>
         </div>
-        <div class="modal-footer">
+        <div class="modal-footer modal-shell-footer">
           <button class="btn secondary" type="button" data-action="cancel">Cancel</button>
           <button class="btn" type="button" data-action="separate">Restore as separate row</button>
           <button class="btn premium" type="button" data-action="merge">Merge with original</button>
@@ -8685,21 +8966,30 @@
       aria-modal="true"
       aria-labelledby="retailViewCoinName"
     >
-      <div class="modal-content">
-        <div class="modal-header">
-          <div>
-            <h2 id="retailViewCoinName"></h2>
+      <div class="modal-content modal-shell modal-shell--lg">
+        <div class="modal-header modal-shell-header">
+          <div class="modal-shell-heading">
+            <h2 class="modal-shell-title" id="retailViewCoinName"></h2>
             <span id="retailViewModalSubtitle" class="settings-subtext"></span>
           </div>
           <button
-            class="modal-close"
+            class="modal-shell-close"
             onclick="closeRetailViewModal()"
             aria-label="Close market price detail"
           >
-            &times;
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              aria-hidden="true"
+            >
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
           </button>
         </div>
-        <div class="modal-body">
+        <div class="modal-body modal-shell-body">
           <div id="retailViewVendorLegend" class="retail-vendor-legend"></div>
           <div class="retail-view-tabs">
             <button

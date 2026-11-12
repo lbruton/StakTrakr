@@ -387,7 +387,7 @@ All modals use the FIFO dialog queue in `js/dialogs.js`:
 - Closing the top modal returns focus to its opener, or to the modal below when the opener is gone. `closeModalById` clears the body scroll lock only when no modal is left open
 - `showDialog()` / `presentDialog()`: queue management
 - Settings sections use config objects: `{ id, title, icon, contentBuilder }`
-- Close button selector is `.modal-close`: **not** `.close-btn`, and **not** `[data-bs-dismiss]` (the Bootstrap JS library is not loaded in this project; `data-bs-*` appears zero times in `index.html` and `js/`)
+- Close button selector is `.modal-shell-close`: **not** `.close-btn`, and **not** `[data-bs-dismiss]` (the Bootstrap JS library is not loaded in this project; `data-bs-*` appears zero times in `index.html` and `js/`)
 - `safeGetElement(id)` is the preferred DOM lookup for all new code in modal files
 
 ---
