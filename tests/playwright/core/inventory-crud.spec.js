@@ -926,6 +926,12 @@ test.describe("payment-method", () => {
     await expect(page.locator("#bulkConfirmModal")).toBeHidden();
     expect(await page.evaluate(() => window.inventory.length)).toBe(2);
 
+    // The shell close button cancels like the Cancel button.
+    await deleteBtn.click();
+    await page.click("#bulkConfirmCloseBtn");
+    await expect(page.locator("#bulkConfirmModal")).toBeHidden();
+    expect(await page.evaluate(() => window.inventory.length)).toBe(2);
+
     await page.evaluate(() => {
       window.inventory[0].paymentMethod = "PayPal";
       localStorage.setItem("metalInventory", JSON.stringify(window.inventory));

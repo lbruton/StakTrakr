@@ -139,17 +139,23 @@
       modal.setAttribute("role", "dialog");
       modal.setAttribute("aria-modal", "true");
       modal.setAttribute("aria-labelledby", `${id}Title`);
-      const content = el("div", `modal-content collections-modal-content ${extraClass}`);
-      const header = el("div", "collections-modal-header");
-      const title = el("h2", "collections-modal-title");
+      const content = el(
+        "div",
+        `modal-content modal-shell modal-shell--md collections-modal-content ${extraClass}`
+      );
+      const header = el("div", "collections-modal-header modal-shell-header");
+      const heading = el("div", "modal-shell-heading");
+      const title = el("h2", "collections-modal-title modal-shell-title");
       title.id = `${id}Title`;
-      const close = button("modal-close", "×", () => requestClose(id));
+      const close = button("modal-shell-close", null, () => requestClose(id));
       close.setAttribute("aria-label", "Close");
-      header.append(title, el("p", "collections-modal-subtitle"), close);
+      close.appendChild(buildModalCloseIcon());
+      heading.append(title, el("p", "collections-modal-subtitle"));
+      header.append(heading, close);
       content.append(
         header,
-        el("div", "collections-modal-body"),
-        el("div", "collections-modal-footer")
+        el("div", "collections-modal-body modal-shell-body"),
+        el("div", "collections-modal-footer modal-shell-footer")
       );
       modal.appendChild(content);
       document.body.appendChild(modal);

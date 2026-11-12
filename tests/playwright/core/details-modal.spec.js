@@ -298,7 +298,7 @@ test("AC-1: opening a totals title renders the Variant A shell with zero legacy 
   await bootApp(page);
   await openScope(page, "All");
   const modal = page.locator("#detailsModal");
-  await expect(modal.locator(".dm-topbar .modal-close")).toBeVisible();
+  await expect(modal.locator(".dm-topbar .modal-shell-close")).toBeVisible();
   await expect(modal.locator(".dm-header")).toBeVisible();
   await expect(modal.locator(".dm-kpis")).toBeVisible();
   await expect(modal.locator("#dmHeroChart")).toBeVisible();
@@ -794,7 +794,7 @@ test("AC-19: ledger row click opens the Item View modal; View-all deep-links #/i
   await page.click('#detailsModal .dm-ledger tbody tr[data-uuid="s1"]');
   await expect(page.locator("#viewItemModal")).toBeVisible();
   await expect(page.locator("#viewItemModal")).toContainText("Big Silver Bar");
-  await page.click("#viewItemModal .view-modal-close");
+  await page.click("#viewItemModal .modal-shell-close");
   await page.click("#detailsModal .dm-foot-inventory-link, #detailsModal .dm-link");
   await expect(page).toHaveURL(/#\/inventory$/);
   await expect(page.locator("#detailsModal")).toBeHidden();
@@ -897,7 +897,7 @@ test("AC-24: ledger rows and chips are keyboard-operable with accessible states"
   await row.focus();
   await page.keyboard.press("Enter");
   await expect(page.locator("#viewItemModal")).toBeVisible();
-  await page.click("#viewItemModal .view-modal-close");
+  await page.click("#viewItemModal .modal-shell-close");
   const basisChip = page.locator('#detailsModal .dm-series-chip[data-series="basis"]');
   await basisChip.focus();
   await page.keyboard.press("Space");
@@ -1662,7 +1662,7 @@ test("ship #1494: closing the stacked Item View keeps the page scroll locked whi
   await chartReady(page);
   await page.locator('#detailsModal .dm-ledger tbody tr[data-uuid="s1"]').click();
   await expect(page.locator("#viewItemModal")).toBeVisible();
-  await page.click("#viewItemModal .view-modal-close");
+  await page.click("#viewItemModal .modal-shell-close");
   await expect(page.locator("#viewItemModal")).toBeHidden();
   await expect(page.locator("#detailsModal")).toBeVisible();
   expect(await page.evaluate(() => document.body.style.overflow)).toBe("hidden");

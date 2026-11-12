@@ -1490,6 +1490,7 @@ const showBulkConfirm = (message, options) => {
     var msgEl = document.getElementById("bulkConfirmMessage");
     var okBtn = document.getElementById("bulkConfirmOkBtn");
     var canBtn = document.getElementById("bulkConfirmCancelBtn");
+    var closeBtn = document.getElementById("bulkConfirmCloseBtn");
     if (!modal || !okBtn || !canBtn) {
       resolve(false);
       return;
@@ -1504,6 +1505,7 @@ const showBulkConfirm = (message, options) => {
       closeModalById("bulkConfirmModal");
       okBtn.removeEventListener("click", onOk);
       canBtn.removeEventListener("click", onCancel);
+      if (closeBtn) closeBtn.removeEventListener("click", onCancel);
       resolve(result);
     }
     function onOk() {
@@ -1515,6 +1517,7 @@ const showBulkConfirm = (message, options) => {
 
     okBtn.addEventListener("click", onOk);
     canBtn.addEventListener("click", onCancel);
+    if (closeBtn) closeBtn.addEventListener("click", onCancel);
     openModalById("bulkConfirmModal", onCancel);
     (opts.danger ? canBtn : okBtn).focus();
   });

@@ -21,7 +21,7 @@ export default defineConfig({
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"], deviceScaleFactor: 2 } }],
   webServer: {
-    command: `python3 -m http.server ${PORT}`,
+    command: `python3 devops/testing/static-server.py ${PORT}`,
     cwd: "../..",
     url: `http://localhost:${PORT}`,
     reuseExistingServer: false,

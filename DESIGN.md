@@ -166,7 +166,11 @@ components:
   modal:
     backgroundColor: "{colors.card}"
     rounded: "{rounded.lg}"
+    padding: "0"
+  modal-header:
     padding: "{spacing.xl}"
+  modal-title:
+    typography: "{typography.headline}"
 ---
 
 <!-- The DESIGN.md format requires the bold North Star line and the "Do:" / "Don't:" headings. -->
@@ -337,9 +341,8 @@ Each theme sets its own shadow opacity in `css/styles.css`.
 **The Flat Page Rule.** Surfaces on the page are flat at rest. A shadow appears only for a layer above the
 page or as a hover response.
 
-**The No Glass Rule.** The frosted-glass treatment (`backdrop-filter` blur on `.modal`, `.modal-content`
-and the image badge overlay) is debt, not identity. New work does not add glass. Surface passes may remove
-it.
+**The No Glass Rule.** No surface uses `backdrop-filter` blur. A modal sits on the opaque
+`--modal-overlay` token over a solid card, and image badges use solid fills.
 
 ## Motion
 
@@ -392,6 +395,30 @@ Borders are 1px on surfaces and 2px on form fields.
 - **Style:** 2px border token, 8px radius, page background, 0.75rem padding.
 - **Focus:** the border shifts to the primary token with a soft ring.
 - **Error / Disabled:** status uses the danger tokens; disabled controls dim with muted text.
+
+### Modal Shell
+
+Every `.modal` uses one shell, defined in the MODAL SHELL section of `css/styles.css`. The Market detail
+modal (`#marketDetailModal`) keeps its own overlay and panel classes. The details modal keeps its own
+header layout, with a title in the same type.
+
+- **Panel:** `.modal-shell` on the content element: card token, 1px border, 12px radius, `--shadow-modal`,
+  no padding of its own. Size classes set the width: `.modal-shell--sm` 30rem for confirms and short
+  prompts, `--md` 42rem for forms, `--lg` 72rem for tables and editors.
+- **Overlay:** `.modal` fills the screen with `--modal-overlay`, an opaque black at 0.45 in light and sepia
+  and 0.6 in dark and slate.
+- **Header:** `.modal-shell-header` holds the `.modal-shell-title` and the close button, with a 1px rule
+  below. A subtitle sits with the title in `.modal-shell-heading`.
+- **Title:** Instrument Serif 400 at 1.25rem, left aligned. Titles are never bold.
+- **Close:** `.modal-shell-close` is a 44px square button with a 20px SVG cross from
+  `buildModalCloseIcon()`. It takes the tertiary surface on hover and the focus ring on keyboard focus.
+- **Body and footer:** `.modal-shell-body` scrolls and pads at 1.5rem. `.modal-shell-footer` aligns its
+  buttons to the right above a 1px rule and hides when empty. Footer buttons are 44px tall; Cancel and
+  other secondary actions are outlined.
+- **Phone:** below 768px the shell becomes a bottom sheet at full width, up to 92% of the viewport
+  height, with rounded top corners only.
+
+The approved mockup is `playground/STRK-538-modal-shell.html`.
 
 ### Navigation
 

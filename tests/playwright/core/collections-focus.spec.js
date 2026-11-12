@@ -120,6 +120,9 @@ test.describe("core/collections — keyboard focus", () => {
     await openAlbumByKeyboard(page);
     const heading = page.locator(".collections-album-info h2");
     await expect(heading).toBeFocused();
+    // A background refresh re-renders the Album; the heading keeps focus.
+    await page.evaluate(() => window.collectionsUI.render());
+    await expect(heading).toBeFocused();
     await backByKeyboard(page);
     await expectCardRestored(page);
 

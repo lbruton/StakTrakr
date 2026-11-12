@@ -37,7 +37,7 @@ export default defineConfig({
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
-    command: `python3 -m http.server ${PORT}`,
+    command: `python3 devops/testing/static-server.py ${PORT}`,
     url: `http://localhost:${PORT}`,
     // Safe to reuse this worktree's own server across local runs (faster iteration);
     // the per-worktree port means an "existing" server can only ever be our own, never

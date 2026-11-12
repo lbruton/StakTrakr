@@ -272,6 +272,25 @@ test.describe("core/ratios-panel — chip → modal host", () => {
     await expect(chip).toBeFocused();
   });
 
+  test("a panel taller than the window scrolls inside the modal body", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 420 });
+    await page.locator('.spot-card[data-metal="silver"] .spot-ratio-chip').click();
+    await expect(page.locator(`${MODAL} .gsr-panel`)).toBeVisible();
+    const box = await page.evaluate(() => {
+      const mount = document.getElementById("ratiosPanelMount");
+      mount.scrollTop = mount.scrollHeight;
+      const dialog = mount.closest(".modal-content").getBoundingClientRect();
+      const last = mount.querySelector(".gsr-panel").lastElementChild.getBoundingClientRect();
+      return {
+        scrolled: mount.scrollTop > 0,
+        lastBottom: last.bottom,
+        dialogBottom: dialog.bottom,
+      };
+    });
+    expect(box.scrolled).toBe(true);
+    expect(box.lastBottom).toBeLessThanOrEqual(box.dialogBottom + 1);
+  });
+
   test("Space activates a focused chip without scrolling the page", async ({ page }) => {
     const chip = page.locator('.spot-card[data-metal="silver"] .spot-ratio-chip');
     await chip.focus();

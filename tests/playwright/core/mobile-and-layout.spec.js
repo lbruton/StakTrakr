@@ -1676,12 +1676,14 @@ test.describe("Dashboard at phone width", () => {
     await gotoDesktopDashboard(page);
     await expect(page.locator(".spot-card-timestamp").first()).toBeVisible();
     // A latest spot entry of each source: the sync label, a manual price and a seed price
-    // dated after the last sync, each written by updateSpotTimestamp.
+    // dated after the last sync, each written by updateSpotTimestamp. The manual time is a
+    // fixed local evening time so the label is as wide in every time zone and at every hour.
     const setSource = (source, label) =>
       page.evaluate(
         ([src, text]) => {
           const names = ["Silver", "Gold", "Platinum", "Palladium", "Copper"];
-          const timestamp = src === "seed" ? "2099-01-01T12:00:00Z" : new Date().toISOString();
+          const timestamp =
+            src === "seed" ? "2099-01-01T12:00:00Z" : new Date(2098, 11, 28, 20, 48).toISOString();
           if (src)
             names.forEach((metal) => spotHistory.push({ metal, spot: 1, source: src, timestamp }));
           names.forEach((metal) => updateSpotTimestamp(metal));
@@ -1970,10 +1972,13 @@ test.describe("Phone floors in Collections, Item modals and Settings", () => {
         gapBelowBody: Math.round(
           el.getBoundingClientRect().bottom - body.getBoundingClientRect().bottom
         ),
+        sheetBottom: Math.round(el.getBoundingClientRect().bottom),
       };
     });
-    expect(layout.bodyScrolls).toBe(false);
-    expect(layout.contentScrolls).toBe(true);
+    // The shell pins its header, so the body is the one scroll surface.
+    expect(layout.bodyScrolls).toBe(true);
+    expect(layout.contentScrolls).toBe(false);
     expect(layout.gapBelowBody).toBeLessThanOrEqual(48);
+    expect(layout.sheetBottom).toBe(844);
   });
 });

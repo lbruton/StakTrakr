@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.145] - 2026-11-12
+
+### Changed — STRK-538: One modal shell
+
+- **Modal shell**: Every modal except Market details uses one shell: a header with an Instrument Serif title at weight 400, a 44px close button with an SVG cross, a scrolling body and a right-aligned footer. Size classes set three widths: small for confirms, medium for forms and large for tables (STRK-538).
+- **No glass**: Modals drop the frosted-glass blur. The overlay uses the new opaque `--modal-overlay` token over a solid card, and the image badge drops its blur (STRK-538).
+- **Phone sheet**: Below 768px a modal opens as a bottom sheet at full width with rounded top corners. The Item view stays full height (STRK-538).
+- **Album focus**: An open Album keeps focus on its heading when a background refresh redraws it (STRK-538).
+- **Test server**: The Playwright suites start `devops/testing/static-server.py`, whose larger listen backlog stops connection resets when several pages boot at once (STRK-538).
+- **Segment corner reads**: The segmented-toggle corner helper finds and measures its groups in one page evaluation, so a background re-render cannot leave it reading detached nodes (STRK-538).
+- **Spot card times wrap**: A manual entry time wraps inside a narrow spot card instead of ending in an ellipsis. The layout test uses a fixed evening time, so its label width does not depend on the time zone or the hour (STRK-538).
+
+---
+
 ## [3.36.144] - 2026-11-09
 
 ### Changed — STRK-518: Market detail modal polish

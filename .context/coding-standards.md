@@ -925,7 +925,7 @@ chartInstances.heroChart = new Chart(canvas, config);
 Bootstrap's JavaScript library is not loaded: there is no `bootstrap` global, CDN tag, or
 `data-bs-*` behavior in the app. Do not introduce Bootstrap APIs or attributes. A few
 historical CSS class names remain, but current modal behavior uses `openModalById()`,
-`closeModalById()`, and `.modal-close`; see `.context/reusable-patterns.md`.
+`closeModalById()`, and `.modal-shell-close`; see `.context/reusable-patterns.md`.
 
 ### PapaParse (CSV)
 
@@ -1077,29 +1077,40 @@ Related settings wrap in a `.settings-fieldset` card with a `.settings-fieldset-
 
 ### Modal structure
 
-A modal is a `.modal` overlay holding one `.modal-content` panel. Header, body and footer use the
-`.modal-header`, `.modal-body` and `.modal-footer` classes; each modal styles them under its own id.
-The close control is `.modal-close`. Open and close go through `openModalById()` and
-`closeModalById()`, and a Chart.js instance inside a modal is destroyed on close.
+A modal is a `.modal` overlay holding one shell panel: `.modal-content.modal-shell` plus a size class
+(`--sm`, `--md` or `--lg`). Header, title, close, body and footer use the `.modal-shell-*` classes, and
+`DESIGN.md` (Modal Shell) holds their look. The close control is `.modal-shell-close` with the SVG glyph;
+a modal built in JavaScript appends `buildModalCloseIcon()`. Open and close go through `openModalById()`
+and `closeModalById()`, and a Chart.js instance inside a modal is destroyed on close.
 
 ```html
 <div class="modal" id="myModal">
-  <div class="modal-content">
-    <div class="modal-header">
-      <h2>Title</h2>
-      <button class="modal-close" id="myCloseBtn" type="button">&times;</button>
+  <div class="modal-content modal-shell modal-shell--md">
+    <div class="modal-header modal-shell-header">
+      <h2 class="modal-shell-title">Title</h2>
+      <button class="modal-shell-close" id="myCloseBtn" type="button" aria-label="Close">
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          aria-hidden="true"
+        >
+          <path d="M6 6l12 12M18 6L6 18" />
+        </svg>
+      </button>
     </div>
-    <div class="modal-body">...</div>
-    <div class="modal-footer">
-      <button class="btn secondary btn-sm">Cancel</button>
-      <button class="btn btn-sm">Save</button>
+    <div class="modal-body modal-shell-body">...</div>
+    <div class="modal-footer modal-shell-footer">
+      <button class="btn secondary">Cancel</button>
+      <button class="btn">Save</button>
     </div>
   </div>
 </div>
 ```
 
-The frosted-glass blur on `.modal` and `.modal-content` is recorded as debt in `DESIGN.md`. New modals do
-not add glass or inline layout styles.
+A modal adds no `backdrop-filter`, no inline width and no header or title rules under its own id.
 
 ### Theme compatibility
 
@@ -1138,7 +1149,7 @@ The token set, its values and its roles live in `DESIGN.md`. Each theme defines 
 | `==` or `!=` (non-null checks)                              | Type coercion produces surprising results                                                                                   | `===` / `!==` everywhere; use `== null` only for nullish checks                                                        |
 | `.then().catch()` chains                                    | Hard to read; error handling gaps                                                                                           | `async/await` with `try/catch`                                                                                         |
 | `element.className = "..."`                                 | Overwrites all existing classes                                                                                             | `element.classList.add/remove/toggle()`                                                                                |
-| Any `bootstrap.*` JavaScript API or `data-bs-*` attribute   | No `bootstrap` global is loaded: the call throws or the attribute silently does nothing                                     | Use `openModalById()` / `closeModalById()` / `.modal-close`                                                            |
+| Any `bootstrap.*` JavaScript API or `data-bs-*` attribute   | No `bootstrap` global is loaded: the call throws or the attribute silently does nothing                                     | Use `openModalById()` / `closeModalById()` / `.modal-shell-close`                                                      |
 | Nested ternaries (3+ levels)                                | Unreadable, error-prone                                                                                                     | `if/else` or extract a named helper                                                                                    |
 | Magic numbers in logic                                      | Context-free, breaks on next change                                                                                         | Named constant in `constants.js`                                                                                       |
 | `catch (e) {}` with no logging                              | Silent failure, impossible to debug                                                                                         | Log with `[module]` prefix + apply fallback                                                                            |

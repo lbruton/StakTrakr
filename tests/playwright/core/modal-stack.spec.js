@@ -3,7 +3,7 @@ import { suppressWhatsNewPopup } from "../helpers/seed.js";
 
 // The open-modal stack: Escape closes only the top modal, focus moves into a modal on open,
 // stays inside on Tab and returns to the opener on close, and the body scroll lock holds
-// until the last modal closes.
+// until the last modal closes. Every modal shares one shell: header, title, close and footer.
 
 const OPENER_ID = "modalStackTestOpener";
 
@@ -249,7 +249,7 @@ test.describe("modal stack", () => {
     await page.evaluate(() => showDebugModal());
     await expect(page.locator("#debugModal")).toBeVisible();
 
-    await page.locator("#debugModal .modal-close").first().click();
+    await page.locator("#debugModal .modal-shell-close").first().click();
     await expect(page.locator("#debugModal")).toBeHidden();
     expect(await bodyOverflow(page), "Settings is still open").toBe("hidden");
 
@@ -257,5 +257,82 @@ test.describe("modal stack", () => {
     await expect(page.locator("#settingsModal")).toBeHidden();
     expect(await bodyOverflow(page)).toBe("");
     await expect.poll(() => activeId(page)).toBe(OPENER_ID);
+  });
+
+  test("every modal uses the one shell: opaque, serif 400 title, 44px close, phone sheet", async ({
+    page,
+  }) => {
+    await suppressWhatsNewPopup(page);
+    await page.goto("/index.html");
+    await page.addStyleTag({
+      content:
+        "*, *::before, *::after { transition: none !important; animation: none !important; }",
+    });
+    await page.evaluate(() => {
+      showAppAlert("Shell check", "Notice");
+      window.collectionsPicker.openBuilder();
+    });
+    await expect(page.locator("#appDialogModal")).toBeVisible();
+    await expect(page.locator("#collectionsBuilderModal")).toBeVisible();
+
+    const readShellBreaks = (theme) =>
+      page.evaluate((name) => {
+        document.documentElement.setAttribute("data-theme", name);
+        const breaks = [];
+        document.querySelectorAll(".modal[id]").forEach((modal) => {
+          const shown = modal.style.display;
+          modal.style.display = "flex";
+          const shell = modal.querySelector(":scope > .modal-shell");
+          const close = modal.querySelector(".modal-shell-close");
+          // The details modal keeps its own header layout; its title gets the same font checks.
+          const ownTitle = { detailsModal: "#detailsModalTitle" }[modal.id];
+          const title = modal.querySelector(ownTitle || ".modal-shell-header .modal-shell-title");
+          const layers = [modal, shell].filter(Boolean);
+          if (!shell || !/\bmodal-shell--(sm|md|lg)\b/.test(shell.className))
+            breaks.push(`${modal.id}: no sized shell`);
+          if (layers.some((el) => getComputedStyle(el).backdropFilter !== "none"))
+            breaks.push(`${modal.id}: backdrop-filter`);
+          if (
+            shell &&
+            !/^(rgb|oklch|color)\((?!.*\/ 0?\.)/.test(getComputedStyle(shell).backgroundColor)
+          )
+            breaks.push(
+              `${modal.id}: translucent surface ${getComputedStyle(shell).backgroundColor}`
+            );
+          if (!close) breaks.push(`${modal.id}: no close`);
+          if (!title) breaks.push(`${modal.id}: no shell title`);
+          if (close) {
+            const box = close.getBoundingClientRect();
+            if (
+              Math.round(box.width) !== 44 ||
+              Math.round(box.height) !== 44 ||
+              !close.querySelector("svg")
+            )
+              breaks.push(`${modal.id}: close ${box.width}x${box.height}`);
+          }
+          if (title) {
+            const cs = getComputedStyle(title);
+            if (cs.fontWeight !== "400" || !cs.fontFamily.includes("Instrument Serif"))
+              breaks.push(`${modal.id}: title ${cs.fontWeight} ${cs.fontFamily}`);
+          }
+          modal.style.display = shown;
+        });
+        return breaks;
+      }, theme);
+
+    for (const theme of ["light", "dark", "slate", "sepia"]) {
+      expect(await readShellBreaks(theme), theme).toEqual([]);
+    }
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const shell = document.querySelector("#appDialogModal .modal-shell");
+          const box = shell.getBoundingClientRect();
+          return { left: box.left, right: Math.round(box.right), bottom: Math.round(box.bottom) };
+        })
+      )
+      .toEqual({ left: 0, right: 390, bottom: 844 });
   });
 });

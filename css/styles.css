@@ -136,6 +136,7 @@
   --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.15), 0 4px 6px -4px rgb(0 0 0 / 0.1);
   /* Dialog layer: the dimmed page behind a modal and the modal's own lift. */
   --scrim: rgb(0 0 0 / 0.6);
+  --modal-overlay: rgb(0 0 0 / 0.45);
   --shadow-modal: 0 25px 50px -12px rgb(0 0 0 / 0.5);
   --back-to-top-bg: var(--surface);
   --back-to-top-border: var(--border);
@@ -262,6 +263,7 @@
    Hue 85° (warm amber), chroma 0.005–0.015 for subtle warmth
    ============================================================================= */
 [data-theme="dark"] {
+  --modal-overlay: rgb(0 0 0 / 0.6);
   /* Primary Colors - Metallic Dark (warm gold accent — STRK-39) */
   --primary: oklch(0.72 0.16 75);
   --primary-hover: oklch(0.64 0.18 75);
@@ -430,6 +432,7 @@
    SLATE THEME — Original Tailwind Slate dark palette (preserved as 4th option)
    ============================================================================= */
 [data-theme="slate"] {
+  --modal-overlay: rgb(0 0 0 / 0.6);
   /* Primary Colors - Slate */
   --primary: #3b82f6;
   --primary-hover: #2563eb;
@@ -1723,27 +1726,6 @@ section {
   min-height: 3.5rem;
 }
 
-/* --- Pill-style buttons for all modal footers ---------------------------- */
-.modal-footer .btn {
-  border-radius: var(--radius-pill);
-  padding: 0.4rem 1rem;
-  font-size: var(--font-size-base);
-  font-weight: 700;
-}
-.modal-footer .btn.secondary {
-  background: var(--glass-input-bg, rgba(0, 0, 0, 0.04));
-  border: 1px solid var(--glass-input-border, var(--border));
-  color: var(--text-primary);
-}
-.modal-footer .btn.secondary:hover {
-  background: var(--glass-input-focus-bg, rgba(0, 0, 0, 0.07));
-  border-color: var(--primary);
-  color: var(--text-primary);
-}
-.modal-footer .btn.danger {
-  border: 1px solid var(--danger);
-}
-
 /* STRK-443: the one optional checkbox a shared app prompt can carry (image options). The row is
    a 44px-tall label so the whole line is the touch target. Theme tokens only. */
 .app-dialog-option {
@@ -2853,9 +2835,9 @@ input[type="submit"] {
   font-weight: 400;
   line-height: 1.2;
   padding: 0 var(--spacing) var(--spacing);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  /* A manual entry time is wider than a narrow card; wrap it rather than cut it. */
+  text-wrap: balance;
+  overflow-wrap: anywhere;
 }
 
 /* Inline edit input (shift+click on price) */
@@ -3455,10 +3437,6 @@ input[type="submit"] {
   overflow: hidden;
 }
 
-#apiHistoryModal .modal-content::before {
-  display: none;
-}
-
 /* Storage report options modal */
 #storageOptionsModal .modal-content {
   max-width: 400px;
@@ -3471,21 +3449,6 @@ input[type="submit"] {
 }
 #storageOptionsModal .options-buttons .btn {
   flex: 1;
-}
-
-#apiHistoryModal .modal-header {
-  background: linear-gradient(135deg, var(--primary-fill), var(--primary-fill-hover));
-  color: var(--on-primary);
-  padding: var(--spacing-xl);
-  position: relative;
-  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-  box-shadow: var(--shadow);
-}
-
-#apiHistoryModal .modal-header h2 {
-  margin: 0;
-  color: var(--on-primary);
-  text-align: center;
 }
 
 #apiHistoryModal .modal-body {
@@ -3595,25 +3558,6 @@ input[type="submit"] {
   flex-direction: column;
   padding: 0;
   overflow: hidden;
-}
-
-/* Hide base modal gradient line — settings header has its own */
-.modal-content.settings-modal-content::before {
-  display: none;
-}
-
-.settings-modal-content > .modal-header {
-  background: transparent;
-  border-bottom: 1px solid var(--border);
-  padding: var(--spacing) var(--spacing-xl);
-  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-  flex-shrink: 0;
-}
-
-.settings-modal-content > .modal-header h2 {
-  margin: 0;
-  font-size: var(--font-size-xl);
-  color: var(--text-primary);
 }
 
 /* Sidebar + content layout */
@@ -6358,42 +6302,11 @@ input.spot-lookup-flash {
   max-height: 80vh;
 }
 
-/* Flat panel-pattern modal headers (STRK-25): replaces the blue brand gradient
-   that read as generic/digital with a metallic-flat surface. Bg + border read
-   from tokens so all 4 themes resolve correctly (warm gunmetal in dark,
-   slate-blue in slate, light surface in light, paper in sepia). */
-#changeLogModal .modal-header,
-#storageReportModal .modal-header,
-#itemModal .modal-header {
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  padding: var(--spacing-xl);
-  position: relative;
-  border-bottom: 1px solid var(--border);
-  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-  box-shadow: var(--shadow);
-}
-
-#changeLogModal .modal-header h2,
-#storageReportModal .modal-header h2,
-#itemModal .modal-header h2 {
-  margin: 0;
-  color: var(--text-primary);
-  text-align: center;
-}
-
 #changeLogModal .modal-body,
 #itemModal .modal-body {
   padding: var(--spacing);
   overflow: auto;
   flex: 1;
-}
-
-#changeLogModal .modal-footer {
-  padding: var(--spacing);
-  border-top: 1px solid var(--border);
-  display: flex;
-  justify-content: flex-end;
 }
 
 #changeLogClearBtn {
@@ -7541,79 +7454,228 @@ td input:checked + .slider:before {
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: var(--modal-overlay);
   display: flex;
   justify-content: center;
   align-items: center;
   z-index: 9999;
   padding: var(--spacing);
-  animation: modalFadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: modalFadeIn 0.2s ease-out;
 }
 
 @keyframes modalFadeIn {
   from {
     opacity: 0;
-    backdrop-filter: blur(0px);
-    -webkit-backdrop-filter: blur(0px);
   }
   to {
     opacity: 1;
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
   }
 }
 
-.modal-content {
-  background: rgba(248, 250, 252, 0.95);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(248, 250, 252, 0.2);
-  border-radius: var(--radius-lg);
-  padding: var(--spacing-xl);
-  max-width: 1200px;
-  width: 100%;
-  max-height: 90vh;
-  overflow-y: auto;
-  box-shadow:
-    0 25px 50px -12px rgba(0, 0, 0, 0.25),
-    0 0 0 1px rgba(248, 250, 252, 0.05),
-    inset 0 1px 0 rgba(248, 250, 252, 0.1);
-  animation: modalSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+/* =============================================================================
+   MODAL SHELL — one frame for every modal: header, scrolling body, footer.
+   Opaque surface on an opaque overlay; DESIGN.md "Modal shell" holds the contract.
+   The .modal prefix outranks single-class rules that share an element.
+   ============================================================================= */
+
+.modal-shell {
   position: relative;
-}
-
-/* STRK-25: split — was :is(dark, slate) hardcoding Slate-blue rgba into BOTH
-   themes, defeating the new metallic dark palette. Dark now reads tokens; slate
-   keeps the original Tailwind Slate values. */
-[data-theme="dark"] .modal-content {
-  background: color-mix(in oklch, var(--bg-card), transparent 5%);
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 72rem;
+  max-height: 90vh;
+  padding: 0;
+  overflow: hidden;
+  background: var(--bg-card);
+  color: var(--text-primary);
   border: 1px solid var(--border);
-  box-shadow:
-    0 25px 50px -12px rgba(0, 0, 0, 0.5),
-    0 0 0 1px color-mix(in oklch, var(--border), transparent 75%),
-    inset 0 1px 0 color-mix(in oklch, var(--text-primary), transparent 90%);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-modal);
+  animation: modalSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-[data-theme="slate"] .modal-content {
-  background: rgba(30, 41, 59, 0.95);
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  box-shadow:
-    0 25px 50px -12px rgba(0, 0, 0, 0.5),
-    0 0 0 1px rgba(148, 163, 184, 0.05),
-    inset 0 1px 0 rgba(148, 163, 184, 0.1);
+.modal-shell--sm {
+  max-width: 30rem;
 }
 
-.modal-content::before {
+.modal-shell--md {
+  max-width: 42rem;
+}
+
+.modal-shell--lg {
+  max-width: 72rem;
+}
+
+.modal .modal-shell-header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing);
+  flex: none;
+  margin: 0;
+  padding: var(--spacing) var(--spacing) var(--spacing) var(--spacing-xl);
+  background: transparent;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.modal .modal-shell-heading {
+  flex: 1;
+  min-width: 0;
+}
+
+.modal .modal-shell-title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-family: var(--font-heading);
+  font-weight: 400;
+  font-size: 1.25rem;
+  line-height: 1.3;
+  letter-spacing: normal;
+  color: var(--text-primary);
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.modal .modal-shell-close {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin: 0;
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: var(--radius);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.modal .modal-shell-close svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Hit-testing follows the rounded corners, so a square pseudo keeps the whole 44px box tappable. */
+.modal .modal-shell-close::after {
   content: "";
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, var(--primary), transparent);
-  opacity: 0.6;
+  inset: 0;
+}
+
+.modal .modal-shell-close:hover {
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+}
+
+.modal .modal-shell-close:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+  color: var(--text-primary);
+}
+
+.modal .modal-shell-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--spacing-xl);
+}
+
+.modal .modal-shell-footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--spacing-sm);
+  flex: none;
+  margin: 0;
+  padding: var(--spacing) var(--spacing-xl);
+  border-top: 1px solid var(--border);
+}
+
+.modal .modal-shell-footer:empty {
+  display: none;
+}
+
+.modal .modal-shell-footer .modal-shell-aside {
+  margin-right: auto;
+}
+
+.modal .modal-shell-footer .btn {
+  min-height: 2.75rem;
+  padding: 0 var(--spacing-xl);
+  border-radius: var(--radius);
+  font-weight: 500;
+  font-size: var(--font-size-base);
+}
+
+.modal .modal-shell-footer .btn::before {
+  display: none;
+}
+
+.modal .modal-shell-footer .btn.secondary,
+.modal .modal-shell-footer .btn.modal-shell-cancel {
+  background: transparent;
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+}
+
+.modal .modal-shell-footer .btn.secondary:hover,
+.modal .modal-shell-footer .btn.modal-shell-cancel:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--border-hover, var(--border));
+}
+
+/* Below 768px every shell is a bottom sheet that sizes to its content. Per-modal desktop
+   widths use ID selectors, so the sheet width needs !important to win. */
+@media (max-width: 767px) {
+  .modal {
+    padding: 0;
+    align-items: flex-end;
+  }
+
+  .modal .modal-shell {
+    width: 100% !important;
+    max-width: none !important;
+    height: auto;
+    max-height: 92vh;
+    max-height: 92dvh;
+    margin: 0;
+    border-bottom: 0;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    animation: none;
+  }
+
+  .modal .modal-shell-header {
+    padding-left: var(--spacing);
+  }
+
+  .modal .modal-shell-body {
+    padding: var(--spacing);
+    font-size: 16px;
+  }
+
+  .modal .modal-shell-footer {
+    padding: var(--spacing);
+    padding-bottom: calc(var(--spacing) + env(safe-area-inset-bottom, 0px));
+  }
+
+  .modal .modal-shell-footer .btn {
+    flex: 1;
+    min-height: 44px;
+    padding: 0 var(--spacing);
+  }
+
+  .modal .modal-shell-footer .modal-shell-aside {
+    flex: 0 0 auto;
+    margin-right: 0;
+  }
 }
 
 /* =============================================================================
@@ -7623,15 +7685,6 @@ td input:checked + .slider:before {
    Images displayed on a subtle dark field (coin presentation aesthetic).
    Sections separated by faint gradient dividers.
    ============================================================================= */
-
-[data-theme="sepia"] .modal-content {
-  background: rgba(232, 220, 197, 0.95); /* Matches new --bg-card #e8dcc5 */
-  border: 1px solid rgba(139, 69, 19, 0.2);
-  box-shadow:
-    0 25px 50px -12px rgba(62, 47, 30, 0.25),
-    0 0 0 1px rgba(139, 69, 19, 0.05),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-}
 
 /* --- Modal content shell --- */
 #viewItemModal .modal-content {
@@ -7644,49 +7697,15 @@ td input:checked + .slider:before {
   max-height: 90vh;
 }
 
-/* --- Header — flat, theme-aware (matches edit modal pattern) --- */
+/* --- Header: the shell header stacks the title row over the badges row --- */
 #viewItemModal .modal-header {
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  padding: var(--spacing-lg) var(--spacing-xl) var(--spacing-sm);
-  position: relative;
-  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-  border-bottom: 1px solid var(--border);
-  box-shadow: none;
-  display: flex;
   flex-direction: column;
+  align-items: stretch;
   gap: 2px;
-}
-
-/* Close X button — top-right corner */
-.view-modal-close {
-  position: absolute;
-  top: 6px;
-  right: 10px;
-  background: none;
-  border: none;
-  color: var(--text-secondary);
-  font-size: var(--font-size-xl);
-  line-height: 1;
-  cursor: pointer;
-  padding: 2px 6px;
-  border-radius: var(--radius);
-  transition:
-    color 0.15s ease,
-    background 0.15s ease;
-  z-index: 1;
-}
-
-.view-modal-close:hover {
-  color: var(--text-primary);
-  background: var(--bg-tertiary);
+  padding-bottom: var(--spacing-sm);
 }
 
 #viewItemModal .modal-header h2 {
-  margin: 0;
-  color: var(--text-primary);
-  font-size: var(--font-size-xl);
-  font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -7722,11 +7741,11 @@ td input:checked + .slider:before {
 }
 
 /* The close (X) takes the header's contrast pick; a theme surface hover would hide it. */
-#viewItemModal[data-metal] .view-modal-close {
+#viewItemModal[data-metal] .modal-shell-close {
   color: inherit;
 }
 
-#viewItemModal[data-metal] .view-modal-close:hover {
+#viewItemModal[data-metal] .modal-shell-close:hover {
   color: inherit;
   background: color-mix(in srgb, currentColor 15%, transparent);
 }
@@ -7746,13 +7765,12 @@ td input:checked + .slider:before {
   );
 }
 
-/* Title row — title left, padded so text can't run under the absolute-pos close (X) */
+/* Title row — title left, close (X) right */
 .view-header-title-row {
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
   min-width: 0;
-  padding-right: 32px;
 }
 
 /* Badges row — catalog ID + count chip */
@@ -7920,7 +7938,6 @@ td input:checked + .slider:before {
   background: var(--bg-card);
   color: var(--text-primary);
   border: 1px solid var(--border);
-  backdrop-filter: blur(4px);
   line-height: 1.2;
   white-space: nowrap;
 }
@@ -8316,14 +8333,9 @@ td input:checked + .slider:before {
   }
 
   #viewItemModal .modal-header {
-    border-radius: 0;
-    padding: var(--spacing-sm) var(--spacing);
-    flex-wrap: wrap;
-  }
-
-  #viewItemModal .modal-header h2 {
-    font-size: var(--font-size-lg);
-    line-height: 1.3;
+    padding-top: max(var(--spacing-sm), env(safe-area-inset-top));
+    padding-left: max(var(--spacing), env(safe-area-inset-left));
+    padding-right: max(var(--spacing-sm), env(safe-area-inset-right));
   }
 
   .view-header-actions button {
@@ -8472,36 +8484,6 @@ td input:checked + .slider:before {
 
 .about-title #aboutVersion {
   color: var(--text-secondary);
-}
-
-.modal-close {
-  position: absolute;
-  top: var(--spacing);
-  right: var(--spacing);
-  background: none;
-  border: none;
-  font-size: var(--font-size-2xl);
-  color: var(--text-secondary);
-  cursor: pointer;
-  padding: var(--spacing-sm);
-  border-radius: var(--radius);
-  transition: var(--transition);
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.modal-close:hover {
-  color: var(--text-primary);
-  background: var(--bg-primary);
-}
-
-/* On a primary-gradient header the resting glyph takes the fill label; hover keeps the rule above. */
-#apiHistoryModal .modal-header .modal-close:not(:hover),
-.bulk-edit-content .modal-header .modal-close:not(:hover) {
-  color: var(--on-primary);
 }
 
 .about-modal-body {
@@ -9012,18 +8994,10 @@ a.about-badge:hover {
   justify-content: flex-end;
   margin: calc(var(--spacing-sm) * -1) calc(var(--spacing-sm) * -1) 0 0;
 }
-.dm-topbar .modal-close {
-  position: static;
-}
 /* STRK-359: initial focus parks on the container (tabindex="-1") — no ring
    there; the close button keeps a themed ring under KEYBOARD focus only */
 #detailsModal .modal-content:focus {
   outline: none;
-}
-.dm-topbar .modal-close:focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: 1px;
-  color: var(--text-primary);
 }
 .dm-header {
   display: flex;
@@ -9609,10 +9583,6 @@ table.dm-ledger {
   #detailsModal .dm-series-chip,
   #detailsModal .dm-link {
     min-height: 44px;
-  }
-  #detailsModal .modal-close {
-    min-height: 44px;
-    min-width: 44px;
   }
   #detailsModal .dm-ledger tbody tr {
     /* table rows treat height as a minimum — guarantees the touch target */
@@ -10786,11 +10756,6 @@ input:disabled + .slider {
     font-size: var(--font-size-2xl);
   }
 
-  .modal-content {
-    margin: 0.25rem;
-    padding: 0.6rem;
-  }
-
   .spot-input {
     padding: var(--spacing);
   }
@@ -11898,30 +11863,6 @@ th {
    Scoped to #itemModal / #inventoryForm so other modals are unaffected.
    Translates Stitch V3 "Refined Bottom Sheet" prototype into theme-aware CSS.
    ============================================================================= */
-
-/* --- Modernized modal header — replace bright blue gradient -------------- */
-#itemModal .modal-header {
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  padding: var(--spacing) var(--spacing-xl);
-  border-bottom: 1px solid var(--border);
-  box-shadow: none;
-}
-
-#itemModal .modal-header h2 {
-  color: var(--text-primary);
-  font-size: var(--font-size-lg);
-  font-weight: 700;
-  letter-spacing: 0.02em;
-}
-
-#itemModal .modal-close {
-  color: var(--text-secondary);
-}
-
-#itemModal .modal-close:hover {
-  color: var(--text-primary);
-}
 
 /* --- Glass-style form inputs --------------------------------------------
    Shared by the Add Item form and the Custom Collection builder (STRK-421): the builder
@@ -14899,20 +14840,6 @@ th {
   animation: none;
 }
 
-.bulk-edit-content .modal-header {
-  background: linear-gradient(135deg, var(--primary-fill), var(--primary-fill-hover));
-  color: var(--on-primary);
-  padding: var(--spacing) var(--spacing-xl);
-  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-  flex-shrink: 0;
-}
-
-.bulk-edit-content .modal-header h2 {
-  margin: 0;
-  color: var(--on-primary);
-  text-align: center;
-}
-
 .bulk-edit-body {
   display: flex;
   gap: 1.5rem;
@@ -15582,29 +15509,8 @@ th {
    Full-screen modals, touch-sized inputs, hidden charts, landscape card view.
    ============================================================================= */
 
-/* --- Phase 1: Full-screen modal base ------------------------------------ */
+/* --- Phase 1: Full-screen about page; modals use the shell sheet ---------- */
 @media (max-width: 768px) {
-  .modal {
-    padding: 0;
-  }
-
-  .modal-content {
-    width: 100vw !important;
-    max-width: 100vw !important;
-    height: 100vh;
-    height: 100dvh;
-    max-height: 100vh;
-    max-height: 100dvh;
-    margin: 0;
-    border-radius: 0;
-    animation: none;
-  }
-
-  /* Specificity overrides for modals that set their own width */
-  .modal-content.settings-modal-content,
-  #itemModal .modal-content,
-  #detailsModal .modal-content,
-  .bulk-edit-content,
   .about-modal-content {
     width: 100vw !important;
     max-width: 100vw !important;
@@ -15616,48 +15522,8 @@ th {
     border-radius: 0;
   }
 
-  /* Remove header border-radius on fullscreen modals */
-  .modal-content .modal-header,
-  .about-modal-header,
-  .bulk-edit-content .modal-header {
+  .about-modal-header {
     border-radius: 0;
-  }
-
-  /* STAK-578: clear iOS notch / status bar / landscape side-notch on
-     in-scope fullscreen modal headers. Static fallbacks are PER-MODAL so
-     non-notched devices keep their existing padding exactly (R5.2):
-     - #itemModal top: inherits desktop var(--spacing); left/right inherits
-       desktop var(--spacing-xl) (see line 9152-9158).
-     - #viewItemModal top: overrides to var(--spacing-sm) in its own mobile
-       rule (line 6057-6060); left/right matches that rule's var(--spacing).
-     Footers/action-bars cover all three axes since commit 7def3d3f; headers
-     now match. */
-  #itemModal .modal-content .modal-header {
-    padding-top: max(var(--spacing), env(safe-area-inset-top));
-    padding-left: max(var(--spacing-xl), env(safe-area-inset-left));
-    padding-right: max(var(--spacing-xl), env(safe-area-inset-right));
-  }
-  #viewItemModal .modal-header {
-    padding-top: max(var(--spacing-sm), env(safe-area-inset-top));
-    padding-left: max(var(--spacing), env(safe-area-inset-left));
-    padding-right: max(var(--spacing), env(safe-area-inset-right));
-  }
-
-  .modal-content::before {
-    border-radius: 0;
-  }
-
-  /* Exempt small utility modals — keep as centered popups */
-  #apiInfoModal .modal-content,
-  #notesModal .modal-content,
-  #notesViewModal .modal-content,
-  #storageOptionsModal .modal-content {
-    width: 95vw !important;
-    max-width: 400px !important;
-    height: auto;
-    max-height: 90vh;
-    max-height: 90dvh;
-    border-radius: var(--radius-lg);
   }
 
   /* --- Phase 3: Item modal — touch-friendly inputs & stacked actions ---- */
@@ -15745,14 +15611,7 @@ th {
     overflow-y: auto;
   }
 
-  /* STRK-91 C.5: safe-area padding on the bulk-edit fullscreen modal header
-     and footer — matches the STAK-578 pattern already applied to #itemModal
-     and #viewItemModal headers. Closes the iOS notch / home-indicator gap. */
-  .bulk-edit-content .modal-header {
-    padding-top: max(var(--spacing), env(safe-area-inset-top));
-    padding-left: max(var(--spacing-xl), env(safe-area-inset-left));
-    padding-right: max(var(--spacing-xl), env(safe-area-inset-right));
-  }
+  /* Safe-area padding on the bulk-edit footer clears the home indicator. */
   .bulk-edit-footer {
     padding-bottom: max(var(--spacing), env(safe-area-inset-bottom));
     padding-left: max(var(--spacing-xl), env(safe-area-inset-left));
@@ -19292,9 +19151,10 @@ button.vp-price:hover {
   max-width: 720px;
   padding: 0;
 }
-.ratios-modal-content .modal-header {
-  margin: 0;
-  padding: 12px 16px 0;
+
+/* The shared panel carries its own padding; the shell body only scrolls it. */
+.modal .ratios-panel-body {
+  padding: 0;
 }
 
 /* =============================================================================
@@ -21322,53 +21182,17 @@ button.vp-price:hover {
 }
 
 /* ---- Collections dialogs: link picker + custom builder (js/collections-picker.js) ---- */
-.collections-modal .collections-modal-content {
-  display: flex;
-  flex-direction: column;
-  padding: 0;
-  overflow: hidden;
-  max-width: 640px;
-}
-
-.collections-modal-header {
-  position: relative;
-  padding: var(--spacing-lg) var(--spacing-xl) var(--spacing);
-  padding-right: calc(var(--spacing-xl) + 32px);
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border);
-}
-
-.collections-modal-header .modal-close {
-  position: absolute;
-  top: var(--spacing-sm);
-  right: var(--spacing);
-}
-
-.collections-modal-title {
-  margin: 0;
-  font-size: var(--font-size-xl);
-}
-
 .collections-modal-subtitle {
   margin: 2px 0 0;
   font-size: var(--font-size-sm);
   color: var(--text-muted);
 }
 
-.collections-modal-body {
-  padding: var(--spacing-lg) var(--spacing-xl);
-  overflow-y: auto;
-}
-
-.collections-modal-footer {
-  display: flex;
+/* The footer holds a left group and an action group; the shell footer sets the rest. */
+.modal .collections-modal-footer {
   justify-content: space-between;
-  align-items: center;
   flex-wrap: wrap;
   gap: var(--spacing);
-  padding: var(--spacing) var(--spacing-xl);
-  border-top: 1px solid var(--border);
-  background: var(--bg-secondary);
 }
 
 .collections-modal-footer-actions {
@@ -21376,7 +21200,7 @@ button.vp-price:hover {
   gap: var(--spacing-sm);
 }
 
-.collections-modal-footer--actions-only {
+.modal .collections-modal-footer--actions-only {
   justify-content: flex-end;
 }
 
@@ -21522,31 +21346,13 @@ button.vp-price:hover {
    buttons come from the shared Add Item rules (search "Glass-style form inputs"); this
    block is layout only. Approved mockup: playground/STRK-421-collection-modal-variants.html,
    variant C. */
-.collections-modal .collections-modal-content--builder {
-  width: 90%;
-  max-width: 700px;
-}
-
-.collections-modal-content--builder .collections-modal-header {
-  padding: var(--spacing) calc(var(--spacing-xl) + 32px);
-}
-
-.collections-modal-content--builder .collections-modal-title {
-  font-size: var(--font-size-lg);
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  text-align: center;
-}
-
 .collections-modal-content--builder .collections-modal-body {
   flex: 1;
   padding: var(--spacing);
 }
 
-.collections-modal-footer.collections-builder-footer {
+.modal .collections-modal-footer.collections-builder-footer {
   gap: 0.4rem;
-  padding: 0.75rem var(--spacing) 0.65rem;
-  padding-bottom: max(0.65rem, env(safe-area-inset-bottom));
 }
 
 .collections-builder-footer .collections-modal-footer-actions {
@@ -22772,10 +22578,8 @@ button.vp-price:hover {
 @media (max-width: 768px) {
   #diffReviewModal .modal-content {
     width: 100vw;
-    height: 100dvh;
     max-width: none;
-    max-height: none;
-    border-radius: 0;
+    max-height: 92dvh;
   }
 }
 /* Item cards: one card per added, deleted or changed Item. */
@@ -23636,7 +23440,6 @@ button.vp-price:hover {
     content: none;
   }
 
-  /* The close buttons are absolutely positioned already, which also anchors their ::after. */
   .card-sort-dir-btn,
   .inline-chip-move,
   .inline-search-btn,
@@ -23646,23 +23449,10 @@ button.vp-price:hover {
     min-width: 44px;
     min-height: 44px;
   }
-  .modal-close,
-  .view-modal-close,
   .card-sort-dir-btn {
     width: 44px;
     height: 44px;
   }
-  /* The details modal's close button sits in the top bar's flow, so it needs a positioned box to anchor its ::after. */
-  .dm-topbar .modal-close {
-    position: relative;
-  }
-  /* The title row is as tall as the close button, so the badges row and its eBay button start below it. */
-  #viewItemModal .view-header-title-row {
-    min-height: 44px;
-    padding-right: 48px;
-  }
-  .modal-close::after,
-  .view-modal-close::after,
   .card-sort-dir-btn::after,
   .inline-chip-move::after,
   .inline-search-btn::after,

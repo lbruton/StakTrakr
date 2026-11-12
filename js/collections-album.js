@@ -151,6 +151,8 @@
       const info = el("div", "collections-album-info");
       const heading = el("h2", "", entry.name);
       heading.tabIndex = -1;
+      // A background re-render replaces the heading; the key lets render() restore its focus.
+      heading.dataset.focusKey = "album:heading";
       if (entry.variant) heading.appendChild(buildTag(entry.variant, "is-variant"));
       info.appendChild(heading);
       const definition = entry.collection.definition || {};
