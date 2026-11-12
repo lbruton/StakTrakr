@@ -238,3 +238,16 @@ test("coverage window starts on the hour N hours before the current hour", async
     "an hour with no successful snapshot (a skipped run) reports zero coverage"
   );
 });
+
+test("coverage reports zero for a completed hour with only failed snapshots", async () => {
+  const client = await makeCoverageClient();
+  await client.execute({
+    sql: "INSERT INTO price_snapshots (scraped_at, coin_slug, vendor, is_failed) VALUES (?, ?, ?, 1)",
+    args: ["2026-11-12T05:30:01.000Z", "ase", "apmex"],
+  });
+  const stats = await getCoverageStats(client, 48, new Date("2026-11-12T06:10:00.000Z"));
+
+  assert.equal(stats.hours[0].hour, "2026-11-12T05:00");
+  assert.equal(stats.hours[0].covered, 0, "failed snapshots do not count as coverage");
+  assert.equal(stats.hours[0].pct, 0);
+});
