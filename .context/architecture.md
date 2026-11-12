@@ -692,7 +692,7 @@ Lives at `devops/pollers/shared/provider-db.js`. Both pollers' Dockerfiles `COPY
 | `loadProviders(client, dataDir)`                          | sqld-first with local `providers.json` file fallback |
 | `exportProvidersJson(client)`                             | Generates `providers.json` for the `api` branch      |
 | `getVendorScrapeStatus(client)`                           | Latest scrape result per vendor (window function)    |
-| `getCoverageStats(client, hours?)`                        | Hourly coverage percentage: used by dashboard        |
+| `getCoverageStats(client, hours?, now?)`                  | Coverage per completed hour: used by dashboard       |
 | `getMissingItems(client)`                                 | Enabled pairs with no price this hour                |
 | `batchToggleVendor(client, { vendorId, metal, enabled })` | Bulk enable/disable by vendor+metal                  |
 

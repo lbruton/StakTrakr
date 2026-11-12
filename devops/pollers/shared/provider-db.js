@@ -743,18 +743,28 @@ export async function getVendorSummary(client) {
 // ---------------------------------------------------------------------------
 
 /**
- * Get hourly coverage stats — how many enabled vendor-coin pairs had a
- * successful price snapshot in each of the last N hours.
+ * Get hourly coverage stats: how many enabled vendor-coin pairs had a
+ * successful price snapshot in each of the last N completed UTC clock hours.
+ * The current clock hour is returned as `current`, because the retail run that
+ * fills it starts at :30 and the hour holds only the :05 Goldback row before that.
  *
  * @param {import("@libsql/client").Client} client
- * @param {number} [hours=12]
- * @returns {Promise<{totalEnabled: number, hours: Array<{hour: string, covered: number, pct: number}>}>}
+ * @param {number} [hours=24] completed hours to return
+ * @param {Date} [now=new Date()]
+ * @returns {Promise<{totalEnabled: number, hours: Array<{hour: string, covered: number, pct: number}>, current: {hour: string, covered: number, pct: number}|null}>}
  */
-export async function getCoverageStats(client, hours = 24) {
+export async function getCoverageStats(client, hours = 24, now = new Date()) {
   const enabledResult = await client.execute(
     "SELECT COUNT(*) AS cnt FROM provider_vendors WHERE enabled = 1"
   );
   const totalEnabled = Number(enabledResult.rows[0].cnt);
+
+  const currentHourStart = new Date(now);
+  currentHourStart.setUTCMinutes(0, 0, 0);
+  // scraped_at is ISO 8601 with a T and a Z, so the cutoff must be too: text comparison
+  // against datetime()'s space-separated form passes every row from the cutoff day.
+  const cutoff = new Date(currentHourStart.getTime() - hours * 3600 * 1000).toISOString();
+  const currentHour = `${currentHourStart.toISOString().slice(0, 13)}:00`;
 
   const result = await client.execute({
     sql: `
@@ -762,21 +772,34 @@ export async function getCoverageStats(client, hours = 24) {
              COUNT(DISTINCT coin_slug || ':' || vendor) AS covered
       FROM price_snapshots
       WHERE is_failed = 0
-        AND scraped_at > datetime('now', ? || ' hours')
+        AND scraped_at >= ?
       GROUP BY hour
       ORDER BY hour DESC
     `,
-    args: [`-${hours}`],
+    args: [cutoff],
   });
 
-  const hourlyStats = result.rows.map((row) => ({
-    hour: row.hour,
-    covered: Number(row.covered),
-    pct:
-      totalEnabled > 0 ? Math.min(100, Math.round((Number(row.covered) / totalEnabled) * 100)) : 0,
-  }));
+  const coveredByHour = new Map(result.rows.map((row) => [row.hour, Number(row.covered)]));
+  const toStat = (hour, covered) => ({
+    hour,
+    covered,
+    pct: totalEnabled > 0 ? Math.min(100, Math.round((covered / totalEnabled) * 100)) : 0,
+  });
 
-  return { totalEnabled, hours: hourlyStats };
+  // Every completed hour is listed, so an hour without a run reads 0% instead of vanishing.
+  const completed = [];
+  for (let i = 1; i <= hours; i += 1) {
+    const hour = `${new Date(currentHourStart.getTime() - i * 3600 * 1000).toISOString().slice(0, 13)}:00`;
+    completed.push(toStat(hour, coveredByHour.get(hour) ?? 0));
+  }
+
+  return {
+    totalEnabled,
+    hours: completed,
+    current: coveredByHour.has(currentHour)
+      ? toStat(currentHour, coveredByHour.get(currentHour))
+      : null,
+  };
 }
 
 /**

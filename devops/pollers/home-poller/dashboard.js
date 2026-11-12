@@ -546,7 +546,7 @@ function renderKpiStrip(retailStats, spotCov, failureCount, coverageStats) {
     ? Math.round((spotCov.coveredIntervals / Math.max(spotCov.totalIntervals, 1)) * 100)
     : 0;
   const spotLabel = spotCov ? `${spotCov.coveredIntervals}/${spotCov.totalIntervals}` : "?";
-  const covNow = coverageStats?.hours?.[0]?.pct ?? 0;
+  const covLastHour = coverageStats?.hours?.[0]?.pct ?? 0;
   const covCovered = coverageStats?.hours?.[0]?.covered ?? 0;
   const covTotal = coverageStats?.totalEnabled ?? 0;
 
@@ -557,7 +557,7 @@ function renderKpiStrip(retailStats, spotCov, failureCount, coverageStats) {
     ${kpi("Capture", capture + "%", retailStats ? `${Math.round((capture * 166) / 100)}/166` : "", capture >= 90 ? "var(--green)" : capture >= 70 ? "var(--amber)" : "var(--red)")}
     ${kpi("Spot", spotPct + "%", spotLabel, spotPct >= 90 ? "var(--green)" : spotPct >= 70 ? "var(--amber)" : "var(--red)")}
     ${kpi("Failures", failureCount, "chronic 24+/7d", failureCount > 0 ? "var(--red)" : "var(--green)")}
-    ${kpi("Coverage", covNow + "%", `${covCovered}/${covTotal} now`, covNow >= 80 ? "var(--green)" : covNow >= 50 ? "var(--amber)" : "var(--red)")}
+    ${kpi("Coverage", covLastHour + "%", `${covCovered}/${covTotal} last hour`, covLastHour >= 80 ? "var(--green)" : covLastHour >= 50 ? "var(--amber)" : "var(--red)")}
   </div>`;
 }
 
