@@ -30,6 +30,7 @@ import {
   upsertVendor,
   getProvidersByVendor,
   updateCoinFbpUrl,
+  getCoverageStats,
 } from "./provider-db.js";
 
 /**
@@ -164,4 +165,70 @@ test("updateCoinFbpUrl changes only fbp_url, never the coin's identity fields (S
   assert.equal(ase.name, "American Silver Eagle 1 oz", "name must be untouched");
   assert.equal(ase.metal, "silver", "metal must be untouched");
   assert.equal(ase.weight_oz, 1, "weight_oz must be untouched");
+});
+
+const COVERAGE_NOW = new Date("2026-11-12T04:16:13.000Z");
+
+/**
+ * Seeds four enabled vendor-coin pairs and the snapshots of one retail run
+ * (03:30), one Goldback scrape in the current hour (04:05) and two edge rows
+ * around the 48-hour cutoff.
+ * @returns {Promise<{execute: Function, batch: Function}>}
+ */
+async function makeCoverageClient() {
+  const client = makeMemoryClient();
+  await initProviderSchema(client);
+  await client.execute(
+    "CREATE TABLE price_snapshots (scraped_at TEXT, coin_slug TEXT, vendor TEXT, is_failed INTEGER NOT NULL DEFAULT 0)"
+  );
+  for (const [coin, vendor] of [
+    ["ase", "apmex"],
+    ["ase", "sdbullion"],
+    ["maple-gold", "apmex"],
+    ["goldback-g1", "goldback"],
+  ]) {
+    await upsertCoin(client, { slug: coin, metal: "silver", name: coin, weight_oz: 1 });
+    await client.execute({
+      sql: "INSERT INTO provider_vendors (coin_slug, vendor_id, vendor_name, enabled) VALUES (?, ?, ?, 1)",
+      args: [coin, vendor, vendor],
+    });
+  }
+  const rows = [
+    ["2026-11-12T03:30:02.087Z", "ase", "apmex", 0],
+    ["2026-11-12T03:30:02.087Z", "ase", "sdbullion", 0],
+    ["2026-11-12T03:30:02.087Z", "maple-gold", "apmex", 0],
+    ["2026-11-12T03:30:02.087Z", "goldback-g1", "goldback", 1],
+    ["2026-11-12T04:05:01.204Z", "goldback-g1", "goldback", 0],
+    ["2026-11-10T04:05:00.000Z", "ase", "apmex", 0],
+    ["2026-11-10T03:30:00.000Z", "ase", "apmex", 0],
+  ];
+  for (const args of rows) {
+    await client.execute({
+      sql: "INSERT INTO price_snapshots (scraped_at, coin_slug, vendor, is_failed) VALUES (?, ?, ?, ?)",
+      args,
+    });
+  }
+  return client;
+}
+
+test("coverage reports the in-progress clock hour apart from the completed hours", async () => {
+  const client = await makeCoverageClient();
+  const stats = await getCoverageStats(client, 48, COVERAGE_NOW);
+
+  assert.equal(stats.totalEnabled, 4);
+  assert.deepEqual(stats.hours[0], { hour: "2026-11-12T03:00", covered: 3, pct: 75 });
+  assert.ok(
+    !stats.hours.some((h) => h.hour === "2026-11-12T04:00"),
+    "the completed hours must not include the current clock hour"
+  );
+  assert.deepEqual(stats.current, { hour: "2026-11-12T04:00", covered: 1, pct: 25 });
+});
+
+test("coverage window starts on the hour N hours before the current hour", async () => {
+  const client = await makeCoverageClient();
+  const stats = await getCoverageStats(client, 48, COVERAGE_NOW);
+  const hours = stats.hours.map((h) => h.hour);
+
+  assert.equal(hours.at(-1), "2026-11-10T04:00", "the oldest completed hour is 48 hours back");
+  assert.ok(!hours.includes("2026-11-10T03:00"), "rows before the cutoff hour must be excluded");
 });

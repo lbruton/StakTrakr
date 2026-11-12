@@ -112,7 +112,7 @@ Shared module at `StakTrakr/devops/pollers/shared/provider-db.js`. Most function
 | `batchDeleteVendor(client, { vendorId, metal })`                      | Delete all vendor entries for a vendor ID + metal type. Returns `{ rowsAffected }`                                                                        |
 | `batchToggleVendorByCoins(client, { vendorId, coinSlugs, enabled })`  | Toggle vendor across specific coin slugs. Returns `{ rowsAffected }`                                                                                      |
 | `getVendorSummary(client)`                                            | Grouped counts by vendor ID and metal. Returns `{ [vendorId]: { total, enabled, disabled, byMetal: { [metal]: { total, enabled, disabled } } } }`         |
-| `getCoverageStats(client, hours?)`                                    | Hourly coverage: how many enabled pairs had a successful price. Returns `{ totalEnabled, hours: [{ hour, covered, pct }] }`                               |
+| `getCoverageStats(client, hours?, now?)`                              | Coverage per completed UTC hour. Returns `{ totalEnabled, hours: [{ hour, covered, pct }], current }`; `current` is the in-progress hour or `null`        |
 | `getMissingItems(client)`                                             | Enabled pairs with no successful price this hour. Returns `[{ coinSlug, coinName, metal, vendor, url }]`                                                  |
 | `exportProvidersJson(client)`                                         | Returns JSON string matching `providers.json` format                                                                                                      |
 | `loadProvidersFromFile(dataDir)`                                      | File fallback: reads `{dataDir}/retail/providers.json`                                                                                                    |
@@ -200,7 +200,7 @@ Confirmation modal shows the affected item count before executing. Added 2026-02
 
 The main dashboard shows hourly coverage cards and a missing items table:
 
-- **Coverage cards**: latest hour coverage %, 12-hour average, spark bars
+- **Coverage cards**: last completed hour coverage %, 12-hour average, spark bars
 - **Missing Items table**: enabled vendor-coin pairs with no successful price this hour, with Diagnose and Browserbase action buttons
 
 Powered by `getCoverageStats()` and `getMissingItems()` in `provider-db.js`.
