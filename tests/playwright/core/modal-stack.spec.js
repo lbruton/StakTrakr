@@ -284,7 +284,9 @@ test.describe("modal stack", () => {
           modal.style.display = "flex";
           const shell = modal.querySelector(":scope > .modal-shell");
           const close = modal.querySelector(".modal-shell-close");
-          const title = modal.querySelector(".modal-shell-header .modal-shell-title");
+          // The details modal keeps its own header layout; its title gets the same font checks.
+          const ownTitle = { detailsModal: "#detailsModalTitle" }[modal.id];
+          const title = modal.querySelector(ownTitle || ".modal-shell-header .modal-shell-title");
           const layers = [modal, shell].filter(Boolean);
           if (!shell || !/\bmodal-shell--(sm|md|lg)\b/.test(shell.className))
             breaks.push(`${modal.id}: no sized shell`);
@@ -297,6 +299,8 @@ test.describe("modal stack", () => {
             breaks.push(
               `${modal.id}: translucent surface ${getComputedStyle(shell).backgroundColor}`
             );
+          if (!close) breaks.push(`${modal.id}: no close`);
+          if (!title) breaks.push(`${modal.id}: no shell title`);
           if (close) {
             const box = close.getBoundingClientRect();
             if (

@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed — STRK-538: One modal shell
 
-- **Modal shell**: Every modal uses one shell: a header with an Instrument Serif title at weight 400, a 44px close button with an SVG cross, a scrolling body and a right-aligned footer. Size classes set three widths: small for confirms, medium for forms and large for tables (STRK-538).
+- **Modal shell**: Every modal except Market details uses one shell: a header with an Instrument Serif title at weight 400, a 44px close button with an SVG cross, a scrolling body and a right-aligned footer. Size classes set three widths: small for confirms, medium for forms and large for tables (STRK-538).
 - **No glass**: Modals drop the frosted-glass blur. The overlay uses the new opaque `--modal-overlay` token over a solid card, and the image badge drops its blur (STRK-538).
 - **Phone sheet**: Below 768px a modal opens as a bottom sheet at full width with rounded top corners. The Item view stays full height (STRK-538).
 - **Album focus**: An open Album keeps focus on its heading when a background refresh redraws it (STRK-538).

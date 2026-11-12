@@ -7609,7 +7609,7 @@ td input:checked + .slider:before {
 
 .modal .modal-shell-footer .btn {
   min-height: 2.75rem;
-  padding: 0 1.5rem;
+  padding: 0 var(--spacing-xl);
   border-radius: var(--radius);
   font-weight: 500;
   font-size: var(--font-size-base);
@@ -7668,7 +7668,8 @@ td input:checked + .slider:before {
 
   .modal .modal-shell-footer .btn {
     flex: 1;
-    padding: 0 0.75rem;
+    min-height: 44px;
+    padding: 0 var(--spacing);
   }
 
   .modal .modal-shell-footer .modal-shell-aside {
@@ -22577,10 +22578,8 @@ button.vp-price:hover {
 @media (max-width: 768px) {
   #diffReviewModal .modal-content {
     width: 100vw;
-    height: 100dvh;
     max-width: none;
-    max-height: none;
-    border-radius: 0;
+    max-height: 92dvh;
   }
 }
 /* Item cards: one card per added, deleted or changed Item. */
