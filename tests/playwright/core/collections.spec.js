@@ -3938,6 +3938,61 @@ test.describe("core/collections — tab UI", () => {
     await expect(page.locator("#viewModalTitle")).toHaveText("2024 American Silver Eagle BU");
   });
 
+  for (const width of [1280, 390]) {
+    test(`at ${width}px the More button on an owned tile clears the item name and price line`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await seedAndGoto(page, [
+        { ...baseItem("col-ase-2022-a", "2022 American Silver Eagle", "2022", 1), qty: 2 },
+        baseItem("col-ase-2024", "2024 American Silver Eagle BU", "2024", 3),
+      ]);
+      await waitForApp(page);
+      if (width < 768) await page.locator("#appBottomNav [data-tab='collections']").click();
+      else await openCollectionsTab(page);
+      await linkItems(page, [
+        ["2022", "col-ase-2022-a"],
+        ["2024", "col-ase-2024"],
+      ]);
+      await openAseAlbum(page);
+      await expect(slotOf(page, "2022").locator(".collections-qty")).toHaveText("×2");
+
+      /**
+       * Reads each owned tile's More button box against its name and price boxes.
+       * @returns {Promise<Array<{slot: string, overlaps: string[]}>>} Overlapping parts per tile.
+       */
+      const overlaps = () =>
+        panel(page)
+          .locator(".collections-slot.is-owned")
+          .evaluateAll((tiles) =>
+            tiles.map((tile) => {
+              const more = tile.querySelector(".collections-more").getBoundingClientRect();
+              const hits = [".collections-slot-item", ".collections-slot-money"].filter((sel) => {
+                const box = tile.querySelector(sel).getBoundingClientRect();
+                return (
+                  more.left < box.right &&
+                  box.left < more.right &&
+                  more.top < box.bottom &&
+                  box.top < more.bottom
+                );
+              });
+              return { slot: tile.dataset.slotId, overlaps: hits };
+            })
+          );
+
+      // A row of owned tiles only: no taller missing tile stretches the row.
+      await panel(page).getByRole("button", { name: "Owned 2" }).click();
+      await expect(panel(page).locator(".collections-slot")).toHaveCount(2);
+      expect(await overlaps()).toEqual([
+        { slot: "2022", overlaps: [] },
+        { slot: "2024", overlaps: [] },
+      ]);
+
+      await panel(page).getByRole("button", { name: "All", exact: true }).click();
+      expect((await overlaps()).flatMap((tile) => tile.overlaps)).toEqual([]);
+    });
+  }
+
   test("the slot menu unlinks an item, and the picker seam degrades to a toast", async ({
     page,
   }) => {

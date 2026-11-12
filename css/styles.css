@@ -20546,10 +20546,12 @@ button.vp-price:hover {
   stroke: none;
 }
 
+/* "More" takes its own footer line below the price, so it never covers text. The auto
+   margin pins it to the bottom of a tile the grid row stretches. */
 .collections-slot .collections-more {
-  position: absolute;
-  right: var(--spacing-sm);
-  bottom: var(--spacing-sm);
+  position: relative;
+  align-self: flex-end;
+  margin-top: auto;
 }
 
 /* ---- Ledger (hub table + album rows) ---- */
@@ -21048,11 +21050,6 @@ button.vp-price:hover {
   .collections-slot {
     --collections-slot-coin: 88px;
     padding: var(--spacing) var(--spacing-sm) var(--spacing-sm);
-  }
-
-  /* "More" leaves the corner and joins the flow, so a 44px target never covers text. */
-  .collections-slot .collections-more {
-    position: relative;
   }
 
   /* thumb | year | item (+ status or price line) | action */
