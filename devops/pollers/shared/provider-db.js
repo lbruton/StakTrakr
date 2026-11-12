@@ -779,17 +779,26 @@ export async function getCoverageStats(client, hours = 24, now = new Date()) {
     args: [cutoff],
   });
 
-  const hourlyStats = result.rows.map((row) => ({
-    hour: row.hour,
-    covered: Number(row.covered),
-    pct:
-      totalEnabled > 0 ? Math.min(100, Math.round((Number(row.covered) / totalEnabled) * 100)) : 0,
-  }));
+  const coveredByHour = new Map(result.rows.map((row) => [row.hour, Number(row.covered)]));
+  const toStat = (hour, covered) => ({
+    hour,
+    covered,
+    pct: totalEnabled > 0 ? Math.min(100, Math.round((covered / totalEnabled) * 100)) : 0,
+  });
+
+  // Every completed hour is listed, so an hour without a run reads 0% instead of vanishing.
+  const completed = [];
+  for (let i = 1; i <= hours; i += 1) {
+    const hour = `${new Date(currentHourStart.getTime() - i * 3600 * 1000).toISOString().slice(0, 13)}:00`;
+    completed.push(toStat(hour, coveredByHour.get(hour) ?? 0));
+  }
 
   return {
     totalEnabled,
-    hours: hourlyStats.filter((h) => h.hour < currentHour),
-    current: hourlyStats.find((h) => h.hour === currentHour) ?? null,
+    hours: completed,
+    current: coveredByHour.has(currentHour)
+      ? toStat(currentHour, coveredByHour.get(currentHour))
+      : null,
   };
 }
 

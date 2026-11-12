@@ -231,4 +231,10 @@ test("coverage window starts on the hour N hours before the current hour", async
 
   assert.equal(hours.at(-1), "2026-11-10T04:00", "the oldest completed hour is 48 hours back");
   assert.ok(!hours.includes("2026-11-10T03:00"), "rows before the cutoff hour must be excluded");
+  assert.equal(hours.length, 48, "every completed hour in the window is listed");
+  assert.deepEqual(
+    stats.hours.find((h) => h.hour === "2026-11-11T10:00"),
+    { hour: "2026-11-11T10:00", covered: 0, pct: 0 },
+    "an hour with no successful snapshot (a skipped run) reports zero coverage"
+  );
 });
