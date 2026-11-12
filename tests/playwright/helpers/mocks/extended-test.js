@@ -44,7 +44,7 @@ function readStaticFile(pathname) {
 
 /**
  * Serves the app's scripts and stylesheets from worker memory. Parallel workers share one
- * `python3 -m http.server`, and queueing on it slows every boot. A missing file falls back
+ * static server (`devops/testing/static-server.py`), and queueing on it slows every boot. A missing file falls back
  * to the server, so it still answers 404.
  * @param {import('@playwright/test').Page} page - Page under test.
  * @param {string} baseURL - App origin.

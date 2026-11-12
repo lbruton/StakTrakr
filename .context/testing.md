@@ -104,6 +104,9 @@ these rules elsewhere. Read before editing or running any Playwright test.
 - The same `page` fixture serves the app's `js/`, `css/`, `vendor/` and `data/` scripts
   and stylesheets from worker memory. Tests on it do not exercise the static file server.
   A test of server headers or caching uses `app-test.js` or its own `page.route`.
+- Both Playwright configs start `devops/testing/static-server.py`, not `python3 -m http.server`.
+  Extra pages and contexts load from the server, and the stock listen backlog of 5 resets
+  connections when several pages boot at once.
 - Boot finishes in a deferred timer after `DOMContentLoaded`. A helper that waits only for
   `typeof window.someFn === "function"` races the rest of boot.
 - Poll layout and computed-style reads (`expect.poll`). A box measured before layout reads
