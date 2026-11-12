@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.146] - 2026-11-12
+
+### Changed — STRK-591: Album More button placement
+
+- **More button**: The More button (⋯) on an owned album tile takes its own line below the price, aligned right, at every width. It no longer covers the item name, the price line or the quantity chip in a row where every slot is owned. On phones it no longer rides up over the price line (STRK-591).
+
+---
+
 ## [3.36.145] - 2026-11-12
 
 ### Changed — STRK-538: One modal shell
