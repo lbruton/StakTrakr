@@ -2835,9 +2835,9 @@ input[type="submit"] {
   font-weight: 400;
   line-height: 1.2;
   padding: 0 var(--spacing) var(--spacing);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  /* A manual entry time is wider than a narrow card; wrap it rather than cut it. */
+  text-wrap: balance;
+  overflow-wrap: anywhere;
 }
 
 /* Inline edit input (shift+click on price) */

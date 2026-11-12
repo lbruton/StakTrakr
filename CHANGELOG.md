@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Album focus**: An open Album keeps focus on its heading when a background refresh redraws it (STRK-538).
 - **Test server**: The Playwright suites start `devops/testing/static-server.py`, whose larger listen backlog stops connection resets when several pages boot at once (STRK-538).
 - **Segment corner reads**: The segmented-toggle corner helper finds and measures its groups in one page evaluation, so a background re-render cannot leave it reading detached nodes (STRK-538).
+- **Spot card times wrap**: A manual entry time wraps inside a narrow spot card instead of ending in an ellipsis. The layout test uses a fixed evening time, so its label width does not depend on the time zone or the hour (STRK-538).
 
 ---
 

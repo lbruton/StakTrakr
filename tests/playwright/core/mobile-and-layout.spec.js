@@ -1676,12 +1676,14 @@ test.describe("Dashboard at phone width", () => {
     await gotoDesktopDashboard(page);
     await expect(page.locator(".spot-card-timestamp").first()).toBeVisible();
     // A latest spot entry of each source: the sync label, a manual price and a seed price
-    // dated after the last sync, each written by updateSpotTimestamp.
+    // dated after the last sync, each written by updateSpotTimestamp. The manual time is a
+    // fixed local evening time so the label is as wide in every time zone and at every hour.
     const setSource = (source, label) =>
       page.evaluate(
         ([src, text]) => {
           const names = ["Silver", "Gold", "Platinum", "Palladium", "Copper"];
-          const timestamp = src === "seed" ? "2099-01-01T12:00:00Z" : new Date().toISOString();
+          const timestamp =
+            src === "seed" ? "2099-01-01T12:00:00Z" : new Date(2098, 11, 28, 20, 48).toISOString();
           if (src)
             names.forEach((metal) => spotHistory.push({ metal, spot: 1, source: src, timestamp }));
           names.forEach((metal) => updateSpotTimestamp(metal));
