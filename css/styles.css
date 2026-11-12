@@ -19151,6 +19151,11 @@ button.vp-price:hover {
   padding: 0;
 }
 
+/* The shared panel carries its own padding; the shell body only scrolls it. */
+.modal .ratios-panel-body {
+  padding: 0;
+}
+
 /* =============================================================================
    V2 TAB SHELL (STRK-282)
 
