@@ -4111,16 +4111,6 @@ const setupNoteAndModalListeners = () => {
   );
 
   optionalListener(
-    elements.storageReportLink,
-    "click",
-    (e) => {
-      e.preventDefault();
-      if (typeof showSettingsModal === "function") showSettingsModal("storage");
-    },
-    "Storage report link"
-  );
-
-  optionalListener(
     elements.changeLogCloseBtn,
     "click",
     () => {

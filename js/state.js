@@ -147,7 +147,6 @@ const elements = {
   changeLogClearBtn: null,
   changeLogTable: null,
   storageUsage: null,
-  storageReportLink: null,
 
   // Search elements
   searchInput: null,

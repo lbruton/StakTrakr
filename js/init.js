@@ -372,7 +372,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     elements.changeLogClearBtn = safeGetElement("changeLogClearBtn");
     elements.changeLogTable = safeGetElement("changeLogTable");
     elements.storageUsage = safeGetElement("storageUsage");
-    elements.storageReportLink = safeGetElement("storageReportLink");
 
     // Search elements
     debugLog("Phase 6: Initializing search elements...");

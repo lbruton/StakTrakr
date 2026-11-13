@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.148] - 2026-11-13
+
+### Changed — STRK-593: Remove dead modal CSS
+
+- **Stylesheet**: Deleted the rules for the removed Filters, Storage Report and Storage Options modals, plus the unused `.filters-grid`, `.filter-group`, `.filter-select`, `.exclude-toggle`, `.date-range-inputs`, `.filter-actions` and `.action-buttons` classes and their media-query rules (STRK-593).
+- **Element lookup**: Removed the `storageReportLink` lookup, its state key and its listener; no element has that ID (STRK-593).
+- **Parity**: Computed styles match the previous release for every element in all four themes at 1440px and 390px (STRK-593).
+
+---
+
 ## [3.36.147] - 2026-11-13
 
 ### Changed — STRK-592: Market details in the modal shell

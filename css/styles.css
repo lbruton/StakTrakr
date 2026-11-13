@@ -3437,20 +3437,6 @@ input[type="submit"] {
   overflow: hidden;
 }
 
-/* Storage report options modal */
-#storageOptionsModal .modal-content {
-  max-width: 400px;
-  text-align: center;
-}
-#storageOptionsModal .options-buttons {
-  display: flex;
-  gap: var(--spacing);
-  justify-content: center;
-}
-#storageOptionsModal .options-buttons .btn {
-  flex: 1;
-}
-
 #apiHistoryModal .modal-body {
   padding: var(--spacing-xl);
   overflow: auto;
@@ -6311,11 +6297,6 @@ input.spot-lookup-flash {
 
 #changeLogClearBtn {
   font-size: var(--font-size-xl);
-}
-
-#storageReportModal .modal-body {
-  height: 80vh;
-  padding: 0;
 }
 
 #changeLogTable {
@@ -9929,11 +9910,6 @@ table.dm-ledger {
   font-style: italic;
 }
 
-.filter-select {
-  width: 8rem;
-  height: 1.375rem;
-}
-
 .icon-btn {
   width: 2.75rem;
   height: 2.75rem;
@@ -10517,122 +10493,6 @@ input:disabled + .slider {
 }
 
 /* =============================================================================
-   FILTERS MODAL
-   ============================================================================= */
-
-#filtersModal .modal-content {
-  max-width: 600px;
-  max-height: 90vh;
-  display: flex;
-  flex-direction: column;
-  padding: 0;
-  overflow: hidden;
-}
-
-#filtersModal .modal-header {
-  background: linear-gradient(135deg, var(--warning-fill), var(--warning-fill-hover));
-  color: var(--on-warning);
-  padding: var(--spacing-xl);
-  position: relative;
-  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-  box-shadow: var(--shadow);
-}
-
-#filtersModal .modal-body {
-  padding: var(--spacing-xl);
-  overflow-y: auto;
-  flex: 1;
-}
-
-.filters-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: var(--spacing-lg);
-  margin-bottom: var(--spacing-xl);
-}
-
-.filter-group {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-sm);
-}
-
-.filter-group label {
-  font-weight: 600;
-  color: var(--text-primary);
-  font-size: var(--font-size-lg);
-}
-
-.filter-select {
-  width: 100%;
-  padding: var(--spacing-sm) var(--spacing);
-  border: 2px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  font-size: var(--font-size-lg);
-  transition: var(--transition);
-}
-
-.filter-select:focus {
-  outline: none;
-  border-color: var(--warning);
-  box-shadow: 0 0 0 3px color-mix(in oklch, var(--warning), transparent 90%);
-}
-
-.exclude-toggle {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  margin-top: 0.25rem;
-  font-size: var(--font-size-base);
-}
-
-.date-range-inputs {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--spacing-sm);
-}
-
-.date-range-inputs input {
-  padding: var(--spacing-sm) var(--spacing);
-  border: 2px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  font-size: var(--font-size-lg);
-  transition: var(--transition);
-}
-
-.date-range-inputs input:focus {
-  outline: none;
-  border-color: var(--warning);
-  box-shadow: 0 0 0 3px color-mix(in oklch, var(--warning), transparent 90%);
-}
-
-.filter-actions {
-  display: flex;
-  gap: var(--spacing);
-  justify-content: flex-end;
-  padding-top: var(--spacing);
-  border-top: 1px solid var(--border);
-}
-
-.filter-actions .btn {
-  min-width: 120px;
-}
-
-/* =============================================================================
-   ACTION BUTTON GRIDS
-   ============================================================================= */
-
-.action-buttons {
-  display: grid;
-  gap: var(--spacing-sm);
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-}
-
-/* =============================================================================
    RESPONSIVE DESIGN - Consolidated Media Queries
    
    Breakpoint strategy:
@@ -10745,10 +10605,6 @@ input:disabled + .slider {
   .grid-purity-row {
     grid-template-columns: 1fr 1fr;
   }
-
-  .action-buttons {
-    grid-template-columns: 1fr;
-  }
 }
 
 @media (max-width: 480px) {
@@ -10774,10 +10630,6 @@ input:disabled + .slider {
 
 @media (min-width: 600px) {
   .grid-2 {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .action-buttons {
     grid-template-columns: repeat(2, 1fr);
   }
 }
