@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.147] - 2026-11-13
+
+### Changed — STRK-592: Market details in the modal shell
+
+- **Modal shell**: The Market details modal uses the shared modal shell. The coin name sits in the shell header as an Instrument Serif title at weight 400, next to the 44px close button, and the header stays in place while the body scrolls (STRK-592).
+- **Overlay**: The overlay uses the opaque `--modal-overlay` token, and the modal drops its own panel, close and phone rules (STRK-592).
+- **Phone sheet**: Below 768px the modal opens as a bottom sheet at full width, like the other modals (STRK-592).
+
+---
+
 ## [3.36.146] - 2026-11-12
 
 ### Changed — STRK-591: Album More button placement
