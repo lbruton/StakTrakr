@@ -17547,7 +17547,6 @@ button.vp-price:hover {
 .vp-price:focus-visible,
 .market-detail-buy:focus-visible,
 .market-detail-visit:focus-visible,
-.market-detail-close:focus-visible,
 .vendor-prices-tabs button:focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
@@ -17858,72 +17857,18 @@ button.vp-price:hover {
   font-variant-numeric: tabular-nums;
 }
 
-/* ── Market Detail Overlay ── */
+/* ── Market Detail Modal ── */
+/* The modal shell draws the overlay and panel. This overlay opens by its hidden attribute,
+   not by display, so [hidden] must outrank the .modal display rule. */
 .market-detail-overlay {
-  position: fixed;
-  inset: 0;
-  background: var(--scrim);
   z-index: 10000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1rem;
 }
 .market-detail-overlay[hidden] {
   display: none;
 }
 
-/* ── Market Detail Modal ── */
-.market-detail-modal {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  max-width: 900px;
-  width: 100%;
-  max-height: 85vh;
-  overflow-y: auto;
-  padding: 1.5rem;
-  position: relative;
-  box-shadow: var(--shadow-modal);
-}
-
-/* ── Modal Close Button ── */
-.market-detail-close {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  color: var(--text-secondary);
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  cursor: pointer;
-  font-size: var(--font-size-xl);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition:
-    color 0.15s ease,
-    background 0.15s ease;
-}
-
-.market-detail-close:hover {
-  color: var(--text-primary);
-  background: var(--bg-tertiary);
-}
-
-/* ── Modal Header ── */
-/* Clears the 44px close button, which sits 12px inside the modal's 24px padding. */
 .market-detail-header {
   margin-bottom: 1rem;
-  padding-right: 2.5rem;
-}
-
-/* Instrument Serif ships one weight; a heavier weight renders as synthetic bold. */
-.market-detail-header h2 {
-  font-size: var(--font-size-xl);
-  font-weight: 400;
 }
 
 .market-detail-weight,
@@ -18173,15 +18118,6 @@ button.vp-price:hover {
   background: color-mix(in srgb, var(--success) 18%, transparent);
 }
 
-[data-theme="light"] .market-detail-modal,
-:root .market-detail-modal {
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-}
-
-[data-theme="sepia"] .market-detail-modal {
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.2);
-}
-
 /* ── Mobile Responsive ── */
 @media (max-width: 768px) {
   .vendor-prices-table {
@@ -18277,22 +18213,6 @@ button.vp-price:hover {
 
   .market-detail-periods .market-detail-period-btn {
     width: 100%;
-  }
-}
-
-@media (max-width: 480px) {
-  .market-detail-overlay {
-    padding: 0.5rem;
-  }
-
-  .market-detail-modal {
-    padding: 1rem;
-    max-height: 92vh;
-  }
-
-  .market-detail-close {
-    top: 8px;
-    right: 8px;
   }
 }
 

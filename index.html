@@ -9092,24 +9092,36 @@
     <!-- ── Market Detail Modal (STAK-504) ── -->
     <div
       id="marketDetailModal"
-      class="market-detail-overlay"
+      class="modal market-detail-overlay"
       role="dialog"
       aria-modal="true"
       aria-labelledby="marketDetailTitle"
       aria-label="Loading market details"
       hidden
     >
-      <div class="market-detail-modal" tabindex="-1">
-        <button
-          type="button"
-          class="market-detail-close"
-          id="marketDetailCloseBtn"
-          title="Close"
-          aria-label="Close modal"
-        >
-          &times;
-        </button>
-        <div id="marketDetailContent"></div>
+      <div class="modal-shell modal-shell--lg market-detail-modal" tabindex="-1">
+        <div class="modal-shell-header">
+          <h2 class="modal-shell-title" id="marketDetailTitle" tabindex="-1"></h2>
+          <button
+            type="button"
+            class="modal-shell-close"
+            id="marketDetailCloseBtn"
+            title="Close"
+            aria-label="Close modal"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              aria-hidden="true"
+            >
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
+        </div>
+        <div class="modal-shell-body" id="marketDetailContent"></div>
       </div>
     </div>
   </body>

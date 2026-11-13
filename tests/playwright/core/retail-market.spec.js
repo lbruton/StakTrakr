@@ -2521,16 +2521,18 @@ test.describe("core/retail-market", () => {
       name: /^Buy at .+, \$[\d,.]+\. Opens the dealer page in a new window\.$/,
     });
     expect(await buy.count()).toBeGreaterThan(0);
+    // The shell's entrance animation scales the panel, so measure after it ends.
+    await modal.evaluate((el) =>
+      Promise.all(el.getAnimations({ subtree: true }).map((animation) => animation.finished))
+    );
     const closeBox = await page.locator("#marketDetailCloseBtn").boundingBox();
     expect(closeBox.width).toBeGreaterThanOrEqual(44);
     expect(closeBox.height).toBeGreaterThanOrEqual(44);
-    // The header's content box ends left of the close button, so a wrapped title stays clear of it.
-    const headerTextRight = await page
-      .locator(".market-detail-header")
-      .evaluate(
-        (el) => el.getBoundingClientRect().right - parseFloat(getComputedStyle(el).paddingRight)
-      );
-    expect(headerTextRight).toBeLessThanOrEqual(closeBox.x);
+    // The title ends left of the close button, so a wrapped title stays clear of it.
+    const titleRight = await page
+      .locator("#marketDetailTitle")
+      .evaluate((el) => el.getBoundingClientRect().right);
+    expect(titleRight).toBeLessThanOrEqual(closeBox.x);
     const buyBox = await buy.first().boundingBox();
     expect(buyBox.width).toBeGreaterThanOrEqual(24);
     expect(buyBox.height).toBeGreaterThanOrEqual(24);

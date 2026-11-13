@@ -1138,6 +1138,7 @@ const closeMarketDetailModal = () => {
 
   const content = safeGetElement("marketDetailContent");
   if (content instanceof HTMLElement) content.textContent = "";
+  _setModalTitle(null);
 
   const overlay = safeGetElement("marketDetailModal");
   if (overlay instanceof HTMLElement) {
@@ -1147,6 +1148,9 @@ const closeMarketDetailModal = () => {
     if (wasOpen) {
       // _restoreMarketDetailFocus owns focus here: it waits for a matrix rebuild.
       if (typeof releaseFocus === "function") releaseFocus(overlay, { restoreFocus: false });
+      // The static header outlives the close, and Chrome blurs a hidden element only after
+      // the next style pass. Blur now so _applyPendingMarketFocus sees focus on the body.
+      if (overlay.contains(document.activeElement)) document.activeElement.blur();
       // A dialog stacked above keeps focus.
       if (wasTop) _restoreMarketDetailFocus(_activeModalOpener, closedSlug);
     }
@@ -1489,29 +1493,37 @@ const _fetchModalData = async (slug) => {
 };
 
 /**
- * Render the detail-modal header (metal dot, coin name, optional weight line).
+ * Write the coin name, led by its metal dot, into the modal shell title.
+ * A null coinMeta empties the title.
+ * @param {Object|null} coinMeta - Resolved coin meta.
+ * @param {string} [slug] - Retail coin slug (name fallback).
+ * @param {string} [metalCode] - ISO metal code (e.g. "xau") or metal name.
+ * @returns {void}
+ */
+const _setModalTitle = (coinMeta, slug, metalCode) => {
+  const title = safeGetElement("marketDetailTitle");
+  if (!(title instanceof HTMLElement)) return;
+  if (!coinMeta) {
+    title.textContent = "";
+    return;
+  }
+  const dot = document.createElement("span");
+  dot.className = "metal-dot" + (metalCode ? " " + metalCode : "");
+  title.replaceChildren(dot, document.createTextNode(" " + (coinMeta.name || slug)));
+};
+
+/**
+ * Render the weight and price-time lines at the top of the modal body.
  * @param {HTMLElement} content - Modal content container.
- * @param {Object} coinMeta - Resolved coin meta.
- * @param {string} slug - Retail coin slug (name fallback).
  * @param {string} metalCode - ISO metal code (e.g. "xau") or metal name.
  * @param {string} metalLower - Lowercased metal name (weight-line fallback label).
  * @param {number} weightOz - Coin weight in troy ounces (0 hides the weight line).
  * @param {string} [pricesAt] - ISO start of the price window (absent hides the time line).
  * @returns {void}
  */
-const _buildModalHeader = (content, coinMeta, slug, metalCode, metalLower, weightOz, pricesAt) => {
+const _buildModalHeader = (content, metalCode, metalLower, weightOz, pricesAt) => {
   const header = document.createElement("div");
   header.className = "market-detail-header";
-
-  const h2 = document.createElement("h2");
-  h2.id = "marketDetailTitle";
-  h2.tabIndex = -1;
-  const dot = document.createElement("span");
-  dot.className = "metal-dot" + (metalCode ? " " + metalCode : "");
-  h2.appendChild(dot);
-  const nameText = document.createTextNode(" " + (coinMeta.name || slug));
-  h2.appendChild(nameText);
-  header.appendChild(h2);
 
   if (weightOz > 0) {
     const metalNames = { xau: "Gold", xag: "Silver", xpt: "Platinum", xpd: "Palladium" };
@@ -1530,7 +1542,7 @@ const _buildModalHeader = (content, coinMeta, slug, metalCode, metalLower, weigh
     header.appendChild(asOf);
   }
 
-  content.appendChild(header);
+  if (header.childElementCount > 0) content.appendChild(header);
 };
 
 /**
@@ -2056,6 +2068,8 @@ const openMarketDetailModal = async (slug, { preservePeriod = false } = {}) => {
 
   const metalLower = (coinMeta.metal || "").toLowerCase();
   const metalCode = _METAL_TO_ISO[metalLower] || metalLower;
+  // The title stays empty while prices load, so the overlay's aria-label names the dialog.
+  _setModalTitle(null);
 
   const modalData = await _fetchModalData(slug);
   if (
@@ -2071,17 +2085,10 @@ const openMarketDetailModal = async (slug, { preservePeriod = false } = {}) => {
   const dialogBox = overlay.querySelector(".market-detail-modal");
   const focusOnBox = document.activeElement === dialogBox;
   content.textContent = "";
+  _setModalTitle(coinMeta, slug, metalCode);
 
   const weightOz = (detail && detail.weight_oz) || coinMeta.weight || 0;
-  _buildModalHeader(
-    content,
-    coinMeta,
-    slug,
-    metalCode,
-    metalLower,
-    weightOz,
-    _detailWindowTime(detail, null)
-  );
+  _buildModalHeader(content, metalCode, metalLower, weightOz, _detailWindowTime(detail, null));
   const title = safeGetElement("marketDetailTitle");
   if (
     title instanceof HTMLElement &&

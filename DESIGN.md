@@ -399,8 +399,8 @@ Borders are 1px on surfaces and 2px on form fields.
 ### Modal Shell
 
 Every `.modal` uses one shell, defined in the MODAL SHELL section of `css/styles.css`. The Market detail
-modal (`#marketDetailModal`) keeps its own overlay and panel classes. The details modal keeps its own
-header layout, with a title in the same type.
+modal (`#marketDetailModal`) opens by its `hidden` attribute and sits one layer above the other modals.
+The details modal keeps its own header layout, with a title in the same type.
 
 - **Panel:** `.modal-shell` on the content element: card token, 1px border, 12px radius, `--shadow-modal`,
   no padding of its own. Size classes set the width: `.modal-shell--sm` 30rem for confirms and short

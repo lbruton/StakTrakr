@@ -275,10 +275,19 @@ test.describe("modal stack", () => {
     await expect(page.locator("#appDialogModal")).toBeVisible();
     await expect(page.locator("#collectionsBuilderModal")).toBeVisible();
 
+    // The Market detail modal opens by its hidden attribute, not by display, so the sweep
+    // reaches it only when it carries the .modal class.
+    expect(await page.locator("#marketDetailModal.modal").count()).toBe(1);
+
     const readShellBreaks = (theme) =>
       page.evaluate((name) => {
         document.documentElement.setAttribute("data-theme", name);
         const breaks = [];
+        const probe = document.createElement("div");
+        probe.style.background = "var(--modal-overlay)";
+        document.body.appendChild(probe);
+        const overlay = getComputedStyle(probe).backgroundColor;
+        probe.remove();
         document.querySelectorAll(".modal[id]").forEach((modal) => {
           const shown = modal.style.display;
           modal.style.display = "flex";
@@ -292,6 +301,8 @@ test.describe("modal stack", () => {
             breaks.push(`${modal.id}: no sized shell`);
           if (layers.some((el) => getComputedStyle(el).backdropFilter !== "none"))
             breaks.push(`${modal.id}: backdrop-filter`);
+          if (getComputedStyle(modal).backgroundColor !== overlay)
+            breaks.push(`${modal.id}: overlay ${getComputedStyle(modal).backgroundColor}`);
           if (
             shell &&
             !/^(rgb|oklch|color)\((?!.*\/ 0?\.)/.test(getComputedStyle(shell).backgroundColor)
@@ -334,5 +345,44 @@ test.describe("modal stack", () => {
         })
       )
       .toEqual({ left: 0, right: 390, bottom: 844 });
+
+    // The Market detail sheet pins its header while a long body scrolls under it.
+    const marketSheet = await page.evaluate(() => {
+      document.querySelectorAll(".modal").forEach((m) => {
+        m.style.display = "none";
+      });
+      const modal = document.getElementById("marketDetailModal");
+      modal.removeAttribute("hidden");
+      modal.style.display = "";
+      const body = document.getElementById("marketDetailContent");
+      const filler = document.createElement("div");
+      filler.style.height = "3000px";
+      body.appendChild(filler);
+      const shell = modal.querySelector(".modal-shell");
+      const header = modal.querySelector(".modal-shell-header");
+      const headerTop = header.getBoundingClientRect().top;
+      body.scrollTop = 500;
+      const box = shell.getBoundingClientRect();
+      const close = document.getElementById("marketDetailCloseBtn").getBoundingClientRect();
+      const result = {
+        left: box.left,
+        right: Math.round(box.right),
+        bottom: Math.round(box.bottom),
+        bodyScrolled: body.scrollTop > 0,
+        headerPinned: header.getBoundingClientRect().top === headerTop,
+        close: [Math.round(close.width), Math.round(close.height)],
+      };
+      filler.remove();
+      modal.setAttribute("hidden", "");
+      return result;
+    });
+    expect(marketSheet).toEqual({
+      left: 0,
+      right: 390,
+      bottom: 844,
+      bodyScrolled: true,
+      headerPinned: true,
+      close: [44, 44],
+    });
   });
 });
