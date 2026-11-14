@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.150] - 2026-11-13
+
+### Changed — STRK-571: Test helper accuracy
+
+- **Settings log tables**: The change log and the history tables in Settings wrap each value at word breaks instead of cutting it off with an ellipsis. Long values such as URLs break anywhere, the table scrolls sideways inside its frame, and the Undo button shows its full label (STRK-571).
+- **Contrast checks**: The contrast test helper fades an element's own fill and text together when the element has an opacity below 1 (STRK-571).
+- **Phone hit areas**: The phone-floor helper measures the hit box through the control's center on each axis, so a 43px control fails and a 44px control passes (STRK-571).
+- **Overflow checks**: Text cut off with an ellipsis inside a scroll wrapper fails the overflow helper (STRK-571).
+- **Market tests**: The Market tests build their states through the retail feed fixture, and a unit test proves a second detail lookup reads the cache with no fetch (STRK-571).
+- **Theme token test**: The inline-style check reads each style declaration whole, so a style split across lines is still checked (STRK-571).
+
 ## [3.36.149] - 2026-11-13
 
 ### Changed — STRK-579: Review Changes keyboard and labels

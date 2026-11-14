@@ -134,11 +134,11 @@ const setupWhatsNewPopupEvents = () => {};
 
 const getEmbeddedWhatsNew = () => {
   return `
+    <li><strong>v3.36.150 &ndash; Settings log values in full</strong>: The change log and the history tables in Settings show each value in full. Text wraps at word breaks instead of ending in an ellipsis, long URLs break to fit, and the table scrolls sideways on a phone. The Undo button shows its whole label (STRK-571).</li>
     <li><strong>v3.36.149 &ndash; Review Changes by keyboard</strong>: In the Review Changes window, arrow keys move between the two values of a setting and pick one. The section arrows, the matched-settings toggle and Show more work with Tab, Enter and Space, and focus stays where you left it. A provider priority reads as text instead of [object Object].</li>
     <li><strong>v3.36.148 &ndash; Unused modal styles removed</strong>: The stylesheet drops the rules for three modals that the app no longer has: Filters, Storage Report and Storage Options. Nothing on screen changes; every element keeps the same computed style in all four themes (STRK-593).</li>
     <li><strong>v3.36.147 &ndash; Market details in the modal shell</strong>: The Market details modal uses the same shell as every other modal: a serif title and a 44px close button in a header that stays in place while the body scrolls. Its overlay is the same opaque layer, and on a phone it opens as a bottom sheet. The prices, chart and dealer table are unchanged (STRK-592).</li>
-    <li><strong>v3.36.146 &ndash; Album More button</strong>: The More button (&hellip;) on an owned collection tile now sits on its own line below the price, at the right edge. It no longer covers the item name, price or quantity in a row where every slot is owned, and on a phone it no longer overlaps the price line (STRK-591).</li>
-    <li><strong>v3.36.145 &ndash; One modal shell</strong>: Every modal except Market details shares one shell, with a serif title, a 44px close button and a footer that keeps its buttons on the right. The frosted-glass blur is gone, so modals sit on a solid card over an opaque overlay. On a phone, modals open as a bottom sheet; the Item view stays full height (STRK-538).</li>      `;
+    <li><strong>v3.36.146 &ndash; Album More button</strong>: The More button (&hellip;) on an owned collection tile now sits on its own line below the price, at the right edge. It no longer covers the item name, price or quantity in a row where every slot is owned, and on a phone it no longer overlaps the price line (STRK-591).</li>      `;
 };
 
 // Expose globally for access from other modules

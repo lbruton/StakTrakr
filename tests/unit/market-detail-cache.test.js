@@ -11,32 +11,37 @@ const CACHE_LETS =
   "let _cachedSlugDetail = {};\nlet _cachedSlugDetailGeneration = 0;\nlet _vendorTableRenderSeq = 0;";
 
 /**
- * Loads the cache and _resolveVendorDetailMap with a latest.json fetch the test resolves.
- * @returns {{resolve: Function, clear: Function, cache: Function, answer: Function}}
+ * Loads the cache, its real reader and _resolveVendorDetailMap with a latest.json fetch the
+ * test resolves.
+ * @returns {{resolve: Function, clear: Function, cache: Function, answer: Function, fetches: Function}}
  */
 const loadDetailCache = () => {
   let answer = null;
+  let fetches = 0;
   const api = evalSource("js/market-data.js", {
     params: {
-      _getCachedRetailDetail: (slug, coins) =>
-        coins && coins[slug] && coins[slug].vendors ? { ...coins[slug] } : null,
       _snapshotWindowTime: () => null,
       _detailWindowTime: () => null,
       _strictMarketFreshness: () => true,
-      _marketV2Fetch: () =>
-        new Promise((resolve) => {
+      _marketV2Fetch: () => {
+        fetches++;
+        return new Promise((resolve) => {
           answer = resolve;
-        }),
+        });
+      },
     },
     slice: [
       rangeOf(marketSrc, CACHE_LETS),
+      rangeOf(marketSrc, "const _coalesce = (a, b) => a ?? b ?? null;"),
+      rangeOf(marketSrc, sliceArrowConst(marketSrc, "const _normalizeDetailVendors = (")),
+      rangeOf(marketSrc, sliceArrowConst(marketSrc, "const _getCachedRetailDetail = (")),
       rangeOf(marketSrc, sliceArrowConst(marketSrc, "const _clearCachedSlugDetail = (")),
       rangeOf(marketSrc, sliceArrowConst(marketSrc, "const _resolveVendorDetailMap = async (")),
     ],
     suffix:
       "\nreturn { resolve: _resolveVendorDetailMap, clear: _clearCachedSlugDetail, cache: () => _cachedSlugDetail };",
   });
-  return { ...api, answer: (data) => answer({ data }) };
+  return { ...api, answer: (data) => answer({ data }), fetches: () => fetches };
 };
 
 const FETCHED = { vendors: { apmex: { price: 38, inStock: true } } };
@@ -49,6 +54,17 @@ describe("_resolveVendorDetailMap cache writes", () => {
     const map = await pending;
     assert.equal(map[SLUG].vendors.apmex.price, 38);
     assert.ok(detail.cache()[SLUG]);
+  });
+
+  test("a second resolution reads the cache and makes no fetch", async () => {
+    const detail = loadDetailCache();
+    const first = detail.resolve([{ slug: SLUG }], {});
+    detail.answer(FETCHED);
+    await first;
+    const map = await detail.resolve([{ slug: SLUG }], {});
+    assert.equal(detail.fetches(), 1);
+    assert.equal(map[SLUG].vendors.apmex.price, 38);
+    assert.equal(map[SLUG].vendors.apmex.in_stock, true);
   });
 
   test("a fetch that finishes after a sync clears the cache does not refill it", async () => {

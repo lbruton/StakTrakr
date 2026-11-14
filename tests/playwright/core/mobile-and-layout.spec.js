@@ -1982,3 +1982,36 @@ test.describe("Phone floors in Collections, Item modals and Settings", () => {
     expect(layout.sheetBottom).toBe(844);
   });
 });
+
+test.describe("layout measure helpers", () => {
+  test("the phone floor fails a 43px control and passes a 44px one", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.setContent(
+      `<main id="root" style="padding:60px;font-size:16px">
+        <button id="small" style="display:block;width:43px;height:43px;padding:0;margin-bottom:40px">A</button>
+        <button id="ok" style="display:block;width:44px;height:44px;padding:0">B</button>
+      </main>`
+    );
+    const floors = await readPhoneFloors(page, "#root");
+    expect(floors.tested).toBe(2);
+    expect(floors.smallTargets).toHaveLength(1);
+    expect(floors.smallTargets[0]).toBe("button#small 43x43 hit box 43x43");
+  });
+
+  test("a value cut by an ellipsis inside a scroll wrapper still counts", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.setContent(
+      `<main id="root" style="width:300px;font-size:16px">
+        <div class="wrap" style="overflow-x:auto">
+          <table style="width:600px"><tr>
+            <td><div id="cut" style="width:60px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">A long value that does not fit</div></td>
+          </tr></table>
+        </div>
+      </main>`
+    );
+    const overflow = await readHorizontalOverflow(page, "#root", [], [".wrap"]);
+    expect(overflow.pastEdge).toEqual([]);
+    expect(overflow.scrollingBodies).toEqual([]);
+    expect(overflow.ellipsis).toEqual(["div#cut"]);
+  });
+});
