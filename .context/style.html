@@ -1707,7 +1707,10 @@
           </div>
 
           <div class="sg-subsection">
-            <h3>Renderer frames (table thumb, card A/B/C, view modal; STRK-427 P2)</h3>
+            <h3>
+              Renderer frames (table thumb, card A/B/C, view modal, popovers, Bulk Edit, Review
+              Changes)
+            </h3>
             <p class="sg-desc">
               The read-only renderers frame an item image with the same shape and orientation the
               editor saved. Each existing wrapper (<code>.coin-img</code>,
@@ -1752,6 +1755,16 @@
                 <code>cover</code>, while the view modal uses <code>contain</code> for every frame
                 including Round. Card and table frames keep a transparent background (protected by
                 <code>mobile-and-layout.spec.js</code>).
+              </li>
+              <li>
+                <strong>Photo popovers, Bulk Edit and Review Changes (STRK-430):</strong>
+                <code>.bulk-img-popover-preview</code> (table and Bulk Edit Photos popovers),
+                <code>.bulk-img-thumb</code> / <code>.bulk-img-placeholder</code> (Bulk Edit rows)
+                and <code>.dm-item-thumb</code> (Review Changes) carry the same attributes;
+                <code>applyImageFrameAttrs</code> sets them on built elements. The cap stays per
+                surface: the popover side column (a square), 32px in the row, and the square Review
+                Changes slot, which keeps its size while the framed image sits inside it. Round is a
+                circle on these surfaces.
               </li>
             </ul>
           </div>

@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.151] - 2026-11-13
+
+### Changed — STRK-430: Image frames on the photo popovers, Bulk Edit and Review Changes
+
+- **Photo popover**: The table's photo popover shows each preview in the item's frame: a circle for a Round, a tall box for a portrait Bar or a Slab, a wide box for a landscape Note. The photo fits whole inside the frame (STRK-430).
+- **Bulk Edit**: The row thumbnails and the Photos popover in Bulk Edit use the same frames inside their existing size (STRK-430).
+- **Review Changes**: The item thumbnails in Review Changes keep their square slot and show the photo in the item's frame inside it (STRK-430).
+
 ## [3.36.150] - 2026-11-13
 
 ### Changed — STRK-571: Test helper accuracy

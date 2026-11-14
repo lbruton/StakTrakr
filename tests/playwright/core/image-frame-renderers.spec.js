@@ -501,3 +501,135 @@ test.describe("core/image-frame-renderers sizing", () => {
     }
   });
 });
+
+// The thumb popover, the Bulk Edit row images and popover, and the Review Changes thumbs use
+// the same frame: each surface keeps its own size cap and the frame sets the ratio inside it.
+const SURFACE_CASES = [
+  ["fr-round", 1, "round", "", RATIO.round],
+  ["fr-bar", 2, "bar", "portrait", RATIO.barPortrait],
+  ["fr-note", 3, "note", "landscape", RATIO.noteLandscape],
+  ["fr-slab", 4, "slab", "", RATIO.slab],
+];
+const SURFACE_ITEMS = [ITEMS.round, ITEMS.bar, ITEMS.note, ITEMS.slab].map(withImages);
+
+/**
+ * Assert a framed element's shape attributes, ratio and corners in every theme.
+ * @param {import('@playwright/test').Page} page - Browser page.
+ * @param {import('@playwright/test').Locator} locator - Framed element.
+ * @param {Array} surfaceCase - One SURFACE_CASES row.
+ * @param {string} label - Assertion label.
+ * @returns {Promise<{w: number, h: number}>} The measured frame box.
+ */
+async function expectSurfaceFrame(page, locator, [uuid, , shape, orientation, ratio], label) {
+  const frame = await frameOf(locator);
+  expect(frame, `${label} ${uuid}`).toMatchObject({ shape, orientation });
+  expect(frame.ratio, `${label} ${uuid} ratio`).toBeCloseTo(ratio, 1);
+  for (const theme of THEMES) {
+    await setTheme(page, theme);
+    if (shape === "round") {
+      const corner = await cornerOf(locator);
+      expect(corner.radius, `${label} ${theme} round`).toBeGreaterThanOrEqual(
+        corner.short / 2 - 0.5
+      );
+    } else {
+      await expectSquareish(locator, `${label} ${theme} ${uuid}`);
+    }
+  }
+  return frame;
+}
+
+/** Fit of an image inside a framed element. */
+const fitOf = (locator) => locator.evaluate((img) => getComputedStyle(img).objectFit);
+
+test.describe("core/image-frame-renderers surfaces", () => {
+  test("thumb popover: each preview takes the item's frame inside the square side box", async ({
+    page,
+  }) => {
+    await boot(page, SURFACE_ITEMS, { style: "D", sides: "obverse" });
+    for (const surfaceCase of SURFACE_CASES) {
+      const [uuid, , shape] = surfaceCase;
+      await page.evaluate(() => document.getElementById("thumbPopover")?.remove());
+      await thumbOf(page, uuid).click();
+      const preview = page.locator("#thumbPopover #thumbPop_obv_preview");
+      await expect(preview.locator("img")).toBeVisible();
+      const frame = await expectSurfaceFrame(page, preview, surfaceCase, "thumb popover");
+      const side = await page
+        .locator("#thumbPopover .bulk-img-popover-side")
+        .evaluate((el) => el.getBoundingClientRect().width);
+      expect(frame.w, `${uuid} within the side width`).toBeLessThanOrEqual(side + 0.5);
+      expect(frame.h, `${uuid} within the square cap`).toBeLessThanOrEqual(side + 0.5);
+      expect(Math.max(frame.w, frame.h), `${uuid} fills the cap`).toBeGreaterThan(side * 0.95);
+      if (shape !== "round") expect(await fitOf(preview.locator("img")), uuid).toBe("contain");
+    }
+  });
+
+  test("bulk edit: row thumbs and the photo popover take the item's frame", async ({ page }) => {
+    await boot(page, SURFACE_ITEMS, { style: "D", sides: "obverse" });
+    await page.evaluate(async () => {
+      await window.imageCache.init();
+    });
+    await page.evaluate(() => window.openBulkEdit());
+    await expect(page.locator("#bulkEditModal")).toBeVisible({ timeout: 10000 });
+    for (const surfaceCase of SURFACE_CASES) {
+      const [uuid, serial, shape] = surfaceCase;
+      const cell = page.locator(
+        `#bulkEditModal .bulk-edit-table tbody tr[data-serial="${serial}"] .bulk-img-cell`
+      );
+      const thumb = cell.locator('img.bulk-img-thumb[data-side="obverse"]');
+      await expect(thumb).toBeVisible({ timeout: 10000 });
+      const frame = await expectSurfaceFrame(page, thumb, surfaceCase, "bulk row");
+      expect(frame.w, `${uuid} within 32px`).toBeLessThanOrEqual(32.5);
+      expect(frame.h, `${uuid} within 32px`).toBeLessThanOrEqual(32.5);
+      expect(Math.max(frame.w, frame.h), `${uuid} fills 32px`).toBeGreaterThan(31);
+      if (shape !== "round") expect(await fitOf(thumb), uuid).toBe("contain");
+
+      await page.evaluate(() => document.getElementById("bulkImagePopover")?.remove());
+      await cell.click();
+      const preview = page.locator("#bulkImagePopover #bulkPopObvPreview");
+      await expect(preview.locator("img")).toBeVisible();
+      await expectSurfaceFrame(page, preview, surfaceCase, "bulk popover");
+      await page.evaluate(() => document.getElementById("bulkImagePopover")?.remove());
+    }
+  });
+
+  test("review changes: the thumb box stays square and the image takes the frame", async ({
+    page,
+  }) => {
+    await boot(page, [coin("fr-local", 9)], { style: "D" });
+    await page.evaluate(async (remote) => {
+      await window.imageCache.init();
+      window.DiffModal.show({
+        source: { type: "sync", label: "Dropbox" },
+        diff: window.DiffEngine.compareItems([], remote),
+        onApply: () => {},
+        onCancel: () => {},
+      });
+    }, SURFACE_ITEMS);
+    for (const surfaceCase of SURFACE_CASES) {
+      const [uuid, , shape, orientation, ratio] = surfaceCase;
+      const box = page.locator(
+        `#diffReviewModal .dm-item-thumb[data-uuid="${uuid}"][data-side="obverse"]`
+      );
+      const img = box.locator("img.dm-item-thumb-img");
+      await expect(img).toBeVisible();
+      const outer = await frameOf(box);
+      expect(outer, uuid).toMatchObject({ shape, orientation });
+      expect(outer.ratio, `${uuid} box stays square`).toBeCloseTo(1, 1);
+      const inner = await frameOf(img);
+      expect(inner.ratio, `${uuid} image ratio`).toBeCloseTo(ratio, 1);
+      expect(inner.w, `${uuid} within the box`).toBeLessThanOrEqual(outer.w + 0.5);
+      expect(inner.h, `${uuid} within the box`).toBeLessThanOrEqual(outer.h + 0.5);
+      expect(Math.max(inner.w / outer.w, inner.h / outer.h), `${uuid} fills`).toBeGreaterThan(0.85);
+      for (const theme of THEMES) {
+        await setTheme(page, theme);
+        if (shape === "round") {
+          const corner = await cornerOf(img);
+          expect(corner.radius, `${theme} round`).toBeGreaterThanOrEqual(corner.short / 2 - 0.5);
+        } else {
+          await expectSquareish(img, `review changes ${theme} ${uuid}`);
+          expect(await fitOf(img), uuid).toBe("contain");
+        }
+      }
+    }
+  });
+});

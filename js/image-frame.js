@@ -175,6 +175,21 @@ function imageFrameAttrHtml(item, side = "obverse") {
   return ` data-shape="${spec.shape}"${spec.orientation ? ` data-orientation="${spec.orientation}"` : ""}`;
 }
 
+/**
+ * Set data-shape and data-orientation on an existing element from the shared frame reader.
+ * Round and Slab frames carry no orientation, so a stale one is removed.
+ * @param {HTMLElement} el - Element whose CSS frame follows the attributes.
+ * @param {Object} item - Inventory item.
+ * @param {string} [side="obverse"] - Image side.
+ */
+function applyImageFrameAttrs(el, item, side = "obverse") {
+  if (!el || !el.dataset) return;
+  const spec = resolveImageFrameSpec(item, side);
+  el.dataset.shape = spec.shape;
+  if (spec.orientation) el.dataset.orientation = spec.orientation;
+  else delete el.dataset.orientation;
+}
+
 // Mirrors the `:root` --frame-* tokens in css/styles.css; the live token wins when readable.
 const IMAGE_FRAME_RATIO_FALLBACK = {
   round: 1,
@@ -376,6 +391,7 @@ if (typeof window !== "undefined") {
   window.resolveImageFrame = resolveImageFrame;
   window.resolveImageFrameSpec = resolveImageFrameSpec;
   window.imageFrameAttrHtml = imageFrameAttrHtml;
+  window.applyImageFrameAttrs = applyImageFrameAttrs;
   window.imageFrameRatio = imageFrameRatio;
   window.imageFrameThumbWidth = imageFrameThumbWidth;
   window.imageFrameThumbHeight = imageFrameThumbHeight;

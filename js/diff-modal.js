@@ -1025,6 +1025,10 @@
   /** Shared card header: dual OBV/REV thumbnails + item identity. Used by orphan and conflict cards. */
   function _renderCardHeader(item, uuid) {
     var grad = window.DiffModalSettings.metalBgGradient(item.metal);
+    // image-frame.js loads after this file; the header renders at runtime, after both.
+    var frameAttrs = function (side) {
+      return typeof imageFrameAttrHtml === "function" ? imageFrameAttrHtml(item, side) : "";
+    };
     var html = "";
     // Dual OBV/REV thumbnails. The gradient carries the metal; label text stays on a text token.
     html += '<div class="dm-item-thumb-pair">';
@@ -1033,12 +1037,14 @@
       grad +
       '"' +
       (uuid ? ' data-uuid="' + _esc(uuid) + '" data-side="obverse"' : "") +
+      frameAttrs("obverse") +
       '><span class="dm-item-thumb-label">OBV</span></div>';
     html +=
       '<div class="dm-item-thumb" style="background:' +
       grad +
       '"' +
       (uuid ? ' data-uuid="' + _esc(uuid) + '" data-side="reverse"' : "") +
+      frameAttrs("reverse") +
       '><span class="dm-item-thumb-label">REV</span></div>';
     html += "</div>";
     return html;
@@ -1280,7 +1286,7 @@
 
       // Card header
       html += '<div class="dm-conflict-card-header" data-toggle-conflict="' + i + '">';
-      html += _renderCardHeader(item, uuid);
+      html += _renderCardHeader(detailItem, uuid);
       // Identity
       html += '<div class="dm-item-identity">';
       html += '<div class="dm-item-name">' + _esc(item.name || "Unnamed item") + "</div>";
@@ -1573,6 +1579,8 @@
                   img.src = imgUrl;
                   img.alt = side;
                   img.className = "dm-item-thumb-img";
+                  // The metal gradient would show around a letterboxed frame.
+                  el.style.background = "";
                   el.textContent = "";
                   el.appendChild(img);
                 }

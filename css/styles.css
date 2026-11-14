@@ -21966,24 +21966,64 @@ button.vp-price:hover {
    ========================================================================== */
 /* STRK-442: the builder's Slot list (.collections-builder-rows) carries the same attributes, set
    from the collection's shape and the obverse orientation; its Slot thumbnails inherit the ratio. */
-:is(.coin-img, .table-thumb, .view-image-slot, .collections-builder-rows)[data-shape] {
+:is(
+  .coin-img,
+  .table-thumb,
+  .view-image-slot,
+  .collections-builder-rows,
+  .bulk-img-popover-preview,
+  .bulk-img-thumb,
+  .bulk-img-placeholder,
+  .dm-item-thumb
+)[data-shape] {
   --frame-r: 1;
 }
-:is(.coin-img, .table-thumb, .view-image-slot, .collections-builder-rows)[data-shape="slab"] {
+:is(
+  .coin-img,
+  .table-thumb,
+  .view-image-slot,
+  .collections-builder-rows,
+  .bulk-img-popover-preview,
+  .bulk-img-thumb,
+  .bulk-img-placeholder,
+  .dm-item-thumb
+)[data-shape="slab"] {
   --frame-r: var(--frame-slab);
   --frame-radius-max: var(--frame-radius-slab);
 }
-:is(.coin-img, .table-thumb, .view-image-slot, .collections-builder-rows)[data-shape="bar"] {
+:is(
+  .coin-img,
+  .table-thumb,
+  .view-image-slot,
+  .collections-builder-rows,
+  .bulk-img-popover-preview,
+  .bulk-img-thumb,
+  .bulk-img-placeholder,
+  .dm-item-thumb
+)[data-shape="bar"] {
   --frame-radius-max: var(--frame-radius-bar);
 }
-:is(.coin-img, .table-thumb, .view-image-slot, .collections-builder-rows)[data-shape="note"] {
+:is(
+  .coin-img,
+  .table-thumb,
+  .view-image-slot,
+  .collections-builder-rows,
+  .bulk-img-popover-preview,
+  .bulk-img-thumb,
+  .bulk-img-placeholder,
+  .dm-item-thumb
+)[data-shape="note"] {
   --frame-radius-max: var(--frame-radius-note);
 }
 :is(
     .coin-img,
     .table-thumb,
     .view-image-slot,
-    .collections-builder-rows
+    .collections-builder-rows,
+    .bulk-img-popover-preview,
+    .bulk-img-thumb,
+    .bulk-img-placeholder,
+    .dm-item-thumb
   )[data-shape="bar"][data-orientation="portrait"] {
   --frame-r: var(--frame-bar-portrait);
 }
@@ -21991,7 +22031,11 @@ button.vp-price:hover {
     .coin-img,
     .table-thumb,
     .view-image-slot,
-    .collections-builder-rows
+    .collections-builder-rows,
+    .bulk-img-popover-preview,
+    .bulk-img-thumb,
+    .bulk-img-placeholder,
+    .dm-item-thumb
   )[data-shape="bar"][data-orientation="landscape"] {
   --frame-r: var(--frame-bar-landscape);
 }
@@ -21999,7 +22043,11 @@ button.vp-price:hover {
     .coin-img,
     .table-thumb,
     .view-image-slot,
-    .collections-builder-rows
+    .collections-builder-rows,
+    .bulk-img-popover-preview,
+    .bulk-img-thumb,
+    .bulk-img-placeholder,
+    .dm-item-thumb
   )[data-shape="note"][data-orientation="portrait"] {
   --frame-r: var(--frame-note-portrait);
 }
@@ -22007,7 +22055,11 @@ button.vp-price:hover {
     .coin-img,
     .table-thumb,
     .view-image-slot,
-    .collections-builder-rows
+    .collections-builder-rows,
+    .bulk-img-popover-preview,
+    .bulk-img-thumb,
+    .bulk-img-placeholder,
+    .dm-item-thumb
   )[data-shape="note"][data-orientation="landscape"] {
   --frame-r: var(--frame-note-landscape);
 }
@@ -23488,4 +23540,76 @@ button.vp-price:hover {
   .chip-grouping-table-container .chip-grouping-table {
     overflow: visible;
   }
+}
+
+/* ==========================================================================
+   IMAGE FRAMES ON THE PHOTO POPOVERS, BULK EDIT ROWS AND REVIEW CHANGES
+   Each surface keeps its own size cap as the bounding box; --frame-r (set by the shared
+   renderer frames block) decides the ratio inside it. Round is a circle; other shapes fit the
+   photo whole and scale the corner radius to the frame's short side.
+   ========================================================================== */
+.bulk-img-popover-side {
+  container-type: inline-size;
+}
+.bulk-img-popover-preview[data-shape] {
+  --frame-w: min(100cqw, calc(100cqw * var(--frame-r)));
+  width: var(--frame-w);
+  aspect-ratio: var(--frame-r);
+  min-height: 0;
+  align-self: center;
+}
+.bulk-img-popover-preview[data-shape="round"] {
+  border-radius: calc(var(--frame-w) / 2);
+}
+.bulk-img-popover-preview[data-shape="round"] .bulk-img-popover-img {
+  object-fit: cover;
+}
+
+.bulk-img-thumb[data-shape],
+.bulk-img-placeholder[data-shape] {
+  --frame-w: min(32px, calc(32px * var(--frame-r)));
+  width: var(--frame-w);
+  height: auto;
+  aspect-ratio: var(--frame-r);
+}
+.bulk-img-thumb[data-shape]:not([data-shape="round"]) {
+  object-fit: contain;
+  background: var(--bg-secondary);
+}
+:is(.bulk-img-thumb, .bulk-img-placeholder)[data-shape="round"] {
+  border-radius: calc(var(--frame-w) / 2);
+}
+
+/* The thumb box stays square so the card header does not shift while photos load. */
+#diffReviewModal .dm-item-thumb[data-shape] {
+  container-type: size;
+}
+#diffReviewModal .dm-item-thumb[data-shape]:has(> .dm-item-thumb-img) {
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+}
+#diffReviewModal .dm-item-thumb[data-shape] > .dm-item-thumb-img {
+  --frame-w: min(100cqw, calc(100cqh * var(--frame-r)));
+  width: var(--frame-w);
+  height: auto;
+  aspect-ratio: var(--frame-r);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+}
+#diffReviewModal .dm-item-thumb[data-shape="round"] > .dm-item-thumb-img {
+  border-radius: calc(var(--frame-w) / 2);
+}
+#diffReviewModal .dm-item-thumb[data-shape]:not([data-shape="round"]) > .dm-item-thumb-img {
+  object-fit: contain;
+}
+
+:is(.bulk-img-popover-preview, .bulk-img-thumb, .bulk-img-placeholder)[data-shape]:not(
+    [data-shape="round"]
+  ),
+#diffReviewModal .dm-item-thumb[data-shape]:not([data-shape="round"]) > .dm-item-thumb-img {
+  border-radius: min(
+    var(--frame-radius-max),
+    calc(min(var(--frame-w), var(--frame-w) / var(--frame-r)) * var(--frame-radius-scale))
+  );
 }
