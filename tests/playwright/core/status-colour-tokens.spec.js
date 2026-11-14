@@ -1108,4 +1108,16 @@ test.describe("contrast measure", () => {
     // Grey text over 50% black on white sits on mid-grey, not on white.
     expect(tinted.ratio).toBeLessThan(2);
   });
+
+  test("an element's own opacity fades its fill along with its text", async ({ page }) => {
+    await page.setContent(
+      `<body style="margin:0;background:#fff">
+        <button id="t" style="background:#000;color:#fff;opacity:0.5">Half</button>
+      </body>`
+    );
+    const [half] = await measureText(page, "#t");
+    // The control renders as white on mid-grey, not as grey on black.
+    expect(half.ratio).toBeCloseTo(3.98, 1);
+    expect(half.background).toBe("rgb(128, 128, 128)");
+  });
 });

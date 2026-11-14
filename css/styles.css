@@ -14529,10 +14529,19 @@ th {
 #settingsChangeLogTable td {
   padding: 0.3rem 0.5rem;
   border-bottom: 1px solid var(--border);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  /* Log values wrap in full at word breaks; the wrapper scrolls the table sideways. */
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  overflow-wrap: break-word;
+  min-width: 7rem;
   max-width: 180px;
+}
+
+/* The old and new values hold URLs and other unbroken text. */
+#settingsChangeLogTable td:nth-child(4),
+#settingsChangeLogTable td:nth-child(5) {
+  overflow-wrap: anywhere;
 }
 
 #settingsChangeLogTable tr {
@@ -14545,6 +14554,9 @@ th {
 }
 
 #settingsChangeLogTable .action-btn {
+  width: auto;
+  min-width: 2rem;
+  white-space: nowrap;
   font-size: var(--font-size-xs);
   padding: 0.15rem 0.45rem;
 }
@@ -14658,9 +14670,12 @@ th {
 #settingsCloudActivityTable td {
   padding: 0.3rem 0.5rem;
   border-bottom: 1px solid var(--border);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  /* Log values wrap in full at word breaks; the wrapper scrolls the table sideways. */
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  overflow-wrap: break-word;
+  min-width: 7rem;
   max-width: 180px;
 }
 

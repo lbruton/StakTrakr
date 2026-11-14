@@ -1,8 +1,9 @@
 /**
  * Sideways overflow on one surface: body scrollers that scroll sideways, elements that reach
  * past the surface edge, clipped boxes, text cut by an ellipsis, and selects too narrow for
- * their chosen option. Content inside a listed scroll wrapper is exempt; any other box that
- * scrolls sideways is reported with the body scrollers.
+ * their chosen option. Content inside a listed scroll wrapper may reach past the edge and
+ * scroll, but its values must not be clipped or cut by an ellipsis; any other box that scrolls
+ * sideways is reported with the body scrollers.
  * @param {import('@playwright/test').Page} page - Playwright page.
  * @param {string} rootSelector - CSS selector of the surface root.
  * @param {string[]} bodySelectors - Scrollers inside the root that must never scroll sideways.
@@ -61,15 +62,17 @@ export async function readHorizontalOverflow(
       let tested = 0;
       for (const el of root.querySelectorAll("*")) {
         if (el.closest("svg") && el.tagName.toLowerCase() !== "svg") continue;
-        if (el.tagName === "OPTION" || !shown(el) || inOwnScroller(el)) continue;
+        if (el.tagName === "OPTION" || !shown(el)) continue;
         const r = el.getBoundingClientRect();
         if (r.width < 1 || r.height < 1) continue;
         tested++;
         const style = getComputedStyle(el);
+        const wrapped = inOwnScroller(el);
         const over = Math.round(Math.max(r.right - edge.right, edge.left - r.left));
-        if (over > 1) pastEdge.push(`${name(el)} ${over}px`);
+        if (over > 1 && !wrapped) pastEdge.push(`${name(el)} ${over}px`);
         if (bodies.includes(el)) continue;
         if (scrollsSideways(el)) {
+          if (wrapped) continue;
           if (!isWrapper(el) && el.scrollWidth > el.clientWidth + 1) {
             scrollingBodies.push(`${name(el)} ${el.scrollWidth - el.clientWidth}px`);
           }

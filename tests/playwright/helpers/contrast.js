@@ -9,8 +9,8 @@ export const AA_NORMAL_TEXT = 4.5;
  * Returns { text, color, background, inlineColor, ratio } for each selector match: the computed
  * text colour and its WCAG 2.x contrast over the element's background composited onto the
  * nearest opaque ancestor. Over a gradient (its own or an ancestor below that surface) the
- * ratio is the lowest across the colour stops. The text colour is faded by the element's own opacity; with
- * `ancestorOpacity`, also by each ancestor below that surface, so a dimmed parent cell counts.
+ * ratio is the lowest across the colour stops. The element's own opacity fades its fill and text as
+ * one layer; with `ancestorOpacity`, so does each ancestor below that surface, so a dimmed cell counts.
  * @param {import('@playwright/test').Page} page - Playwright page.
  * @param {string} selector - CSS selector for the text elements to measure.
  * @param {{ancestorOpacity?: boolean}} [options] - Measure options.
@@ -59,7 +59,6 @@ export function measureText(page, selector, { ancestorOpacity = false } = {}) {
         }
         return { colour: lay([255, 255, 255, 255]), opacity, flatten: (x) => x };
       };
-      const surfaceBehind = (el) => walk(el, Number(getComputedStyle(el).opacity));
       const STOP = /(?:rgba?|oklch|oklab|lab|lch|color)\([^()]*\)/g;
       // Colour stops of the first gradient between the element and its first opaque fill.
       const gradientStops = (el) => {
@@ -77,15 +76,17 @@ export function measureText(page, selector, { ancestorOpacity = false } = {}) {
       };
       return Array.from(document.querySelectorAll(sel)).map((el) => {
         const cs = getComputedStyle(el);
-        const surface = surfaceBehind(el);
-        const local = over(toRgba(cs.backgroundColor), surface.colour);
+        const surface = walk(el, 1);
+        // Opacity fades the element as one layer, fill and text together, over the surface.
+        const fade = Number(cs.opacity) * surface.opacity;
+        const faded = (x) => surface.flatten(mix(x, surface.colour, fade));
         const text = toRgba(cs.color);
-        text[3] *= surface.opacity;
-        const back = surface.flatten(local);
-        const fore = surface.flatten(over(text, local));
+        const local = over(toRgba(cs.backgroundColor), surface.colour);
+        const back = faded(local);
+        const fore = faded(over(text, local));
         const stops = gradientStops(el).map((stop) => {
-          const base = surface.flatten(over(stop, surface.colour));
-          return contrast(base, surface.flatten(over(text, over(stop, surface.colour))));
+          const base = over(stop, surface.colour);
+          return contrast(faded(base), faded(over(text, base)));
         });
         return {
           text: el.textContent.trim(),

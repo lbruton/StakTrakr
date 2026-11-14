@@ -167,23 +167,59 @@ test("the sweep finds a known-undefined token, so it is not vacuous", () => {
   assert.ok(!defined.has("--strk-450-never-defined"), "an invented name stays undefined");
 });
 
-// A status colour as text fails 4.5:1 on some surface; text takes the --<role>-text token.
-const RAW_ROLE_TEXT =
-  /(?:\bcolor\s*:\s*|\.style\.color\s*=\s*["'`])var\(--(?:primary|success|info|warning|danger)\)/;
-// A text-inverse label over a raw status fill fails 4.5:1; fills take --<role>-fill and --on-<role>.
-const INVERSE_ON_RAW_FILL =
-  /background\s*:\s*var\(--(?:primary|secondary|success|info|warning|danger)\)[^"'`]*color\s*:\s*var\(--text-inverse\)/;
+const RAW_ROLE = /^var\(--(?:primary|success|info|warning|danger)\)$/;
+const RAW_FILL = /^var\(--(?:primary|secondary|success|info|warning|danger)\)$/;
+// A style attribute or cssText string, whole, across lines.
+const STYLE_BLOCK = /(?:\bstyle\s*=\s*|\.cssText\s*=\s*)(["'`])([\s\S]*?)\1/g;
+const STYLE_COLOR = /\.style\.color\s*=\s*["'`]([^"'`]*)["'`]/g;
+
+/**
+ * Lists inline styles that colour text with a raw status token, or put a text-inverse
+ * label on a raw status fill. A status colour as text fails 4.5:1 on some surface, so
+ * text takes --<role>-text, and fills take --<role>-fill with --on-<role>.
+ * @param {string} src - File text.
+ * @returns {string[]} One "line: declarations" entry per offending style.
+ */
+const inlineStyleOffenders = (src) => {
+  const lineOf = (index) => src.slice(0, index).split("\n").length;
+  const offenders = [];
+  for (const m of src.matchAll(STYLE_BLOCK)) {
+    const decls = new Map(
+      m[2]
+        .split(";")
+        .map((d) => d.split(":"))
+        .filter((parts) => parts.length >= 2)
+        .map(([prop, ...value]) => [
+          prop.trim().toLowerCase(),
+          value.join(":").replace(/\s+/g, " ").trim(),
+        ])
+    );
+    const color = decls.get("color") || "";
+    const fill = decls.get("background") || decls.get("background-color") || "";
+    if (RAW_ROLE.test(color) || (RAW_FILL.test(fill) && color === "var(--text-inverse)")) {
+      offenders.push(`${lineOf(m.index)}: ${m[2].replace(/\s+/g, " ").trim()}`);
+    }
+  }
+  for (const m of src.matchAll(STYLE_COLOR)) {
+    if (RAW_ROLE.test(m[1].trim())) offenders.push(`${lineOf(m.index)}: color ${m[1]}`);
+  }
+  return offenders;
+};
+
+test("the inline-style check reads a declaration split across lines", () => {
+  const multiline =
+    'el.innerHTML = `<span style="\n  color: var(--text-inverse);\n  background: var(--danger)\n">x</span>`;';
+  assert.deepEqual(inlineStyleOffenders(multiline), [
+    "1: color: var(--text-inverse); background: var(--danger)",
+  ]);
+  assert.equal(inlineStyleOffenders('<b style="color:\n var(--warning)">x</b>').length, 1);
+  assert.equal(inlineStyleOffenders('el.style.color = "var(--success)";').length, 1);
+  assert.deepEqual(inlineStyleOffenders('<b style="color: var(--success-text)">x</b>'), []);
+});
 
 test("inline styles in js/ and index.html colour text and labels from text and fill tokens", () => {
-  const offenders = [];
-  for (const file of [...listDir("js/", ".js"), "index.html"]) {
-    read(file)
-      .split("\n")
-      .forEach((line, i) => {
-        if (RAW_ROLE_TEXT.test(line) || INVERSE_ON_RAW_FILL.test(line)) {
-          offenders.push(`${file}:${i + 1}: ${line.trim()}`);
-        }
-      });
-  }
+  const offenders = [...listDir("js/", ".js"), "index.html"].flatMap((file) =>
+    inlineStyleOffenders(read(file)).map((hit) => `${file}:${hit}`)
+  );
   assert.deepEqual(offenders, []);
 });

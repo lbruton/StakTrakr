@@ -1,10 +1,10 @@
 /**
  * Phone-width floors for one surface: text under 12px, inputs under 16px, and controls
- * whose 44px hit area misses or overlaps a neighbour.
+ * whose 44px hit area is short or overlaps a neighbor.
  *
- * The hit check samples a 3x3 grid 21px either side of each control's centre with
- * elementFromPoint. A point counts when it lands on the control, inside it, or on its label,
- * so a smaller box, a short ::after, or a neighbour's hit area all show as a miss.
+ * A point is a hit when elementFromPoint lands on the control, inside it, or on its label.
+ * The hit box is the run of hit pixels through the center on each axis; under 44px fails.
+ * A 3x3 grid 21px either side of the center catches a neighbor that covers the control.
  * @param {import('@playwright/test').Page} page - Playwright page.
  * @param {string} rootSelector - CSS selector of the surface root.
  * @param {string} [extraControls] - Selector for clickable elements that carry no control role.
@@ -75,7 +75,28 @@ export async function readPhoneFloors(page, rootSelector, extraControls = "") {
       const cy = r.top + r.height / 2;
       if (cx < 0 || cx > window.innerWidth || cy < 0 || cy > window.innerHeight) continue;
       tested++;
-      const points = [-21, 0, 21].flatMap((dx) => [-21, 0, 21].map((dy) => [cx + dx, cy + dy]));
+      const [x0, y0] = [Math.floor(cx), Math.floor(cy)];
+      const hits = (x, y) => accepts(el, document.elementFromPoint(x, y));
+      // Hit pixels past the center in one direction, up to the 22 a 44px box needs.
+      const run = (dx, dy) => {
+        let n = 0;
+        while (n < 22 && hits(x0 + dx * (n + 1), y0 + dy * (n + 1))) n++;
+        return n;
+      };
+      // Hit testing snaps a fractional box to whole pixels, so a run that covers the
+      // control's own box within 1px counts as that box's exact size.
+      const extent = (hit, size) => (hit >= size - 1 ? Math.max(hit, size) : hit);
+      const centered = hits(x0, y0);
+      const across = centered ? extent(run(-1, 0) + run(1, 0) + 1, r.width) : 0;
+      const down = centered ? extent(run(0, -1) + run(0, 1) + 1, r.height) : 0;
+      if (across < 44 || down < 44) {
+        smallTargets.push(
+          `${name(el)} ${Math.round(r.width)}x${Math.round(r.height)} hit box ${Math.round(across)}x${Math.round(down)}`
+        );
+        continue;
+      }
+      const steps = [-21, 0, 21];
+      const points = steps.flatMap((dx) => steps.map((dy) => [cx + dx, cy + dy]));
       const blockers = points
         .map(([x, y]) => document.elementFromPoint(x, y))
         .filter((hit) => !accepts(el, hit))

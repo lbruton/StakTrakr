@@ -784,9 +784,12 @@ async function routeExchangeAndCharts(page, exchangeRates = { EUR: 0.9 }) {
 /**
  * Common boot sequence after routes + initScript are wired: sets the fixed
  * clock, navigates, waits for market functions and spot price to settle, then
- * drives initMarketData + refreshMarketData before waiting for the table.
+ * drives initMarketData + refreshMarketData before waiting for the table, or for
+ * the empty-state message when `empty` is set.
+ * @param {import('@playwright/test').Page} page - Playwright page.
+ * @param {{empty?: boolean}} [options] - Boot options.
  */
-async function bootMarketDataPage(page) {
+async function bootMarketDataPage(page, { empty = false } = {}) {
   await page.clock.setFixedTime(FIXED_NOW);
   // Deep-link into the Market tab (STRK-282): vendor prices live in that panel
   // and the v2 shell boots on Dashboard, so a bare /index.html renders them
@@ -816,10 +819,32 @@ async function bootMarketDataPage(page) {
     window.refreshMarketData();
   });
   // Phones below 480px show the cards and hide the matrix; either layout means the render landed.
-  await page
-    .locator(".vendor-prices-table:visible, .vp-cards:visible")
-    .first()
-    .waitFor({ timeout: 10000 });
+  const landed = empty
+    ? "#vendorPricesContainer .vp-message"
+    : ".vendor-prices-table:visible, .vp-cards:visible";
+  await page.locator(landed).first().waitFor({ timeout: 10000 });
+}
+
+/**
+ * Counts, in window.__vpTabObservers, the observers still watching a Market tab bar.
+ * @param {import('@playwright/test').Page} page - Playwright page, before navigation.
+ * @returns {Promise<void>}
+ */
+async function countVendorTabObservers(page) {
+  await page.addInitScript(() => {
+    const Native = window.ResizeObserver;
+    window.__vpTabObservers = new Set();
+    window.ResizeObserver = class extends Native {
+      observe(el, opts) {
+        if (el.classList.contains("vendor-prices-tabs")) window.__vpTabObservers.add(this);
+        return super.observe(el, opts);
+      }
+      disconnect() {
+        window.__vpTabObservers.delete(this);
+        return super.disconnect();
+      }
+    };
+  });
 }
 
 /**
@@ -852,23 +877,35 @@ async function setupRetailFixture(page, options = {}) {
     failedRetailFeeds = [],
     // Slug-to-name overrides, seeded into storage and the manifest alike.
     coinNames = {},
+    // Top-level snapshot fields, such as window_start, merged over the seeded prices.
+    retailSnapshot = {},
+    // false boots with no stored retail prices.
+    seedRetailPrices = true,
+    // Stored dealer links; with a fresh snapshot lastSync they keep the boot sync from running.
+    retailProviders,
   } = options;
   const fixtureMeta = { ...coinMeta };
   for (const [slug, name] of Object.entries(coinNames)) {
     fixtureMeta[slug] = { ...fixtureMeta[slug], name };
   }
-  const seededPrices = { ...prices, prices: { ...prices.prices, ...retailPriceRows } };
+  const seededPrices = {
+    ...prices,
+    ...retailSnapshot,
+    prices: { ...prices.prices, ...retailPriceRows },
+  };
 
   await injectSeedInventory(page);
   await routeExchangeAndCharts(page, exchangeRates);
   await page.addInitScript({ content: lightweightChartsStub });
 
   await page.addInitScript(
-    ({ seeded, meta, vendors, saved, filter, currency, rates }) => {
+    ({ seeded, meta, vendors, saved, filter, currency, rates, providers }) => {
       const writeJson = (key, value) => localStorage.setItem(key, JSON.stringify(value));
       const slugs = Object.keys(meta);
-      writeJson("v2RetailPrices", seeded.prices);
-      writeJson("retailPrices", seeded.prices);
+      if (seeded.prices) {
+        writeJson("v2RetailPrices", seeded.prices);
+        writeJson("retailPrices", seeded.prices);
+      }
       writeJson("v2RetailHistory", seeded.history);
       writeJson("retailPriceHistory", seeded.history);
       writeJson("v2RetailIntraday", seeded.intraday);
@@ -883,10 +920,11 @@ async function setupRetailFixture(page, options = {}) {
       localStorage.setItem("spotGold", JSON.stringify(2000));
       if (saved !== undefined) writeJson("vendorPricesActiveTab", saved);
       if (filter) writeJson("staktrakr.market_filter", filter);
+      if (providers) writeJson("retailProviders", providers);
     },
     {
       seeded: {
-        prices: seededPrices,
+        prices: seedRetailPrices ? seededPrices : null,
         history: { ...historyRows, ...retailHistory },
         intraday: intradayRows,
         generatedAt: GENERATED_AT,
@@ -897,6 +935,7 @@ async function setupRetailFixture(page, options = {}) {
       filter: marketFilter,
       currency: displayCurrency,
       rates: exchangeRates,
+      providers: retailProviders,
     }
   );
 
@@ -965,7 +1004,7 @@ async function setupRetailFixture(page, options = {}) {
   // seed instead). Playwright still installs faked timers but drives them in
   // real time, so setTimeout/requestAnimationFrame keep firing and app boot /
   // chart / exchange-rate logic runs normally — we pin the clock, not pause it.
-  await bootMarketDataPage(page);
+  await bootMarketDataPage(page, { empty: !seedRetailPrices });
 }
 
 /**
@@ -1152,15 +1191,19 @@ async function clickStrk260MarketDetail(page) {
  * @param {Object} [params.row] - Fields that override the price row, such as t.
  * @param {string} [params.windowStart] - window_start of the latest feed.
  * @param {Object} [params.marketFilter] - Market filter to seed.
+ * @param {Object} [params.retailSnapshot] - Top-level fields of the seeded price snapshot.
+ * @param {Object} [params.retailProviders] - Stored dealer links.
  * @returns {Promise<void>}
  */
 async function setupComparisonFixture(
   page,
-  { vendors, row = {}, windowStart = GENERATED_AT, marketFilter }
+  { vendors, row = {}, windowStart = GENERATED_AT, marketFilter, retailSnapshot, retailProviders }
 ) {
   const priceRow = { t: GENERATED_AT, median_price: 37, vendors, ...row };
   await setupRetailFixture(page, {
     marketFilter,
+    retailSnapshot,
+    retailProviders,
     retailPriceRows: { [SLUG_SILVER_A]: priceRow },
     retailFeeds: {
       [SLUG_SILVER_A]: { latest: { weight_oz: 1, window_start: windowStart, ...priceRow } },
@@ -2061,25 +2104,6 @@ test.describe("core/retail-market", () => {
     const freshName = await freshCell.locator(".vp-price").getAttribute("aria-label");
     expect(freshName).toContain(`. ${freshSeen}`);
     expect(freshName).toMatch(/\. Opens the dealer page in a new window\.$/);
-    // Prices cached with no window keep none: the snapshot's GENERATED_AT window must not label them.
-    const keptWindow = await page.evaluate((slug) => {
-      const kept = _cachedSlugDetail[slug].windowTime;
-      _cachedSlugDetail[slug].windowTime = null;
-      window.renderVendorPrices();
-      return kept;
-    }, SLUG_SILVER_A);
-    await expect(freshCell).not.toHaveAttribute("title", /./);
-    expect(await freshCell.locator(".vp-price").getAttribute("aria-label")).not.toContain(
-      "Last seen"
-    );
-    await page.evaluate(
-      ([slug, kept]) => {
-        _cachedSlugDetail[slug].windowTime = kept;
-        window.renderVendorPrices();
-      },
-      [SLUG_SILVER_A, keptWindow]
-    );
-    await expect(freshCell).toHaveAttribute("title", freshSeen);
     const carriedTile = card.locator(".vp-card-dealer.vp-carried");
     await expect(carriedTile).toHaveAttribute("title", lastSeen);
     await expect(carriedTile).not.toContainText("Carried");
@@ -2151,6 +2175,38 @@ test.describe("core/retail-market", () => {
         })
         .toEqual([]);
     }
+  });
+
+  test("prices cached with no price window keep none when a later snapshot names one", async ({
+    page,
+  }) => {
+    // Neither the item nor the snapshot names a window, so the first render caches none.
+    // A fresh lastSync and stored dealer links keep the boot sync from storing a window.
+    await setupComparisonFixture(page, {
+      vendors: { apmex: { price: 36.5, in_stock: true, inStock: true } },
+      row: { t: "" },
+      windowStart: "",
+      retailSnapshot: { lastSync: FIXED_NOW.toISOString(), window_start: null },
+      retailProviders: { [SLUG_SILVER_A]: { apmex: "https://apmex.com/x" } },
+    });
+    const cell = page
+      .locator(".vendor-prices-table tbody tr")
+      .filter({ has: page.getByText("Alpha Silver Bar", { exact: true }) })
+      .locator("td:has(.vp-price)")
+      .first();
+    await expect(cell.locator(".vp-price")).toHaveText("$36.50");
+    await expect(cell).not.toHaveAttribute("title", /./);
+    // Another tab stores a snapshot that names a window; it carries no new prices for this tab.
+    await page.evaluate((iso) => {
+      saveDataSync("v2RetailPrices", {
+        ...loadDataSync("v2RetailPrices", null),
+        window_start: iso,
+      });
+      window.renderVendorPrices();
+    }, GENERATED_AT);
+    await expect(cell.locator(".vp-price")).toHaveText("$36.50");
+    await expect(cell).not.toHaveAttribute("title", /./);
+    expect(await cell.locator(".vp-price").getAttribute("aria-label")).not.toContain("Last seen");
   });
 
   test("the modal leaves out filtered dealers and reads stock from either flag", async ({
@@ -2355,24 +2411,25 @@ test.describe("core/retail-market", () => {
     const ITEM_W = "2026-05-25T14:30:00Z";
     const NEW_PRICE = 37.25;
     const alpha = latestForSlug(SLUG_SILVER_A);
-    await setupRetailFixture(page, {
-      retailFeeds: {
-        [SLUG_SILVER_A]: {
-          latest: {
-            ...alpha,
-            t: ITEM_T,
-            vendors: { apmex: { ...alpha.vendors.apmex, price: NEW_PRICE } },
-          },
-        },
-        [SLUG_SILVER_M]: {
-          latest: { ...latestForSlug(SLUG_SILVER_M), t: "", window_start: ITEM_W },
-        },
+    // The route handler reads this map per request, so a change reaches the next fetch.
+    const retailFeeds = {
+      [SLUG_SILVER_A]: { latest: { ...alpha, t: ITEM_T } },
+      [SLUG_SILVER_M]: {
+        latest: { ...latestForSlug(SLUG_SILVER_M), t: "", window_start: ITEM_W },
       },
-    });
+    };
+    await setupRetailFixture(page, { retailFeeds });
     const alphaRow = page
       .locator(".vendor-prices-table tbody tr")
       .filter({ has: page.getByText("Alpha Silver Bar", { exact: true }) });
-    // The first render caches the seeded $38.00 price; each later sync must replace it.
+    // Startup serves $38.00; the feed changes only after the boot sync, so only Refresh can show $37.25.
+    await waitForRetailBackgroundSync(page);
+    await expect(alphaRow.locator(".vp-price")).toContainText("$38.00");
+    retailFeeds[SLUG_SILVER_A].latest = {
+      ...alpha,
+      t: ITEM_T,
+      vendors: { apmex: { ...alpha.vendors.apmex, price: NEW_PRICE } },
+    };
     await page.locator("#marketRefreshBtn").click();
     await expect(alphaRow.locator(".vp-price")).toContainText("$37.25");
     const stored = await page.evaluate((slug) => {
@@ -2574,21 +2631,8 @@ test.describe("core/retail-market", () => {
     page,
   }) => {
     const LONG_NAME = "South African Silver Krugerrand 1 oz (.999 fine silver)";
-    // Count observers still watching a Market tab bar; each render must release the last one.
-    await page.addInitScript(() => {
-      const Native = window.ResizeObserver;
-      window.__vpTabObservers = new Set();
-      window.ResizeObserver = class extends Native {
-        observe(el, opts) {
-          if (el.classList.contains("vendor-prices-tabs")) window.__vpTabObservers.add(this);
-          return super.observe(el, opts);
-        }
-        disconnect() {
-          window.__vpTabObservers.delete(this);
-          return super.disconnect();
-        }
-      };
-    });
+    // Each render must release the last tab bar's observer.
+    await countVendorTabObservers(page);
     // The fixture boot waits for the visible matrix, so the phone width comes after it.
     await setupRetailFixture(page, { coinNames: { [SLUG_SILVER_A]: LONG_NAME } });
     await page.evaluate(() => {
@@ -2697,15 +2741,19 @@ test.describe("core/retail-market", () => {
     await expect
       .poll(async () => (await readPhoneFit(page, "#vendorPricesSectionEl")).clippedNames)
       .toEqual([]);
+  });
 
-    // The empty state draws no tab bar, so it releases the last bar's observer too.
-    await page.evaluate(() => {
-      window._v2RetailData = null;
-      localStorage.removeItem("v2RetailPrices");
-      localStorage.removeItem("retailPrices");
-      window.renderVendorPrices();
-    });
-    await expect(section).toContainText("Retail data unavailable");
+  test("with no stored or fetched prices the Market tab shows the empty state and no tab bar", async ({
+    page,
+  }) => {
+    await countVendorTabObservers(page);
+    await setupRetailFixture(page, { seedRetailPrices: false, failedRetailFeeds: ["latest"] });
+    const section = page.locator("#vendorPricesSectionEl");
+    await expect(section.locator(".vp-message")).toHaveText(
+      "Retail data unavailable. Prices have not loaded. Select Refresh to try again."
+    );
+    await expect(section.locator("#marketRefreshBtn")).toBeVisible();
+    await expect(section.locator(".vendor-prices-tabs")).toHaveCount(0);
     expect(await page.evaluate(() => window.__vpTabObservers.size)).toBe(0);
   });
 
