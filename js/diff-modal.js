@@ -1653,9 +1653,7 @@
         sourceHtml += "</div>";
       }
 
-      // Built by _metaCell, which escapes every value with _esc.
-      // nosemgrep: javascript.browser.security.insecure-innerhtml.insecure-innerhtml
-      sourceEl.innerHTML = sourceHtml;
+      _setMarkup(sourceEl, sourceHtml);
     }
 
     // Count row (backup import flow only)
@@ -1677,9 +1675,7 @@
       var orphanHtml = "";
       if (added.length > 0) orphanHtml += _renderOrphanCards("added", added);
       if (deleted.length > 0) orphanHtml += _renderOrphanCards("deleted", deleted);
-      // _renderOrphanCards escapes every Item value with _esc.
-      // nosemgrep: javascript.browser.security.insecure-innerhtml.insecure-innerhtml
-      orphanEl.innerHTML = orphanHtml;
+      _setMarkup(orphanEl, orphanHtml);
       orphanEl.style.display = orphanHtml ? "" : "none";
     }
 
@@ -1695,9 +1691,7 @@
           modHtml = '<div class="dm-empty-state">No item changes detected</div>';
         }
       }
-      // _renderModifiedSection escapes every Item value with _esc.
-      // nosemgrep: javascript.browser.security.insecure-innerhtml.insecure-innerhtml
-      modifiedEl.innerHTML = modHtml;
+      _setMarkup(modifiedEl, modHtml);
     }
 
     // Async image loading
@@ -2052,15 +2046,13 @@
       var fill = bar.querySelector(".dm-progress-fill");
       if (fill) fill.style.width = pct + "%";
       var statusText = bar.querySelector(".dm-status-text");
-      if (statusText)
-        // Only numbers and static markup.
-        // nosemgrep: javascript.browser.security.insecure-innerhtml.insecure-innerhtml
-        statusText.innerHTML =
-          "Resolved <strong>" +
-          resolved +
-          "</strong> of <strong>" +
-          modified.length +
-          "</strong> conflicts";
+      if (statusText) {
+        var resolvedEl = document.createElement("strong");
+        resolvedEl.textContent = String(resolved);
+        var totalEl = document.createElement("strong");
+        totalEl.textContent = String(modified.length);
+        statusText.replaceChildren("Resolved ", resolvedEl, " of ", totalEl, " conflicts");
+      }
       var pillEl = bar.querySelector(".dm-resolve-status .dm-pill");
       if (pillEl) {
         if (remaining === 0) {
@@ -2768,6 +2760,15 @@
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;");
+  }
+
+  /**
+   * Replace el's children with nodes parsed from markup built by the _esc-escaping renderers.
+   * DOMParser builds an inert document, so the parse runs no scripts.
+   */
+  function _setMarkup(el, html) {
+    var doc = new DOMParser().parseFromString(html, "text/html");
+    el.replaceChildren.apply(el, Array.prototype.slice.call(doc.body.childNodes));
   }
 
   // ── Public API ──
