@@ -1126,7 +1126,8 @@ test.describe("Tab panel frames", () => {
             search: { ...flat, innerStandsOff: null },
             table: { ...flat, innerStandsOff: true },
             market: { ...flat, innerStandsOff: true },
-            collections: { ...flat, innerStandsOff: true },
+            // A hub card with no owned Slot takes the missing-Slot fill, which is the frame fill.
+            collections: { ...flat, innerStandsOff: false },
           });
         const contrast = await readSurfaceContrast(page);
         expect(contrast.marketHeader).toBeGreaterThanOrEqual(4.5);

@@ -500,6 +500,7 @@
      */
     const buildHubCard = (entry) => {
       const card = button("collections-card", `open:${entry.id}`, () => openCollection(entry.id));
+      card.classList.toggle("is-started", entry.progress.owned > 0);
       card.dataset.collectionId = entry.id;
       card.appendChild(buildEntryCoin(entry));
       const body = el("span", "collections-card-body");

@@ -8,6 +8,7 @@ import { readFileSync } from "node:fs";
 
 import { test, expect, prepareAppPage } from "../helpers/mocks/extended-test.js";
 import { readSegmentCorners, SEGMENT_THEMES } from "../helpers/segment-corners.js";
+import { THEMES, applyTheme, contrastFailures } from "../helpers/contrast.js";
 import { installStakTrakrNetworkMocks } from "../helpers/mocks/routes.js";
 import {
   collectionItem as baseItem,
@@ -3466,6 +3467,79 @@ test.describe("core/collections — tab UI", () => {
     await expect(
       panel(page).getByRole("heading", { name: "Start your first collection" })
     ).toHaveCount(0);
+  });
+
+  test("hub cards wear the Album Slot surfaces: a started card the owned wash, a not-started card the missing-Slot fill", async ({
+    page,
+  }) => {
+    await seedAndGoto(page);
+    await openCollectionsTab(page);
+    await linkItems(page, [["2024", "col-ase-2024"]]);
+    await expect(panel(page).locator(`[data-collection-id="${ASE}"]`)).toContainText("1 / 6");
+    // Theme switches and the card's own transitions would read mid-fade colours.
+    await page.addStyleTag({ content: "*, *::before, *::after { transition: none !important; }" });
+    await page.mouse.move(0, 0);
+
+    /**
+     * Reads the computed wash of every element matching a selector.
+     * @param {string} selector - CSS selector.
+     * @returns {Promise<Array<{image: string, color: string, border: string}>>} One record per match.
+     */
+    const washOf = (selector) =>
+      page.locator(selector).evaluateAll((els) =>
+        els.map((el) => {
+          const cs = getComputedStyle(el);
+          return {
+            image: cs.backgroundImage,
+            color: cs.backgroundColor,
+            border: cs.borderTopColor,
+          };
+        })
+      );
+    const started = `#collectionsSectionEl .collections-card[data-collection-id="${ASE}"]`;
+    const notStarted = '#collectionsSectionEl .collections-card[data-collection-id="ase-type1"]';
+
+    const hub = {};
+    const flat = {};
+    const failures = [];
+    for (const theme of THEMES) {
+      await applyTheme(page, theme);
+      const [card] = await washOf(started);
+      expect(card.image, `${theme} started card`).toMatch(/gradient/);
+      const [plain] = await washOf(notStarted);
+      expect(plain.image, `${theme} not-started card`).toBe("none");
+      hub[theme] = card;
+      flat[theme] = plain;
+      for (const line of await contrastFailures(page, {
+        name: `${started} .collections-card-name`,
+        sub: `${started} .collections-card-sub`,
+        count: `${started} .collections-card-row > *`,
+        foot: `${started} .collections-card-foot`,
+        plainName: `${notStarted} .collections-card-name`,
+        plainSub: `${notStarted} .collections-card-sub`,
+        plainFoot: `${notStarted} .collections-card-foot`,
+      })) {
+        failures.push(`${theme} ${line}`);
+      }
+    }
+    expect(failures).toEqual([]);
+
+    await openAseAlbum(page);
+    await page.mouse.move(0, 0);
+    for (const theme of THEMES) {
+      await applyTheme(page, theme);
+      expect(await washOf('#collectionsSectionEl [data-slot-id="2024"].is-owned'), theme).toEqual([
+        hub[theme],
+      ]);
+      const [missing] = await washOf('#collectionsSectionEl [data-slot-id="2025"].is-missing');
+      expect(
+        { image: flat[theme].image, color: flat[theme].color },
+        `${theme} not-started fill`
+      ).toEqual({
+        image: missing.image,
+        color: missing.color,
+      });
+    }
   });
 
   test("a manual Spot Price edit refreshes the open Collection's melt value", async ({ page }) => {

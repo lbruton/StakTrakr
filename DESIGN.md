@@ -484,8 +484,9 @@ Dashboard reads as one set of frames one step off the page. The tab panels on In
 Collections (search, table, vendor prices and collections) use the same frame surface, flat at rest and
 on hover. A surface set on a frame takes `--bg-on-frame`, one step off the frame and away from its text:
 the card token in light and sepia, the primary token in dark and slate. On the tertiary token, the vendor
-colours fall below 4.5:1 in slate. The collection cards and the Market table header use
-it. The inventory header is darker than the frame through its inset tint. The ratio chips on the spot
+colours fall below 4.5:1 in slate. The Market table header uses it. The Collections hub cards take the
+Album Slot surfaces instead: a card with no owned Slot has the secondary fill of a missing Slot, and a card
+with an owned Slot has the owned-Slot wash. The inventory header is darker than the frame through its inset tint. The ratio chips on the spot
 cards take an opaque fill one step lighter than the card: the card token in light and sepia, the tertiary
 token in dark and slate.
 
