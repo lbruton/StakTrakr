@@ -3469,7 +3469,7 @@ test.describe("core/collections — tab UI", () => {
     ).toHaveCount(0);
   });
 
-  test("a started hub card wears the owned-Slot wash in every theme and a not-started card stays flat", async ({
+  test("hub cards wear the Album Slot surfaces: a started card the owned wash, a not-started card the missing-Slot fill", async ({
     page,
   }) => {
     await seedAndGoto(page);
@@ -3483,33 +3483,41 @@ test.describe("core/collections — tab UI", () => {
     /**
      * Reads the computed wash of every element matching a selector.
      * @param {string} selector - CSS selector.
-     * @returns {Promise<Array<{image: string, border: string}>>} One record per match.
+     * @returns {Promise<Array<{image: string, color: string, border: string}>>} One record per match.
      */
     const washOf = (selector) =>
       page.locator(selector).evaluateAll((els) =>
         els.map((el) => {
           const cs = getComputedStyle(el);
-          return { image: cs.backgroundImage, border: cs.borderTopColor };
+          return {
+            image: cs.backgroundImage,
+            color: cs.backgroundColor,
+            border: cs.borderTopColor,
+          };
         })
       );
     const started = `#collectionsSectionEl .collections-card[data-collection-id="${ASE}"]`;
     const notStarted = '#collectionsSectionEl .collections-card[data-collection-id="ase-type1"]';
 
     const hub = {};
+    const flat = {};
     const failures = [];
     for (const theme of THEMES) {
       await applyTheme(page, theme);
       const [card] = await washOf(started);
       expect(card.image, `${theme} started card`).toMatch(/gradient/);
-      expect(await washOf(notStarted), `${theme} not-started card`).toEqual([
-        expect.objectContaining({ image: "none" }),
-      ]);
+      const [plain] = await washOf(notStarted);
+      expect(plain.image, `${theme} not-started card`).toBe("none");
       hub[theme] = card;
+      flat[theme] = plain;
       for (const line of await contrastFailures(page, {
         name: `${started} .collections-card-name`,
         sub: `${started} .collections-card-sub`,
         count: `${started} .collections-card-row > *`,
         foot: `${started} .collections-card-foot`,
+        plainName: `${notStarted} .collections-card-name`,
+        plainSub: `${notStarted} .collections-card-sub`,
+        plainFoot: `${notStarted} .collections-card-foot`,
       })) {
         failures.push(`${theme} ${line}`);
       }
@@ -3523,6 +3531,14 @@ test.describe("core/collections — tab UI", () => {
       expect(await washOf('#collectionsSectionEl [data-slot-id="2024"].is-owned'), theme).toEqual([
         hub[theme],
       ]);
+      const [missing] = await washOf('#collectionsSectionEl [data-slot-id="2025"].is-missing');
+      expect(
+        { image: flat[theme].image, color: flat[theme].color },
+        `${theme} not-started fill`
+      ).toEqual({
+        image: missing.image,
+        color: missing.color,
+      });
     }
   });
 

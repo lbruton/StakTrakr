@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed — STRK-559: Owned wash on started Collections hub cards
 
-- **Collections hub**: A hub card for a collection with at least one owned Slot uses the same top-down gold wash and border as an owned Slot in the Album. A collection with no owned Slots keeps the flat card. Hover and keyboard focus still turn the border to the full accent (STRK-559).
+- **Collections hub**: A hub card for a collection with at least one owned Slot uses the same top-down gold wash and border as an owned Slot in the Album. A hub card for a collection with no owned Slots uses the same plain fill as a missing Slot, in place of the brighter card fill. Hover and keyboard focus still turn the border to the full accent (STRK-559).
 
 ## [3.36.151] - 2026-11-13
 

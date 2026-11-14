@@ -19688,7 +19688,7 @@ button.vp-price:hover {
   text-align: left;
   font: inherit;
   color: inherit;
-  background: var(--bg-on-frame);
+  background: var(--bg-secondary);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   transition:
@@ -19700,7 +19700,7 @@ button.vp-price:hover {
 .collections-card:hover,
 .collections-card:focus-visible {
   border-color: var(--primary);
-  background: color-mix(in oklch, var(--bg-on-frame), var(--hover-mix) 4%);
+  background: color-mix(in oklch, var(--bg-secondary), var(--hover-mix) 4%);
   transform: translateY(-1px);
 }
 /* One keyboard ring for every Collections control. --primary-text is the primary token
