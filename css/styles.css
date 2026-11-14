@@ -20002,7 +20002,10 @@ button.vp-price:hover {
   border-style: dashed;
 }
 
-.collections-slot.is-owned {
+/* The owned wash: an owned Slot and a hub card with at least one owned Slot. This rule
+   follows the hub card hover rule so the hover background does not replace the wash. */
+.collections-slot.is-owned,
+.collections-card.is-started {
   border-color: color-mix(in oklch, var(--primary), transparent 45%);
   background: linear-gradient(
     180deg,
@@ -20012,7 +20015,9 @@ button.vp-price:hover {
 }
 
 .collections-slot.is-owned:hover,
-.collections-slot.is-owned:focus-within {
+.collections-slot.is-owned:focus-within,
+.collections-card.is-started:hover,
+.collections-card.is-started:focus-visible {
   border-color: var(--primary);
 }
 
