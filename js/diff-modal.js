@@ -1286,7 +1286,7 @@
 
       // Card header
       html += '<div class="dm-conflict-card-header" data-toggle-conflict="' + i + '">';
-      html += _renderCardHeader(item, uuid);
+      html += _renderCardHeader(detailItem, uuid);
       // Identity
       html += '<div class="dm-item-identity">';
       html += '<div class="dm-item-name">' + _esc(item.name || "Unnamed item") + "</div>";
