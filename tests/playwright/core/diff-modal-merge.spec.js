@@ -688,6 +688,20 @@ async function openKeyboardDiffReview(page) {
   await page.locator(`${MODAL} [data-cat-toggle="settings"]`).click();
 }
 
+/** Open the review with only these changed settings, then expand the Settings section. */
+async function showChangedSettings(page, changed) {
+  await page.evaluate((entries) => {
+    window.DiffModal.show({
+      source: { type: "sync", label: "Sync" },
+      diff: { added: [], modified: [], deleted: [] },
+      settingsDiff: { changed: entries, matched: [] },
+      onApply: () => {},
+      onCancel: () => {},
+    });
+  }, changed);
+  await page.locator(`${MODAL} [data-cat-toggle="settings"]`).click();
+}
+
 /** Press Tab until the locator holds focus; fails when it is not reached within the page's tab order. */
 async function tabTo(page, locator) {
   for (let presses = 0; presses < 80; presses++) {
@@ -771,20 +785,10 @@ test.describe("DiffModal setting choices by keyboard", () => {
 
   test("a choice in the expanded overflow keeps focus after the re-render", async ({ page }) => {
     const names = Array.from({ length: 20 }, (_, i) => "p" + String(i).padStart(2, "0"));
-    await page.evaluate((keys) => {
-      const pills = (value) => Object.fromEntries(keys.map((k) => [k, value]));
-      window.DiffModal.show({
-        source: { type: "sync", label: "Sync" },
-        diff: { added: [], modified: [], deleted: [] },
-        settingsDiff: {
-          changed: [{ key: "providerPriority", localVal: pills(1), remoteVal: pills(2) }],
-          matched: [],
-        },
-        onApply: () => {},
-        onCancel: () => {},
-      });
-    }, names);
-    await page.locator(`${MODAL} [data-cat-toggle="settings"]`).click();
+    const pills = (value) => Object.fromEntries(names.map((k) => [k, value]));
+    await showChangedSettings(page, [
+      { key: "providerPriority", localVal: pills(1), remoteVal: pills(2) },
+    ]);
     const showMore = page.locator(`${MODAL} [data-expand="providerPriority-local"]`);
     await tabTo(page, showMore);
     await expect(showMore).toHaveAttribute("role", "button");
@@ -802,25 +806,13 @@ test.describe("DiffModal setting choices by keyboard", () => {
   });
 
   test("an object-valued pill reads as text, not [object Object]", async ({ page }) => {
-    await page.evaluate(() => {
-      window.DiffModal.show({
-        source: { type: "sync", label: "Sync" },
-        diff: { added: [], modified: [], deleted: [] },
-        settingsDiff: {
-          changed: [
-            {
-              key: "providerPriority",
-              localVal: { metals: { priority: 1, enabled: true } },
-              remoteVal: { metals: { priority: 2, enabled: true } },
-            },
-          ],
-          matched: [],
-        },
-        onApply: () => {},
-        onCancel: () => {},
-      });
-    });
-    await page.locator(`${MODAL} [data-cat-toggle="settings"]`).click();
+    await showChangedSettings(page, [
+      {
+        key: "providerPriority",
+        localVal: { metals: { priority: 1, enabled: true } },
+        remoteVal: { metals: { priority: 2, enabled: true } },
+      },
+    ]);
     const pill = page.locator(`${MODAL} [data-field="setting-providerPriority-metals"]`).first();
     await expect(pill).toContainText("Priority: 1");
     await expect(pill).not.toContainText("[object Object]");
@@ -828,23 +820,34 @@ test.describe("DiffModal setting choices by keyboard", () => {
     expect(await pill.getAttribute("aria-label")).not.toContain("[object Object]");
   });
 
+  test("values that read the same but differ in type stay a choice", async ({ page }) => {
+    await showChangedSettings(page, [
+      { key: "providerPriority", localVal: { metals: 1 }, remoteVal: { metals: "1" } },
+    ]);
+    await expect(
+      page.locator(`${MODAL} [data-field="setting-providerPriority-metals"][data-side="local"]`)
+    ).toHaveCount(1);
+    await expect(page.locator(`${MODAL} .dm-kv-pill.matched`)).toHaveCount(0);
+  });
+
+  test("Show more on a matched-only list moves focus into the list", async ({ page }) => {
+    const shared = Array.from({ length: 17 }, (_, i) => "tag" + String(i).padStart(2, "0"));
+    await showChangedSettings(page, [
+      { key: "tagBlacklist", localVal: [...shared, "local-only"], remoteVal: shared },
+    ]);
+    const showMore = page.locator(`${MODAL} [data-expand="tagBlacklist-matched"]`);
+    await tabTo(page, showMore);
+    await page.keyboard.press("Enter");
+    await expect(page.locator(`${MODAL} #expand-tagBlacklist-matched > *`).first()).toBeFocused();
+  });
+
   test("a choice that shares its identity with an earlier one keeps focus after the re-render", async ({
     page,
   }) => {
     // HTML parsing turns CR into LF, so both tags end up with the same data-field.
-    await page.evaluate(() => {
-      window.DiffModal.show({
-        source: { type: "sync", label: "Sync" },
-        diff: { added: [], modified: [], deleted: [] },
-        settingsDiff: {
-          changed: [{ key: "tagBlacklist", localVal: ["gold\rbar", "gold\nbar"], remoteVal: [] }],
-          matched: [],
-        },
-        onApply: () => {},
-        onCancel: () => {},
-      });
-    });
-    await page.locator(`${MODAL} [data-cat-toggle="settings"]`).click();
+    await showChangedSettings(page, [
+      { key: "tagBlacklist", localVal: ["gold\rbar", "gold\nbar"], remoteVal: [] },
+    ]);
     const twins = page.locator(`${MODAL} [data-side="local"][data-field^="setting-tagBlacklist-"]`);
     await expect(twins).toHaveCount(2);
     await tabTo(page, twins.nth(1));

@@ -462,6 +462,16 @@
     );
   }
 
+  /** Flip the item section whose collapse arrow holds the target; false when there is none. */
+  function _toggleItemSection(target) {
+    var catToggle = target.closest("[data-cat-toggle]");
+    if (!catToggle) return false;
+    var cat = catToggle.dataset.catToggle;
+    _collapsedCategories[cat] = !_collapsedCategories[cat];
+    _renderKeepingFocus('[data-cat-toggle="' + cat + '"]', document.activeElement === catToggle);
+    return true;
+  }
+
   /** Re-render the item sections and return focus to the control the selector names. */
   function _renderKeepingFocus(selector, hadFocus) {
     _render();
@@ -753,8 +763,15 @@
           expandEl.classList.add("expanded");
           showMore.style.display = "none";
           _expandedOverflow[expandKey] = true;
-          var firstRevealed = expandEl.querySelector("[data-field], [data-setting-resolution]");
-          if (firstRevealed) firstRevealed.focus();
+          // A matched-only list holds no choices, so its first entry takes programmatic focus.
+          var firstRevealed =
+            expandEl.querySelector("[data-field], [data-setting-resolution]") ||
+            expandEl.firstElementChild;
+          if (firstRevealed) {
+            if (!firstRevealed.hasAttribute("tabindex"))
+              firstRevealed.setAttribute("tabindex", "-1");
+            firstRevealed.focus();
+          }
         }
         return;
       }
@@ -1636,6 +1653,8 @@
         sourceHtml += "</div>";
       }
 
+      // Built by _metaCell, which escapes every value with _esc.
+      // nosemgrep: javascript.browser.security.insecure-innerhtml.insecure-innerhtml
       sourceEl.innerHTML = sourceHtml;
     }
 
@@ -1658,6 +1677,8 @@
       var orphanHtml = "";
       if (added.length > 0) orphanHtml += _renderOrphanCards("added", added);
       if (deleted.length > 0) orphanHtml += _renderOrphanCards("deleted", deleted);
+      // _renderOrphanCards escapes every Item value with _esc.
+      // nosemgrep: javascript.browser.security.insecure-innerhtml.insecure-innerhtml
       orphanEl.innerHTML = orphanHtml;
       orphanEl.style.display = orphanHtml ? "" : "none";
     }
@@ -1674,6 +1695,8 @@
           modHtml = '<div class="dm-empty-state">No item changes detected</div>';
         }
       }
+      // _renderModifiedSection escapes every Item value with _esc.
+      // nosemgrep: javascript.browser.security.insecure-innerhtml.insecure-innerhtml
       modifiedEl.innerHTML = modHtml;
     }
 
@@ -1803,13 +1826,7 @@
     }
 
     // Section collapse toggle
-    var catToggle = target.closest("[data-cat-toggle]");
-    if (catToggle) {
-      var cat = catToggle.dataset.catToggle;
-      _collapsedCategories[cat] = !_collapsedCategories[cat];
-      _renderKeepingFocus('[data-cat-toggle="' + cat + '"]', document.activeElement === catToggle);
-      return;
-    }
+    if (_toggleItemSection(target)) return;
 
     // Show more button
     var showMore = target.closest("[data-show-more]");
@@ -1864,13 +1881,7 @@
     }
 
     // Section collapse toggle
-    var catToggle = target.closest("[data-cat-toggle]");
-    if (catToggle) {
-      var cat = catToggle.dataset.catToggle;
-      _collapsedCategories[cat] = !_collapsedCategories[cat];
-      _renderKeepingFocus('[data-cat-toggle="' + cat + '"]', document.activeElement === catToggle);
-      return;
-    }
+    if (_toggleItemSection(target)) return;
   }
 
   /**
@@ -2042,6 +2053,8 @@
       if (fill) fill.style.width = pct + "%";
       var statusText = bar.querySelector(".dm-status-text");
       if (statusText)
+        // Only numbers and static markup.
+        // nosemgrep: javascript.browser.security.insecure-innerhtml.insecure-innerhtml
         statusText.innerHTML =
           "Resolved <strong>" +
           resolved +

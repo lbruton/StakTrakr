@@ -541,7 +541,8 @@
       var lText = lv !== undefined ? _valueText(lv) : "";
       var rText = rv !== undefined ? _valueText(rv) : "";
 
-      if (lv !== undefined && rv !== undefined && lText === rText) {
+      // Match on the values, not the text: 1 and "1" read the same but differ.
+      if (lv !== undefined && rv !== undefined && _stableStringify(lv) === _stableStringify(rv)) {
         matchedHtml +=
           '<span class="dm-kv-pill matched">' + _esc(humanKey) + ": " + _esc(lText) + "</span> ";
       } else {
