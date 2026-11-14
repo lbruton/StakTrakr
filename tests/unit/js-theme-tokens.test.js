@@ -191,7 +191,11 @@ const inlineStyleOffenders = (src) => {
         .filter((parts) => parts.length >= 2)
         .map(([prop, ...value]) => [
           prop.trim().toLowerCase(),
-          value.join(":").replace(/\s+/g, " ").trim(),
+          value
+            .join(":")
+            .replace(/\s*!important\s*$/i, "")
+            .replace(/\s+/g, " ")
+            .trim(),
         ])
     );
     const color = decls.get("color") || "";
@@ -215,6 +219,7 @@ test("the inline-style check reads a declaration split across lines", () => {
   assert.equal(inlineStyleOffenders('<b style="color:\n var(--warning)">x</b>').length, 1);
   assert.equal(inlineStyleOffenders('el.style.color = "var(--success)";').length, 1);
   assert.deepEqual(inlineStyleOffenders('<b style="color: var(--success-text)">x</b>'), []);
+  assert.equal(inlineStyleOffenders('<b style="color: var(--danger) !important">x</b>').length, 1);
 });
 
 test("inline styles in js/ and index.html colour text and labels from text and fill tokens", () => {

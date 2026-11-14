@@ -2196,6 +2196,8 @@ test.describe("core/retail-market", () => {
       .first();
     await expect(cell.locator(".vp-price")).toHaveText("$36.50");
     await expect(cell).not.toHaveAttribute("title", /./);
+    // The boot sync stored no window, so the title is absent for the right reason.
+    expect(await page.evaluate(() => loadDataSync("v2RetailPrices", null).window_start)).toBeNull();
     // Another tab stores a snapshot that names a window; it carries no new prices for this tab.
     await page.evaluate((iso) => {
       saveDataSync("v2RetailPrices", {
