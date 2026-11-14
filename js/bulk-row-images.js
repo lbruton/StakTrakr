@@ -43,6 +43,7 @@ const _loadBulkRowImages = async (tr, item) => {
       img.alt = "";
       img.className = "bulk-img-thumb";
       img.dataset.side = "obverse";
+      applyImageFrameAttrs(img, item, "obverse");
       img.onerror = () => {
         img.style.display = "none";
       };
@@ -54,12 +55,18 @@ const _loadBulkRowImages = async (tr, item) => {
       img.alt = "";
       img.className = "bulk-img-thumb";
       img.dataset.side = "reverse";
+      applyImageFrameAttrs(img, item, "reverse");
       img.onerror = () => {
         img.style.display = "none";
       };
       imgTd.appendChild(img);
     }
-    if (!imgTd.querySelector("img")) imgTd.innerHTML = '<span class="bulk-img-placeholder"></span>';
+    if (!imgTd.querySelector("img")) {
+      const ph = document.createElement("span");
+      ph.className = "bulk-img-placeholder";
+      applyImageFrameAttrs(ph, item, "obverse");
+      imgTd.appendChild(ph);
+    }
     return;
   }
 
@@ -89,6 +96,7 @@ const _loadBulkRowImages = async (tr, item) => {
     img.alt = "";
     img.className = "bulk-img-thumb";
     img.dataset.side = side;
+    applyImageFrameAttrs(img, item, side);
     if (url) {
       img.src = url;
       img.onerror = () => {
@@ -100,16 +108,17 @@ const _loadBulkRowImages = async (tr, item) => {
     return img;
   };
 
-  const _makePh = () => {
+  const _makePh = (side = "obverse") => {
     const ph = document.createElement("span");
     ph.className = "bulk-img-placeholder";
+    applyImageFrameAttrs(ph, item, side);
     return ph;
   };
 
   const hasAny = obvUrl || revUrl;
 
-  if (showObv) imgTd.appendChild(obvUrl ? _makeImg(obvUrl, "obverse") : _makePh());
-  if (showRev) imgTd.appendChild(revUrl ? _makeImg(revUrl, "reverse") : _makePh());
+  if (showObv) imgTd.appendChild(obvUrl ? _makeImg(obvUrl, "obverse") : _makePh("obverse"));
+  if (showRev) imgTd.appendChild(revUrl ? _makeImg(revUrl, "reverse") : _makePh("reverse"));
 
   if (!hasAny) {
     // Nothing resolved — ensure at least one placeholder is visible
@@ -144,7 +153,7 @@ const _openBulkImagePopover = (imgTd, item) => {
   const _sideHtml = (key, label) => `
     <div class="bulk-img-popover-side">
       <span class="bulk-img-popover-label">${label}</span>
-      <div class="bulk-img-popover-preview" id="bulkPop${key}Preview"></div>
+      <div class="bulk-img-popover-preview" id="bulkPop${key}Preview"${imageFrameAttrHtml(item, key === "Rev" ? "reverse" : "obverse")}></div>
       <div class="bulk-img-popover-actions">
         <input type="file" id="bulkPop${key}File" accept="image/jpeg,image/png,image/webp" style="display:none" />
         <button class="btn btn-sm" id="bulkPop${key}Upload" type="button">Upload</button>

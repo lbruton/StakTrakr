@@ -3220,7 +3220,7 @@ function _openThumbPopover(cell, item) {
   const sideHtml = (sideKey, label) => `
     <div class="bulk-img-popover-side">
       <span class="bulk-img-popover-label">${label}</span>
-      <div class="bulk-img-popover-preview thumb-popover-preview" id="thumbPop_${sideKey}_preview"></div>
+      <div class="bulk-img-popover-preview thumb-popover-preview" id="thumbPop_${sideKey}_preview"${imageFrameAttrHtml(item, sideKey === "rev" ? "reverse" : "obverse")}></div>
       <div class="bulk-img-popover-actions">
         <input type="file" id="thumbPop_${sideKey}_file" accept="image/jpeg,image/png,image/webp" style="display:none" />
         <button class="btn btn-sm" id="thumbPop_${sideKey}_upload" type="button">Upload</button>

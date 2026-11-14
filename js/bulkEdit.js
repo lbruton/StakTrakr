@@ -600,7 +600,7 @@ const buildBulkItemRow = (item, isPinned, dataColumns) => {
   imgTd.className = "bulk-img-cell";
   imgTd.setAttribute("data-column", "img");
   // Placeholder pair shown until IDB resolves
-  imgTd.innerHTML = '<span class="bulk-img-placeholder" data-side="obverse"></span>';
+  imgTd.innerHTML = `<span class="bulk-img-placeholder" data-side="obverse"${imageFrameAttrHtml(item, "obverse")}></span>`;
   // Store item identity for the async loader and upload popover
   imgTd.dataset.uuid = item.uuid || "";
   imgTd.dataset.numistaId = item.numistaId || "";
