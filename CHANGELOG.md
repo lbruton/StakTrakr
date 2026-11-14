@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.149] - 2026-11-13
+
+### Changed — STRK-579: Review Changes keyboard and labels
+
+- **Setting values**: The two values of a setting form one tab stop. Arrow keys move between them and pick the focused value (STRK-579).
+- **Section toggles**: The section collapse arrows, the matched-settings toggle and both Show more controls work with Tab, Enter and Space. Each reports its expanded state, and focus stays on the control after the list redraws (STRK-579).
+- **Labels**: A provider priority stored as an object reads as text such as "Priority: 1" in the pill and its label (STRK-579).
+- **Focus**: Two choices with the same identity keep focus on the one that was picked (STRK-579).
+- **Phone**: The new keyboard toggles take a 44px box at phone width (STRK-579).
+
 ## [3.36.148] - 2026-11-13
 
 ### Changed — STRK-593: Remove dead modal CSS

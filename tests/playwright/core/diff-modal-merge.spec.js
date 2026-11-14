@@ -1,5 +1,5 @@
 import { test, expect } from "../helpers/mocks/extended-test.js";
-import { SAMPLE_SETTINGS_DIFF } from "../helpers/diff-review.js";
+import { SAMPLE_SETTINGS_DIFF, showSampleDiffReview } from "../helpers/diff-review.js";
 
 // STRK-170 cohort 2.3 — characterization coverage for the diff-modal.js MERGE/APPLY
 // path, written BEFORE the complexity refactor of:
@@ -666,10 +666,12 @@ const KEYBOARD_CHOICES = [
     state: "aria-pressed",
   },
   {
+    // Roving tabindex: Tab reaches only the checked value, which the sample resolves to remote.
     name: "setting value",
-    selector: `${MODAL} [data-setting-resolution="setting-displayCurrency"][data-side="local"]`,
+    selector: `${MODAL} [data-setting-resolution="setting-displayCurrency"][data-side="remote"]`,
     role: "radio",
     state: "aria-checked",
+    initial: "true",
   },
 ];
 
@@ -708,7 +710,7 @@ test.describe("DiffModal setting choices by keyboard", () => {
       const control = page.locator(choice.selector);
       await tabTo(page, control);
       await expect(control, choice.name).toHaveAttribute("role", choice.role);
-      await expect(control, choice.name).toHaveAttribute(choice.state, "false");
+      await expect(control, choice.name).toHaveAttribute(choice.state, choice.initial || "false");
     }
     await expect(
       page.locator(`${MODAL} [role="radiogroup"][aria-label="Display Currency"]`)
@@ -734,19 +736,29 @@ test.describe("DiffModal setting choices by keyboard", () => {
     }
   });
 
-  test("the setting value pair behaves as one radio group", async ({ page }) => {
-    const local = page.locator(KEYBOARD_CHOICES[3].selector);
-    const remote = page.locator(
-      `${MODAL} [data-setting-resolution="setting-displayCurrency"][data-side="remote"]`
+  test("the setting value pair is one tab stop that arrow keys move through and pick", async ({
+    page,
+  }) => {
+    const remote = page.locator(KEYBOARD_CHOICES[3].selector);
+    const local = page.locator(
+      `${MODAL} [data-setting-resolution="setting-displayCurrency"][data-side="local"]`
     );
     await tabTo(page, remote);
-    await page.keyboard.press("Enter");
-    await expect(remote).toHaveAttribute("aria-checked", "true");
-    await expect(local).toHaveAttribute("aria-checked", "false");
-    await tabTo(page, local);
-    await page.keyboard.press("Enter");
-    await expect(local).toHaveAttribute("aria-checked", "true");
-    await expect(remote).toHaveAttribute("aria-checked", "false");
+    await expect(remote).toHaveAttribute("tabindex", "0");
+    await expect(local).toHaveAttribute("tabindex", "-1");
+    for (const [key, picked, other] of [
+      ["ArrowRight", local, remote],
+      ["ArrowLeft", remote, local],
+      ["ArrowDown", local, remote],
+      ["ArrowUp", remote, local],
+    ]) {
+      await page.keyboard.press(key);
+      await expect(picked, key).toBeFocused();
+      await expect(picked, key).toHaveAttribute("aria-checked", "true");
+      await expect(picked, key).toHaveAttribute("tabindex", "0");
+      await expect(other, key).toHaveAttribute("aria-checked", "false");
+      await expect(other, key).toHaveAttribute("tabindex", "-1");
+    }
   });
 
   test("Keep All Local keeps focus after the settings redraw", async ({ page }) => {
@@ -773,7 +785,13 @@ test.describe("DiffModal setting choices by keyboard", () => {
       });
     }, names);
     await page.locator(`${MODAL} [data-cat-toggle="settings"]`).click();
-    await page.locator(`${MODAL} [data-expand="providerPriority-local"]`).click();
+    const showMore = page.locator(`${MODAL} [data-expand="providerPriority-local"]`);
+    await tabTo(page, showMore);
+    await expect(showMore).toHaveAttribute("role", "button");
+    await page.keyboard.press("Enter");
+    await expect(
+      page.locator(`${MODAL} #expand-providerPriority-local [data-field]`).first()
+    ).toBeFocused();
     const overflow = page.locator(
       `${MODAL} #expand-providerPriority-local [data-field="setting-providerPriority-p19"]`
     );
@@ -781,6 +799,120 @@ test.describe("DiffModal setting choices by keyboard", () => {
     await page.keyboard.press("Enter");
     await expect(overflow).toHaveAttribute("aria-pressed", "true");
     await expect(overflow).toBeFocused();
+  });
+
+  test("an object-valued pill reads as text, not [object Object]", async ({ page }) => {
+    await page.evaluate(() => {
+      window.DiffModal.show({
+        source: { type: "sync", label: "Sync" },
+        diff: { added: [], modified: [], deleted: [] },
+        settingsDiff: {
+          changed: [
+            {
+              key: "providerPriority",
+              localVal: { metals: { priority: 1, enabled: true } },
+              remoteVal: { metals: { priority: 2, enabled: true } },
+            },
+          ],
+          matched: [],
+        },
+        onApply: () => {},
+        onCancel: () => {},
+      });
+    });
+    await page.locator(`${MODAL} [data-cat-toggle="settings"]`).click();
+    const pill = page.locator(`${MODAL} [data-field="setting-providerPriority-metals"]`).first();
+    await expect(pill).toContainText("Priority: 1");
+    await expect(pill).not.toContainText("[object Object]");
+    await expect(pill).toHaveAttribute("aria-label", /Priority: 1/);
+    expect(await pill.getAttribute("aria-label")).not.toContain("[object Object]");
+  });
+
+  test("a choice that shares its identity with an earlier one keeps focus after the re-render", async ({
+    page,
+  }) => {
+    // HTML parsing turns CR into LF, so both tags end up with the same data-field.
+    await page.evaluate(() => {
+      window.DiffModal.show({
+        source: { type: "sync", label: "Sync" },
+        diff: { added: [], modified: [], deleted: [] },
+        settingsDiff: {
+          changed: [{ key: "tagBlacklist", localVal: ["gold\rbar", "gold\nbar"], remoteVal: [] }],
+          matched: [],
+        },
+        onApply: () => {},
+        onCancel: () => {},
+      });
+    });
+    await page.locator(`${MODAL} [data-cat-toggle="settings"]`).click();
+    const twins = page.locator(`${MODAL} [data-side="local"][data-field^="setting-tagBlacklist-"]`);
+    await expect(twins).toHaveCount(2);
+    await tabTo(page, twins.nth(1));
+    await page.keyboard.press("Enter");
+    await expect(twins.nth(1)).toBeFocused();
+  });
+
+  test("the settings collapse arrow and the matched-settings toggle work by keyboard", async ({
+    page,
+  }) => {
+    const collapse = page.locator(`${MODAL} [data-cat-toggle="settings"]`);
+    await expect(collapse).toHaveAttribute("role", "button");
+    await expect(collapse).toHaveAttribute("aria-expanded", "true");
+    await expect(collapse).toHaveAttribute("aria-label", "Settings");
+    await tabTo(page, collapse);
+    await page.keyboard.press("Enter");
+    await expect(collapse).toHaveAttribute("aria-expanded", "false");
+    await expect(collapse).toBeFocused();
+    await page.keyboard.press("Space");
+    await expect(collapse).toHaveAttribute("aria-expanded", "true");
+    await expect(collapse).toBeFocused();
+
+    const matched = page.locator(`${MODAL} [data-toggle-matched="Appearance"]`);
+    await expect(matched).toHaveAttribute("role", "button");
+    await expect(matched).toHaveAttribute("aria-expanded", "false");
+    await tabTo(page, matched);
+    await page.keyboard.press("Enter");
+    await expect(matched).toHaveAttribute("aria-expanded", "true");
+    await expect(matched).toBeFocused();
+    await expect(page.locator(`${MODAL} .dm-matched-row`)).toHaveCount(1);
+  });
+
+  test("the item section collapse arrows and Show more work by keyboard", async ({ page }) => {
+    await showSampleDiffReview(page);
+    for (const type of ["added", "deleted", "modified"]) {
+      const collapse = page.locator(`${MODAL} [data-cat-toggle="${type}"]`);
+      await expect(collapse, type).toHaveAttribute("role", "button");
+      await expect(collapse, type).toHaveAttribute("aria-expanded", "true");
+      await tabTo(page, collapse);
+      await page.keyboard.press("Enter");
+      await expect(collapse, type).toHaveAttribute("aria-expanded", "false");
+      await expect(collapse, type).toBeFocused();
+    }
+
+    await page.evaluate(() => {
+      const added = Array.from({ length: 31 }, (_, i) => ({
+        uuid: "dm-many-" + i,
+        name: "Added coin " + i,
+        metal: "Silver",
+        type: "Coin",
+        weight: 1,
+        qty: 1,
+      }));
+      window.DiffModal.show({
+        source: { type: "sync", label: "Sync" },
+        diff: { added, modified: [], deleted: [] },
+        onApply: () => {},
+        onCancel: () => {},
+      });
+    });
+    const more = page.locator(`${MODAL} [data-show-more="added"]`);
+    await expect(more).toHaveAttribute("role", "button");
+    await tabTo(page, more);
+    await page.keyboard.press("Enter");
+    await expect(page.locator(`${MODAL} .dm-orphan-card`)).toHaveCount(31);
+    await expect(
+      page.locator(`${MODAL} .dm-orphan-card[data-idx="30"] [data-set-action="import"]`)
+    ).toBeFocused();
   });
 
   test("a focused setting choice shows a 2px ring in every theme", async ({ page }) => {

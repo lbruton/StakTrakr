@@ -22911,7 +22911,7 @@ button.vp-price:hover {
   border-color: var(--success);
   background: color-mix(in oklch, var(--success) 8%, transparent);
 }
-/* Setting choices are keyboard controls; the ring matches the other focusable chips. */
+/* Setting choices and section toggles are keyboard controls; the ring matches the focusable chips. */
 #diffReviewModal
   :is(
     .dm-chip-local,
@@ -22919,7 +22919,10 @@ button.vp-price:hover {
     .dm-kv-pill.local,
     .dm-kv-pill.remote,
     .dm-count-btn,
-    .dm-field-value[role="radio"]
+    .dm-field-value[role="radio"],
+    .dm-collapse-toggle,
+    .dm-matched-toggle,
+    .dm-show-more
   ):focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
@@ -23351,6 +23354,19 @@ button.vp-price:hover {
     content: "";
     position: absolute;
     inset: -2px;
+  }
+  /* Section toggles are keyboard buttons on spans and divs, so each takes a real 44px box too. */
+  #diffReviewModal .dm-collapse-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+  }
+  #diffReviewModal :is(.dm-matched-toggle, .dm-show-more) {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
   }
   #diffReviewModal .dm-field-value:not(.dm-qty-opt) {
     display: flex;

@@ -108,6 +108,30 @@
     }
   }
 
+  /** Readable text for a setting value: nested objects and arrays become "Key: value" lists. */
+  function _valueText(val) {
+    if (Array.isArray(val)) return val.map(_valueText).join(", ");
+    if (val && typeof val === "object") {
+      return Object.keys(val)
+        .map(function (k) {
+          return _titleCase(k) + ": " + _valueText(val[k]);
+        })
+        .join(", ");
+    }
+    return String(val);
+  }
+
+  /** Keyboard-operable "Show more" control that opens the list with id `expand-<expandKey>`. */
+  function _showMoreHtml(expandKey, label) {
+    return (
+      '<span class="dm-show-more" role="button" tabindex="0" data-expand="' +
+      _esc(expandKey) +
+      '">' +
+      label +
+      "</span>"
+    );
+  }
+
   // ── Settings sub-renderers (STAK-455) ──
 
   // Shared output scaffold for all settings sub-renderers.
@@ -130,8 +154,7 @@
       localHtml;
     if (overflowLocal) {
       var lLabel = overflowCount != null ? "Show " + overflowCount + " more…" : "Show more…";
-      html +=
-        '<span class="dm-show-more" data-expand="' + _esc(key) + '-local">' + lLabel + "</span>";
+      html += _showMoreHtml(key + "-local", lLabel);
       html +=
         '<div class="dm-expandable" id="expand-' +
         _esc(key) +
@@ -146,8 +169,7 @@
       remoteHtml;
     if (overflowRemote) {
       var rLabel = overflowCount != null ? "Show " + overflowCount + " more…" : "Show more…";
-      html +=
-        '<span class="dm-show-more" data-expand="' + _esc(key) + '-remote">' + rLabel + "</span>";
+      html += _showMoreHtml(key + "-remote", rLabel);
       html +=
         '<div class="dm-expandable" id="expand-' +
         _esc(key) +
@@ -462,12 +484,10 @@
     if (matchedHtml || overflowMatched) {
       matchedSection = '<div class="dm-setting-expanded">' + matchedHtml;
       if (overflowMatched) {
-        matchedSection +=
-          '<span class="dm-show-more" data-expand="' +
-          _esc(key) +
-          '-matched">Show ' +
-          matchedOverflowCount +
-          " more…</span>";
+        matchedSection += _showMoreHtml(
+          key + "-matched",
+          "Show " + matchedOverflowCount + " more…"
+        );
         matchedSection +=
           '<div class="dm-expandable" id="expand-' +
           _esc(key) +
@@ -518,14 +538,12 @@
       var fieldKey = "setting-" + key + "-" + k;
       var selSide = fieldSelections[fieldKey] || "";
       var humanKey = _titleCase(k);
+      var lText = lv !== undefined ? _valueText(lv) : "";
+      var rText = rv !== undefined ? _valueText(rv) : "";
 
-      if (lv !== undefined && rv !== undefined && lv === rv) {
+      if (lv !== undefined && rv !== undefined && lText === rText) {
         matchedHtml +=
-          '<span class="dm-kv-pill matched">' +
-          _esc(humanKey) +
-          ": " +
-          _esc(String(lv)) +
-          "</span> ";
+          '<span class="dm-kv-pill matched">' + _esc(humanKey) + ": " + _esc(lText) + "</span> ";
       } else {
         diffCount++;
         var localPill = "";
@@ -538,11 +556,11 @@
             '" data-field="' +
             _esc(fieldKey) +
             '" data-side="local"' +
-            _choiceAttrs("local: " + humanKey + ": " + String(lv), selSide === "local") +
+            _choiceAttrs("local: " + humanKey + ": " + lText, selSide === "local") +
             ">" +
             _esc(humanKey) +
             ": " +
-            _esc(String(lv)) +
+            _esc(lText) +
             "</span> ";
         }
         if (rv !== undefined) {
@@ -553,11 +571,11 @@
             '" data-field="' +
             _esc(fieldKey) +
             '" data-side="remote"' +
-            _choiceAttrs("remote: " + humanKey + ": " + String(rv), selSide === "remote") +
+            _choiceAttrs("remote: " + humanKey + ": " + rText, selSide === "remote") +
             ">" +
             _esc(humanKey) +
             ": " +
-            _esc(String(rv)) +
+            _esc(rText) +
             "</span> ";
         }
         if (diffCount <= 15) {

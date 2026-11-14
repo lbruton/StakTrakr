@@ -357,48 +357,117 @@
     };
   }
 
-  /** Identify the focused setting choice so a re-render can focus its replacement. */
-  function _captureChoiceFocus(container) {
-    var active = document.activeElement;
-    if (!active || !container.contains(active)) return null;
-    if (!active.hasAttribute("data-side") && !active.hasAttribute("data-settings-bulk"))
-      return null;
-    return {
-      settingsBulk: active.getAttribute("data-settings-bulk"),
-      field: active.getAttribute("data-field"),
-      resolution: active.getAttribute("data-setting-resolution"),
-      bulk: active.getAttribute("data-cat-bulk"),
-      side: active.getAttribute("data-side"),
-    };
+  /** Orphan cards shown per section before the "Show more" control. */
+  var ORPHAN_PAGE_SIZE = 30;
+
+  /** Attributes that together identify a settings control across a re-render. */
+  var CHOICE_IDENTITY_ATTRS = [
+    "data-settings-bulk",
+    "data-field",
+    "data-setting-resolution",
+    "data-cat-bulk",
+    "data-side",
+    "data-cat-toggle",
+    "data-toggle-matched",
+  ];
+  var CHOICE_SELECTOR =
+    "[data-side], [data-settings-bulk], [data-cat-toggle], [data-toggle-matched]";
+
+  /** True when two settings controls carry the same identity attributes. */
+  function _sameChoiceIdentity(a, b) {
+    for (var i = 0; i < CHOICE_IDENTITY_ATTRS.length; i++) {
+      if (a.getAttribute(CHOICE_IDENTITY_ATTRS[i]) !== b.getAttribute(CHOICE_IDENTITY_ATTRS[i]))
+        return false;
+    }
+    return true;
   }
 
-  /** Focus the rebuilt setting choice that matches a {@link _captureChoiceFocus} result. */
+  /**
+   * Identify the focused settings control so a re-render can focus its replacement. Controls can
+   * share an identity (HTML parsing turns CR into LF), so the spec keeps the occurrence index.
+   */
+  function _captureChoiceFocus(container) {
+    var active = document.activeElement;
+    if (!active || !container.contains(active) || !active.matches(CHOICE_SELECTOR)) return null;
+    var nodes = container.querySelectorAll(CHOICE_SELECTOR);
+    var occurrence = 0;
+    for (var n = 0; n < nodes.length && nodes[n] !== active; n++) {
+      if (_sameChoiceIdentity(nodes[n], active)) occurrence++;
+    }
+    return { node: active, occurrence: occurrence };
+  }
+
+  /** Focus the rebuilt settings control that matches a {@link _captureChoiceFocus} result. */
   function _restoreChoiceFocus(container, spec) {
     if (!spec) return;
-    var nodes = container.querySelectorAll("[data-side], [data-settings-bulk]");
+    var nodes = container.querySelectorAll(CHOICE_SELECTOR);
+    var seen = 0;
     for (var n = 0; n < nodes.length; n++) {
-      if (
-        nodes[n].getAttribute("data-settings-bulk") === spec.settingsBulk &&
-        nodes[n].getAttribute("data-field") === spec.field &&
-        nodes[n].getAttribute("data-setting-resolution") === spec.resolution &&
-        nodes[n].getAttribute("data-cat-bulk") === spec.bulk &&
-        nodes[n].getAttribute("data-side") === spec.side
-      ) {
+      if (!_sameChoiceIdentity(nodes[n], spec.node)) continue;
+      if (seen === spec.occurrence) {
         nodes[n].focus();
         return;
       }
+      seen++;
     }
   }
 
-  /** Activate a focused setting choice on Space or Enter; spans and divs do not synthesize a click. */
-  function _onSettingsKeydown(e) {
-    if (e.key !== " " && e.key !== "Enter") return;
+  var RADIO_STEP_KEYS = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 };
+
+  /** Focus and pick the next or previous radio in the target's radio group, wrapping at the ends. */
+  function _stepRadio(target, step) {
+    var group = target.closest('[role="radiogroup"]');
+    if (!group) return false;
+    var radios = Array.prototype.slice.call(group.querySelectorAll('[role="radio"]'));
+    var index = radios.indexOf(target);
+    if (index < 0 || radios.length < 2) return false;
+    var next = radios[(index + step + radios.length) % radios.length];
+    next.focus();
+    next.click();
+    return true;
+  }
+
+  /**
+   * Keyboard for span and div controls: Space or Enter activates a role=button or role=radio, and
+   * arrow keys move through a radio group. Native buttons are left to the browser.
+   */
+  function _onChoiceKeydown(e) {
     var target = e.target;
-    var role = target && target.getAttribute ? target.getAttribute("role") : null;
+    if (!target || typeof target.getAttribute !== "function" || target.tagName === "BUTTON") return;
+    var role = target.getAttribute("role");
+    if (role === "radio" && RADIO_STEP_KEYS[e.key]) {
+      if (_stepRadio(target, RADIO_STEP_KEYS[e.key])) e.preventDefault();
+      return;
+    }
+    if (e.key !== " " && e.key !== "Enter" && e.key !== "Spacebar") return;
     if (role !== "button" && role !== "radio") return;
-    if (!target.hasAttribute("data-side")) return;
     e.preventDefault();
     target.click();
+  }
+
+  /** HTML for a section collapse arrow: a keyboard button that names its section. */
+  function _collapseToggleHtml(section, label, collapsed) {
+    return (
+      '<span class="dm-collapse-toggle' +
+      (collapsed ? " collapsed" : "") +
+      '" data-cat-toggle="' +
+      _esc(section) +
+      '" role="button" tabindex="0" aria-expanded="' +
+      !collapsed +
+      '" aria-label="' +
+      _esc(label) +
+      '">' +
+      (collapsed ? "&#9654;" : "&#9660;") +
+      "</span>"
+    );
+  }
+
+  /** Re-render the item sections and return focus to the control the selector names. */
+  function _renderKeepingFocus(selector, hadFocus) {
+    _render();
+    if (!hadFocus) return;
+    var next = document.querySelector("#diffReviewModal " + selector);
+    if (next) next.focus();
   }
 
   function _renderSettingsCards(container, settingsDiff) {
@@ -464,12 +533,7 @@
     // Section header with collapse toggle + bulk actions
     html += '<div class="dm-section-header">';
     html += '<div class="dm-section-title">';
-    html +=
-      '<span class="dm-collapse-toggle' +
-      (collapsed ? " collapsed" : "") +
-      '" data-cat-toggle="settings">' +
-      (collapsed ? "&#9654;" : "&#9660;") +
-      "</span>";
+    html += _collapseToggleHtml("settings", "Settings", collapsed);
     html += "<span>\u2699\uFE0F</span> Settings";
     html +=
       '<span class="dm-chip">' +
@@ -588,7 +652,9 @@
           localSel +
           '" data-setting-resolution="' +
           _esc(resKey) +
-          '" data-side="local" role="radio" tabindex="0" aria-checked="' +
+          '" data-side="local" role="radio" tabindex="' +
+          (selected === "remote" ? "-1" : "0") +
+          '" aria-checked="' +
           (selected === "local") +
           '" title="' +
           _esc(window.DiffModalSettings.formatSettingValue(entry.key, entry.localVal)) +
@@ -601,7 +667,9 @@
           remoteSel +
           '" data-setting-resolution="' +
           _esc(resKey) +
-          '" data-side="remote" role="radio" tabindex="0" aria-checked="' +
+          '" data-side="remote" role="radio" tabindex="' +
+          (selected === "remote" ? "0" : "-1") +
+          '" aria-checked="' +
           (selected === "remote") +
           '" title="' +
           _esc(window.DiffModalSettings.formatSettingValue(entry.key, entry.remoteVal)) +
@@ -614,7 +682,12 @@
       // Matched settings section (collapsed by default)
       if (catMatched.length > 0) {
         var isExpanded = _expandedSettingsCategories[catKey] || false;
-        html += '<div class="dm-matched-toggle" data-toggle-matched="' + _esc(catKey) + '">';
+        html +=
+          '<div class="dm-matched-toggle" data-toggle-matched="' +
+          _esc(catKey) +
+          '" role="button" tabindex="0" aria-expanded="' +
+          isExpanded +
+          '">';
         html +=
           (isExpanded ? "\u25BC Hide" : "\u25B6 Show") +
           " " +
@@ -654,7 +727,7 @@
       if (more) more.style.display = "none";
     });
     _restoreChoiceFocus(container, focusSpec);
-    container.onkeydown = _onSettingsKeydown;
+    container.onkeydown = _onChoiceKeydown;
 
     // Event delegation
     container.onclick = function (e) {
@@ -680,6 +753,8 @@
           expandEl.classList.add("expanded");
           showMore.style.display = "none";
           _expandedOverflow[expandKey] = true;
+          var firstRevealed = expandEl.querySelector("[data-field], [data-setting-resolution]");
+          if (firstRevealed) firstRevealed.focus();
         }
         return;
       }
@@ -965,14 +1040,7 @@
     // Section header
     html += '<div class="dm-section-header">';
     html += '<div class="dm-section-title">';
-    html +=
-      '<span class="dm-collapse-toggle' +
-      (collapsed ? " collapsed" : "") +
-      '" data-cat-toggle="' +
-      type +
-      '">' +
-      (collapsed ? "&#9654;" : "&#9660;") +
-      "</span>";
+    html += _collapseToggleHtml(type, sectionLabel, collapsed);
     html +=
       '<span class="dm-section-icon--' + type + '">' + sectionIcon + "</span> " + sectionLabel;
     html +=
@@ -1000,7 +1068,7 @@
     // Section body
     html += '<div class="dm-section-body' + (collapsed ? " collapsed" : "") + '">';
     var showAll = _collapsedCategories["_showAll_" + type];
-    var limit = !showAll && items.length > 30 ? 30 : items.length;
+    var limit = !showAll && items.length > ORPHAN_PAGE_SIZE ? ORPHAN_PAGE_SIZE : items.length;
     var entryLabels = _entryLabels(items);
     for (var i = 0; i < limit; i++) {
       var item = items[i];
@@ -1103,12 +1171,12 @@
       html += "</div>";
       html += "</div>";
     }
-    if (!showAll && items.length > 30) {
+    if (!showAll && items.length > ORPHAN_PAGE_SIZE) {
       html +=
         '<div class="dm-show-more dm-show-more--block" data-show-more="' +
         type +
-        '">Show ' +
-        (items.length - 30) +
+        '" role="button" tabindex="0">Show ' +
+        (items.length - ORPHAN_PAGE_SIZE) +
         " more...</div>";
     }
     html += "</div></div>";
@@ -1125,12 +1193,7 @@
     // Section header
     html += '<div class="dm-section-header">';
     html += '<div class="dm-section-title">';
-    html +=
-      '<span class="dm-collapse-toggle' +
-      (collapsed ? " collapsed" : "") +
-      '" data-cat-toggle="modified">' +
-      (collapsed ? "&#9654;" : "&#9660;") +
-      "</span>";
+    html += _collapseToggleHtml("modified", "Modified / Conflicts", collapsed);
     html += '<span class="dm-section-icon--modified">&#9888;</span> Modified / Conflicts';
     html +=
       '<span class="dm-chip">' +
@@ -1744,7 +1807,7 @@
     if (catToggle) {
       var cat = catToggle.dataset.catToggle;
       _collapsedCategories[cat] = !_collapsedCategories[cat];
-      _render();
+      _renderKeepingFocus('[data-cat-toggle="' + cat + '"]', document.activeElement === catToggle);
       return;
     }
 
@@ -1754,7 +1817,14 @@
       var smType = showMore.dataset.showMore;
       // Remove the limit and re-render (set a flag to show all)
       _collapsedCategories["_showAll_" + smType] = true;
-      _render();
+      _renderKeepingFocus(
+        '.dm-orphan-card[data-type="' +
+          smType +
+          '"][data-idx="' +
+          ORPHAN_PAGE_SIZE +
+          '"] [data-set-action]',
+        document.activeElement === showMore
+      );
       return;
     }
   }
@@ -1798,7 +1868,7 @@
     if (catToggle) {
       var cat = catToggle.dataset.catToggle;
       _collapsedCategories[cat] = !_collapsedCategories[cat];
-      _render();
+      _renderKeepingFocus('[data-cat-toggle="' + cat + '"]', document.activeElement === catToggle);
       return;
     }
   }
@@ -1951,20 +2021,6 @@
       }
     }
     _updateApplyCount();
-  }
-
-  /**
-   * STRK-167 (AC-10) a11y: activate a focused qty radio on Space/Enter. Native
-   * div[role=radio] elements do not synthesize a click for these keys, so without
-   * this the 3-way quantity control cannot be operated by keyboard or screen reader.
-   */
-  function _onModifiedKeydown(e) {
-    if (e.key !== " " && e.key !== "Enter" && e.key !== "Spacebar") return;
-    var target = e.target;
-    if (!target || typeof target.getAttribute !== "function") return;
-    if (target.getAttribute("role") !== "radio") return;
-    e.preventDefault();
-    target.click();
   }
 
   /** Update the modified section's progress bar and status text */
@@ -2596,15 +2652,15 @@
     if (orphanEl) {
       orphanEl.removeEventListener("click", _onOrphanClick);
       orphanEl.addEventListener("click", _onOrphanClick);
+      orphanEl.removeEventListener("keydown", _onChoiceKeydown);
+      orphanEl.addEventListener("keydown", _onChoiceKeydown);
     }
     if (listEl) {
       listEl.removeEventListener("click", _onModifiedClick);
       listEl.addEventListener("click", _onModifiedClick);
-      // STRK-167 (AC-10) a11y: div[role=radio] does not fire click on Space/Enter,
-      // so the 3-way qty control is keyboard-inaccessible without this. Delegate a
-      // keydown that activates the focused radio.
-      listEl.removeEventListener("keydown", _onModifiedKeydown);
-      listEl.addEventListener("keydown", _onModifiedKeydown);
+      // Span and div controls fire no click on Space or Enter; see _onChoiceKeydown.
+      listEl.removeEventListener("keydown", _onChoiceKeydown);
+      listEl.addEventListener("keydown", _onChoiceKeydown);
     }
 
     // Pill buttons
