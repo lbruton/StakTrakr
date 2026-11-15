@@ -184,9 +184,10 @@
   const icon = (name) => {
     const wrap = el("span", "collections-icon");
     wrap.setAttribute("aria-hidden", "true");
-    // Static developer markup only — ICON_PATHS is a frozen literal, never user text.
-    // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method
-    wrap.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false">${ICON_PATHS[name] || ""}</svg>`;
+    // ICON_PATHS is a frozen literal of developer markup, never user text.
+    const markup = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false">${ICON_PATHS[name] || ""}</svg>`;
+    const svg = new DOMParser().parseFromString(markup, "image/svg+xml").documentElement;
+    wrap.appendChild(document.importNode(svg, true));
     return wrap;
   };
 
@@ -948,8 +949,11 @@
    */
   const callPicker = (method, payload) => {
     const picker = window.collectionsPicker;
-    if (picker && typeof picker[method] === "function") {
-      picker[method](payload);
+    let run = null;
+    if (picker && method === "openLinkPicker") run = picker.openLinkPicker;
+    else if (picker && method === "openBuilder") run = picker.openBuilder;
+    if (typeof run === "function") {
+      run.call(picker, payload);
       return;
     }
     toast(PICKER_FALLBACK_MESSAGE);
