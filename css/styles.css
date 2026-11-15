@@ -20710,12 +20710,10 @@ button.vp-price:hover {
   .collections-stat-label {
     font-size: var(--font-size-xs);
     letter-spacing: 0.04em;
-    white-space: nowrap;
   }
 
   .collections-stat-value {
     font-size: var(--font-size-lg);
-    overflow-wrap: normal;
   }
 
   .collections-stat-value small {
@@ -20733,7 +20731,7 @@ button.vp-price:hover {
 
   .collections-hub .collections-toolbar > .chip-sort-toggle .chip-sort-btn {
     flex: 1 1 auto;
-    padding-inline: 0.35rem;
+    padding-inline: var(--spacing-sm);
     font-size: var(--font-size-sm);
   }
 
@@ -20757,7 +20755,7 @@ button.vp-price:hover {
   .collections-album-head {
     grid-template-columns: minmax(0, 1fr);
     gap: var(--spacing-sm);
-    margin-bottom: 0.75rem;
+    margin-bottom: var(--spacing);
   }
 
   .collections-album-head .collections-coin {
@@ -20765,7 +20763,7 @@ button.vp-price:hover {
   }
 
   .collections-crumb {
-    margin-bottom: 0.25rem;
+    margin-bottom: var(--spacing-xs);
   }
 
   .collections-ring,
@@ -20787,7 +20785,7 @@ button.vp-price:hover {
 
   .collections-album .collections-toolbar > .chip-sort-toggle .chip-sort-btn {
     flex: 1 1 auto;
-    padding-inline: 0.5rem;
+    padding-inline: var(--spacing-md);
     font-size: var(--font-size-sm);
     white-space: nowrap;
   }
