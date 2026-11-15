@@ -44,6 +44,8 @@ these rules elsewhere. Read before editing or running any Playwright test.
 - Equal coverage does not prove equal assertions. Read both tests before merging them.
 - CI (`.github/workflows/tests.yml`): a PR to `dev` runs the `test:changed` selection. A
   docs-only PR starts no browser.
+- A PR to `main` runs the full unit and core suites without coverage. The `dev` test map
+  cannot select tests for a diff against `main`.
 - A push to `dev` runs the full unit and core suites with coverage. It publishes the
   `test-map` and `test-blocks` artifacts and uploads lcov to Codacy.
 - The `dev` ruleset requires `Codacy Static Code Analysis`, `Tests` and `Vale`

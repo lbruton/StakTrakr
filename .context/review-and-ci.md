@@ -90,10 +90,12 @@ configured for Copilot beyond GitHub's defaults (GitHub + Playwright); Plane is 
 | `dev`  | `Codacy Static Code Analysis` (56611), **`Tests` and `Vale`** (GitHub Actions, 15368) | thread resolution required, **0 approvals required**, `allowed_merge_methods: ["merge"]`, signed commits, no bypass actors    |
 | `main` | `Codacy Static Code Analysis`, `CodeRabbit` (347564), **`Tests` and `Vale`**          | plus a **CodeQL `code_scanning` rule** (`alerts_threshold: errors`, `security_alerts_threshold: critical`), thread resolution |
 
-`Tests` is the report job of `.github/workflows/tests.yml`. On a PR it runs the
-`test:changed` selection; `.context/testing.md` describes the selection and the `dev` push run.
-The report job also needs the `Lint` job, which runs `npm run lint` and `npm run format:check`
-on every PR and every `dev` push. A lint or format failure fails `Tests`.
+`Tests` is the report job of `.github/workflows/tests.yml`. It reports on every PR to `dev`
+or `main` and on every `dev` push. A PR to `dev` runs the `test:changed` selection. A PR to
+`main` from any branch runs the full suites without coverage. `.context/testing.md` describes
+the selection and the `dev` push run. Coverage merge, the test map and the Codacy upload run
+only on a `dev` push. The report job also needs the `Lint` job, which runs `npm run lint` and
+`npm run format:check` on every run. A lint or format failure fails `Tests`.
 
 `Vale` is the job in `.github/workflows/vale.yml`. It runs on every PR, so the required check
 always reports. A PR that changes no `README.md`, `.context/**/*.md` or Vale config file passes

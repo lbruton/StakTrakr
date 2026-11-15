@@ -1,15 +1,18 @@
 name: Tests
 
-# A PR runs only the tests its change can affect: `select` builds the
-# `test:changed` plan from the test map of the latest dev run. A push to dev runs
-# the full unit and sharded core suites with V8 coverage, publishes the test map
-# and uploads lcov to Codacy. Every run also lints with ESLint and checks Prettier
-# formatting. `Tests` is the single check to require.
+# A PR to dev runs only the tests its change can affect: `select` builds the
+# `test:changed` plan from the test map of the latest dev run. A PR to main runs
+# the full unit and sharded core suites without coverage, since dev's test map
+# does not describe a diff against main. A push to dev runs the full suites with
+# V8 coverage, publishes the test map and uploads lcov to Codacy. Every run also
+# lints with ESLint and checks Prettier formatting. `Tests` is the single check
+# to require on dev and main.
 
 on:
   pull_request:
     branches:
       - dev
+      - main
   push:
     branches:
       - dev
@@ -49,8 +52,12 @@ jobs:
         if: ${{ github.event_name == 'push' }}
         run: echo '{"full":true,"core":[],"unit":["tests/unit/*.test.js"],"reasons":[]}' > plan.json
 
+      - name: Plan the full suite (PR to main)
+        if: ${{ github.event_name == 'pull_request' && github.base_ref == 'main' }}
+        run: echo '{"full":true,"core":[],"unit":["tests/unit/*.test.js"],"reasons":[{"file":"-","why":"a PR to main runs the full suite"}]}' > plan.json
+
       - name: Plan the PR's tests from dev's test map
-        if: ${{ github.event_name == 'pull_request' }}
+        if: ${{ github.event_name == 'pull_request' && github.base_ref != 'main' }}
         run: node devops/testing/test-changed.mjs --fetch --plan-only --json plan.json
         env:
           GH_TOKEN: ${{ github.token }}
