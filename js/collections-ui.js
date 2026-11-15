@@ -14,8 +14,8 @@
 //   - Talks only to window.collectionsStore / window.collectionsCore — never to
 //     storage or to collection state directly.
 //   - DOM is built with createElement + textContent. Item names and custom
-//     collection names, labels and notes are user text and never reach innerHTML;
-//     innerHTML is used for the static inline SVG icons only.
+//     collection names, labels and notes are user text and are never parsed as
+//     markup; only the static inline SVG icons go through DOMParser.
 //   - Rendering is synchronous. Item photos resolve afterwards; every blob: URL
 //     created is tracked and revoked on the next render (precedent:
 //     _viewModalObjectUrls in js/viewModal.js). A render generation stops a slow
@@ -71,7 +71,7 @@
   /** Modals that can change an Item in place; closing one refreshes the open view. */
   const REFRESH_ON_CLOSE_MODAL_IDS = ["itemModal", "viewItemModal"];
 
-  /** Static developer markup — the only innerHTML this file ever assigns. */
+  /** Static developer markup: the only markup this file parses. */
   const ICON_PATHS = Object.freeze({
     plus: '<path d="M12 5v14M5 12h14"/>',
     check: '<path d="M20 6 9 17l-5-5"/>',
