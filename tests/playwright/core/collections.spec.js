@@ -3224,7 +3224,7 @@ test.describe("core/collections — link picker, builder, item view", () => {
     await expect(chip).toHaveCount(1);
     await expect(chip).toHaveText("American Silver Eagle Type 2 · 2024");
     const section = viewModal(page).locator(".collections-view-section");
-    await expect(section).toContainText("American Silver Eagle — Type 2");
+    await expect(section).toContainText("American Silver Eagle · Type 2");
     await expect(section).toContainText("2024 slot · primary · 1 of 6 collected");
 
     await section.getByRole("button", { name: "Unlink" }).click();
@@ -4926,7 +4926,7 @@ test.describe("hub Ledger sorting", () => {
     const columns = hubSortCases.map(([label]) => label);
     await expect(select.locator("option")).toHaveText([
       "My order",
-      ...columns.flatMap((label) => [`${label} — ascending`, `${label} — descending`]),
+      ...columns.flatMap((label) => [`${label}, ascending`, `${label}, descending`]),
     ]);
     const keys = ["name", "percent-complete", "owned", "value", "to-complete"];
     for (let i = 0; i < hubSortCases.length; i++) {
@@ -6388,6 +6388,7 @@ test.describe("core/collections — Album toolbar and actions row", () => {
       const box = (el) => el.getBoundingClientRect();
       const centre = (el) => box(el).top + box(el).height / 2;
       const rows = [...toolbar.querySelectorAll(".chip-sort-toggle")]
+        .filter((group) => box(group).width > 0)
         .map(centre)
         .sort((a, b) => a - b)
         .reduce((all, y) => (all.length && y - all[all.length - 1] < 12 ? all : [...all, y]), []);
@@ -6484,7 +6485,7 @@ test.describe("core/collections — Album toolbar and actions row", () => {
     }
   });
 
-  test("at 390 the toolbar has two rows and the actions fill the width, at 16px and 24px roots", async ({
+  test("at 390 the toolbar keeps one row at a 16px root, wraps at 24px, and the actions fill the width", async ({
     page,
   }) => {
     const cases = [];
@@ -6497,7 +6498,7 @@ test.describe("core/collections — Album toolbar and actions row", () => {
         await page.goto("about:blank");
         await openToolbarAlbum(page, { custom, width: 390, root });
         const layout = await readToolbarLayout(page);
-        expect(layout.rowCount).toBe(2);
+        expect(layout.rowCount).toBe(root === 16 ? 1 : 2);
         expect(layout.fits).toBe(true);
         expect(layout.labelCount).toBe(0);
         expect(layout.actionsIsLast).toBe(true);
@@ -6511,5 +6512,186 @@ test.describe("core/collections — Album toolbar and actions row", () => {
         }
       });
     }
+  });
+});
+
+test.describe("core/collections — hub and Album density", () => {
+  /**
+   * Opens the Collections hub, or one Album, at a viewport size.
+   * @param {import('@playwright/test').Page} page - Browser page.
+   * @param {{width: number, height?: number, album?: string, ledger?: boolean}} spec - View to open.
+   * @returns {Promise<void>} When the hub or Album is visible.
+   */
+  const openDensityView = async (page, { width, height = 900, album = "", ledger = false }) => {
+    await page.setViewportSize({ width, height });
+    await seedAndGoto(page);
+    await page.evaluate(
+      ([id, slots]) => {
+        for (const [slot, uuid] of slots) window.collectionsStore.link("ase-type2", slot, uuid);
+        window.activateTab("collections");
+        if (id) window.collectionsUI.openCollection(id);
+      },
+      [
+        album,
+        [
+          ["2022", "col-ase-2022-a"],
+          ["2024", "col-ase-2024"],
+        ],
+      ]
+    );
+    const view = album ? ".collections-album" : ".collections-hub";
+    await expect(panel(page).locator(view)).toBeVisible();
+    if (ledger) {
+      await panel(page).getByRole("button", { name: "Ledger view" }).click();
+      await expect(panel(page).locator(".collections-lrow:not(.is-head)").first()).toBeVisible();
+    }
+    await page.evaluate(() => document.fonts.ready);
+  };
+
+  /**
+   * Lists the visible Collections elements whose text is cut by an ellipsis or clipped.
+   * @param {import('@playwright/test').Page} page - Browser page.
+   * @returns {Promise<string[]>} Class names and text of each cut element.
+   */
+  const readCutText = (page) =>
+    panel(page).evaluate((root) =>
+      [...root.querySelectorAll("*")]
+        .filter((node) => {
+          if (node.clientWidth < 2 || node.closest("[hidden]")) return false;
+          const style = getComputedStyle(node);
+          const ownText = [...node.childNodes].some(
+            (child) => child.nodeType === 3 && child.textContent.trim()
+          );
+          if (!ownText && style.textOverflow !== "ellipsis") return false;
+          return node.scrollWidth > node.clientWidth + 1 && style.overflowX !== "auto";
+        })
+        .map((node) => `${node.className}: ${node.textContent.trim().slice(0, 40)}`)
+    );
+
+  for (const width of [1440, 768, 390]) {
+    test(`hub and Album values show in full at ${width}`, async ({ page }) => {
+      await openDensityView(page, { width });
+      await expect(panel(page).locator(".collections-card-sub").first()).toContainText(
+        "1986 – 2021"
+      );
+      expect(await readCutText(page)).toEqual([]);
+      await openDensityView(page, { width, album: "ase-type1" });
+      expect(await readCutText(page)).toEqual([]);
+    });
+  }
+
+  for (const ledger of [false, true]) {
+    test(`at 390×844 the first Slot sits above the tab bar in ${ledger ? "Ledger" : "Album"} view`, async ({
+      page,
+    }) => {
+      await openDensityView(page, { width: 390, height: 844, album: "ase-type1", ledger });
+      const fit = await page.evaluate(() => {
+        const nav = document.getElementById("appBottomNav").getBoundingClientRect();
+        const first = document
+          .querySelector(".collections-album")
+          .querySelector(".collections-slot, .collections-lrow:not(.is-head)")
+          .getBoundingClientRect();
+        return {
+          top: Math.round(first.top),
+          bottom: Math.round(first.bottom),
+          fold: Math.round(nav.top),
+        };
+      });
+      expect(fit.top).toBeGreaterThan(0);
+      expect(fit.bottom).toBeLessThanOrEqual(fit.fold);
+    });
+  }
+
+  test("the hub filters by status with the Album's segmented control", async ({ page }) => {
+    await openDensityView(page, { width: 1440 });
+    const toolbar = panel(page).locator(".collections-hub .collections-toolbar");
+    await expect(toolbar.locator(".vendor-prices-tabs")).toHaveCount(0);
+    const group = toolbar.getByRole("group", { name: "Filter collections by status" });
+    await expect(group).toHaveClass(/chip-sort-toggle/);
+    await expect(group.locator(".chip-sort-btn")).toHaveText([
+      "All",
+      "In progress",
+      "Not started",
+      "Complete",
+    ]);
+    await group.getByRole("button", { name: "Not started" }).click();
+    await expect(toolbar.getByRole("button", { name: "Not started" })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+    await expect(panel(page).locator('[data-collection-id="ase-type2"]')).toHaveCount(0);
+  });
+
+  test("at 390 the Album filter, sort and view share one row and sort flips with one button", async ({
+    page,
+  }) => {
+    await openDensityView(page, { width: 390, height: 844, album: "ase-type1" });
+    const toolbar = panel(page).locator(".collections-album .collections-toolbar");
+    await expect(toolbar.getByRole("group", { name: "Sort slots" })).toBeHidden();
+    const flip = toolbar.getByRole("button", { name: "Sort: oldest first" });
+    await expect(flip).toBeVisible();
+    await expect
+      .poll(() =>
+        toolbar.evaluate((node) => {
+          const tops = [...node.querySelectorAll(".chip-sort-toggle")]
+            .filter((group) => group.getBoundingClientRect().width > 0)
+            .map((group) => Math.round(group.getBoundingClientRect().top));
+          return { tops: new Set(tops).size, fits: node.scrollWidth <= node.clientWidth };
+        })
+      )
+      .toEqual({ tops: 1, fits: true });
+    const firstLabel = () =>
+      panel(page).locator(".collections-slot .collections-slot-label").first().textContent();
+    expect(await firstLabel()).toBe("1986");
+    await flip.click();
+    await expect(
+      panel(page).locator(".collections-album .collections-toolbar").getByRole("button", {
+        name: "Sort: newest first",
+      })
+    ).toBeVisible();
+    expect(await firstLabel()).toBe("2021");
+  });
+
+  test("at 1440 the Album keeps the Sort segments and hides the flip button", async ({ page }) => {
+    await openDensityView(page, { width: 1440, album: "ase-type1" });
+    const toolbar = panel(page).locator(".collections-album .collections-toolbar");
+    await expect(toolbar.getByRole("group", { name: "Sort slots" })).toBeVisible();
+    await expect(toolbar.getByRole("button", { name: "Sort: oldest first" })).toBeHidden();
+  });
+
+  test("card and stat prose is set in Geist and figures in Geist Mono", async ({ page }) => {
+    await openDensityView(page, { width: 1440 });
+    const fonts = await panel(page).evaluate((root) => {
+      const family = (node) => getComputedStyle(node).fontFamily.split(",")[0].replace(/"/g, "");
+      const foot = root.querySelector('[data-collection-id="ase-type2"] .collections-card-foot');
+      const word = [...root.querySelectorAll(".collections-stat-value small")].find((small) =>
+        /[a-z]/i.test(small.textContent)
+      );
+      return {
+        foot: family(foot),
+        footFigures: [...foot.querySelectorAll(".collections-num")].map(family),
+        footText: foot.textContent,
+        word: family(word),
+      };
+    });
+    expect(fonts.foot).toBe("Geist");
+    expect(fonts.footFigures.length).toBeGreaterThan(0);
+    expect(new Set(fonts.footFigures)).toEqual(new Set(["Geist Mono"]));
+    expect(fonts.footText).not.toContain("≈");
+    expect(fonts.word).toBe("Geist");
+  });
+
+  test("the phone stat strip hides the notes; wider screens keep them", async ({ page }) => {
+    await openDensityView(page, { width: 390, height: 844, album: "ase-type1" });
+    await expect(panel(page).locator(".collections-stat-note").first()).toBeHidden();
+    await openDensityView(page, { width: 1440, album: "ase-type1" });
+    await expect(panel(page).locator(".collections-stat-note").first()).toBeVisible();
+  });
+
+  test("the Album breadcrumb and copy use no em-dash", async ({ page }) => {
+    await openDensityView(page, { width: 1440, album: "ase-type1" });
+    await expect(panel(page).locator(".collections-crumb [aria-current]")).toHaveText(
+      "American Silver Eagle · Type 1"
+    );
   });
 });

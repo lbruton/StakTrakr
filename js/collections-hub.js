@@ -9,6 +9,7 @@
       icon,
       money,
       buildStats,
+      buildSegmented,
       buildViewToggle,
       buildPillButton,
       callPicker,
@@ -101,13 +102,13 @@
       addOption(MY_ORDER, "My order");
       sortColumns.forEach(([key, name]) => {
         ["asc", "desc"].forEach((dir) =>
-          addOption(`${key}:${dir}`, `${name} — ${directionWord(dir)}`)
+          addOption(`${key}:${dir}`, `${name}, ${directionWord(dir)}`)
         );
       });
       const current = sortKey === MY_ORDER ? MY_ORDER : `${sortKey}:${direction}`;
       // A saved preset without a column (Run start, Recently updated) still shows truthfully.
       if (!Array.from(select.options).some((option) => option.value === current))
-        addOption(current, `${sortLabel(sortKey)} — ${directionWord(direction)}`);
+        addOption(current, `${sortLabel(sortKey)}, ${directionWord(direction)}`);
       select.value = current;
       select.disabled = Boolean(getHubArrangement());
       select.addEventListener("change", () => {
@@ -303,25 +304,25 @@
     const buildHubToolbar = (entries) => {
       const arranging = Boolean(getHubArrangement());
       const toolbar = el("div", "collections-toolbar");
-      const tabs = el("div", "vendor-prices-tabs");
-      tabs.setAttribute("role", "group");
-      tabs.setAttribute("aria-label", "Filter collections by status");
-      [
-        [STATUS_ALL, "All"],
-        [STATUS_PROGRESS, "In progress"],
-        [STATUS_NOT_STARTED, "Not started"],
-        [STATUS_COMPLETE, "Complete"],
-      ].forEach(([value, label]) => {
-        const tab = button(value === state.hubFilter ? "active" : "", `hubfilter:${value}`, () => {
+      const filter = buildSegmented(
+        "Filter collections by status",
+        state.hubFilter,
+        [
+          [STATUS_ALL, "All"],
+          [STATUS_PROGRESS, "In progress"],
+          [STATUS_NOT_STARTED, "Not started"],
+          [STATUS_COMPLETE, "Complete"],
+        ],
+        (value) => {
           state.hubFilter = value;
           render();
-        });
-        tab.textContent = label;
-        tab.setAttribute("aria-pressed", String(value === state.hubFilter));
-        tab.disabled = arranging;
-        tabs.appendChild(tab);
+        },
+        "hubfilter"
+      );
+      filter.querySelectorAll("button").forEach((node) => {
+        node.disabled = arranging;
       });
-      toolbar.appendChild(tabs);
+      toolbar.appendChild(filter);
       const right = el("div", "collections-toolbar-right");
       if (getViewMode() === VIEW_LEDGER) {
         const compact = el("div", "collections-hub-compact collections-show-sm");
@@ -366,22 +367,45 @@
     };
 
     /**
-     * Footer line of a hub card.
+     * Parts of a hub card footer; numbers become figures, strings stay prose.
      * @param {Object} entry - Entry view model
-     * @returns {string} Summary of what is left
+     * @returns {Array<string|number>} Footer parts in reading order
      */
-    const cardFootText = (entry) => {
+    const cardFootParts = (entry) => {
       const { missing } = entry.progress;
-      if (entry.status === STATUS_COMPLETE) {
-        if (entry.retailDiffers)
-          return `Set complete · ${money(entry.retail)} value · ${money(entry.melt)} melt`;
-        // Known retail with no usable melt (no spot price) still shows its value.
-        if (entry.retail && !entry.melt) return `Set complete · ${money(entry.retail)} value`;
-        return entry.melt ? `Set complete · ${money(entry.melt)} melt` : "Set complete";
+      if (entry.status !== STATUS_COMPLETE) {
+        if (entry.costToComplete)
+          return [missing, " missing, about ", { money: entry.costToComplete }, " to finish"];
+        return [missing, " missing"];
       }
-      if (entry.costToComplete)
-        return `${missing} missing ≈ ${money(entry.costToComplete)} to finish`;
-      return `${missing} missing`;
+      if (entry.retailDiffers)
+        return [
+          "Set complete · ",
+          { money: entry.retail },
+          " value · ",
+          { money: entry.melt },
+          " melt",
+        ];
+      // Known retail with no usable melt (no spot price) still shows its value.
+      if (entry.retail && !entry.melt)
+        return ["Set complete · ", { money: entry.retail }, " value"];
+      return entry.melt ? ["Set complete · ", { money: entry.melt }, " melt"] : ["Set complete"];
+    };
+
+    /**
+     * Footer line of a hub card: prose in the body face, figures in mono.
+     * @param {Object} entry - Entry view model
+     * @returns {HTMLElement} Summary of what is left
+     */
+    const buildCardFoot = (entry) => {
+      const foot = el("span", "collections-card-foot");
+      cardFootParts(entry).forEach((part) => {
+        if (typeof part === "string") foot.append(part);
+        else if (typeof part === "number")
+          foot.appendChild(el("span", "collections-num", String(part)));
+        else foot.appendChild(el("span", "collections-num", money(part.money)));
+      });
+      return foot;
     };
 
     /**
@@ -511,7 +535,7 @@
       row.appendChild(el("span", "collections-pct", `${entry.progress.pct}%`));
       body.appendChild(row);
       body.appendChild(buildProgress(entry.progress));
-      body.appendChild(el("span", "collections-card-foot", cardFootText(entry)));
+      body.appendChild(buildCardFoot(entry));
       card.appendChild(body);
       return card;
     };

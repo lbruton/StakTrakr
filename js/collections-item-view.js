@@ -90,7 +90,7 @@
       ? `${slot.label || slot.year || slot.id}${slot.tag ? ` ${slot.tag}` : ""}`
       : membership.slotId;
     return {
-      title: variant ? `${base} — ${variant}` : base,
+      title: variant ? `${base} · ${variant}` : base,
       shortTitle: variant ? `${base} ${variant}` : base,
       slotLabel: label,
       progress: store.progress(collection),
