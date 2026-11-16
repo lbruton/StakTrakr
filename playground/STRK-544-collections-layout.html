@@ -1,0 +1,371 @@
+<!doctype html>
+<!--
+  STRK-544 mockup: Collections hub and Album density, filters and type.
+  Before frames hold the DOM the app renders on dev (captured from demo data); After frames apply the
+  proposal CSS and copy changes below to the same DOM. Each frame is an iframe at the real viewport
+  width, so the app media queries run. The 390 frames are 844 tall with the app header and tab bar,
+  and the label under each reports where the first card or Slot starts against the fold.
+-->
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>STRK-544 Collections Layout</title>
+    <link rel="stylesheet" href="../css/styles.css" />
+    <style>
+      body {
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        padding: 16px;
+        margin: 0;
+      }
+      h1 {
+        font-size: 1.25rem;
+        margin: 0 0 0.25rem;
+      }
+      p.lede {
+        color: var(--text-muted);
+        margin: 0 0 1rem;
+        max-width: 80ch;
+      }
+      .mock-bar {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        align-items: center;
+        margin-bottom: 1rem;
+      }
+      .mock-bar label {
+        display: inline-flex;
+        gap: 0.4rem;
+        align-items: center;
+        font-size: 0.875rem;
+        color: var(--text-secondary);
+      }
+      .mock-set {
+        margin-bottom: 2.5rem;
+      }
+      .mock-set h2 {
+        font-size: 1rem;
+        margin: 0 0 0.5rem;
+      }
+      .mock-pair {
+        display: flex;
+        gap: 1.5rem;
+        align-items: flex-start;
+        flex-wrap: wrap;
+      }
+      .mock-col h3 {
+        font-size: 0.8125rem;
+        margin: 0 0 0.4rem;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+      .mock-col p {
+        font-size: 0.8125rem;
+        margin: 0.4rem 0 0;
+        color: var(--text-secondary);
+        font-family: var(--font-mono);
+      }
+      .mock-wide .mock-pair {
+        flex-direction: column;
+      }
+      .mock-wide .mock-col {
+        max-width: 100%;
+        overflow-x: auto;
+      }
+      iframe {
+        display: block;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--bg-primary);
+      }
+      ul.notes {
+        max-width: 80ch;
+        color: var(--text-secondary);
+        font-size: 0.875rem;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>STRK-544 Collections hub and Album</h1>
+    <p class="lede">
+      After, in every variant: hub card subtitles wrap instead of ending in an ellipsis; card and
+      stat prose is set in Geist, with Geist Mono kept for figures; the Album breadcrumb drops the
+      em-dash. The toggles switch the open choices.
+    </p>
+    <div class="mock-bar">
+      <label
+        >Theme
+        <select id="theme">
+          <option>dark</option>
+          <option>light</option>
+          <option>slate</option>
+          <option>sepia</option>
+        </select></label
+      >
+      <label
+        >Phone stats
+        <select id="stats">
+          <option value="compact">A. Compact 2×2, notes hidden</option>
+          <option value="notes">B. Compact 2×2, notes kept</option>
+          <option value="current">Current 2×2 grid</option>
+        </select></label
+      >
+      <label
+        >Filters
+        <select id="filter">
+          <option value="chips">
+            A. Segmented chips everywhere; phone Album toolbar on one row
+          </option>
+          <option value="select">B. Segmented chips; phone filters and sort in one menu</option>
+        </select></label
+      >
+      <label
+        >Owned Slot marker
+        <select id="owned">
+          <option value="all">Wash, border, check and coin ring (current)</option>
+          <option value="nocheck">Wash, border and coin ring</option>
+          <option value="noring">Wash, border and check</option>
+        </select></label
+      >
+    </div>
+
+    <section class="mock-set">
+      <h2>Hub, 390 × 844</h2>
+      <div class="mock-pair" id="hub-390"></div>
+    </section>
+    <section class="mock-set">
+      <h2>Album, 390 × 844</h2>
+      <div class="mock-pair" id="album-390"></div>
+    </section>
+    <section class="mock-set mock-wide">
+      <h2>Hub, 1440</h2>
+      <div class="mock-pair" id="hub-1440"></div>
+    </section>
+    <section class="mock-set mock-wide">
+      <h2>Album, 1440</h2>
+      <div class="mock-pair" id="album-1440"></div>
+    </section>
+
+    <ul class="notes">
+      <li>
+        Phone stats A keeps the 2×2 grid with smaller figures and hides the notes below 641px; wider
+        screens keep the notes; the whole first Slot then ends at 769px, above the tab bar at 774px.
+        B keeps the notes, and the first Slot ends at 821px, partly under the tab bar. A one-row
+        strip of four figures does not fit: "≈ $1,369.20" overflows a quarter of 358px.
+      </li>
+      <li>
+        Every After frame shrinks the Album's coin pair to 48px on phones, so the whole first Slot
+        clears the tab bar.
+      </li>
+      <li>
+        Filters A gives the hub the Album's segmented control. On a phone Album, Sort becomes one
+        icon button that flips between Oldest and Newest, so filter, sort and view share a row.
+      </li>
+      <li>
+        Filters B is the same row, but the Sort icon opens a menu (Oldest, Newest) instead of
+        flipping.
+      </li>
+    </ul>
+
+    <script>
+      const SNAP = {
+        hub: '<section class="collections-section" id="collectionsSectionEl"><div class="collections-panel"><div class="collections-hub"><div class="collections-head"><div><h2>Collections<span class="collections-beta">BETA</span></h2><p class="collections-sub">Date runs and custom checklists, linked to the Items in your inventory.</p></div></div><div class="collections-stats"><div class="collections-stat"><div class="collections-stat-label">Collections</div><div class="collections-stat-value">2<small> active</small></div><div class="collections-stat-note">0 not started</div></div><div class="collections-stat"><div class="collections-stat-label">Slots filled</div><div class="collections-stat-value">14<small> / 42</small></div><div class="collections-stat-note">33% across active collections</div></div><div class="collections-stat"><div class="collections-stat-label">Collected value</div><div class="collections-stat-value">$754.13</div><div class="collections-stat-note">melt $754.13 · paid $381.00</div></div><div class="collections-stat is-accent"><div class="collections-stat-label">Cost to complete</div><div class="collections-stat-value">≈ $1,597.40</div><div class="collections-stat-note">floor est. · best vendor price today</div></div></div><div class="collections-toolbar"><div class="vendor-prices-tabs" role="group" aria-label="Filter collections by status"><button class="active" type="button" data-focus-key="hubfilter:all" aria-pressed="true">All</button><button type="button" data-focus-key="hubfilter:progress" aria-pressed="false">In progress</button><button type="button" data-focus-key="hubfilter:notstarted" aria-pressed="false">Not started</button><button type="button" data-focus-key="hubfilter:complete" aria-pressed="false">Complete</button></div><div class="collections-toolbar-right"><div class="chip-sort-toggle collections-modetoggle" role="group" aria-label="View mode"><button class="chip-sort-btn collections-iconbtn active" type="button" data-focus-key="view:album" aria-label="Album view" aria-pressed="true" title="Album view"><span class="collections-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect></svg></span></button><button class="chip-sort-btn collections-iconbtn" type="button" data-focus-key="view:ledger" aria-label="Ledger view" aria-pressed="false" title="Ledger view"><span class="collections-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"></path></svg></span></button></div><button class="btn collections-btn-pill secondary" type="button" data-focus-key="hub:manage"><span class="collections-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z"></path><path d="m19.4 15 .1.1a1.8 1.8 0 0 1-2.5 2.5l-.1-.1a1.8 1.8 0 0 0-3.1 1.3v.2a1.8 1.8 0 0 1-3.6 0v-.2A1.8 1.8 0 0 0 7.1 17l-.1.1a1.8 1.8 0 0 1-2.5-2.5l.1-.1a1.8 1.8 0 0 0-1.3-3.1h-.2a1.8 1.8 0 0 1 0-3.6h.2A1.8 1.8 0 0 0 4.6 5.2l-.1-.1A1.8 1.8 0 0 1 7 2.6l.1.1a1.8 1.8 0 0 0 3.1-1.3v-.2a1.8 1.8 0 0 1 3.6 0v.2a1.8 1.8 0 0 0 3.1 1.3l.1-.1a1.8 1.8 0 0 1 2.5 2.5l-.1.1a1.8 1.8 0 0 0 1.3 3.1h.2a1.8 1.8 0 0 1 0 3.6h-.2a1.8 1.8 0 0 0-1.3 3.1Z"></path></svg></span><span>Manage</span></button><button class="btn collections-btn-pill" type="button" data-focus-key="hub:new"><span class="collections-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M12 5v14M5 12h14"></path></svg></span><span>New collection</span></button></div></div><div class="sr-only collections-arrange-status" role="status" aria-live="polite"></div><div class="collections-grid"><button class="collections-card is-started" type="button" data-focus-key="open:ase-type1" data-collection-id="ase-type1"><span class="collections-coin collections-coin--shape-round" data-image-alt="obverse of American Silver Eagle" data-image-label="American Silver Eagle" data-image-side="obverse" data-resolved-image-side="obverse" data-stock-image-side="obverse" data-monogram="AS" data-stock-src="data/collections/ase-type1/obverse.png"><img alt="obverse of American Silver Eagle" loading="lazy" src="data/collections/ase-type1/obverse.png"></span><span class="collections-card-body"><span class="collections-card-name"><b>American Silver Eagle</b></span><span class="collections-card-sub">Type 1 · Heraldic Eagle reverse · 1986 – 2021</span><span class="collections-card-row"><span class="collections-count"><b>12</b> / 36</span><span class="collections-pct">33%</span></span><span class="collections-progress" aria-hidden="true"><span style="width: 33%;"></span></span><span class="collections-card-foot">24 missing ≈ $1,369.20 to finish</span></span></button><button class="collections-card is-started" type="button" data-focus-key="open:ase-type2" data-collection-id="ase-type2"><span class="collections-coin collections-coin--shape-round" data-image-alt="obverse of American Silver Eagle" data-image-label="American Silver Eagle" data-image-side="obverse" data-resolved-image-side="obverse" data-stock-image-side="obverse" data-monogram="AS" data-stock-src="data/collections/ase-type2/obverse.png"><img alt="obverse of American Silver Eagle" loading="lazy" src="data/collections/ase-type2/obverse.png"></span><span class="collections-card-body"><span class="collections-card-name"><b>American Silver Eagle</b></span><span class="collections-card-sub">Type 2 · Landing Eagle reverse · 2021 – present</span><span class="collections-card-row"><span class="collections-count"><b>2</b> / 6</span><span class="collections-pct">33%</span></span><span class="collections-progress" aria-hidden="true"><span style="width: 33%;"></span></span><span class="collections-card-foot">4 missing ≈ $228.20 to finish</span></span></button><button class="collections-card is-new" type="button" data-focus-key="hub:newcard"><span class="collections-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M12 5v14M5 12h14"></path></svg></span><strong>New collection</strong><span>Blank checklist, or clone a template and add varieties, mint marks, proofs…</span></button></div></div></div></section>',
+        album:
+          '<section class="collections-section" id="collectionsSectionEl"><div class="collections-panel"><div class="collections-album"><nav class="collections-crumb" aria-label="Breadcrumb"><button type="button" data-focus-key="album:back"><span class="collections-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="m15 18-6-6 6-6"></path></svg></span><span>Collections</span></button><span>/</span><span aria-current="page">American Silver Eagle — Type 1</span></nav><div class="collections-album-head"><div class="collections-pair"><span class="collections-coin collections-coin--lg" data-monogram="?" data-stock-src="data/collections/ase-type1/obverse.png"><img alt="" loading="lazy" src="data/collections/ase-type1/obverse.png"></span><span class="collections-coin collections-coin--lg" data-monogram="?" data-stock-src="data/collections/ase-type1/reverse.png"><img alt="" loading="lazy" src="data/collections/ase-type1/reverse.png"></span></div><div class="collections-album-info"><h2 tabindex="-1" data-focus-key="album:heading">American Silver Eagle<span class="collections-tag is-variant">Type 1</span></h2><p class="collections-sub">Heraldic Eagle reverse · 1986 – 2021 · United States Mint</p><div class="collections-spec"><span>1 oz</span><span>.999 fine silver</span><span>40.6 mm</span><span>$1 face value</span></div><p class="collections-about">The original Silver Eagle, sold from late 1986 until the Type 2 redesign took over in mid-2021. It pairs Weinman\'s Walking Liberty with a heraldic eagle behind a shield, and unlike its successor it has plain edge reeding with no anti-counterfeit notch. Thirty-six dates make this the long run of the series; the ledger view is the comfortable way to work through it.</p></div><div class="collections-ring" role="img" aria-label="33% complete: 12 of 36" style="--collections-pct: 33;"><span><b>33%</b><small>12 of 36</small></span></div></div><div class="collections-stats"><div class="collections-stat"><div class="collections-stat-label">Owned</div><div class="collections-stat-value">12<small> / 36</small></div><div class="collections-stat-note">24 still to find</div></div><div class="collections-stat"><div class="collections-stat-label">Paid</div><div class="collections-stat-value">$306.00</div><div class="collections-stat-note">primary items only · per unit</div></div><div class="collections-stat"><div class="collections-stat-label">Value</div><div class="collections-stat-value">$646.39</div><div class="collections-stat-note">silver spot $53.92</div></div><div class="collections-stat is-accent"><div class="collections-stat-label">Cost to complete</div><div class="collections-stat-value">≈ $1,369.20</div><div class="collections-stat-note">floor est. · key dates carry premiums</div></div></div><div class="collections-toolbar"><div class="chip-sort-toggle" role="group" aria-label="Filter slots"><button class="chip-sort-btn active" type="button" data-focus-key="Filter slots:all" aria-pressed="true">All</button><button class="chip-sort-btn" type="button" data-focus-key="Filter slots:owned" aria-pressed="false">Owned 12</button><button class="chip-sort-btn" type="button" data-focus-key="Filter slots:missing" aria-pressed="false">Missing 24</button></div><div class="collections-toolbar-right"><span class="collections-toolbar-field is-sort"><span class="collections-toolbar-label">Sort</span><div class="chip-sort-toggle" role="group" aria-label="Sort slots"><button class="chip-sort-btn active" type="button" data-focus-key="Sort slots:oldest" aria-pressed="true">Oldest</button><button class="chip-sort-btn" type="button" data-focus-key="Sort slots:newest" aria-pressed="false">Newest</button></div></span><span class="collections-toolbar-field is-view"><span class="collections-toolbar-label">View</span><div class="chip-sort-toggle collections-modetoggle" role="group" aria-label="View mode"><button class="chip-sort-btn collections-iconbtn active" type="button" data-focus-key="view:album" aria-label="Album view" aria-pressed="true" title="Album view"><span class="collections-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect></svg></span></button><button class="chip-sort-btn collections-iconbtn" type="button" data-focus-key="view:ledger" aria-label="Ledger view" aria-pressed="false" title="Ledger view"><span class="collections-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"></path></svg></span></button></div></span></div></div><div class="collections-slots" role="list"><div class="collections-slot is-owned" data-slot-id="1986" role="listitem"><button class="collections-slot-main" type="button" data-focus-key="slot:1986"><span class="collections-coin collections-coin--shape-round collections-coin--owned" data-item-uuid="demo-0001" data-image-alt="obverse of 1986" data-image-label="1986" data-image-side="obverse" data-resolved-image-side="obverse" data-stock-image-side="obverse" data-monogram="AS" data-stock-src="data/collections/ase-type1/obverse.png"><img alt="obverse of 1986" loading="lazy" <img alt="obverse of 1986" loading="lazy"  src="data/collections/ase-type1/obverse.png"></span><span class="collections-slot-identity is-album has-note"><span class="collections-slot-identity-copy"><span class="collections-slot-identity-name"><span class="collections-slot-label">1986</span></span></span></span><span class="collections-slot-meta">5,096,000 minted</span><span class="collections-slot-rule"></span><span class="collections-slot-item" title="American Silver Eagle">American Silver Eagle</span><span class="collections-slot-money">$24.00 → $53.87 <span class="collections-up">+124%</span></span></button><button class="collections-note-toggle is-album" type="button" data-focus-key="note:1986" aria-label="Show note for 1986" aria-controls="collections-slot-note-1" aria-expanded="false"><span class="collections-note-icon" aria-hidden="true">i</span></button><span class="collections-note-popover" id="collections-slot-note-1" hidden="" role="region" aria-label="Note for 1986">First year of issue. Sales to Authorized Purchasers opened in late November 1986, so this figure covers only the closing weeks of the year.</span><span class="collections-check" aria-hidden="true"><span class="collections-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M20 6 9 17l-5-5"></path></svg></span></span><button class="collections-more" type="button" data-focus-key="more:1986" aria-haspopup="menu" aria-expanded="false" aria-label="More actions for the 1986 slot"><span class="collections-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><circle cx="5" cy="12" r="1.4"></circle><circle cx="12" cy="12" r="1.4"></circle><circle cx="19" cy="12" r="1.4"></circle></svg></span></button></div><div class="collections-slot is-owned" data-slot-id="1987" role="listitem"><button class="collections-slot-main" type="button" data-focus-key="slot:1987"><span class="collections-coin collections-coin--shape-round collections-coin--owned" data-item-uuid="demo-0002" data-image-alt="obverse of 1987" data-image-label="1987" data-image-side="obverse" data-resolved-image-side="obverse" data-stock-image-side="obverse" data-monogram="AS" data-stock-src="data/collections/ase-type1/obverse.png"><img alt="obverse of 1987" loading="lazy" <img alt="obverse of 1987" loading="lazy"  src="data/collections/ase-type1/obverse.png"></span><span class="collections-slot-identity is-album"><span class="collections-slot-identity-copy"><span class="collections-slot-identity-name"><span class="collections-slot-label">1987</span></span></span></span><span class="collections-slot-meta">9,420,000 minted</span><span class="collections-slot-rule"></span><span class="collections-slot-item" title="American Silver Eagle">American Silver Eagle</span><span class="collections-slot-money">$25.00 → $53.87 <span class="collections-up">+115%</span></span></button><span class="collections-check" aria-hidden="true"><span class="collections-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M20 6 9 17l-5-5"></path></svg></span></span><button class="collections-more" type="button" data-focus-key="more:1987" aria-haspopup="menu" aria-expanded="false" aria-label="More actions for the 1987 slot"><span class="collections-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><circle cx="5" cy="12" r="1.4"></circle><circle cx="12" cy="12" r="1.4"></circle><circle cx="19" cy="12" r="1.4"></circle></svg></span></button></div><div class="collections-slot is-missing" data-slot-id="1988" role="listitem"><span class="collections-coin collections-coin--shape-round collections-coin--ghost" data-image-alt="obverse of 1988" data-image-label="1988" data-image-side="obverse" data-resolved-image-side="obverse" data-stock-image-side="obverse" data-monogram="AS" data-stock-src="data/collections/ase-type1/obverse.png"><img alt="obverse of 1988" loading="lazy" src="data/collections/ase-type1/obverse.png"></span><span class="collections-slot-identity is-album"><span class="collections-slot-identity-copy"><span class="collections-slot-identity-name"><span class="collections-slot-label">1988</span></span></span></span><span class="collections-slot-meta">5,869,000 minted</span><span class="collections-slot-rule"></span><span class="collections-slot-meta collections-slot-price">from $57.05<small> · MintBuilder</small></span><button class="btn collections-btn-pill secondary collections-add" type="button" data-focus-key="add:1988" aria-haspopup="menu" aria-expanded="false" aria-label="Add an item to the 1988 slot"><span class="collections-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M12 5v14M5 12h14"></path></svg></span><span>Add</span></button></div><div class="collections-slot is-missing" data-slot-id="1989" role="listitem"><span class="collections-coin collections-coin--shape-round collections-coin--ghost" data-image-alt="obverse of 1989" data-image-label="1989" data-image-side="obverse" data-resolved-image-side="obverse" data-stock-image-side="obverse" data-monogram="AS" data-stock-src="data/collections/ase-type1/obverse.png"><img alt="obverse of 1989" loading="lazy" src="data/collections/ase-type1/obverse.png"></span><span class="collections-slot-identity is-album"><span class="collections-slot-identity-copy"><span class="collections-slot-identity-name"><span class="collections-slot-label">1989</span></span></span></span><span class="collections-slot-meta">6,166,000 minted</span><span class="collections-slot-rule"></span><span class="collections-slot-meta collections-slot-price">from $57.05<small> · MintBuilder</small></span><button class="btn collections-btn-pill secondary collections-add" type="button" data-focus-key="add:1989" aria-haspopup="menu" aria-expanded="false" aria-label="Add an item to the 1989 slot"><span class="collections-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M12 5v14M5 12h14"></path></svg></span><span>Add</span></button></div><div class="collections-slot is-owned" data-slot-id="1990" role="listitem"><button class="collections-slot-main" type="button" data-focus-key="slot:1990"><span class="collections-coin collections-coin--shape-round collections-coin--owned" data-item-uuid="demo-0003" data-image-alt="obverse of 1990" data-image-label="1990" data-image-side="obverse" data-resolved-image-side="obverse" data-stock-image-side="obverse" data-monogram="AS" data-stock-src="data/collections/ase-type1/obverse.png"><img alt="obverse of 1990" loading="lazy" <img alt="obverse of 1990" loading="lazy"  src="data/collections/ase-type1/obverse.png"></span><span class="collections-slot-identity is-album"><span class="collections-slot-identity-copy"><span class="collections-slot-identity-name"><span class="collections-slot-label">1990</span></span></span></span><span class="collections-slot-meta">7,247,000 minted</span><span class="collections-slot-rule"></span><span class="collections-slot-item" title="American Silver Eagle">American Silver Eagle</span><span class="collections-slot-money">$26.00 → $53.87 <span class="collections-up">+107%</span></span></button><span class="collections-check" aria-hidden="true"><span class="collections-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M20 6 9 17l-5-5"></path></svg></span></span><button class="collections-more" type="button" data-focus-key="more:1990" aria-haspopup="menu" aria-expanded="false" aria-label="More actions for the 1990 slot"><span class="collections-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><circle cx="5" cy="12" r="1.4"></circle><circle cx="12" cy="12" r="1.4"></circle><circle cx="19" cy="12" r="1.4"></circle></svg></span></button></div><div class="collections-slot is-missing" data-slot-id="1991" role="listitem"><span class="collections-coin collections-coin--shape-round collections-coin--ghost" data-image-alt="obverse of 1991" data-image-label="1991" data-image-side="obverse" data-resolved-image-side="obverse" data-stock-image-side="obverse" data-monogram="AS" data-stock-src="data/collections/ase-type1/obverse.png"><img alt="obverse of 1991" loading="lazy" src="data/collections/ase-type1/obverse.png"></span><span class="collections-slot-identity is-album"><span class="collections-slot-identity-copy"><span class="collections-slot-identity-name"><span class="collections-slot-label">1991</span></span></span></span><span class="collections-slot-meta">6,952,000 minted</span><span class="collections-slot-rule"></span><span class="collections-slot-meta collections-slot-price">from $57.05<small> · MintBuilder</small></span><button class="btn collections-btn-pill secondary collections-add" type="button" data-focus-key="add:1991" aria-haspopup="menu" aria-expanded="false" aria-label="Add an item to the 1991 slot"><span class="collections-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M12 5v14M5 12h14"></path></svg></span><span>Add</span></button></div><div class="collections-slot is-missing" data-slot-id="1992" role="listitem"><span class="collections-coin collections-coin--shape-round collections-coin--ghost" data-image-alt="obverse of 1992" data-image-label="1992" data-image-side="obverse" data-resolved-image-side="obverse" data-stock-image-side="obverse" data-monogram="AS" data-stock-src="data/collections/ase-type1/obverse.png"><img alt="obverse of 1992" loading="lazy" src="data/collections/ase-type1/obverse.png"></span><span class="collections-slot-identity is-album"><span class="collections-slot-identity-copy"><span class="collections-slot-identity-name"><span class="collections-slot-label">1992</span></span></span></span><span class="collections-slot-meta">5,544,000 minted</span><span class="collections-slot-rule"></span><span class="collections-slot-meta collections-slot-price">from $57.05<small> · MintBuilder</small></span><button class="btn collections-btn-pill secondary collections-add" type="button" data-focus-key="add:1992" aria-haspopup="menu" aria-expanded="false" aria-label="Add an item to the 1992 slot"><span class="collections-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M12 5v14M5 12h14"></path></svg></span><span>Add</span></button></div><div class="collections-slot is-owned" data-slot-id="1993" role="listitem"><button class="collections-slot-main" type="button" data-focus-key="slot:1993"><span class="collections-coin collections-coin--shape-round collections-coin--owned" data-item-uuid="demo-0004" data-image-alt="obverse of 1993" data-image-label="1993" data-image-side="obverse" data-resolved-image-side="obverse" data-stock-image-side="obverse" data-monogram="AS" data-stock-src="data/collections/ase-type1/obverse.png"><img alt="obverse of 1993" loading="lazy" <img alt="obverse of 1993" loading="lazy"  src="data/collections/ase-type1/obverse.png"></span><span class="collections-slot-identity is-album"><span class="collections-slot-identity-copy"><span class="collections-slot-identity-name"><span class="collections-slot-label">1993</span></span></span></span><span class="collections-slot-meta">5,890,000 minted</span><span class="collections-slot-rule"></span><span class="collections-slot-item" title="American Silver Eagle">American Silver Eagle</span><span class="collections-slot-money">$27.00 → $53.87 <span class="collections-up">+100%</span></span></button><span class="collections-check" aria-hidden="true"><span class="collections-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M20 6 9 17l-5-5"></path></svg></span></span><button class="collections-more" type="button" data-focus-key="more:1993" aria-haspopup="menu" aria-expanded="false" aria-label="More actions for the 1993 slot"><span class="collections-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><circle cx="5" cy="12" r="1.4"></circle><circle cx="12" cy="12" r="1.4"></circle><circle cx="19" cy="12" r="1.4"></circle></svg></span></button></div></div><div class="collections-album-actions"><button class="btn collections-btn-pill secondary" type="button" data-focus-key="album:clone"><span class="collections-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><rect x="9" y="9" width="12" height="12" rx="2"></rect><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"></path></svg></span><span>Clone &amp; customize</span></button></div></div></div></section>',
+      };
+
+      const PROPOSAL_CSS = `
+        .collections-card-sub { white-space: normal; overflow: visible; text-overflow: clip; text-wrap: pretty; }
+        .collections-card-foot { font-family: var(--font-body); font-size: var(--font-size-sm); }
+        .collections-card-foot .collections-num { font-size: var(--font-size-xs); }
+        .collections-stat-value small.is-word { font-family: var(--font-body); }
+        .collections-toolbar > .chip-sort-toggle .chip-sort-btn,
+        .collections-hub .collections-toolbar > .chip-sort-toggle .chip-sort-btn { white-space: nowrap; }
+        .mock-sort-flip { display: none; }
+        .mock-sort-menu { display: none; }
+        @media (max-width: 640px) {
+          .collections-hub .collections-toolbar > .chip-sort-toggle { display: flex; width: 100%; }
+          .collections-hub .collections-toolbar > .chip-sort-toggle .chip-sort-btn { flex: 1 1 auto; padding-inline: 0.35rem; font-size: var(--font-size-sm); }
+          .collections-hub .collections-toolbar-right { width: 100%; }
+          .collections-hub .collections-toolbar-right .collections-btn-pill { flex: 1 1 0; justify-content: center; }
+        }
+      `;
+      const STATS_COMPACT_CSS = `
+        @media (max-width: 640px) {
+          .collections-stats { gap: var(--spacing-sm); margin-bottom: var(--spacing); }
+          .collections-stat { padding: var(--spacing-sm) var(--spacing-md); }
+          .collections-stat-label { font-size: 0.6875rem; letter-spacing: 0.05em; white-space: nowrap; overflow: hidden; text-overflow: clip; }
+          .collections-stat-value { font-size: var(--font-size-lg); white-space: nowrap; overflow-wrap: normal; }
+          .collections-stat-value small { font-size: var(--font-size-sm); }
+          .collections-stat-note { display: none; }
+        }
+      `;
+      const STATS_NOTES_CSS = `
+        @media (max-width: 640px) {
+          .collections-stats { gap: var(--spacing-sm); margin-bottom: var(--spacing); }
+          .collections-stat { padding: var(--spacing-sm) var(--spacing-md); }
+          .collections-stat-value { font-size: var(--font-size-lg); white-space: nowrap; overflow-wrap: normal; }
+          .collections-stat-note { line-height: 1.35; }
+        }
+      `;
+      const HEAD_CSS = `
+        @media (max-width: 640px) {
+          .collections-album-head .collections-coin--lg { width: 3rem; height: 3rem; }
+          .collections-album-head { gap: var(--spacing-sm); margin-bottom: 0.75rem; }
+          .collections-crumb { margin-bottom: 0.25rem; }
+        }
+      `;
+      const FILTER_CHIPS_CSS = `
+        @media (max-width: 640px) {
+          .collections-album .collections-toolbar { flex-direction: row; flex-wrap: nowrap; align-items: center; gap: var(--spacing-sm); }
+          .collections-album .collections-toolbar > .chip-sort-toggle { flex: 1 1 auto; width: auto; }
+          .collections-album .collections-toolbar > .chip-sort-toggle .chip-sort-btn { padding-inline: 0.4rem; }
+          .collections-album .collections-toolbar-right { display: flex; flex-wrap: nowrap; gap: var(--spacing-sm); margin-left: 0; }
+          .collections-album .collections-toolbar > .chip-sort-toggle .chip-sort-btn { flex: 1 1 auto; font-size: var(--font-size-sm); }
+          .collections-album .collections-toolbar-field.is-sort { display: none; }
+          .collections-album .collections-toolbar-field > .collections-toolbar-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+          .collections-album .mock-sort-flip { display: inline-flex; }
+        }
+      `;
+      const FILTER_SELECT_CSS = `
+        @media (max-width: 640px) {
+          .collections-album .collections-toolbar { flex-direction: row; flex-wrap: nowrap; align-items: center; gap: var(--spacing-sm); }
+          .collections-album .collections-toolbar > .chip-sort-toggle { flex: 1 1 auto; width: auto; }
+          .collections-album .collections-toolbar > .chip-sort-toggle .chip-sort-btn { padding-inline: 0.4rem; }
+          .collections-album .collections-toolbar-right { display: flex; flex-wrap: nowrap; gap: var(--spacing-sm); margin-left: 0; }
+          .collections-album .collections-toolbar > .chip-sort-toggle .chip-sort-btn { flex: 1 1 auto; font-size: var(--font-size-sm); }
+          .collections-album .collections-toolbar-field.is-sort { display: none; }
+          .collections-album .collections-toolbar-field > .collections-toolbar-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+          .collections-album .mock-sort-menu { display: inline-flex; }
+        }
+      `;
+      const OWNED_CSS = {
+        all: "",
+        nocheck: ".collections-slot.is-owned .collections-check { display: none; }",
+        noring:
+          ".collections-coin--owned { box-shadow: none !important; outline: none !important; }",
+      };
+
+      const SORT_ICON =
+        '<span class="collections-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4v16M3 16l4 4 4-4M17 20V4M13 8l4-4 4 4"/></svg></span>';
+
+      /** Rewrites the captured DOM into the proposal: copy, type spans and the shared filter control. */
+      function transform(doc) {
+        doc.querySelectorAll(".collections-card-foot").forEach((foot) => {
+          const m = foot.textContent.match(/^(\d+) missing ≈ (\$[\d,.]+) to finish$/);
+          if (m)
+            foot.innerHTML = `<span class="collections-num">${m[1]}</span> missing, about <span class="collections-num">${m[2]}</span> to finish`;
+        });
+        doc.querySelectorAll(".collections-stat-value small").forEach((s) => {
+          if (/[a-z]/i.test(s.textContent)) s.classList.add("is-word");
+        });
+        const crumb = doc.querySelector(".collections-crumb [aria-current]");
+        if (crumb) crumb.textContent = crumb.textContent.replace(" — ", " · ");
+        const tabs = doc.querySelector(".collections-hub .vendor-prices-tabs");
+        if (tabs) {
+          tabs.className = "chip-sort-toggle";
+          tabs.querySelectorAll("button").forEach((b) => {
+            b.className =
+              "chip-sort-btn" + (b.getAttribute("aria-pressed") === "true" ? " active" : "");
+          });
+        }
+        const right = doc.querySelector(".collections-album .collections-toolbar-right");
+        if (right) {
+          right.insertAdjacentHTML(
+            "afterbegin",
+            `<div class="chip-sort-toggle mock-sort-flip"><button type="button" class="chip-sort-btn collections-iconbtn" aria-label="Sort: oldest first" title="Oldest first">${SORT_ICON}</button></div>` +
+              `<div class="chip-sort-toggle mock-sort-menu"><button type="button" class="chip-sort-btn collections-iconbtn" aria-haspopup="menu" aria-label="Sort" title="Sort">${SORT_ICON}</button></div>`
+          );
+        }
+      }
+
+      const state = { theme: "dark", stats: "compact", filter: "chips", owned: "all" };
+
+      function frameDoc(route, width, after) {
+        const base = location.href.replace(/playground\/[^/]*$/, "");
+        const phone = width < 700;
+        let css = "";
+        if (after) {
+          css =
+            PROPOSAL_CSS +
+            (state.stats === "compact"
+              ? STATS_COMPACT_CSS
+              : state.stats === "notes"
+                ? STATS_NOTES_CSS
+                : "") +
+            HEAD_CSS +
+            (state.filter === "chips" ? FILTER_CHIPS_CSS : FILTER_SELECT_CSS) +
+            OWNED_CSS[state.owned];
+        }
+        const header = `<div style="margin:${phone ? 8 : 12}px;height:${phone ? 100 : 80}px;border:1px solid var(--border);border-radius:var(--radius-lg,12px);background:var(--bg-secondary);display:flex;align-items:center;padding:0 24px;font:600 ${phone ? 32 : 22}px var(--font-body);color:var(--text-primary)">Stak&nbsp;<span style="color:var(--primary)">Trakr</span></div>`;
+        const nav = phone
+          ? `<div id="mockNav" style="position:fixed;left:10px;right:10px;bottom:10px;height:58px;border:1px solid var(--border);border-radius:14px;background:var(--bg-secondary);display:flex;align-items:center;justify-content:space-around;color:var(--text-secondary);font:600 12px var(--font-body)"><span>Dashboard</span><span>Inventory</span><span>Market</span><span style="color:var(--primary-text)">Collections</span><span>Settings</span></div>`
+          : "";
+        return `<!doctype html><html lang="en" data-theme="${state.theme}"><head><meta charset="utf-8"><meta name="viewport" content="width=${width}"><base href="${base}"><link rel="stylesheet" href="css/styles.css">
+          ${after ? `<style>${css}</style>` : ""}
+          <style>body{background:var(--bg-primary);color:var(--text-primary);margin:0}#collectionsSectionEl{margin:0 ${phone ? 8 : 12}px}</style>
+          </head><body>${header}${SNAP[route]}${nav}</body></html>`;
+      }
+
+      function measure(f, route, width, label) {
+        const d = f.contentDocument;
+        if (!d) return;
+        const target = d.querySelector(
+          route === "album" ? ".collections-slot" : ".collections-card"
+        );
+        const nav = d.getElementById("mockNav");
+        const fold = nav ? Math.round(nav.getBoundingClientRect().top) : f.height;
+        if (!target) return;
+        const r = target.getBoundingClientRect();
+        const clipped = [
+          ...d.querySelectorAll(
+            ".collections-card-sub, .collections-stat-value, .collections-toolbar *"
+          ),
+        ].filter((e) => e.clientWidth > 1 && e.scrollWidth > e.clientWidth + 1).length;
+        label.textContent = `first ${route === "album" ? "Slot" : "card"}: ${Math.round(r.top)}–${Math.round(r.bottom)}px · fold ${fold}px · ${r.bottom <= fold ? "fully visible" : r.top < fold ? "partly visible" : "below the fold"} · clipped text: ${clipped}`;
+      }
+
+      function render() {
+        document.documentElement.dataset.theme = state.theme;
+        [
+          ["hub-390", "hub", 390],
+          ["album-390", "album", 390],
+          ["hub-1440", "hub", 1440],
+          ["album-1440", "album", 1440],
+        ].forEach(([id, route, width]) => {
+          const host = document.getElementById(id);
+          host.innerHTML = "";
+          [false, true].forEach((after) => {
+            const col = document.createElement("div");
+            col.className = "mock-col";
+            col.innerHTML = `<h3>${after ? "After" : "Before (dev)"}</h3>`;
+            const f = document.createElement("iframe");
+            f.width = width;
+            f.height = width < 700 ? 844 : route === "hub" ? 640 : 900;
+            const label = document.createElement("p");
+            label.dataset.after = after ? "1" : "0";
+            f.addEventListener("load", () => {
+              if (after && f.contentDocument) transform(f.contentDocument);
+              measure(f, route, width, label);
+              setTimeout(() => measure(f, route, width, label), 600);
+            });
+            f.srcdoc = frameDoc(route, width, after);
+            col.appendChild(f);
+            col.appendChild(label);
+            host.appendChild(col);
+          });
+        });
+      }
+      for (const key of ["theme", "stats", "filter", "owned"]) {
+        document.getElementById(key).addEventListener("change", (e) => {
+          state[key] = e.target.value;
+          render();
+        });
+      }
+      render();
+    </script>
+  </body>
+</html>

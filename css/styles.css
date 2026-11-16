@@ -19315,6 +19315,11 @@ button.vp-price:hover {
   color: var(--text-muted);
 }
 
+/* A unit made of letters is prose; figures keep the mono face. */
+.collections-stat-value small.is-word {
+  font-family: var(--font-body);
+}
+
 .collections-stat-note {
   font-size: var(--font-size-xs);
   color: var(--text-muted);
@@ -19338,15 +19343,9 @@ button.vp-price:hover {
   margin-bottom: var(--spacing);
 }
 
-.collections-toolbar .vendor-prices-tabs {
-  flex: 1 1 auto;
-  min-width: 0;
-  margin-bottom: 0;
-  overflow-x: auto;
-}
-
-.collections-toolbar .vendor-prices-tabs button {
-  white-space: nowrap;
+/* The flip control replaces the Sort segments on phones only. */
+.collections-sort-flip {
+  display: none;
 }
 
 .collections-toolbar-right {
@@ -19789,9 +19788,7 @@ button.vp-price:hover {
   margin-bottom: var(--spacing-md);
   font-size: var(--font-size-sm);
   color: var(--text-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  text-wrap: pretty;
 }
 
 .collections-card-row {
@@ -19805,9 +19802,12 @@ button.vp-price:hover {
 .collections-card-foot {
   display: block;
   margin-top: var(--spacing-sm);
-  font-family: var(--font-mono);
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   color: var(--text-muted);
+}
+
+.collections-card-foot .collections-num {
+  font-size: var(--font-size-xs);
 }
 
 .collections-card.is-new {
@@ -20696,16 +20696,52 @@ button.vp-price:hover {
     font-size: var(--font-size-2xl);
   }
 
+  /* A compact 2x2 strip keeps the first card or Slot above the tab bar. */
   .collections-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing);
   }
 
   .collections-stat {
-    padding: var(--spacing);
+    padding: var(--spacing-sm) var(--spacing-md);
+  }
+
+  .collections-stat-label {
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.04em;
   }
 
   .collections-stat-value {
-    font-size: var(--font-size-xl);
+    font-size: var(--font-size-lg);
+  }
+
+  .collections-stat-value small {
+    font-size: var(--font-size-sm);
+  }
+
+  .collections-stat-note {
+    display: none;
+  }
+
+  .collections-hub .collections-toolbar > .chip-sort-toggle {
+    display: flex;
+    width: 100%;
+  }
+
+  .collections-hub .collections-toolbar > .chip-sort-toggle .chip-sort-btn {
+    flex: 1 1 auto;
+    padding-inline: var(--spacing-sm);
+    font-size: var(--font-size-sm);
+  }
+
+  .collections-hub .collections-toolbar-right {
+    width: 100%;
+  }
+
+  .collections-hub .collections-toolbar-right .collections-btn-pill {
+    flex: 1 1 0;
+    justify-content: center;
   }
 
   .collections-grid {
@@ -20718,11 +20754,16 @@ button.vp-price:hover {
 
   .collections-album-head {
     grid-template-columns: minmax(0, 1fr);
-    gap: var(--spacing);
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing);
   }
 
   .collections-album-head .collections-coin {
-    --collections-coin: 64px;
+    --collections-coin: 48px;
+  }
+
+  .collections-crumb {
+    margin-bottom: var(--spacing-xs);
   }
 
   .collections-ring,
@@ -20730,21 +20771,23 @@ button.vp-price:hover {
     display: none;
   }
 
-  /* Album toolbar: the filter takes row one; sort and the view toggle share row two. */
+  /* Album toolbar: filter, sort flip and view share one row; a large root font wraps it. */
   .collections-album .collections-toolbar {
-    flex-direction: column;
-    align-items: stretch;
-    gap: var(--spacing-md);
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
   }
 
+  /* A zero basis lets the filter shrink to its labels before the row wraps. */
   .collections-album .collections-toolbar > .chip-sort-toggle {
     display: flex;
-    width: 100%;
+    flex: 1 1 0;
   }
 
-  .collections-album .collections-toolbar > .chip-sort-toggle .chip-sort-btn,
-  .collections-album .collections-toolbar-field.is-sort .chip-sort-btn {
-    flex: 1 1 0;
+  .collections-album .collections-toolbar > .chip-sort-toggle .chip-sort-btn {
+    flex: 1 1 auto;
+    padding-inline: var(--spacing-md);
+    font-size: var(--font-size-sm);
+    white-space: nowrap;
   }
 
   .collections-toolbar-right {
@@ -20752,16 +20795,17 @@ button.vp-price:hover {
   }
 
   .collections-album .collections-toolbar-right {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
-    gap: var(--spacing-md);
+    flex-wrap: nowrap;
+    gap: var(--spacing-sm);
+    margin-left: auto;
   }
 
-  .collections-album .collections-toolbar-field.is-sort,
-  .collections-album .collections-toolbar-field.is-sort .chip-sort-toggle {
-    display: flex;
-    width: 100%;
+  .collections-album .collections-toolbar-field.is-sort {
+    display: none;
+  }
+
+  .collections-album .collections-sort-flip {
+    display: inline-flex;
   }
 
   /* The group keeps its aria-label; the visible word is redundant at this width. */
@@ -20812,8 +20856,7 @@ button.vp-price:hover {
     min-height: 2.75rem;
   }
 
-  .collections-toolbar .chip-sort-btn,
-  .collections-toolbar .vendor-prices-tabs button {
+  .collections-toolbar .chip-sort-btn {
     min-height: 2.75rem;
   }
 

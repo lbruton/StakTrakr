@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.153] - 2026-11-15
+
+### Changed — STRK-544: Collections hub and Album density
+
+- **Hub cards**: Card subtitles wrap and show the whole date run. Card footers set prose in Geist and figures in Geist Mono, and read "24 missing, about $1,369.20 to finish" (STRK-544).
+- **Hub filter**: The status filter uses the same segmented control as the Album filter and fits the phone width (STRK-544).
+- **Phone layout**: At 640px and below, the stat strip is a compact 2x2 grid without notes. The Album filter, a one-button sort flip and the view toggle share one row, and the head is tighter, so the first Slot shows above the tab bar (STRK-544).
+- **Copy**: Breadcrumbs, item titles, sort labels and Album messages use a middle dot, a comma or a period in place of em-dashes (STRK-544).
+
+---
+
 ## [3.36.152] - 2026-11-14
 
 ### Changed — STRK-559: Owned wash on started Collections hub cards

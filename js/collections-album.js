@@ -235,6 +235,28 @@
     };
 
     /**
+     * Phone-only sort control: one icon button that flips the Slot order.
+     * @param {Object} entry - Entry view model
+     * @returns {HTMLElement} The flip control
+     */
+    const buildSortFlip = (entry) => {
+      const newest = state.albumSort === SORT_NEWEST;
+      let name;
+      if (entry.isCustom) name = newest ? "Sort: reverse order" : "Sort: collection order";
+      else name = newest ? "Sort: newest first" : "Sort: oldest first";
+      const wrap = el("div", "chip-sort-toggle collections-sort-flip");
+      const node = button("chip-sort-btn collections-iconbtn", "albumsort:flip", () => {
+        state.albumSort = newest ? SORT_OLDEST : SORT_NEWEST;
+        render();
+      });
+      node.setAttribute("aria-label", name);
+      node.title = name;
+      node.appendChild(icon("sort"));
+      wrap.appendChild(node);
+      return wrap;
+    };
+
+    /**
      * Album toolbar: slot filter, sort, view toggle.
      * @param {Object} entry - Entry view model
      * @param {{owned: number, missing: number}} counts - Slot counts for the filter labels
@@ -282,6 +304,7 @@
           )
         )
       );
+      right.appendChild(buildSortFlip(entry));
       right.appendChild(field("is-view", "View", buildViewToggle()));
       toolbar.appendChild(right);
       return toolbar;
@@ -863,7 +886,7 @@
           );
         if (state.albumFilter === SLOTS_MISSING)
           return buildEmptyState(
-            "Nothing missing — set complete",
+            "Nothing missing. The set is complete.",
             "Every slot in this collection has a linked item."
           );
         return buildEmptyState("No slots yet", "This collection does not define any slots.");
@@ -911,7 +934,7 @@
       back.appendChild(el("span", "", "Collections"));
       crumb.appendChild(back);
       crumb.appendChild(el("span", "", "/"));
-      const here = el("span", "", [entry.name, entry.variant].filter(Boolean).join(" — "));
+      const here = el("span", "", [entry.name, entry.variant].filter(Boolean).join(" · "));
       here.setAttribute("aria-current", "page");
       crumb.appendChild(here);
       album.appendChild(crumb);

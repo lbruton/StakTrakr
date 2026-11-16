@@ -14,8 +14,8 @@
 //   - Talks only to window.collectionsStore / window.collectionsCore — never to
 //     storage or to collection state directly.
 //   - DOM is built with createElement + textContent. Item names and custom
-//     collection names, labels and notes are user text and never reach innerHTML;
-//     innerHTML is used for the static inline SVG icons only.
+//     collection names, labels and notes are user text and are never parsed as
+//     markup; only the static inline SVG icons go through DOMParser.
 //   - Rendering is synchronous. Item photos resolve afterwards; every blob: URL
 //     created is tracked and revoked on the next render (precedent:
 //     _viewModalObjectUrls in js/viewModal.js). A render generation stops a slow
@@ -71,7 +71,7 @@
   /** Modals that can change an Item in place; closing one refreshes the open view. */
   const REFRESH_ON_CLOSE_MODAL_IDS = ["itemModal", "viewItemModal"];
 
-  /** Static developer markup — the only innerHTML this file ever assigns. */
+  /** Static developer markup: the only markup this file parses. */
   const ICON_PATHS = Object.freeze({
     plus: '<path d="M12 5v14M5 12h14"/>',
     check: '<path d="M20 6 9 17l-5-5"/>',
@@ -91,6 +91,7 @@
       '<path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6"/>',
     more: '<circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/>',
     arrange: '<path d="M7 4v16M3 8l4-4 4 4M17 20V4M13 16l4 4 4-4"/>',
+    sort: '<path d="M3 6h9M3 12h6M3 18h3M17 4v16M13 16l4 4 4-4"/>',
     grip: '<circle cx="8" cy="5" r="1"/><circle cx="16" cy="5" r="1"/><circle cx="8" cy="12" r="1"/><circle cx="16" cy="12" r="1"/><circle cx="8" cy="19" r="1"/><circle cx="16" cy="19" r="1"/>',
   });
 
@@ -183,9 +184,10 @@
   const icon = (name) => {
     const wrap = el("span", "collections-icon");
     wrap.setAttribute("aria-hidden", "true");
-    // Static developer markup only — ICON_PATHS is a frozen literal, never user text.
-    // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method
-    wrap.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false">${ICON_PATHS[name] || ""}</svg>`;
+    // ICON_PATHS is a frozen literal of developer markup, never user text.
+    const markup = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false">${ICON_PATHS[name] || ""}</svg>`;
+    const svg = new DOMParser().parseFromString(markup, "image/svg+xml").documentElement;
+    wrap.appendChild(document.importNode(svg, true));
     return wrap;
   };
 
@@ -570,7 +572,8 @@
    */
   const runLabel = (run) => {
     if (!run || run.start == null) return "";
-    return `${run.start} – ${run.end == null ? "present" : run.end}`;
+    // No-break spaces keep a wrapped subtitle from splitting the range.
+    return `${run.start}\u00a0–\u00a0${run.end == null ? "present" : run.end}`;
   };
 
   /**
@@ -946,8 +949,11 @@
    */
   const callPicker = (method, payload) => {
     const picker = window.collectionsPicker;
-    if (picker && typeof picker[method] === "function") {
-      picker[method](payload);
+    let run = null;
+    if (picker && method === "openLinkPicker") run = picker.openLinkPicker;
+    else if (picker && method === "openBuilder") run = picker.openBuilder;
+    if (typeof run === "function") {
+      run.call(picker, payload);
       return;
     }
     toast(PICKER_FALLBACK_MESSAGE);
@@ -1119,7 +1125,7 @@
     openMenu(anchor, `${asSpare ? "Add a spare to" : "Fill"} the ${slot.label} slot`, [
       {
         label: "Link existing item",
-        hint: "Pick from your inventory — matches first",
+        hint: "Pick from your inventory, matches first",
         icon: "link",
         onSelect: () => callPicker("openLinkPicker", request),
       },
@@ -1150,8 +1156,8 @@
     }
     toast(
       result.promoted
-        ? "Unlinked — a spare moved up. The item stays in your inventory."
-        : "Unlinked — the item stays in your inventory."
+        ? "Unlinked. A spare moved up, and the item stays in your inventory."
+        : "Unlinked. The item stays in your inventory."
     );
   };
 
@@ -1329,7 +1335,9 @@
     const stat = el("div", spec.accent ? "collections-stat is-accent" : "collections-stat");
     stat.appendChild(el("div", "collections-stat-label", spec.label));
     const value = el("div", "collections-stat-value", spec.value);
-    if (spec.unit) value.appendChild(el("small", "", ` ${spec.unit}`));
+    if (spec.unit) {
+      value.appendChild(el("small", /[a-z]/i.test(spec.unit) ? "is-word" : "", ` ${spec.unit}`));
+    }
     stat.appendChild(value);
     stat.appendChild(el("div", "collections-stat-note", spec.note));
     return stat;
@@ -1368,16 +1376,17 @@
    * @param {string} current - Selected value
    * @param {Array<[string, string]>} options - [value, label] pairs
    * @param {(value: string) => void} onChange - Called with the clicked value
+   * @param {string} [focusPrefix] - Focus-key prefix; defaults to the group label
    * @returns {HTMLElement} The control
    */
-  const buildSegmented = (label, current, options, onChange) => {
+  const buildSegmented = (label, current, options, onChange, focusPrefix = label) => {
     const group = el("div", "chip-sort-toggle");
     group.setAttribute("role", "group");
     group.setAttribute("aria-label", label);
     options.forEach(([value, optionLabel]) => {
       const node = button(
         value === current ? "chip-sort-btn active" : "chip-sort-btn",
-        `${label}:${value}`,
+        `${focusPrefix}:${value}`,
         () => onChange(value)
       );
       node.textContent = optionLabel;
@@ -1443,6 +1452,7 @@
     icon,
     money,
     buildStats,
+    buildSegmented,
     buildViewToggle,
     buildPillButton,
     callPicker,
